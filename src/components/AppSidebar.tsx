@@ -20,13 +20,26 @@ import {
   Smartphone,
 } from "lucide-react";
 import mosapLogo from "@/assets/mosap3-logo.png";
+import { useAuth } from "@/hooks/useAuth";
+import type { Database } from "@/integrations/supabase/types";
+
+type AppRole = Database["public"]["Enums"]["app_role"];
 
 type NavItem = {
   icon: any;
   label: string;
   path?: string;
   children?: { label: string; path: string; icon?: any }[];
+  /** Roles that can see this item. Empty/undefined = visible to all authenticated users */
+  allowedRoles?: AppRole[];
 };
+
+const ALL_ROLES: AppRole[] = [
+  "admin", "gestor_incentivos",
+  "senior_agricultura", "senior_monitoria", "senior_agronegocio",
+  "junior_agricultura", "junior_monitoria", "junior_agronegocio",
+  "tecnico_extensionista",
+];
 
 const navItems: NavItem[] = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/" },
@@ -38,21 +51,51 @@ const navItems: NavItem[] = [
     ],
   },
   {
+    icon: School,
+    label: "Escolas de Campo",
+    path: "/escolas",
+  },
+  {
     icon: Gift,
     label: "Incentivos",
+    allowedRoles: ["admin", "gestor_incentivos"],
     children: [
       { label: "Incentivos", path: "/incentivos", icon: Gift },
       { label: "Transações", path: "/transacoes", icon: ArrowLeftRight },
     ],
   },
-  { icon: ShoppingCart, label: "Compras Subsidiadas", path: "/compras" },
-  { icon: MapPin, label: "Parcelas", path: "/parcelas" },
-  { icon: Building2, label: "Empresas", path: "/empresas" },
-  { icon: ArrowLeftRight, label: "Transações", path: "/transacoes" },
-  { icon: Wheat, label: "Produção", path: "/producao" },
+  {
+    icon: ShoppingCart,
+    label: "Compras Subsidiadas",
+    path: "/compras",
+    allowedRoles: ["admin", "gestor_incentivos", "senior_agronegocio", "junior_agronegocio"],
+  },
+  {
+    icon: MapPin,
+    label: "Parcelas",
+    path: "/parcelas",
+  },
+  {
+    icon: Building2,
+    label: "Empresas",
+    path: "/empresas",
+    allowedRoles: ["admin", "gestor_incentivos", "senior_agronegocio", "junior_agronegocio"],
+  },
+  {
+    icon: ArrowLeftRight,
+    label: "Transações",
+    path: "/transacoes",
+    allowedRoles: ["admin", "gestor_incentivos"],
+  },
+  {
+    icon: Wheat,
+    label: "Produção",
+    path: "/producao",
+  },
   {
     icon: UserCog,
     label: "Utilizadores",
+    allowedRoles: ["admin"],
     children: [
       { label: "Lista de Utilizadores", path: "/utilizadores" },
       { label: "Perfis", path: "/perfis" },
@@ -61,6 +104,7 @@ const navItems: NavItem[] = [
   {
     icon: Settings,
     label: "Configurações",
+    allowedRoles: ["admin"],
     children: [
       { label: "Geral", path: "/configuracoes" },
       { label: "Províncias", path: "/provincias" },
@@ -73,6 +117,7 @@ const AppSidebar = () => {
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
   const [openMenus, setOpenMenus] = useState<string[]>(["Registo do Pequeno Produtor"]);
+  const { roles, isAdmin, user } = useAuth();
 
   const toggleMenu = (label: string) => {
     setOpenMenus((prev) =>
@@ -82,6 +127,19 @@ const AppSidebar = () => {
 
   const isChildActive = (item: NavItem) =>
     item.children?.some((c) => location.pathname === c.path);
+
+  const canSee = (item: NavItem): boolean => {
+    // If no roles assigned yet or not logged in, show all (graceful fallback)
+    if (!user || roles.length === 0) return true;
+    // Admin sees everything
+    if (isAdmin) return true;
+    // No restriction defined = visible to all
+    if (!item.allowedRoles || item.allowedRoles.length === 0) return true;
+    // Check if user has any of the allowed roles
+    return item.allowedRoles.some((r) => roles.includes(r));
+  };
+
+  const visibleItems = navItems.filter(canSee);
 
   return (
     <aside
@@ -104,7 +162,7 @@ const AppSidebar = () => {
 
       {/* Navigation */}
       <nav className="flex-1 py-4 px-3 space-y-0.5 overflow-y-auto">
-        {navItems.map((item) => {
+        {visibleItems.map((item) => {
           if (item.children) {
             const isOpen = openMenus.includes(item.label);
             const childActive = isChildActive(item);
