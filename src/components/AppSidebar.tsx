@@ -38,7 +38,9 @@ const AppSidebar = () => {
     >
       {/* Logo */}
       <div className="flex items-center gap-3 px-4 h-16 border-b" style={{ borderColor: "hsl(var(--sidebar-border))" }}>
-        <img src={mosapLogo} alt="MOSAP3" className="h-10 w-auto flex-shrink-0" />
+        <div className="h-10 w-auto flex-shrink-0 bg-card rounded-lg p-1">
+          <img src={mosapLogo} alt="MOSAP3" className="h-full w-auto" />
+        </div>
         {!collapsed && (
           <span className="font-heading font-bold text-lg" style={{ color: "hsl(var(--sidebar-primary))" }}>
             MOSAP3
