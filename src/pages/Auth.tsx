@@ -7,9 +7,15 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
-import { Loader2, Mail, Lock, UserPlus, LogIn } from "lucide-react";
+import { Loader2, Mail, Lock, UserPlus, LogIn, Shield, Gift, Sprout } from "lucide-react";
 import { z } from "zod";
 import mosapLogo from "@/assets/mosap3-logo.png";
+
+const TEST_USERS = [
+  { email: "admin@mosap3.test", password: "teste123", label: "Admin", icon: Shield, color: "text-red-500" },
+  { email: "gestor@mosap3.test", password: "teste123", label: "Gestor Incentivos", icon: Gift, color: "text-amber-500" },
+  { email: "tecnico@mosap3.test", password: "teste123", label: "Técnico Extensionista", icon: Sprout, color: "text-emerald-500" },
+];
 
 const loginSchema = z.object({
   email: z.string().trim().email("Email inválido").max(255),
@@ -189,6 +195,25 @@ const Auth = () => {
               )}
             </Button>
           </form>
+          {isLogin && (
+            <div className="mt-6 pt-4 border-t border-border">
+              <p className="text-xs text-muted-foreground mb-3 text-center">Utilizadores de teste</p>
+              <div className="grid gap-2">
+                {TEST_USERS.map((u) => (
+                  <button
+                    key={u.email}
+                    type="button"
+                    onClick={() => { setEmail(u.email); setPassword(u.password); }}
+                    className="flex items-center gap-2 px-3 py-2 rounded-md border border-border hover:bg-muted transition-colors text-sm"
+                  >
+                    <u.icon className={`h-4 w-4 ${u.color}`} />
+                    <span className="font-medium">{u.label}</span>
+                    <span className="text-muted-foreground ml-auto text-xs">{u.email}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </Card>
       </motion.div>
     </div>
