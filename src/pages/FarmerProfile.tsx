@@ -16,8 +16,20 @@ const farmersData: Record<string, any> = {
       { id: "PRD-001", culture: "Milho", area: "2.5 ha", planted: "15/10/2025", expected: "15/03/2026", estimatedYield: "5.000 kg", actualYield: "4.800 kg", status: "Colhida" },
       { id: "PRD-002", culture: "Feijão", area: "2.0 ha", planted: "20/10/2025", expected: "20/02/2026", estimatedYield: "2.000 kg", actualYield: "-", status: "Em Crescimento" },
     ],
+    valorRecebido: "1.017.600,00",
+    totalGasto: "199.800,00",
+    saldoFinal: "817.800,00",
     incentives: [
       { id: "INC-001", type: "Insumos Agrícolas", amount: "45.000 Kz", method: "Unitel Money", status: "Pago", date: "12/02/2026" },
+    ],
+    transactions: [
+      { product: "Ad-Composto-50Kg", empresa: "AGROSAPI - COMERCIO, PRESTAÇÃO DE SERVIÇOS, IMPORTAÇÃO & EXPORTAÇÃO, (SU), LDA", valor: "38.000,00", date: "2025-09-01 10:10:09" },
+      { product: "Ad-Composto-50Kg", empresa: "AGROSAPI - COMERCIO, PRESTAÇÃO DE SERVIÇOS, IMPORTAÇÃO & EXPORTAÇÃO, (SU), LDA", valor: "38.000,00", date: "2025-09-01 10:11:20" },
+      { product: "S-Feijao-25kg", empresa: "AGROSAPI - COMERCIO, PRESTAÇÃO DE SERVIÇOS, IMPORTAÇÃO & EXPORTAÇÃO, (SU), LDA", valor: "20.000,00", date: "2025-09-01 10:12:59" },
+      { product: "F-Enxada-3u", empresa: "AGROSAPI - COMERCIO, PRESTAÇÃO DE SERVIÇOS, IMPORTAÇÃO & EXPORTAÇÃO, (SU), LDA", valor: "15.000,00", date: "2025-09-01 10:14:31" },
+      { product: "F-Catana-1u", empresa: "AGROSAPI - COMERCIO, PRESTAÇÃO DE SERVIÇOS, IMPORTAÇÃO & EXPORTAÇÃO, (SU), LDA", valor: "2.650,00", date: "2025-09-01 10:16:29" },
+      { product: "Q-Insecticidas-0", empresa: "AGROSAPI - COMERCIO, PRESTAÇÃO DE SERVIÇOS, IMPORTAÇÃO & EXPORTAÇÃO, (SU), LDA", valor: "1.500,00", date: "2025-09-01 10:21:18" },
+      { product: "F-Catana-2u", empresa: "TOPO AGRO - COMÉRCIO E AGROPECUÁRIA, LDA", valor: "5.000,00", date: "2025-08-22 14:38:13" },
     ],
     purchases: [
       { id: "CMP-001", empresa: "AgroSul Lda", items: "Enxada, Catana, Sementes Milho", total: "45.000,00", subsidio: "70%", valorPagar: "13.500,00", status: "Entregue", date: "12/02/2026" },
@@ -31,9 +43,13 @@ const farmersData: Record<string, any> = {
     production: [
       { id: "PRD-003", culture: "Mandioca", area: "3.2 ha", planted: "01/09/2025", expected: "01/06/2026", estimatedYield: "8.000 kg", actualYield: "-", status: "Em Crescimento" },
     ],
+    valorRecebido: "500.000,00",
+    totalGasto: "0,00",
+    saldoFinal: "500.000,00",
     incentives: [
       { id: "INC-002", type: "Sementes", amount: "30.000 Kz", method: "Unitel Money", status: "Pendente", date: "11/02/2026" },
     ],
+    transactions: [],
     purchases: [],
   },
   "AGR-003": {
@@ -47,8 +63,17 @@ const farmersData: Record<string, any> = {
       { id: "PRD-004", culture: "Soja", area: "4.0 ha", planted: "10/10/2025", expected: "10/03/2026", estimatedYield: "6.400 kg", actualYield: "6.100 kg", status: "Colhida" },
       { id: "PRD-005", culture: "Amendoim", area: "1.8 ha", planted: "05/11/2025", expected: "05/04/2026", estimatedYield: "1.800 kg", actualYield: "-", status: "Semeada" },
     ],
+    valorRecebido: "850.000,00",
+    totalGasto: "120.000,00",
+    saldoFinal: "730.000,00",
     incentives: [
       { id: "INC-003", type: "Mecanização", amount: "60.000 Kz", method: "Unitel Money", status: "Pago", date: "10/02/2026" },
+    ],
+    transactions: [
+      { product: "S-Soja-50kg", empresa: "SemPro Angola", valor: "60.000,00", date: "2025-10-05 09:30:00" },
+      { product: "S-Feijao-25kg", empresa: "SemPro Angola", valor: "20.000,00", date: "2025-10-05 09:35:00" },
+      { product: "F-Enxada-3u", empresa: "AGROSAPI - COMERCIO, (SU), LDA", valor: "15.000,00", date: "2025-09-20 11:00:00" },
+      { product: "Ad-Fertilizante-25kg", empresa: "AGROSAPI - COMERCIO, (SU), LDA", valor: "25.000,00", date: "2025-09-20 11:10:00" },
     ],
     purchases: [
       { id: "CMP-003", empresa: "SemPro Angola", items: "Sementes Feijão, Sementes Soja", total: "30.000,00", subsidio: "80%", valorPagar: "6.000,00", status: "Aprovada", date: "10/02/2026" },
@@ -58,35 +83,45 @@ const farmersData: Record<string, any> = {
     id: "AGR-004", name: "Ana Luísa Gomes", bi: "004567890LA045", phone: "926 789 012", gender: "Feminino", birthDate: "18/05/1992", province: "Benguela", municipality: "Lobito", commune: "Lobito", village: "Aldeia Hanha", school: "EC Lobito", status: "Ativo", registeredAt: "20/01/2025",
     parcels: [{ id: "PRC-007", culture: "Batata Doce", area: "1.8 ha", lat: "-12.3500", lon: "13.5500", status: "Verificada" }],
     production: [{ id: "PRD-006", culture: "Batata Doce", area: "1.5 ha", planted: "20/09/2025", expected: "20/01/2026", estimatedYield: "3.000 kg", actualYield: "2.750 kg", status: "Colhida" }],
+    valorRecebido: "600.000,00", totalGasto: "75.000,00", saldoFinal: "525.000,00",
     incentives: [{ id: "INC-004", type: "Fertilizantes", amount: "25.000 Kz", method: "Unitel Money", status: "Processando", date: "09/02/2026" }],
+    transactions: [{ product: "Ad-Composto-50Kg", empresa: "FertiPlus Lda", valor: "38.000,00", date: "2025-08-15 14:00:00" }, { product: "S-BatatDoce-10kg", empresa: "FertiPlus Lda", valor: "12.000,00", date: "2025-08-15 14:05:00" }, { product: "F-Regador-1u", empresa: "TOPO AGRO, LDA", valor: "25.000,00", date: "2025-08-10 10:00:00" }],
     purchases: [],
   },
   "AGR-005": {
     id: "AGR-005", name: "Carlos Manuel", bi: "005678901LA046", phone: "927 890 123", gender: "Masculino", birthDate: "30/09/1980", province: "Huambo", municipality: "Bailundo", commune: "Bailundo", village: "Aldeia Bimbe", school: "EC Bailundo", status: "Suspenso", registeredAt: "25/01/2025",
     parcels: [{ id: "PRC-008", culture: "Milho", area: "2.0 ha", lat: "-12.4000", lon: "15.8000", status: "Pendente" }, { id: "PRC-009", culture: "Feijão", area: "1.5 ha", lat: "-12.4010", lon: "15.8010", status: "Pendente" }],
     production: [],
+    valorRecebido: "400.000,00", totalGasto: "0,00", saldoFinal: "400.000,00",
     incentives: [{ id: "INC-005", type: "Insumos Agrícolas", amount: "40.000 Kz", method: "Unitel Money", status: "Rejeitado", date: "08/02/2026" }],
+    transactions: [],
     purchases: [],
   },
   "AGR-006": {
     id: "AGR-006", name: "Teresa Domingos", bi: "006789012LA047", phone: "928 901 234", gender: "Feminino", birthDate: "12/12/1988", province: "Huíla", municipality: "Lubango", commune: "Lubango", village: "Aldeia Chibia", school: "EC Lubango", status: "Ativo", registeredAt: "28/01/2025",
     parcels: [{ id: "PRC-010", culture: "Milho", area: "3.0 ha", lat: "-14.9200", lon: "13.5000", status: "Verificada" }, { id: "PRC-011", culture: "Mandioca", area: "2.1 ha", lat: "-14.9210", lon: "13.5010", status: "Verificada" }],
     production: [{ id: "PRD-007", culture: "Milho", area: "3.0 ha", planted: "12/10/2025", expected: "12/03/2026", estimatedYield: "6.000 kg", actualYield: "-", status: "Em Crescimento" }],
+    valorRecebido: "750.000,00", totalGasto: "95.000,00", saldoFinal: "655.000,00",
     incentives: [{ id: "INC-006", type: "Sementes", amount: "35.000 Kz", method: "Unitel Money", status: "Pago", date: "07/02/2026" }],
+    transactions: [{ product: "S-Milho-50kg", empresa: "Fazenda Verde", valor: "45.000,00", date: "2025-10-10 08:30:00" }, { product: "Ad-Fertilizante-25kg", empresa: "Fazenda Verde", valor: "25.000,00", date: "2025-10-10 08:35:00" }, { product: "F-Enxada-2u", empresa: "Fazenda Verde", valor: "10.000,00", date: "2025-10-10 08:40:00" }, { product: "Q-Insecticidas-1L", empresa: "Fazenda Verde", valor: "15.000,00", date: "2025-09-25 10:00:00" }],
     purchases: [],
   },
   "AGR-007": {
     id: "AGR-007", name: "Francisco Luís", bi: "007890123LA048", phone: "929 012 345", gender: "Masculino", birthDate: "05/06/1975", province: "Malanje", municipality: "Cacuso", commune: "Cacuso", village: "Aldeia Pungo", school: "EC Cacuso", status: "Ativo", registeredAt: "01/02/2025",
     parcels: [{ id: "PRC-012", culture: "Amendoim", area: "2.3 ha", lat: "-9.2000", lon: "16.0000", status: "Verificada" }],
     production: [],
+    valorRecebido: "550.000,00", totalGasto: "45.000,00", saldoFinal: "505.000,00",
     incentives: [{ id: "INC-007", type: "Fertilizantes", amount: "28.000 Kz", method: "Unitel Money", status: "Pago", date: "06/02/2026" }],
+    transactions: [{ product: "Ad-Fertilizante-50kg", empresa: "FertiPlus Lda", valor: "45.000,00", date: "2025-09-15 12:00:00" }],
     purchases: [],
   },
   "AGR-008": {
     id: "AGR-008", name: "Isabel Fernandes", bi: "008901234LA049", phone: "930 123 456", gender: "Feminino", birthDate: "25/01/1995", province: "Benguela", municipality: "Ganda", commune: "Ganda", village: "Aldeia Ebanga", school: "EC Ganda", status: "Validado", registeredAt: "05/02/2025",
     parcels: [{ id: "PRC-013", culture: "Soja", area: "2.0 ha", lat: "-12.9800", lon: "14.6500", status: "Pendente" }, { id: "PRC-014", culture: "Milho", area: "2.0 ha", lat: "-12.9810", lon: "14.6510", status: "Verificada" }],
     production: [{ id: "PRD-008", culture: "Massango", area: "3.5 ha", planted: "01/11/2025", expected: "01/04/2026", estimatedYield: "4.200 kg", actualYield: "-", status: "Semeada" }],
+    valorRecebido: "680.000,00", totalGasto: "110.000,00", saldoFinal: "570.000,00",
     incentives: [{ id: "INC-008", type: "Mecanização", amount: "55.000 Kz", method: "Unitel Money", status: "Pendente", date: "05/02/2026" }],
+    transactions: [{ product: "S-Massango-25kg", empresa: "Agro Cuando", valor: "30.000,00", date: "2025-11-01 09:00:00" }, { product: "F-Catana-3u", empresa: "Agro Cuando", valor: "8.000,00", date: "2025-11-01 09:10:00" }, { product: "Ad-Composto-50kg", empresa: "Agro Cuando", valor: "38.000,00", date: "2025-11-01 09:15:00" }, { product: "F-Enxada-2u", empresa: "TOPO AGRO, LDA", valor: "10.000,00", date: "2025-10-20 14:00:00" }, { product: "Q-Herbicida-2L", empresa: "TOPO AGRO, LDA", valor: "24.000,00", date: "2025-10-20 14:10:00" }],
     purchases: [],
   },
 };
@@ -261,31 +296,47 @@ const FarmerProfile = () => {
           </TabsContent>
 
           {/* Incentivos Tab */}
-          <TabsContent value="incentivos" className="mt-4">
+          <TabsContent value="incentivos" className="mt-4 space-y-6">
+            {/* Summary Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <Card className="p-5">
+                <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Valor Recebido</p>
+                <p className="text-2xl font-bold font-heading text-primary mt-1">{farmer.valorRecebido} kz</p>
+              </Card>
+              <Card className="p-5">
+                <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Total Gasto</p>
+                <p className="text-2xl font-bold font-heading text-destructive mt-1">{farmer.totalGasto} kz</p>
+              </Card>
+              <Card className="p-5">
+                <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Saldo Final</p>
+                <p className="text-2xl font-bold font-heading mt-1" style={{ color: "hsl(var(--success))" }}>{farmer.saldoFinal} kz</p>
+              </Card>
+            </div>
+
+            {/* Transactions Table */}
             <Card className="p-0 overflow-hidden">
+              <div className="px-6 py-4 border-b border-border">
+                <h3 className="font-heading font-semibold text-lg">Transações do Produtor</h3>
+              </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-border bg-muted/50">
-                      <th className="text-left px-6 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">ID</th>
-                      <th className="text-left px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Tipo</th>
+                      <th className="text-left px-6 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Produto</th>
+                      <th className="text-left px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Empresa</th>
                       <th className="text-right px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Valor</th>
-                      <th className="text-left px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Método</th>
-                      <th className="text-left px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Estado</th>
                       <th className="text-left px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Data</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {farmer.incentives.length === 0 ? (
-                      <tr><td colSpan={6} className="px-6 py-8 text-center text-muted-foreground">Nenhum incentivo registado</td></tr>
-                    ) : farmer.incentives.map((inc: any) => (
-                      <tr key={inc.id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
-                        <td className="px-6 py-3 font-mono text-xs text-muted-foreground">{inc.id}</td>
-                        <td className="px-4 py-3">{inc.type}</td>
-                        <td className="px-4 py-3 text-right font-semibold">{inc.amount}</td>
-                        <td className="px-4 py-3 text-muted-foreground">{inc.method}</td>
-                        <td className="px-4 py-3"><span className={inc.status === "Pago" ? "badge-active" : inc.status === "Rejeitado" ? "badge-suspended" : "badge-pending"}>{inc.status}</span></td>
-                        <td className="px-4 py-3 text-muted-foreground text-xs">{inc.date}</td>
+                    {(!farmer.transactions || farmer.transactions.length === 0) ? (
+                      <tr><td colSpan={4} className="px-6 py-8 text-center text-muted-foreground">Nenhuma transação registada</td></tr>
+                    ) : farmer.transactions.map((t: any, i: number) => (
+                      <tr key={i} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
+                        <td className="px-6 py-3 font-medium">{t.product}</td>
+                        <td className="px-4 py-3 text-muted-foreground text-xs max-w-[300px]">{t.empresa}</td>
+                        <td className="px-4 py-3 text-right font-semibold">{t.valor} kz</td>
+                        <td className="px-4 py-3 text-muted-foreground text-xs">{t.date}</td>
                       </tr>
                     ))}
                   </tbody>
