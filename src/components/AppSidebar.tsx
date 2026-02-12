@@ -30,8 +30,8 @@ type NavItem = {
   label: string;
   path?: string;
   children?: { label: string; path: string; icon?: any }[];
-  /** Roles that can see this item. Empty/undefined = visible to all authenticated users */
   allowedRoles?: AppRole[];
+  compact?: boolean;
 };
 
 const ALL_ROLES: AppRole[] = [
@@ -66,31 +66,29 @@ const navItems: NavItem[] = [
   },
   {
     icon: ShoppingCart,
-    label: "Compras Subsidiadas",
+    label: "Compras",
     path: "/compras",
     allowedRoles: ["admin", "gestor_incentivos", "senior_agronegocio", "junior_agronegocio"],
+    compact: true,
   },
   {
     icon: MapPin,
     label: "Parcelas",
     path: "/parcelas",
+    compact: true,
   },
   {
     icon: Building2,
     label: "Empresas",
     path: "/empresas",
     allowedRoles: ["admin", "gestor_incentivos", "senior_agronegocio", "junior_agronegocio"],
-  },
-  {
-    icon: ArrowLeftRight,
-    label: "Transações",
-    path: "/transacoes",
-    allowedRoles: ["admin", "gestor_incentivos"],
+    compact: true,
   },
   {
     icon: Wheat,
     label: "Produção",
     path: "/producao",
+    compact: true,
   },
   {
     icon: UserCog,
@@ -162,59 +160,96 @@ const AppSidebar = () => {
 
       {/* Navigation */}
       <nav className="flex-1 py-4 px-3 space-y-0.5 overflow-y-auto">
-        {visibleItems.map((item) => {
-          if (item.children) {
-            const isOpen = openMenus.includes(item.label);
-            const childActive = isChildActive(item);
-            return (
-              <div key={item.label}>
-                <button
-                  onClick={() => !collapsed && toggleMenu(item.label)}
-                  className={`sidebar-link w-full justify-between ${childActive ? "active" : ""}`}
-                  title={collapsed ? item.label : undefined}
-                >
-                  <div className="flex items-center gap-3">
-                    <item.icon className="h-5 w-5 flex-shrink-0" />
-                    {!collapsed && <span className="truncate">{item.label}</span>}
-                  </div>
-                  {!collapsed && (
-                    isOpen ? <ChevronUp className="h-4 w-4 flex-shrink-0" /> : <ChevronDown className="h-4 w-4 flex-shrink-0" />
-                  )}
-                </button>
-                {!collapsed && isOpen && (
-                  <div className="ml-4 pl-4 border-l space-y-0.5 mt-0.5" style={{ borderColor: "hsl(var(--sidebar-border))" }}>
-                    {item.children.map((child) => {
-                      const isActive = location.pathname === child.path;
-                      return (
-                        <Link
-                          key={child.path}
-                          to={child.path}
-                          className={`sidebar-link text-xs py-2 ${isActive ? "active" : ""}`}
-                        >
-                          {child.icon && <child.icon className="h-4 w-4 flex-shrink-0" />}
-                          <span className="truncate">{child.label}</span>
-                        </Link>
-                      );
-                    })}
-                  </div>
-                )}
+        {(() => {
+          const elements: React.ReactNode[] = [];
+          let compactBatch: NavItem[] = [];
+
+          const flushCompact = () => {
+            if (compactBatch.length === 0) return;
+            const batch = [...compactBatch];
+            compactBatch = [];
+            elements.push(
+              <div key={`compact-${batch[0].label}`} className={collapsed ? "space-y-0.5" : "grid grid-cols-2 gap-1"}>
+                {batch.map((item) => {
+                  const isActive = location.pathname === item.path;
+                  return (
+                    <Link
+                      key={item.path}
+                      to={item.path!}
+                      className={`sidebar-link ${isActive ? "active" : ""} ${!collapsed ? "flex-col gap-1 py-2 text-xs" : ""}`}
+                      title={collapsed ? item.label : undefined}
+                    >
+                      <item.icon className="h-4 w-4 flex-shrink-0" />
+                      {!collapsed && <span className="truncate">{item.label}</span>}
+                    </Link>
+                  );
+                })}
               </div>
             );
-          }
+          };
 
-          const isActive = location.pathname === item.path;
-          return (
-            <Link
-              key={item.path}
-              to={item.path!}
-              className={`sidebar-link ${isActive ? "active" : ""}`}
-              title={collapsed ? item.label : undefined}
-            >
-              <item.icon className="h-5 w-5 flex-shrink-0" />
-              {!collapsed && <span>{item.label}</span>}
-            </Link>
-          );
-        })}
+          for (const item of visibleItems) {
+            if (item.compact && !item.children) {
+              compactBatch.push(item);
+              continue;
+            }
+            flushCompact();
+
+            if (item.children) {
+              const isOpen = openMenus.includes(item.label);
+              const childActive = isChildActive(item);
+              elements.push(
+                <div key={item.label}>
+                  <button
+                    onClick={() => !collapsed && toggleMenu(item.label)}
+                    className={`sidebar-link w-full justify-between ${childActive ? "active" : ""}`}
+                    title={collapsed ? item.label : undefined}
+                  >
+                    <div className="flex items-center gap-3">
+                      <item.icon className="h-5 w-5 flex-shrink-0" />
+                      {!collapsed && <span className="truncate">{item.label}</span>}
+                    </div>
+                    {!collapsed && (
+                      isOpen ? <ChevronUp className="h-4 w-4 flex-shrink-0" /> : <ChevronDown className="h-4 w-4 flex-shrink-0" />
+                    )}
+                  </button>
+                  {!collapsed && isOpen && (
+                    <div className="ml-4 pl-4 border-l space-y-0.5 mt-0.5" style={{ borderColor: "hsl(var(--sidebar-border))" }}>
+                      {item.children.map((child) => {
+                        const isActive = location.pathname === child.path;
+                        return (
+                          <Link
+                            key={child.path}
+                            to={child.path}
+                            className={`sidebar-link text-xs py-2 ${isActive ? "active" : ""}`}
+                          >
+                            {child.icon && <child.icon className="h-4 w-4 flex-shrink-0" />}
+                            <span className="truncate">{child.label}</span>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            } else {
+              const isActive = location.pathname === item.path;
+              elements.push(
+                <Link
+                  key={item.path}
+                  to={item.path!}
+                  className={`sidebar-link ${isActive ? "active" : ""}`}
+                  title={collapsed ? item.label : undefined}
+                >
+                  <item.icon className="h-5 w-5 flex-shrink-0" />
+                  {!collapsed && <span>{item.label}</span>}
+                </Link>
+              );
+            }
+          }
+          flushCompact();
+          return elements;
+        })()}
       </nav>
 
       {/* Footer */}
