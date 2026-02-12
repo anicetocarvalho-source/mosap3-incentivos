@@ -15,6 +15,7 @@ import Agricultores from "@/pages/Agricultores";
 import Empresas from "@/pages/Empresas";
 import Transacoes from "@/pages/Transacoes";
 import Utilizadores from "@/pages/Utilizadores";
+import Perfis from "@/pages/Perfis";
 import Incentivos from "@/pages/Incentivos";
 import Compras from "@/pages/Compras";
 import Parcelas from "@/pages/Parcelas";
@@ -49,7 +50,7 @@ const App = () => (
               <Route path="/empresas" element={<Empresas />} />
               <Route path="/transacoes" element={<Transacoes />} />
               <Route path="/utilizadores" element={<Utilizadores />} />
-              <Route path="/perfis" element={<Utilizadores />} />
+              <Route path="/perfis" element={<Perfis />} />
               <Route path="/incentivos" element={<Incentivos />} />
               <Route path="/compras" element={<Compras />} />
               <Route path="/parcelas" element={<Parcelas />} />
