@@ -36,8 +36,14 @@ const navItems: NavItem[] = [
       { label: "Registo do Pequeno Produtor", path: "/agricultores", icon: UserPlus },
     ],
   },
-  { icon: School, label: "Escolas de Campo", path: "/escolas" },
-  { icon: Gift, label: "Incentivos", path: "/incentivos" },
+  {
+    icon: Gift,
+    label: "Incentivos",
+    children: [
+      { label: "Incentivos", path: "/incentivos", icon: Gift },
+      { label: "Transações", path: "/transacoes", icon: ArrowLeftRight },
+    ],
+  },
   { icon: ShoppingCart, label: "Compras Subsidiadas", path: "/compras" },
   { icon: MapPin, label: "Parcelas", path: "/parcelas" },
   { icon: Building2, label: "Empresas", path: "/empresas" },
