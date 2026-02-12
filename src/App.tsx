@@ -1,6 +1,7 @@
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import EscolasCampo from "@/pages/EscolasCampo";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import AppLayout from "@/components/AppLayout";
@@ -27,6 +28,7 @@ const App = () => (
           <Route element={<AppLayout />}>
             <Route path="/" element={<Dashboard />} />
             <Route path="/agricultores" element={<Agricultores />} />
+            <Route path="/escolas" element={<EscolasCampo />} />
             <Route path="/empresas" element={<Empresas />} />
             <Route path="/transacoes" element={<Transacoes />} />
             <Route path="/utilizadores" element={<Utilizadores />} />
