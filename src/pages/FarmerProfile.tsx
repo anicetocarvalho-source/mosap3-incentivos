@@ -1,7 +1,7 @@
 import { useParams, Link } from "react-router-dom";
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, User, MapPin, Phone, CreditCard, Wheat, ShoppingCart, Gift, Calendar, FileText, Users, Sprout, Sun, Droplets, CheckCircle2, Camera, ChevronDown, ChevronUp, Clock } from "lucide-react";
+import { ArrowLeft, User, MapPin, Phone, CreditCard, Wheat, ShoppingCart, Gift, Calendar, FileText, Users, Sprout, Sun, Droplets, CheckCircle2, Camera, ChevronDown, ChevronUp, Clock, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -299,6 +299,9 @@ const FarmerProfile = () => {
           <h1 className="page-title">{farmer.name}</h1>
           <p className="text-muted-foreground text-sm mt-0.5">{farmer.id} · Registado em {farmer.registeredAt}</p>
         </div>
+        <Link to={`/agricultores/${farmer.id}/ficha`}>
+          <Button variant="outline" className="gap-2"><Printer className="h-4 w-4" />Ficha</Button>
+        </Link>
         <span className={
           farmer.status === "Ativo" ? "badge-active" :
           farmer.status === "Pendente" || farmer.status === "Validado" ? "badge-pending" : "badge-suspended"

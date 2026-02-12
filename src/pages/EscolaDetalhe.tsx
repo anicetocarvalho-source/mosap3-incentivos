@@ -1,7 +1,7 @@
 import { useParams, Link } from "react-router-dom";
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, MapPin, User, Users, Sprout, Droplets, Sun, Wheat, CheckCircle2, AlertTriangle, Plus, ClipboardEdit, AlertCircle, Camera, X, Send, FileText } from "lucide-react";
+import { ArrowLeft, MapPin, User, Users, Sprout, Droplets, Sun, Wheat, CheckCircle2, AlertTriangle, Plus, ClipboardEdit, AlertCircle, Camera, X, Send, FileText, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -217,6 +217,9 @@ const EscolaDetalhe = () => {
             <span className="flex items-center gap-1"><User className="h-3.5 w-3.5" />Técnico: {school.technician}</span>
           </div>
         </div>
+        <Link to={`/escolas/${school.id}/ficha`}>
+          <Button variant="outline" className="gap-2"><Printer className="h-4 w-4" />Ficha da Escola</Button>
+        </Link>
       </div>
 
       {/* Summary Cards */}

@@ -17,6 +17,8 @@ import Compras from "@/pages/Compras";
 import Parcelas from "@/pages/Parcelas";
 import Producao from "@/pages/Producao";
 import FarmerProfile from "@/pages/FarmerProfile";
+import FichaProdutor from "@/pages/FichaProdutor";
+import FichaEscola from "@/pages/FichaEscola";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -35,6 +37,8 @@ const App = () => (
             <Route path="/escolas" element={<EscolasCampo />} />
             <Route path="/escolas/provincia/:slug" element={<ProvinciaEscolas />} />
             <Route path="/escolas/:id" element={<EscolaDetalhe />} />
+            <Route path="/escolas/:id/ficha" element={<FichaEscola />} />
+            <Route path="/agricultores/:id/ficha" element={<FichaProdutor />} />
             <Route path="/empresas" element={<Empresas />} />
             <Route path="/transacoes" element={<Transacoes />} />
             <Route path="/utilizadores" element={<Utilizadores />} />
