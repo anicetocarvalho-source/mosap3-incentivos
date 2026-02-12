@@ -74,6 +74,7 @@ export const navItems: NavItem[] = [
     icon: ShoppingCart,
     label: "Compras",
     path: "/compras",
+    sidebar: true,
     allowedRoles: ["admin", "gestor_incentivos", "senior_agronegocio", "junior_agronegocio"],
   },
   { icon: MapPin, label: "Parcelas", path: "/parcelas" },
