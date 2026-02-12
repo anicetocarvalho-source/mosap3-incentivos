@@ -6,7 +6,9 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import AppLayout from "@/components/AppLayout";
 import Dashboard from "@/pages/Dashboard";
 import Agricultores from "@/pages/Agricultores";
-import EscolasCampo from "@/pages/EscolasCampo";
+import Empresas from "@/pages/Empresas";
+import Transacoes from "@/pages/Transacoes";
+import Utilizadores from "@/pages/Utilizadores";
 import Incentivos from "@/pages/Incentivos";
 import Compras from "@/pages/Compras";
 import Parcelas from "@/pages/Parcelas";
@@ -25,11 +27,16 @@ const App = () => (
           <Route element={<AppLayout />}>
             <Route path="/" element={<Dashboard />} />
             <Route path="/agricultores" element={<Agricultores />} />
-            <Route path="/escolas" element={<EscolasCampo />} />
+            <Route path="/empresas" element={<Empresas />} />
+            <Route path="/transacoes" element={<Transacoes />} />
+            <Route path="/utilizadores" element={<Utilizadores />} />
+            <Route path="/perfis" element={<Utilizadores />} />
             <Route path="/incentivos" element={<Incentivos />} />
             <Route path="/compras" element={<Compras />} />
             <Route path="/parcelas" element={<Parcelas />} />
             <Route path="/producao" element={<Producao />} />
+            <Route path="/configuracoes" element={<Dashboard />} />
+            <Route path="/provincias" element={<Dashboard />} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>

@@ -3,31 +3,67 @@ import { Link, useLocation } from "react-router-dom";
 import {
   LayoutDashboard,
   Users,
-  School,
-  Gift,
-  ShoppingCart,
-  MapPin,
-  Wheat,
+  Building2,
+  ArrowLeftRight,
+  UserCog,
+  Settings,
   ChevronLeft,
   ChevronRight,
-  LogOut,
-  Settings,
+  ChevronDown,
+  ChevronUp,
+  UserPlus,
 } from "lucide-react";
 import mosapLogo from "@/assets/mosap3-logo.png";
 
-const navItems = [
-  { icon: LayoutDashboard, label: "Painel", path: "/" },
-  { icon: Users, label: "Agricultores", path: "/agricultores" },
-  { icon: School, label: "Escolas de Campo", path: "/escolas" },
-  { icon: Gift, label: "Incentivos", path: "/incentivos" },
-  { icon: ShoppingCart, label: "Compras", path: "/compras" },
-  { icon: MapPin, label: "Parcelas", path: "/parcelas" },
-  { icon: Wheat, label: "Produção", path: "/producao" },
+type NavItem = {
+  icon: any;
+  label: string;
+  path?: string;
+  children?: { label: string; path: string; icon?: any }[];
+};
+
+const navItems: NavItem[] = [
+  { icon: LayoutDashboard, label: "Dashboard", path: "/" },
+  {
+    icon: Users,
+    label: "Registo do Pequeno Produtor",
+    children: [
+      { label: "Registo do Pequeno Produtor", path: "/agricultores", icon: UserPlus },
+    ],
+  },
+  { icon: Building2, label: "Empresas", path: "/empresas" },
+  { icon: ArrowLeftRight, label: "Transações", path: "/transacoes" },
+  {
+    icon: UserCog,
+    label: "Utilizadores",
+    children: [
+      { label: "Lista de Utilizadores", path: "/utilizadores" },
+      { label: "Perfis", path: "/perfis" },
+    ],
+  },
+  {
+    icon: Settings,
+    label: "Configurações",
+    children: [
+      { label: "Geral", path: "/configuracoes" },
+      { label: "Províncias", path: "/provincias" },
+    ],
+  },
 ];
 
 const AppSidebar = () => {
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
+  const [openMenus, setOpenMenus] = useState<string[]>(["Registo do Pequeno Produtor"]);
+
+  const toggleMenu = (label: string) => {
+    setOpenMenus((prev) =>
+      prev.includes(label) ? prev.filter((l) => l !== label) : [...prev, label]
+    );
+  };
+
+  const isChildActive = (item: NavItem) =>
+    item.children?.some((c) => location.pathname === c.path);
 
   return (
     <aside
@@ -49,18 +85,52 @@ const AppSidebar = () => {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
-        {!collapsed && (
-          <p className="text-xs font-semibold uppercase tracking-wider px-4 mb-3" style={{ color: "hsl(var(--sidebar-foreground) / 0.5)" }}>
-            Menu Principal
-          </p>
-        )}
+      <nav className="flex-1 py-4 px-3 space-y-0.5 overflow-y-auto">
         {navItems.map((item) => {
+          if (item.children) {
+            const isOpen = openMenus.includes(item.label);
+            const childActive = isChildActive(item);
+            return (
+              <div key={item.label}>
+                <button
+                  onClick={() => !collapsed && toggleMenu(item.label)}
+                  className={`sidebar-link w-full justify-between ${childActive ? "active" : ""}`}
+                  title={collapsed ? item.label : undefined}
+                >
+                  <div className="flex items-center gap-3">
+                    <item.icon className="h-5 w-5 flex-shrink-0" />
+                    {!collapsed && <span className="truncate">{item.label}</span>}
+                  </div>
+                  {!collapsed && (
+                    isOpen ? <ChevronUp className="h-4 w-4 flex-shrink-0" /> : <ChevronDown className="h-4 w-4 flex-shrink-0" />
+                  )}
+                </button>
+                {!collapsed && isOpen && (
+                  <div className="ml-4 pl-4 border-l space-y-0.5 mt-0.5" style={{ borderColor: "hsl(var(--sidebar-border))" }}>
+                    {item.children.map((child) => {
+                      const isActive = location.pathname === child.path;
+                      return (
+                        <Link
+                          key={child.path}
+                          to={child.path}
+                          className={`sidebar-link text-xs py-2 ${isActive ? "active" : ""}`}
+                        >
+                          {child.icon && <child.icon className="h-4 w-4 flex-shrink-0" />}
+                          <span className="truncate">{child.label}</span>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          }
+
           const isActive = location.pathname === item.path;
           return (
             <Link
               key={item.path}
-              to={item.path}
+              to={item.path!}
               className={`sidebar-link ${isActive ? "active" : ""}`}
               title={collapsed ? item.label : undefined}
             >
@@ -72,11 +142,7 @@ const AppSidebar = () => {
       </nav>
 
       {/* Footer */}
-      <div className="px-3 py-4 space-y-1 border-t" style={{ borderColor: "hsl(var(--sidebar-border))" }}>
-        <Link to="/configuracoes" className="sidebar-link" title={collapsed ? "Configurações" : undefined}>
-          <Settings className="h-5 w-5 flex-shrink-0" />
-          {!collapsed && <span>Configurações</span>}
-        </Link>
+      <div className="px-3 py-4 border-t" style={{ borderColor: "hsl(var(--sidebar-border))" }}>
         <button
           onClick={() => setCollapsed(!collapsed)}
           className="sidebar-link w-full"
