@@ -1,6 +1,6 @@
 import { useParams, Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ArrowLeft, User, MapPin, Phone, CreditCard, Wheat, ShoppingCart, Gift, Calendar, FileText } from "lucide-react";
+import { ArrowLeft, User, MapPin, Phone, CreditCard, Wheat, ShoppingCart, Gift, Calendar, FileText, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -34,6 +34,13 @@ const farmersData: Record<string, any> = {
     purchases: [
       { id: "CMP-001", empresa: "AgroSul Lda", items: "Enxada, Catana, Sementes Milho", total: "45.000,00", subsidio: "70%", valorPagar: "13.500,00", status: "Entregue", date: "12/02/2026" },
     ],
+    dependentes: [
+      { name: "Maria José Mateus", relationship: "Cônjuge", gender: "Feminino", birthDate: "20/06/1988", age: 37, education: "Ensino Primário", occupation: "Agricultora" },
+      { name: "António Mateus", relationship: "Filho", gender: "Masculino", birthDate: "10/03/2005", age: 20, education: "Ensino Secundário", occupation: "Estudante" },
+      { name: "Luísa Mateus", relationship: "Filha", gender: "Feminino", birthDate: "15/08/2010", age: 15, education: "Ensino Primário", occupation: "Estudante" },
+      { name: "Pedro Mateus", relationship: "Filho", gender: "Masculino", birthDate: "22/01/2015", age: 11, education: "Ensino Primário", occupation: "Estudante" },
+      { name: "Rosa Mateus", relationship: "Mãe", gender: "Feminino", birthDate: "05/04/1958", age: 67, education: "Sem escolaridade", occupation: "Doméstica" },
+    ],
   },
   "AGR-002": {
     id: "AGR-002", name: "Maria Silva", bi: "002345678LA043", phone: "924 567 890", gender: "Feminino", birthDate: "22/07/1990", province: "Huambo", municipality: "Longonjo", commune: "Longonjo", village: "Aldeia Chiva", school: "EC Longonjo", status: "Pendente", registeredAt: "10/01/2025",
@@ -51,6 +58,10 @@ const farmersData: Record<string, any> = {
     ],
     transactions: [],
     purchases: [],
+    dependentes: [
+      { name: "José Silva", relationship: "Cônjuge", gender: "Masculino", birthDate: "14/02/1987", age: 38, education: "Ensino Secundário", occupation: "Agricultor" },
+      { name: "Ana Silva", relationship: "Filha", gender: "Feminino", birthDate: "30/11/2012", age: 13, education: "Ensino Primário", occupation: "Estudante" },
+    ],
   },
   "AGR-003": {
     id: "AGR-003", name: "Pedro Neto", bi: "003456789LA044", phone: "925 678 901", gender: "Masculino", birthDate: "03/11/1978", province: "Bié", municipality: "Cuemba", commune: "Cuemba", village: "Aldeia Soqui", school: "EC Cuemba", status: "Ativo", registeredAt: "15/01/2025",
@@ -78,6 +89,11 @@ const farmersData: Record<string, any> = {
     purchases: [
       { id: "CMP-003", empresa: "SemPro Angola", items: "Sementes Feijão, Sementes Soja", total: "30.000,00", subsidio: "80%", valorPagar: "6.000,00", status: "Aprovada", date: "10/02/2026" },
     ],
+    dependentes: [
+      { name: "Joana Neto", relationship: "Cônjuge", gender: "Feminino", birthDate: "18/04/1980", age: 45, education: "Ensino Primário", occupation: "Agricultora" },
+      { name: "Miguel Neto", relationship: "Filho", gender: "Masculino", birthDate: "07/07/2002", age: 23, education: "Ensino Secundário", occupation: "Agricultor" },
+      { name: "Clara Neto", relationship: "Filha", gender: "Feminino", birthDate: "25/12/2008", age: 17, education: "Ensino Secundário", occupation: "Estudante" },
+    ],
   },
   "AGR-004": {
     id: "AGR-004", name: "Ana Luísa Gomes", bi: "004567890LA045", phone: "926 789 012", gender: "Feminino", birthDate: "18/05/1992", province: "Benguela", municipality: "Lobito", commune: "Lobito", village: "Aldeia Hanha", school: "EC Lobito", status: "Ativo", registeredAt: "20/01/2025",
@@ -87,6 +103,10 @@ const farmersData: Record<string, any> = {
     incentives: [{ id: "INC-004", type: "Fertilizantes", amount: "25.000 Kz", method: "Unitel Money", status: "Processando", date: "09/02/2026" }],
     transactions: [{ product: "Ad-Composto-50Kg", empresa: "FertiPlus Lda", valor: "38.000,00", date: "2025-08-15 14:00:00" }, { product: "S-BatatDoce-10kg", empresa: "FertiPlus Lda", valor: "12.000,00", date: "2025-08-15 14:05:00" }, { product: "F-Regador-1u", empresa: "TOPO AGRO, LDA", valor: "25.000,00", date: "2025-08-10 10:00:00" }],
     purchases: [],
+    dependentes: [
+      { name: "Carlos Gomes", relationship: "Cônjuge", gender: "Masculino", birthDate: "03/09/1989", age: 36, education: "Ensino Secundário", occupation: "Comerciante" },
+      { name: "Sofia Gomes", relationship: "Filha", gender: "Feminino", birthDate: "14/06/2014", age: 11, education: "Ensino Primário", occupation: "Estudante" },
+    ],
   },
   "AGR-005": {
     id: "AGR-005", name: "Carlos Manuel", bi: "005678901LA046", phone: "927 890 123", gender: "Masculino", birthDate: "30/09/1980", province: "Huambo", municipality: "Bailundo", commune: "Bailundo", village: "Aldeia Bimbe", school: "EC Bailundo", status: "Suspenso", registeredAt: "25/01/2025",
@@ -96,6 +116,11 @@ const farmersData: Record<string, any> = {
     incentives: [{ id: "INC-005", type: "Insumos Agrícolas", amount: "40.000 Kz", method: "Unitel Money", status: "Rejeitado", date: "08/02/2026" }],
     transactions: [],
     purchases: [],
+    dependentes: [
+      { name: "Helena Manuel", relationship: "Cônjuge", gender: "Feminino", birthDate: "17/03/1983", age: 42, education: "Ensino Primário", occupation: "Agricultora" },
+      { name: "José Manuel", relationship: "Filho", gender: "Masculino", birthDate: "08/08/2003", age: 22, education: "Ensino Secundário", occupation: "Jornaleiro" },
+      { name: "Francisca Manuel", relationship: "Filha", gender: "Feminino", birthDate: "01/01/2007", age: 19, education: "Ensino Secundário", occupation: "Estudante" },
+    ],
   },
   "AGR-006": {
     id: "AGR-006", name: "Teresa Domingos", bi: "006789012LA047", phone: "928 901 234", gender: "Feminino", birthDate: "12/12/1988", province: "Huíla", municipality: "Lubango", commune: "Lubango", village: "Aldeia Chibia", school: "EC Lubango", status: "Ativo", registeredAt: "28/01/2025",
@@ -105,6 +130,11 @@ const farmersData: Record<string, any> = {
     incentives: [{ id: "INC-006", type: "Sementes", amount: "35.000 Kz", method: "Unitel Money", status: "Pago", date: "07/02/2026" }],
     transactions: [{ product: "S-Milho-50kg", empresa: "Fazenda Verde", valor: "45.000,00", date: "2025-10-10 08:30:00" }, { product: "Ad-Fertilizante-25kg", empresa: "Fazenda Verde", valor: "25.000,00", date: "2025-10-10 08:35:00" }, { product: "F-Enxada-2u", empresa: "Fazenda Verde", valor: "10.000,00", date: "2025-10-10 08:40:00" }, { product: "Q-Insecticidas-1L", empresa: "Fazenda Verde", valor: "15.000,00", date: "2025-09-25 10:00:00" }],
     purchases: [],
+    dependentes: [
+      { name: "Manuel Domingos", relationship: "Cônjuge", gender: "Masculino", birthDate: "28/07/1985", age: 40, education: "Ensino Secundário", occupation: "Agricultor" },
+      { name: "Beatriz Domingos", relationship: "Filha", gender: "Feminino", birthDate: "09/04/2009", age: 16, education: "Ensino Secundário", occupation: "Estudante" },
+      { name: "Ricardo Domingos", relationship: "Filho", gender: "Masculino", birthDate: "15/11/2013", age: 12, education: "Ensino Primário", occupation: "Estudante" },
+    ],
   },
   "AGR-007": {
     id: "AGR-007", name: "Francisco Luís", bi: "007890123LA048", phone: "929 012 345", gender: "Masculino", birthDate: "05/06/1975", province: "Malanje", municipality: "Cacuso", commune: "Cacuso", village: "Aldeia Pungo", school: "EC Cacuso", status: "Ativo", registeredAt: "01/02/2025",
@@ -114,6 +144,10 @@ const farmersData: Record<string, any> = {
     incentives: [{ id: "INC-007", type: "Fertilizantes", amount: "28.000 Kz", method: "Unitel Money", status: "Pago", date: "06/02/2026" }],
     transactions: [{ product: "Ad-Fertilizante-50kg", empresa: "FertiPlus Lda", valor: "45.000,00", date: "2025-09-15 12:00:00" }],
     purchases: [],
+    dependentes: [
+      { name: "Margarida Luís", relationship: "Cônjuge", gender: "Feminino", birthDate: "10/10/1978", age: 47, education: "Sem escolaridade", occupation: "Agricultora" },
+      { name: "Ernesto Luís", relationship: "Filho", gender: "Masculino", birthDate: "02/02/2000", age: 26, education: "Ensino Secundário", occupation: "Agricultor" },
+    ],
   },
   "AGR-008": {
     id: "AGR-008", name: "Isabel Fernandes", bi: "008901234LA049", phone: "930 123 456", gender: "Feminino", birthDate: "25/01/1995", province: "Benguela", municipality: "Ganda", commune: "Ganda", village: "Aldeia Ebanga", school: "EC Ganda", status: "Validado", registeredAt: "05/02/2025",
@@ -123,6 +157,11 @@ const farmersData: Record<string, any> = {
     incentives: [{ id: "INC-008", type: "Mecanização", amount: "55.000 Kz", method: "Unitel Money", status: "Pendente", date: "05/02/2026" }],
     transactions: [{ product: "S-Massango-25kg", empresa: "Agro Cuando", valor: "30.000,00", date: "2025-11-01 09:00:00" }, { product: "F-Catana-3u", empresa: "Agro Cuando", valor: "8.000,00", date: "2025-11-01 09:10:00" }, { product: "Ad-Composto-50kg", empresa: "Agro Cuando", valor: "38.000,00", date: "2025-11-01 09:15:00" }, { product: "F-Enxada-2u", empresa: "TOPO AGRO, LDA", valor: "10.000,00", date: "2025-10-20 14:00:00" }, { product: "Q-Herbicida-2L", empresa: "TOPO AGRO, LDA", valor: "24.000,00", date: "2025-10-20 14:10:00" }],
     purchases: [],
+    dependentes: [
+      { name: "Jorge Fernandes", relationship: "Cônjuge", gender: "Masculino", birthDate: "30/06/1993", age: 32, education: "Ensino Secundário", occupation: "Comerciante" },
+      { name: "Marta Fernandes", relationship: "Filha", gender: "Feminino", birthDate: "18/09/2017", age: 8, education: "Ensino Primário", occupation: "Estudante" },
+      { name: "Joaquina Fernandes", relationship: "Mãe", gender: "Feminino", birthDate: "02/03/1965", age: 60, education: "Sem escolaridade", occupation: "Doméstica" },
+    ],
   },
 };
 
@@ -220,8 +259,8 @@ const FarmerProfile = () => {
             <TabsTrigger value="incentivos" className="gap-2 data-[state=active]:bg-card">
               <Gift className="h-4 w-4" /> Incentivos ({farmer.incentives.length})
             </TabsTrigger>
-            <TabsTrigger value="compras" className="gap-2 data-[state=active]:bg-card">
-              <ShoppingCart className="h-4 w-4" /> Compras ({farmer.purchases.length})
+            <TabsTrigger value="dependentes" className="gap-2 data-[state=active]:bg-card">
+              <Users className="h-4 w-4" /> Dependentes ({farmer.dependentes?.length || 0})
             </TabsTrigger>
           </TabsList>
 
@@ -345,36 +384,45 @@ const FarmerProfile = () => {
             </Card>
           </TabsContent>
 
-          {/* Compras Tab */}
-          <TabsContent value="compras" className="mt-4">
+          {/* Dependentes Tab */}
+          <TabsContent value="dependentes" className="mt-4">
             <Card className="p-0 overflow-hidden">
+              <div className="px-6 py-4 border-b border-border">
+                <h3 className="font-heading font-semibold text-lg">Agregado Familiar</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">Membros do agregado familiar do produtor</p>
+              </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-border bg-muted/50">
-                      <th className="text-left px-6 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">ID</th>
-                      <th className="text-left px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Empresa</th>
-                      <th className="text-left px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Itens</th>
-                      <th className="text-right px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Total</th>
-                      <th className="text-center px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Subsídio</th>
-                      <th className="text-right px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">A Pagar</th>
-                      <th className="text-left px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Estado</th>
-                      <th className="text-left px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Data</th>
+                      <th className="text-left px-6 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Nome</th>
+                      <th className="text-left px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Parentesco</th>
+                      <th className="text-left px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Género</th>
+                      <th className="text-left px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Data Nasc.</th>
+                      <th className="text-center px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Idade</th>
+                      <th className="text-left px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Escolaridade</th>
+                      <th className="text-left px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Ocupação</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {farmer.purchases.length === 0 ? (
-                      <tr><td colSpan={8} className="px-6 py-8 text-center text-muted-foreground">Nenhuma compra registada</td></tr>
-                    ) : farmer.purchases.map((c: any) => (
-                      <tr key={c.id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
-                        <td className="px-6 py-3 font-mono text-xs text-muted-foreground">{c.id}</td>
-                        <td className="px-4 py-3 text-muted-foreground">{c.empresa}</td>
-                        <td className="px-4 py-3 text-xs max-w-[180px] truncate">{c.items}</td>
-                        <td className="px-4 py-3 text-right font-semibold">{c.total}</td>
-                        <td className="px-4 py-3 text-center"><span className="text-xs font-medium px-2 py-1 rounded bg-accent text-accent-foreground">{c.subsidio}</span></td>
-                        <td className="px-4 py-3 text-right font-semibold text-primary">{c.valorPagar}</td>
-                        <td className="px-4 py-3"><span className={c.status === "Entregue" ? "badge-active" : c.status === "Rejeitada" ? "badge-suspended" : "badge-pending"}>{c.status}</span></td>
-                        <td className="px-4 py-3 text-muted-foreground text-xs">{c.date}</td>
+                    {(!farmer.dependentes || farmer.dependentes.length === 0) ? (
+                      <tr><td colSpan={7} className="px-6 py-8 text-center text-muted-foreground">Nenhum dependente registado</td></tr>
+                    ) : farmer.dependentes.map((d: any, i: number) => (
+                      <tr key={i} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
+                        <td className="px-6 py-3">
+                          <div className="flex items-center gap-3">
+                            <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                              <User className="h-4 w-4 text-primary" />
+                            </div>
+                            <span className="font-medium">{d.name}</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">{d.relationship}</td>
+                        <td className="px-4 py-3 text-muted-foreground">{d.gender}</td>
+                        <td className="px-4 py-3 text-muted-foreground text-xs">{d.birthDate}</td>
+                        <td className="px-4 py-3 text-center font-semibold">{d.age}</td>
+                        <td className="px-4 py-3 text-muted-foreground">{d.education}</td>
+                        <td className="px-4 py-3 text-muted-foreground">{d.occupation}</td>
                       </tr>
                     ))}
                   </tbody>
