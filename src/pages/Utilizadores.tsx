@@ -1,36 +1,187 @@
 import { motion } from "framer-motion";
-import { Plus, Search, User, Shield } from "lucide-react";
+import { Plus, Search, User, Shield, MapPin, Trash2, Loader2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
+import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useState, useEffect, useCallback } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/hooks/use-toast";
+import type { Database } from "@/integrations/supabase/types";
 
-const utilizadores = [
-  { id: 1, name: "Joaquim Manuel", email: "jm@mwangoclick.ao", role: "Administrador", province: "Benguela", status: "Disponível", lastLogin: "12/02/2026" },
-  { id: 2, name: "Ana Pereira", email: "ana.pereira@mosap3.ao", role: "Extensionista", province: "Huila", status: "Disponível", lastLogin: "11/02/2026" },
-  { id: 3, name: "José Fernandes", email: "jose.f@mosap3.ao", role: "Extensionista", province: "Benguela", status: "Indisponível", lastLogin: "09/02/2026" },
-  { id: 4, name: "Maria Santos", email: "maria.s@mosap3.ao", role: "Supervisor", province: "Namibe", status: "Disponível", lastLogin: "12/02/2026" },
-  { id: 5, name: "Carlos Dias", email: "carlos.d@mosap3.ao", role: "Fornecedor", province: "Cuando Cubango", status: "Disponível", lastLogin: "10/02/2026" },
+type AppRole = Database["public"]["Enums"]["app_role"];
+
+const ROLE_LABELS: Record<AppRole, string> = {
+  admin: "Administrador",
+  gestor_incentivos: "Gestor de Incentivos",
+  senior_agricultura: "Sénior Agricultura",
+  senior_monitoria: "Sénior Monitoria",
+  junior_monitoria: "Júnior Monitoria",
+  junior_agricultura: "Júnior Agricultura",
+  senior_agronegocio: "Sénior Agronegócio",
+  junior_agronegocio: "Júnior Agronegócio",
+  tecnico_extensionista: "Técnico Extensionista",
+};
+
+const PROVINCES = [
+  "Bengo", "Benguela", "Bié", "Cabinda", "Cuando Cubango",
+  "Cuanza Norte", "Cuanza Sul", "Cunene", "Huambo", "Huíla",
+  "Luanda", "Lunda Norte", "Lunda Sul", "Malanje", "Moxico",
+  "Namibe", "Uíge", "Zaire",
 ];
+
+interface UserRow {
+  id: string;
+  user_id: string;
+  full_name: string;
+  phone: string | null;
+  roles: AppRole[];
+  provinces: string[];
+}
 
 const Utilizadores = () => {
   const [search, setSearch] = useState("");
-  const filtered = utilizadores.filter((u) =>
-    u.name.toLowerCase().includes(search.toLowerCase()) ||
-    u.email.toLowerCase().includes(search.toLowerCase())
+  const [users, setUsers] = useState<UserRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedUser, setSelectedUser] = useState<UserRow | null>(null);
+  const [roleDialogOpen, setRoleDialogOpen] = useState(false);
+  const [provinceDialogOpen, setProvinceDialogOpen] = useState(false);
+  const [newRole, setNewRole] = useState<AppRole | "">("");
+  const [newProvince, setNewProvince] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const fetchUsers = useCallback(async () => {
+    setLoading(true);
+    try {
+      const { data: profiles, error: pErr } = await supabase
+        .from("profiles")
+        .select("*");
+      if (pErr) throw pErr;
+
+      const { data: roles, error: rErr } = await supabase
+        .from("user_roles")
+        .select("*");
+      if (rErr) throw rErr;
+
+      const { data: provinces, error: prErr } = await supabase
+        .from("user_provinces")
+        .select("*");
+      if (prErr) throw prErr;
+
+      const merged: UserRow[] = (profiles || []).map((p) => ({
+        id: p.id,
+        user_id: p.user_id,
+        full_name: p.full_name,
+        phone: p.phone,
+        roles: (roles || []).filter((r) => r.user_id === p.user_id).map((r) => r.role),
+        provinces: (provinces || []).filter((pr) => pr.user_id === p.user_id).map((pr) => pr.province),
+      }));
+
+      setUsers(merged);
+    } catch (err: any) {
+      toast({ title: "Erro ao carregar utilizadores", description: err.message, variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
+
+  const filtered = users.filter(
+    (u) =>
+      u.full_name.toLowerCase().includes(search.toLowerCase()) ||
+      (u.phone || "").includes(search)
   );
+
+  const addRole = async () => {
+    if (!selectedUser || !newRole) return;
+    if (selectedUser.roles.includes(newRole as AppRole)) {
+      toast({ title: "Este utilizador já tem este perfil", variant: "destructive" });
+      return;
+    }
+    setSaving(true);
+    const { error } = await supabase.from("user_roles").insert({
+      user_id: selectedUser.user_id,
+      role: newRole as AppRole,
+    });
+    setSaving(false);
+    if (error) {
+      toast({ title: "Erro ao atribuir perfil", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Perfil atribuído com sucesso" });
+      setNewRole("");
+      setRoleDialogOpen(false);
+      fetchUsers();
+    }
+  };
+
+  const removeRole = async (userId: string, role: AppRole) => {
+    setSaving(true);
+    const { error } = await supabase
+      .from("user_roles")
+      .delete()
+      .eq("user_id", userId)
+      .eq("role", role);
+    setSaving(false);
+    if (error) {
+      toast({ title: "Erro ao remover perfil", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Perfil removido" });
+      fetchUsers();
+    }
+  };
+
+  const addProvince = async () => {
+    if (!selectedUser || !newProvince) return;
+    if (selectedUser.provinces.includes(newProvince)) {
+      toast({ title: "Esta província já está atribuída", variant: "destructive" });
+      return;
+    }
+    setSaving(true);
+    const { error } = await supabase.from("user_provinces").insert({
+      user_id: selectedUser.user_id,
+      province: newProvince,
+    });
+    setSaving(false);
+    if (error) {
+      toast({ title: "Erro ao atribuir província", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Província atribuída com sucesso" });
+      setNewProvince("");
+      setProvinceDialogOpen(false);
+      fetchUsers();
+    }
+  };
+
+  const removeProvince = async (userId: string, province: string) => {
+    setSaving(true);
+    const { error } = await supabase
+      .from("user_provinces")
+      .delete()
+      .eq("user_id", userId)
+      .eq("province", province);
+    setSaving(false);
+    if (error) {
+      toast({ title: "Erro ao remover província", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Província removida" });
+      fetchUsers();
+    }
+  };
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="page-title">Utilizadores</h1>
-          <p className="text-muted-foreground text-sm mt-1">Gestão de utilizadores do sistema</p>
+          <p className="text-muted-foreground text-sm mt-1">
+            Gestão de utilizadores, perfis e províncias
+          </p>
         </div>
-        <Button className="gap-2">
-          <Plus className="h-4 w-4" />
-          Novo Utilizador
-        </Button>
       </div>
 
       <div className="max-w-sm">
@@ -41,53 +192,156 @@ const Utilizadores = () => {
         />
       </div>
 
-      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
-        <Card className="p-0 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border bg-muted/50">
-                  <th className="text-left px-6 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Utilizador</th>
-                  <th className="text-left px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Perfil</th>
-                  <th className="text-left px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Província</th>
-                  <th className="text-left px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Estado</th>
-                  <th className="text-left px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Último Login</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((u) => (
-                  <tr key={u.id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
-                    <td className="px-6 py-3">
-                      <div className="flex items-center gap-3">
-                        <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center">
-                          <User className="h-4 w-4 text-primary" />
-                        </div>
-                        <div>
-                          <p className="font-medium">{u.name}</p>
-                          <p className="text-xs text-muted-foreground">{u.email}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-1.5">
-                        <Shield className="h-3.5 w-3.5 text-muted-foreground" />
-                        <span className="text-sm">{u.role}</span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground">{u.province}</td>
-                    <td className="px-4 py-3">
-                      <span className={u.status === "Disponível" ? "badge-active" : "badge-suspended"}>
-                        {u.status}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground text-xs">{u.lastLogin}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+      {loading ? (
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      ) : filtered.length === 0 ? (
+        <Card className="p-10 text-center text-muted-foreground">
+          Nenhum utilizador encontrado. Os utilizadores aparecem após registo no sistema.
         </Card>
-      </motion.div>
+      ) : (
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+          <div className="grid gap-4">
+            {filtered.map((u) => (
+              <Card key={u.id} className="p-5">
+                <div className="flex flex-col md:flex-row md:items-start gap-4">
+                  {/* User info */}
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                      <User className="h-5 w-5 text-primary" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-semibold truncate">{u.full_name || "Sem nome"}</p>
+                      <p className="text-xs text-muted-foreground">{u.phone || "Sem telefone"}</p>
+                    </div>
+                  </div>
+
+                  {/* Roles */}
+                  <div className="flex-1 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Shield className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Perfis</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {u.roles.length === 0 && (
+                        <span className="text-xs text-muted-foreground italic">Nenhum perfil</span>
+                      )}
+                      {u.roles.map((role) => (
+                        <Badge key={role} variant="secondary" className="gap-1 pr-1">
+                          {ROLE_LABELS[role]}
+                          <button
+                            onClick={() => removeRole(u.user_id, role)}
+                            className="ml-1 hover:text-destructive transition-colors"
+                            title="Remover perfil"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </button>
+                        </Badge>
+                      ))}
+                      <Dialog
+                        open={roleDialogOpen && selectedUser?.id === u.id}
+                        onOpenChange={(open) => {
+                          setRoleDialogOpen(open);
+                          if (open) setSelectedUser(u);
+                        }}
+                      >
+                        <DialogTrigger asChild>
+                          <Button variant="outline" size="sm" className="h-6 px-2 text-xs gap-1">
+                            <Plus className="h-3 w-3" /> Perfil
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent>
+                          <DialogHeader>
+                            <DialogTitle>Atribuir Perfil a {u.full_name}</DialogTitle>
+                          </DialogHeader>
+                          <div className="space-y-4 pt-2">
+                            <Select value={newRole} onValueChange={(v) => setNewRole(v as AppRole)}>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Selecione um perfil..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {(Object.entries(ROLE_LABELS) as [AppRole, string][]).map(([key, label]) => (
+                                  <SelectItem key={key} value={key} disabled={u.roles.includes(key)}>
+                                    {label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <Button onClick={addRole} disabled={!newRole || saving} className="w-full">
+                              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Atribuir Perfil"}
+                            </Button>
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+                    </div>
+                  </div>
+
+                  {/* Provinces */}
+                  <div className="flex-1 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <MapPin className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Províncias</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {u.provinces.length === 0 && (
+                        <span className="text-xs text-muted-foreground italic">Nenhuma província</span>
+                      )}
+                      {u.provinces.map((prov) => (
+                        <Badge key={prov} variant="outline" className="gap-1 pr-1">
+                          {prov}
+                          <button
+                            onClick={() => removeProvince(u.user_id, prov)}
+                            className="ml-1 hover:text-destructive transition-colors"
+                            title="Remover província"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </button>
+                        </Badge>
+                      ))}
+                      <Dialog
+                        open={provinceDialogOpen && selectedUser?.id === u.id}
+                        onOpenChange={(open) => {
+                          setProvinceDialogOpen(open);
+                          if (open) setSelectedUser(u);
+                        }}
+                      >
+                        <DialogTrigger asChild>
+                          <Button variant="outline" size="sm" className="h-6 px-2 text-xs gap-1">
+                            <Plus className="h-3 w-3" /> Província
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent>
+                          <DialogHeader>
+                            <DialogTitle>Atribuir Província a {u.full_name}</DialogTitle>
+                          </DialogHeader>
+                          <div className="space-y-4 pt-2">
+                            <Select value={newProvince} onValueChange={setNewProvince}>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Selecione uma província..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {PROVINCES.map((prov) => (
+                                  <SelectItem key={prov} value={prov} disabled={u.provinces.includes(prov)}>
+                                    {prov}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <Button onClick={addProvince} disabled={!newProvince || saving} className="w-full">
+                              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Atribuir Província"}
+                            </Button>
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </motion.div>
+      )}
     </div>
   );
 };
