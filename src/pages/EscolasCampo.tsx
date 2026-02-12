@@ -1,17 +1,18 @@
 import { motion } from "framer-motion";
 import { Plus, MapPin, Users, User } from "lucide-react";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 
 const schools = [
-  { name: "EC Caimbambo", province: "Benguela", municipality: "Caimbambo", village: "Aldeia Saca", technician: "José Fernandes", farmers: 45, status: "Ativa" },
-  { name: "EC Longonjo", province: "Huambo", municipality: "Longonjo", village: "Aldeia Chiva", technician: "Ana Pereira", farmers: 38, status: "Ativa" },
-  { name: "EC Cuemba", province: "Bié", municipality: "Cuemba", village: "Aldeia Soqui", technician: "Manuel Costa", farmers: 52, status: "Ativa" },
-  { name: "EC Lobito", province: "Benguela", municipality: "Lobito", village: "Aldeia Hanha", technician: "Teresa Luís", farmers: 31, status: "Ativa" },
-  { name: "EC Bailundo", province: "Huambo", municipality: "Bailundo", village: "Aldeia Bimbe", technician: "Carlos Dias", farmers: 27, status: "Inativa" },
-  { name: "EC Lubango", province: "Huíla", municipality: "Lubango", village: "Aldeia Chibia", technician: "Isabel Santos", farmers: 41, status: "Ativa" },
-  { name: "EC Ganda", province: "Benguela", municipality: "Ganda", village: "Aldeia Ebanga", technician: "Francisco Miguel", farmers: 36, status: "Ativa" },
-  { name: "EC Cacuso", province: "Malanje", municipality: "Cacuso", village: "Aldeia Pungo", technician: "Rita Domingos", farmers: 29, status: "Ativa" },
+  { name: "EC Caimbambo", id: "ec-caimbambo", province: "Benguela", municipality: "Caimbambo", village: "Aldeia Saca", technician: "José Fernandes", farmers: 45, status: "Ativa" },
+  { name: "EC Longonjo", id: "ec-longonjo", province: "Huambo", municipality: "Longonjo", village: "Aldeia Chiva", technician: "Ana Pereira", farmers: 38, status: "Ativa" },
+  { name: "EC Cuemba", id: "ec-cuemba", province: "Bié", municipality: "Cuemba", village: "Aldeia Soqui", technician: "Manuel Costa", farmers: 52, status: "Ativa" },
+  { name: "EC Lobito", id: "ec-lobito", province: "Benguela", municipality: "Lobito", village: "Aldeia Hanha", technician: "Teresa Luís", farmers: 31, status: "Ativa" },
+  { name: "EC Bailundo", id: "ec-bailundo", province: "Huambo", municipality: "Bailundo", village: "Aldeia Bimbe", technician: "Carlos Dias", farmers: 27, status: "Inativa" },
+  { name: "EC Lubango", id: "ec-lubango", province: "Huíla", municipality: "Lubango", village: "Aldeia Chibia", technician: "Isabel Santos", farmers: 41, status: "Ativa" },
+  { name: "EC Ganda", id: "ec-ganda", province: "Benguela", municipality: "Ganda", village: "Aldeia Ebanga", technician: "Francisco Miguel", farmers: 36, status: "Ativa" },
+  { name: "EC Cacuso", id: "ec-cacuso", province: "Malanje", municipality: "Cacuso", village: "Aldeia Pungo", technician: "Rita Domingos", farmers: 29, status: "Ativa" },
 ];
 
 const EscolasCampo = () => {
@@ -36,6 +37,7 @@ const EscolasCampo = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.05 }}
           >
+            <Link to={`/escolas/${school.id}`}>
             <Card className="p-5 hover:shadow-md transition-shadow cursor-pointer">
               <div className="flex items-start justify-between mb-3">
                 <div>
@@ -62,6 +64,7 @@ const EscolasCampo = () => {
               </div>
               <p className="text-xs text-muted-foreground mt-2">{school.province}</p>
             </Card>
+            </Link>
           </motion.div>
         ))}
       </div>
