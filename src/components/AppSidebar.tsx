@@ -12,6 +12,8 @@ import {
   ChevronDown,
   ChevronUp,
   UserPlus,
+  School,
+  Wheat,
 } from "lucide-react";
 import mosapLogo from "@/assets/mosap3-logo.png";
 
@@ -31,8 +33,10 @@ const navItems: NavItem[] = [
       { label: "Registo do Pequeno Produtor", path: "/agricultores", icon: UserPlus },
     ],
   },
+  { icon: School, label: "Escolas de Campo", path: "/escolas" },
   { icon: Building2, label: "Empresas", path: "/empresas" },
   { icon: ArrowLeftRight, label: "Transações", path: "/transacoes" },
+  { icon: Wheat, label: "Produção", path: "/producao" },
   {
     icon: UserCog,
     label: "Utilizadores",
