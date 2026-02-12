@@ -3,6 +3,7 @@ import AppNavbar, { navItems, NavItem } from "./AppNavbar";
 import OnlineStatusBanner from "./OnlineStatusBanner";
 import { useAuth } from "@/hooks/useAuth";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { Separator } from "@/components/ui/separator";
 
 const AppLayout = () => {
   const location = useLocation();
@@ -26,42 +27,47 @@ const AppLayout = () => {
       <OnlineStatusBanner />
       <AppNavbar />
       <div className="flex">
-        {/* Mini sidebar */}
+        {/* Sidebar with labels and submenus */}
         {!isMobile && sidebarItems.length > 0 && (
-          <aside className="w-14 flex-shrink-0 border-r border-border bg-card sticky top-14 h-[calc(100vh-3.5rem)] flex flex-col items-center py-3 gap-1">
-            {sidebarItems.map((item) => {
-              if (item.children) {
-                const active = isChildActive(item);
-                return item.children.map((child) => (
+          <aside className="w-48 flex-shrink-0 border-r border-border bg-card sticky top-14 h-[calc(100vh-3.5rem)] flex flex-col py-3 px-2 gap-0.5 overflow-y-auto">
+            {sidebarItems.map((item, idx) => (
+              <div key={item.label}>
+                {idx > 0 && <Separator className="my-2" />}
+                {item.children ? (
+                  <>
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-2 mb-1">
+                      {item.label}
+                    </p>
+                    {item.children.map((child) => (
+                      <Link
+                        key={child.path}
+                        to={child.path}
+                        className={`flex items-center gap-2 px-2 py-2 rounded-md text-sm transition-colors ${
+                          location.pathname === child.path
+                            ? "bg-primary text-primary-foreground font-medium"
+                            : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                        }`}
+                      >
+                        {child.icon ? <child.icon className="h-4 w-4 flex-shrink-0" /> : <item.icon className="h-4 w-4 flex-shrink-0" />}
+                        <span className="truncate">{child.label}</span>
+                      </Link>
+                    ))}
+                  </>
+                ) : (
                   <Link
-                    key={child.path}
-                    to={child.path}
-                    title={child.label}
-                    className={`flex items-center justify-center w-10 h-10 rounded-lg transition-colors ${
-                      location.pathname === child.path
-                        ? "bg-primary text-primary-foreground"
+                    to={item.path!}
+                    className={`flex items-center gap-2 px-2 py-2 rounded-md text-sm transition-colors ${
+                      isActive(item.path)
+                        ? "bg-primary text-primary-foreground font-medium"
                         : "text-muted-foreground hover:bg-muted hover:text-foreground"
                     }`}
                   >
-                    {child.icon ? <child.icon className="h-5 w-5" /> : <item.icon className="h-5 w-5" />}
+                    <item.icon className="h-4 w-4 flex-shrink-0" />
+                    <span className="truncate">{item.label}</span>
                   </Link>
-                ));
-              }
-              return (
-                <Link
-                  key={item.path}
-                  to={item.path!}
-                  title={item.label}
-                  className={`flex items-center justify-center w-10 h-10 rounded-lg transition-colors ${
-                    isActive(item.path)
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                  }`}
-                >
-                  <item.icon className="h-5 w-5" />
-                </Link>
-              );
-            })}
+                )}
+              </div>
+            ))}
           </aside>
         )}
         <main className="flex-1 p-4 md:p-6 pt-2 min-w-0">
