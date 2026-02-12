@@ -1,13 +1,21 @@
 import { useParams, Link } from "react-router-dom";
+import { useState } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, MapPin, User, Users, Sprout, Droplets, Sun, Wheat, CheckCircle2, AlertTriangle } from "lucide-react";
+import { ArrowLeft, MapPin, User, Users, Sprout, Droplets, Sun, Wheat, CheckCircle2, AlertTriangle, Plus, ClipboardEdit, AlertCircle, Camera, X, Send, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { getSchoolById, phaseOrder, type ProductionPhase } from "@/data/escolasData";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { getSchoolById, phaseOrder, type ProductionPhase, type FarmerTracking } from "@/data/escolasData";
+import { toast } from "@/hooks/use-toast";
 
 const phaseIcons: Record<ProductionPhase, any> = {
   "Preparação": Sprout,
@@ -38,9 +46,52 @@ const statusIcon = (status: string) => {
   return <CheckCircle2 className="h-4 w-4 text-primary" />;
 };
 
+type PhaseLog = {
+  farmerId: string;
+  farmerName: string;
+  phase: ProductionPhase;
+  date: string;
+  observations: string;
+  techNote: string;
+  hasIssue: boolean;
+  issueType?: string;
+  issueDescription?: string;
+  issueSeverity?: string;
+  photos: string[];
+};
+
 const EscolaDetalhe = () => {
   const { id } = useParams();
   const school = id ? getSchoolById(id) : null;
+
+  const [phaseDialogOpen, setPhaseDialogOpen] = useState(false);
+  const [issueDialogOpen, setIssueDialogOpen] = useState(false);
+  const [selectedFarmer, setSelectedFarmer] = useState<FarmerTracking | null>(null);
+
+  // Phase update form
+  const [phaseForm, setPhaseForm] = useState({
+    phase: "" as string,
+    date: new Date().toISOString().split("T")[0],
+    observations: "",
+    techNote: "",
+    hasIssue: false,
+    issueType: "",
+    issueDescription: "",
+    issueSeverity: "Baixa",
+  });
+
+  // Issue report form
+  const [issueForm, setIssueForm] = useState({
+    type: "",
+    severity: "Média",
+    description: "",
+    affectedArea: "",
+    actionTaken: "",
+    needsSupport: false,
+  });
+
+  // Phase logs
+  const [phaseLogs, setPhaseLogs] = useState<PhaseLog[]>([]);
 
   if (!school) {
     return (
@@ -61,6 +112,93 @@ const EscolaDetalhe = () => {
   const atrasados = school.farmers.filter((f) => f.status === "Atrasado").length;
   const concluidos = school.farmers.filter((f) => f.status === "Concluído").length;
   const noPrazo = school.farmers.filter((f) => f.status === "No Prazo").length;
+
+  const openPhaseDialog = (farmer: FarmerTracking) => {
+    setSelectedFarmer(farmer);
+    const nextPhaseIdx = phaseOrder.indexOf(farmer.currentPhase) + 1;
+    const nextPhase = nextPhaseIdx < phaseOrder.length ? phaseOrder[nextPhaseIdx] : farmer.currentPhase;
+    setPhaseForm({
+      phase: nextPhase,
+      date: new Date().toISOString().split("T")[0],
+      observations: "",
+      techNote: "",
+      hasIssue: false,
+      issueType: "",
+      issueDescription: "",
+      issueSeverity: "Baixa",
+    });
+    setPhaseDialogOpen(true);
+  };
+
+  const openIssueDialog = (farmer: FarmerTracking) => {
+    setSelectedFarmer(farmer);
+    setIssueForm({
+      type: "",
+      severity: "Média",
+      description: "",
+      affectedArea: "",
+      actionTaken: "",
+      needsSupport: false,
+    });
+    setIssueDialogOpen(true);
+  };
+
+  const submitPhaseUpdate = () => {
+    if (!selectedFarmer || !phaseForm.phase || !phaseForm.observations) {
+      toast({ title: "Campos obrigatórios", description: "Preencha a fase, data e observações.", variant: "destructive" });
+      return;
+    }
+
+    const newLog: PhaseLog = {
+      farmerId: selectedFarmer.id,
+      farmerName: selectedFarmer.name,
+      phase: phaseForm.phase as ProductionPhase,
+      date: phaseForm.date,
+      observations: phaseForm.observations,
+      techNote: phaseForm.techNote,
+      hasIssue: phaseForm.hasIssue,
+      issueType: phaseForm.issueType,
+      issueDescription: phaseForm.issueDescription,
+      issueSeverity: phaseForm.issueSeverity,
+      photos: [],
+    };
+
+    setPhaseLogs((prev) => [newLog, ...prev]);
+    setPhaseDialogOpen(false);
+    toast({
+      title: "Fase actualizada",
+      description: `${selectedFarmer.name} — ${phaseForm.phase} registada com sucesso.`,
+    });
+  };
+
+  const submitIssueReport = () => {
+    if (!selectedFarmer || !issueForm.type || !issueForm.description) {
+      toast({ title: "Campos obrigatórios", description: "Preencha o tipo de problema e descrição.", variant: "destructive" });
+      return;
+    }
+
+    const newLog: PhaseLog = {
+      farmerId: selectedFarmer.id,
+      farmerName: selectedFarmer.name,
+      phase: selectedFarmer.currentPhase,
+      date: new Date().toISOString().split("T")[0],
+      observations: `PROBLEMA: ${issueForm.type}`,
+      techNote: issueForm.actionTaken || "",
+      hasIssue: true,
+      issueType: issueForm.type,
+      issueDescription: issueForm.description,
+      issueSeverity: issueForm.severity,
+      photos: [],
+    };
+
+    setPhaseLogs((prev) => [newLog, ...prev]);
+    setIssueDialogOpen(false);
+    toast({
+      title: "Problema reportado",
+      description: `Problema reportado para ${selectedFarmer.name} — ${issueForm.type}`,
+      variant: "destructive",
+    });
+  };
 
   return (
     <div className="space-y-6">
@@ -112,15 +250,19 @@ const EscolaDetalhe = () => {
       <Tabs defaultValue="acompanhamento">
         <TabsList>
           <TabsTrigger value="acompanhamento">Acompanhamento</TabsTrigger>
+          <TabsTrigger value="registos">Registos do Técnico ({phaseLogs.length})</TabsTrigger>
           <TabsTrigger value="visitas">Visitas</TabsTrigger>
           <TabsTrigger value="resumo">Resumo</TabsTrigger>
         </TabsList>
 
+        {/* Acompanhamento Tab */}
         <TabsContent value="acompanhamento" className="space-y-4">
-          <div className="flex items-center gap-3 text-sm">
-            <Badge variant="outline" className="gap-1"><CheckCircle2 className="h-3 w-3 text-green-600" />{noPrazo} No Prazo</Badge>
-            <Badge variant="outline" className="gap-1"><AlertTriangle className="h-3 w-3 text-yellow-600" />{atrasados} Atrasados</Badge>
-            <Badge variant="outline" className="gap-1"><CheckCircle2 className="h-3 w-3 text-primary" />{concluidos} Concluídos</Badge>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3 text-sm">
+              <Badge variant="outline" className="gap-1"><CheckCircle2 className="h-3 w-3 text-green-600" />{noPrazo} No Prazo</Badge>
+              <Badge variant="outline" className="gap-1"><AlertTriangle className="h-3 w-3 text-yellow-600" />{atrasados} Atrasados</Badge>
+              <Badge variant="outline" className="gap-1"><CheckCircle2 className="h-3 w-3 text-primary" />{concluidos} Concluídos</Badge>
+            </div>
           </div>
           <div className="rounded-md border overflow-x-auto">
             <Table>
@@ -133,8 +275,8 @@ const EscolaDetalhe = () => {
                   <TableHead>Progresso</TableHead>
                   <TableHead>Estado</TableHead>
                   <TableHead>Visitas</TableHead>
-                  <TableHead>Última Visita</TableHead>
                   <TableHead>Observações</TableHead>
+                  <TableHead className="text-center">Acções</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -158,8 +300,19 @@ const EscolaDetalhe = () => {
                       <div className="flex items-center gap-1">{statusIcon(farmer.status)}<span className="text-xs">{farmer.status}</span></div>
                     </TableCell>
                     <TableCell className="text-center">{farmer.visits}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground">{farmer.lastVisit}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground max-w-[200px] truncate">{farmer.notes}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground max-w-[180px] truncate">{farmer.notes}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1 justify-center">
+                        <Button size="sm" variant="outline" className="h-8 gap-1 text-xs" onClick={() => openPhaseDialog(farmer)}>
+                          <ClipboardEdit className="h-3.5 w-3.5" />
+                          Fase
+                        </Button>
+                        <Button size="sm" variant="outline" className="h-8 gap-1 text-xs border-destructive/40 text-destructive hover:bg-destructive/10" onClick={() => openIssueDialog(farmer)}>
+                          <AlertCircle className="h-3.5 w-3.5" />
+                          Problema
+                        </Button>
+                      </div>
+                    </TableCell>
                   </motion.tr>
                 ))}
               </TableBody>
@@ -167,6 +320,52 @@ const EscolaDetalhe = () => {
           </div>
         </TabsContent>
 
+        {/* Registos do Técnico Tab */}
+        <TabsContent value="registos" className="space-y-4">
+          {phaseLogs.length === 0 ? (
+            <Card className="p-12 text-center">
+              <FileText className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+              <p className="font-medium">Nenhum registo do técnico</p>
+              <p className="text-sm text-muted-foreground mt-1">Use os botões "Fase" ou "Problema" na tab Acompanhamento para registar informações.</p>
+            </Card>
+          ) : (
+            <div className="space-y-3">
+              {phaseLogs.map((log, i) => (
+                <motion.div key={i} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
+                  <Card className={`p-4 ${log.hasIssue ? "border-destructive/30" : ""}`}>
+                    <div className="flex items-start gap-3">
+                      <div className={`h-9 w-9 rounded-full flex items-center justify-center flex-shrink-0 ${log.hasIssue ? "bg-destructive/10" : phaseColors[log.phase]}`}>
+                        {log.hasIssue ? <AlertCircle className="h-4 w-4 text-destructive" /> : (() => { const Icon = phaseIcons[log.phase]; return <Icon className="h-4 w-4" />; })()}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-semibold text-sm">{log.farmerName}</span>
+                          {log.hasIssue ? (
+                            <Badge variant="destructive" className="text-xs">{log.issueType}</Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-xs">{log.phase}</Badge>
+                          )}
+                          {log.hasIssue && log.issueSeverity && (
+                            <Badge variant={log.issueSeverity === "Alta" || log.issueSeverity === "Crítica" ? "destructive" : "secondary"} className="text-xs">
+                              {log.issueSeverity}
+                            </Badge>
+                          )}
+                          <span className="text-xs text-muted-foreground">{log.date}</span>
+                        </div>
+                        <p className="text-sm text-muted-foreground mt-1">{log.hasIssue ? log.issueDescription : log.observations}</p>
+                        {log.techNote && (
+                          <p className="text-xs mt-1 flex items-center gap-1"><FileText className="h-3 w-3 text-primary" /><span className="text-primary font-medium">Nota:</span> {log.techNote}</p>
+                        )}
+                      </div>
+                    </div>
+                  </Card>
+                </motion.div>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        {/* Visitas Tab */}
         <TabsContent value="visitas" className="space-y-4">
           <div className="rounded-md border overflow-x-auto">
             <Table>
@@ -196,6 +395,7 @@ const EscolaDetalhe = () => {
           </div>
         </TabsContent>
 
+        {/* Resumo Tab */}
         <TabsContent value="resumo" className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Card>
@@ -239,6 +439,269 @@ const EscolaDetalhe = () => {
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* Dialog: Actualizar Fase de Produção */}
+      <Dialog open={phaseDialogOpen} onOpenChange={setPhaseDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ClipboardEdit className="h-5 w-5 text-primary" />
+              Actualizar Fase de Produção
+            </DialogTitle>
+          </DialogHeader>
+
+          {selectedFarmer && (
+            <div className="space-y-4">
+              {/* Farmer info */}
+              <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                  <User className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <p className="font-semibold text-sm">{selectedFarmer.name}</p>
+                  <p className="text-xs text-muted-foreground">{selectedFarmer.culture} • {selectedFarmer.area} • Fase actual: {selectedFarmer.currentPhase}</p>
+                </div>
+              </div>
+
+              {/* Phase select */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Nova Fase *</Label>
+                  <Select value={phaseForm.phase} onValueChange={(v) => setPhaseForm((f) => ({ ...f, phase: v }))}>
+                    <SelectTrigger><SelectValue placeholder="Selecionar fase" /></SelectTrigger>
+                    <SelectContent>
+                      {phaseOrder.map((p) => (
+                        <SelectItem key={p} value={p}>{p}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Data *</Label>
+                  <Input type="date" value={phaseForm.date} onChange={(e) => setPhaseForm((f) => ({ ...f, date: e.target.value }))} />
+                </div>
+              </div>
+
+              {/* Observations */}
+              <div className="space-y-2">
+                <Label>Observações do campo *</Label>
+                <Textarea
+                  placeholder="Descreva o estado actual da cultura, condições do terreno, etc."
+                  value={phaseForm.observations}
+                  onChange={(e) => setPhaseForm((f) => ({ ...f, observations: e.target.value }))}
+                  rows={3}
+                />
+              </div>
+
+              {/* Tech note */}
+              <div className="space-y-2">
+                <Label>Nota técnica / Recomendação</Label>
+                <Textarea
+                  placeholder="Recomendações técnicas para o produtor..."
+                  value={phaseForm.techNote}
+                  onChange={(e) => setPhaseForm((f) => ({ ...f, techNote: e.target.value }))}
+                  rows={2}
+                />
+              </div>
+
+              {/* Issue checkbox */}
+              <div className="flex items-center space-x-2 p-3 rounded-lg border border-border">
+                <Checkbox
+                  id="hasIssue"
+                  checked={phaseForm.hasIssue}
+                  onCheckedChange={(checked) => setPhaseForm((f) => ({ ...f, hasIssue: checked === true }))}
+                />
+                <Label htmlFor="hasIssue" className="text-sm cursor-pointer flex items-center gap-1.5">
+                  <AlertTriangle className="h-4 w-4 text-destructive" />
+                  Reportar problema nesta fase
+                </Label>
+              </div>
+
+              {/* Issue details (conditional) */}
+              {phaseForm.hasIssue && (
+                <div className="space-y-3 p-3 rounded-lg border border-destructive/20 bg-destructive/5">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <Label className="text-xs">Tipo de Problema</Label>
+                      <Select value={phaseForm.issueType} onValueChange={(v) => setPhaseForm((f) => ({ ...f, issueType: v }))}>
+                        <SelectTrigger className="h-9"><SelectValue placeholder="Selecionar" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Pragas">Pragas</SelectItem>
+                          <SelectItem value="Doenças">Doenças</SelectItem>
+                          <SelectItem value="Seca">Seca / Falta de água</SelectItem>
+                          <SelectItem value="Inundação">Inundação</SelectItem>
+                          <SelectItem value="Ervas daninhas">Ervas daninhas</SelectItem>
+                          <SelectItem value="Solo pobre">Solo pobre / Nutrientes</SelectItem>
+                          <SelectItem value="Animais">Danos por animais</SelectItem>
+                          <SelectItem value="Vento">Danos por vento</SelectItem>
+                          <SelectItem value="Sementes">Qualidade das sementes</SelectItem>
+                          <SelectItem value="Outro">Outro</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs">Severidade</Label>
+                      <Select value={phaseForm.issueSeverity} onValueChange={(v) => setPhaseForm((f) => ({ ...f, issueSeverity: v }))}>
+                        <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Baixa">Baixa</SelectItem>
+                          <SelectItem value="Média">Média</SelectItem>
+                          <SelectItem value="Alta">Alta</SelectItem>
+                          <SelectItem value="Crítica">Crítica</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-xs">Descrição do problema</Label>
+                    <Textarea
+                      placeholder="Descreva o problema observado em detalhe..."
+                      value={phaseForm.issueDescription}
+                      onChange={(e) => setPhaseForm((f) => ({ ...f, issueDescription: e.target.value }))}
+                      rows={2}
+                      className="text-sm"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Photo placeholder */}
+              <div className="space-y-2">
+                <Label className="text-xs">Fotos (opcional)</Label>
+                <div className="border-2 border-dashed border-border rounded-lg p-4 text-center cursor-pointer hover:border-primary/40 transition-colors">
+                  <Camera className="h-6 w-6 text-muted-foreground mx-auto mb-1" />
+                  <p className="text-xs text-muted-foreground">Clique para anexar fotos do campo</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPhaseDialogOpen(false)}>Cancelar</Button>
+            <Button onClick={submitPhaseUpdate} className="gap-2">
+              <Send className="h-4 w-4" />
+              Registar Fase
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog: Reportar Problema */}
+      <Dialog open={issueDialogOpen} onOpenChange={setIssueDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-destructive" />
+              Reportar Problema na Produção
+            </DialogTitle>
+          </DialogHeader>
+
+          {selectedFarmer && (
+            <div className="space-y-4">
+              {/* Farmer info */}
+              <div className="flex items-center gap-3 p-3 rounded-lg bg-destructive/5 border border-destructive/20">
+                <div className="h-10 w-10 rounded-full bg-destructive/10 flex items-center justify-center">
+                  <User className="h-5 w-5 text-destructive" />
+                </div>
+                <div>
+                  <p className="font-semibold text-sm">{selectedFarmer.name}</p>
+                  <p className="text-xs text-muted-foreground">{selectedFarmer.culture} • {selectedFarmer.area} • Fase: {selectedFarmer.currentPhase}</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Tipo de Problema *</Label>
+                  <Select value={issueForm.type} onValueChange={(v) => setIssueForm((f) => ({ ...f, type: v }))}>
+                    <SelectTrigger><SelectValue placeholder="Selecionar" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Pragas">Pragas</SelectItem>
+                      <SelectItem value="Doenças">Doenças</SelectItem>
+                      <SelectItem value="Seca">Seca / Falta de água</SelectItem>
+                      <SelectItem value="Inundação">Inundação</SelectItem>
+                      <SelectItem value="Ervas daninhas">Ervas daninhas</SelectItem>
+                      <SelectItem value="Solo pobre">Solo pobre / Nutrientes</SelectItem>
+                      <SelectItem value="Danos por animais">Danos por animais</SelectItem>
+                      <SelectItem value="Perda total">Perda total da cultura</SelectItem>
+                      <SelectItem value="Qualidade das sementes">Qualidade das sementes</SelectItem>
+                      <SelectItem value="Outro">Outro</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Severidade *</Label>
+                  <Select value={issueForm.severity} onValueChange={(v) => setIssueForm((f) => ({ ...f, severity: v }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Baixa">Baixa — Impacto mínimo</SelectItem>
+                      <SelectItem value="Média">Média — Redução parcial</SelectItem>
+                      <SelectItem value="Alta">Alta — Risco de perda significativa</SelectItem>
+                      <SelectItem value="Crítica">Crítica — Perda total iminente</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Descrição detalhada do problema *</Label>
+                <Textarea
+                  placeholder="Descreva os sintomas observados, extensão do dano, partes da parcela afectadas..."
+                  value={issueForm.description}
+                  onChange={(e) => setIssueForm((f) => ({ ...f, description: e.target.value }))}
+                  rows={3}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Área afectada (estimativa)</Label>
+                <Input
+                  placeholder="Ex: 30% da parcela, 0.5 ha..."
+                  value={issueForm.affectedArea}
+                  onChange={(e) => setIssueForm((f) => ({ ...f, affectedArea: e.target.value }))}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Acções já tomadas</Label>
+                <Textarea
+                  placeholder="Que medidas foram tomadas pelo produtor ou técnico..."
+                  value={issueForm.actionTaken}
+                  onChange={(e) => setIssueForm((f) => ({ ...f, actionTaken: e.target.value }))}
+                  rows={2}
+                />
+              </div>
+
+              <div className="flex items-center space-x-2 p-3 rounded-lg border border-border">
+                <Checkbox
+                  id="needsSupport"
+                  checked={issueForm.needsSupport}
+                  onCheckedChange={(checked) => setIssueForm((f) => ({ ...f, needsSupport: checked === true }))}
+                />
+                <Label htmlFor="needsSupport" className="text-sm cursor-pointer">
+                  Necessita apoio adicional / intervenção urgente
+                </Label>
+              </div>
+
+              {/* Photo placeholder */}
+              <div className="space-y-2">
+                <Label className="text-xs">Fotos do problema (recomendado)</Label>
+                <div className="border-2 border-dashed border-destructive/30 rounded-lg p-4 text-center cursor-pointer hover:border-destructive/50 transition-colors">
+                  <Camera className="h-6 w-6 text-destructive/60 mx-auto mb-1" />
+                  <p className="text-xs text-muted-foreground">Anexar fotos mostrando o problema</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIssueDialogOpen(false)}>Cancelar</Button>
+            <Button variant="destructive" onClick={submitIssueReport} className="gap-2">
+              <AlertCircle className="h-4 w-4" />
+              Reportar Problema
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
