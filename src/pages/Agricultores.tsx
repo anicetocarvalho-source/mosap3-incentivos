@@ -6,20 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import FarmerRegistrationForm from "@/components/FarmerRegistrationForm";
 
 const farmersData = [
   { id: "AGR-001", name: "João Mateus", bi: "001234567LA042", phone: "923 456 789", province: "Benguela", municipality: "Caimbambo", school: "EC Caimbambo", status: "Ativo", parcels: 2, area: "4.5 ha" },
@@ -49,68 +42,11 @@ const Agricultores = () => {
           <h1 className="page-title">Agricultores</h1>
           <p className="text-muted-foreground text-sm mt-1">Cadastro e gestão de produtores do MOSAP3</p>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="gap-2">
-              <Plus className="h-4 w-4" />
-              Novo Agricultor
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-lg">
-            <DialogHeader>
-              <DialogTitle className="font-heading">Registar Agricultor</DialogTitle>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Nome Completo</Label>
-                  <Input placeholder="Nome do agricultor" />
-                </div>
-                <div className="space-y-2">
-                  <Label>Nº BI</Label>
-                  <Input placeholder="000000000LA000" />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Telefone</Label>
-                  <Input placeholder="9XX XXX XXX" />
-                </div>
-                <div className="space-y-2">
-                  <Label>Província</Label>
-                  <Select>
-                    <SelectTrigger><SelectValue placeholder="Selecionar" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="benguela">Benguela</SelectItem>
-                      <SelectItem value="huambo">Huambo</SelectItem>
-                      <SelectItem value="bie">Bié</SelectItem>
-                      <SelectItem value="huila">Huíla</SelectItem>
-                      <SelectItem value="malanje">Malanje</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Município</Label>
-                  <Input placeholder="Município" />
-                </div>
-                <div className="space-y-2">
-                  <Label>Escola de Campo</Label>
-                  <Select>
-                    <SelectTrigger><SelectValue placeholder="Selecionar" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="ec1">EC Caimbambo</SelectItem>
-                      <SelectItem value="ec2">EC Longonjo</SelectItem>
-                      <SelectItem value="ec3">EC Cuemba</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <Button onClick={() => setDialogOpen(false)}>Registar Agricultor</Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+        <Button className="gap-2" onClick={() => setDialogOpen(true)}>
+          <Plus className="h-4 w-4" />
+          Novo Agricultor
+        </Button>
+        <FarmerRegistrationForm open={dialogOpen} onOpenChange={setDialogOpen} />
       </div>
 
       {/* Filters */}
