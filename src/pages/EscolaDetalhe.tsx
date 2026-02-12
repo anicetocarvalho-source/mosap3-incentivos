@@ -82,6 +82,15 @@ const EscolaDetalhe = () => {
     issueSeverity: "Baixa",
   });
 
+  // New parcel form
+  const [isNewParcel, setIsNewParcel] = useState(false);
+  const [newParcelForm, setNewParcelForm] = useState({
+    area: "",
+    lat: "",
+    lon: "",
+    culture: "",
+  });
+
   // Issue report form
   const [issueForm, setIssueForm] = useState({
     type: "",
@@ -130,6 +139,8 @@ const EscolaDetalhe = () => {
       issueDescription: "",
       issueSeverity: "Baixa",
     });
+    setIsNewParcel(false);
+    setNewParcelForm({ area: "", lat: "", lon: "", culture: "" });
     setPhaseDialogOpen(true);
   };
 
@@ -147,16 +158,43 @@ const EscolaDetalhe = () => {
   };
 
   const submitPhaseUpdate = () => {
-    if (!selectedFarmer || !phaseForm.phase || !phaseForm.observations || !phaseForm.parcel) {
-      toast({ title: "Campos obrigatórios", description: "Preencha a parcela, fase, data e observações.", variant: "destructive" });
+    if (!selectedFarmer || !phaseForm.phase || !phaseForm.observations) {
+      toast({ title: "Campos obrigatórios", description: "Preencha a fase, data e observações.", variant: "destructive" });
       return;
     }
 
-    const selectedParcel = selectedFarmer.parcels.find(p => p.label === phaseForm.parcel);
+    let parcelLabel = phaseForm.parcel;
+    let parcelInfo = "";
+
+    if (isNewParcel) {
+      if (!newParcelForm.area || !newParcelForm.lat || !newParcelForm.lon || !newParcelForm.culture) {
+        toast({ title: "Campos obrigatórios", description: "Preencha todos os campos da nova parcela (dimensão, coordenadas e cultura).", variant: "destructive" });
+        return;
+      }
+      const nextLabel = `P${selectedFarmer.parcels.length + 1}`;
+      parcelLabel = nextLabel;
+      parcelInfo = `${nextLabel} (${newParcelForm.area} — ${newParcelForm.lat}, ${newParcelForm.lon})`;
+      // Add new parcel to farmer's parcels array (in-memory)
+      selectedFarmer.parcels.push({
+        label: nextLabel,
+        area: newParcelForm.area,
+        lat: newParcelForm.lat,
+        lon: newParcelForm.lon,
+        culture: newParcelForm.culture,
+      });
+    } else {
+      if (!phaseForm.parcel) {
+        toast({ title: "Campos obrigatórios", description: "Seleccione uma parcela.", variant: "destructive" });
+        return;
+      }
+      const selectedParcel = selectedFarmer.parcels.find(p => p.label === phaseForm.parcel);
+      parcelInfo = `${phaseForm.parcel} (${selectedParcel?.area || ""} — ${selectedParcel?.lat}, ${selectedParcel?.lon})`;
+    }
+
     const newLog: PhaseLog = {
       farmerId: selectedFarmer.id,
       farmerName: selectedFarmer.name,
-      parcel: `${phaseForm.parcel} (${selectedParcel?.area || ""} — ${selectedParcel?.lat}, ${selectedParcel?.lon})`,
+      parcel: parcelInfo,
       phase: phaseForm.phase as ProductionPhase,
       date: phaseForm.date,
       observations: phaseForm.observations,
@@ -171,8 +209,8 @@ const EscolaDetalhe = () => {
     setPhaseLogs((prev) => [newLog, ...prev]);
     setPhaseDialogOpen(false);
     toast({
-      title: "Fase actualizada",
-      description: `${selectedFarmer.name} — ${phaseForm.phase} registada com sucesso.`,
+      title: isNewParcel ? "Parcela criada e fase registada" : "Fase actualizada",
+      description: `${selectedFarmer.name} — ${parcelLabel} — ${phaseForm.phase} registada com sucesso.`,
     });
   };
 
@@ -474,26 +512,97 @@ const EscolaDetalhe = () => {
               </div>
               {/* Parcel select */}
               <div className="space-y-2">
-                <Label>Parcela *</Label>
-                <Select value={phaseForm.parcel} onValueChange={(v) => setPhaseForm((f) => ({ ...f, parcel: v }))}>
-                  <SelectTrigger><SelectValue placeholder="Selecionar parcela" /></SelectTrigger>
-                  <SelectContent>
-                    {selectedFarmer.parcels.map((p) => (
-                      <SelectItem key={p.label} value={p.label}>
-                        {p.label} — {p.area} ({p.culture})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {phaseForm.parcel && (() => {
-                  const sel = selectedFarmer.parcels.find(p => p.label === phaseForm.parcel);
-                  return sel ? (
-                    <div className="flex items-center gap-3 text-xs text-muted-foreground bg-muted/50 rounded p-2">
-                      <MapPin className="h-3.5 w-3.5 text-primary flex-shrink-0" />
-                      <span><strong>{sel.label}</strong> • {sel.area} • {sel.culture} • GPS: {sel.lat}, {sel.lon}</span>
+                <div className="flex items-center justify-between">
+                  <Label>Parcela *</Label>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 text-xs gap-1"
+                    onClick={() => {
+                      setIsNewParcel(!isNewParcel);
+                      if (!isNewParcel) {
+                        setPhaseForm((f) => ({ ...f, parcel: "" }));
+                      } else {
+                        setNewParcelForm({ area: "", lat: "", lon: "", culture: "" });
+                      }
+                    }}
+                  >
+                    {isNewParcel ? <X className="h-3 w-3" /> : <Plus className="h-3 w-3" />}
+                    {isNewParcel ? "Cancelar" : "Nova Parcela"}
+                  </Button>
+                </div>
+
+                {!isNewParcel ? (
+                  <>
+                    <Select value={phaseForm.parcel} onValueChange={(v) => setPhaseForm((f) => ({ ...f, parcel: v }))}>
+                      <SelectTrigger><SelectValue placeholder="Selecionar parcela" /></SelectTrigger>
+                      <SelectContent>
+                        {selectedFarmer.parcels.map((p) => (
+                          <SelectItem key={p.label} value={p.label}>
+                            {p.label} — {p.area} ({p.culture})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {phaseForm.parcel && (() => {
+                      const sel = selectedFarmer.parcels.find(p => p.label === phaseForm.parcel);
+                      return sel ? (
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground bg-muted/50 rounded p-2">
+                          <MapPin className="h-3.5 w-3.5 text-primary flex-shrink-0" />
+                          <span><strong>{sel.label}</strong> • {sel.area} • {sel.culture} • GPS: {sel.lat}, {sel.lon}</span>
+                        </div>
+                      ) : null;
+                    })()}
+                  </>
+                ) : (
+                  <div className="space-y-3 p-3 rounded-lg border border-primary/20 bg-primary/5">
+                    <div className="flex items-center gap-2 text-sm font-medium text-primary">
+                      <Plus className="h-4 w-4" />
+                      Nova Parcela — P{selectedFarmer.parcels.length + 1}
                     </div>
-                  ) : null;
-                })()}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <Label className="text-xs">Dimensão (ha) *</Label>
+                        <Input
+                          placeholder="Ex: 1.5 ha"
+                          value={newParcelForm.area}
+                          onChange={(e) => setNewParcelForm((f) => ({ ...f, area: e.target.value }))}
+                          className="h-9"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Cultura *</Label>
+                        <Input
+                          placeholder="Ex: Milho"
+                          value={newParcelForm.culture}
+                          onChange={(e) => setNewParcelForm((f) => ({ ...f, culture: e.target.value }))}
+                          className="h-9"
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <Label className="text-xs">Latitude (GPS) *</Label>
+                        <Input
+                          placeholder="Ex: -12.5678"
+                          value={newParcelForm.lat}
+                          onChange={(e) => setNewParcelForm((f) => ({ ...f, lat: e.target.value }))}
+                          className="h-9"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Longitude (GPS) *</Label>
+                        <Input
+                          placeholder="Ex: 14.2345"
+                          value={newParcelForm.lon}
+                          onChange={(e) => setNewParcelForm((f) => ({ ...f, lon: e.target.value }))}
+                          className="h-9"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Phase select */}
