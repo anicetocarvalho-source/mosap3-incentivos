@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Plus, Search, User, Shield, MapPin, Trash2, Loader2 } from "lucide-react";
+import { Plus, Search, User, Shield, MapPin, Trash2, Loader2, School } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -9,9 +9,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { allSchools } from "@/data/escolasData";
 import type { Database } from "@/integrations/supabase/types";
 
 type AppRole = Database["public"]["Enums"]["app_role"];
+
+const ECA_NAMES = allSchools.map((s) => s.name);
 
 const ROLE_LABELS: Record<AppRole, string> = {
   admin: "Administrador",
@@ -39,6 +42,7 @@ interface UserRow {
   phone: string | null;
   roles: AppRole[];
   provinces: string[];
+  ecas: string[];
 }
 
 const Utilizadores = () => {
@@ -48,8 +52,10 @@ const Utilizadores = () => {
   const [selectedUser, setSelectedUser] = useState<UserRow | null>(null);
   const [roleDialogOpen, setRoleDialogOpen] = useState(false);
   const [provinceDialogOpen, setProvinceDialogOpen] = useState(false);
+  const [ecaDialogOpen, setEcaDialogOpen] = useState(false);
   const [newRole, setNewRole] = useState<AppRole | "">("");
   const [newProvince, setNewProvince] = useState("");
+  const [newEca, setNewEca] = useState("");
   const [saving, setSaving] = useState(false);
 
   const fetchUsers = useCallback(async () => {
@@ -70,6 +76,11 @@ const Utilizadores = () => {
         .select("*");
       if (prErr) throw prErr;
 
+      const { data: ecas, error: eErr } = await supabase
+        .from("user_ecas")
+        .select("*");
+      if (eErr) throw eErr;
+
       const merged: UserRow[] = (profiles || []).map((p) => ({
         id: p.id,
         user_id: p.user_id,
@@ -77,6 +88,7 @@ const Utilizadores = () => {
         phone: p.phone,
         roles: (roles || []).filter((r) => r.user_id === p.user_id).map((r) => r.role),
         provinces: (provinces || []).filter((pr) => pr.user_id === p.user_id).map((pr) => pr.province),
+        ecas: (ecas || []).filter((e) => e.user_id === p.user_id).map((e) => e.eca_name),
       }));
 
       setUsers(merged);
@@ -169,6 +181,44 @@ const Utilizadores = () => {
       toast({ title: "Erro ao remover província", description: error.message, variant: "destructive" });
     } else {
       toast({ title: "Província removida" });
+      fetchUsers();
+    }
+  };
+
+  const addEca = async () => {
+    if (!selectedUser || !newEca) return;
+    if (selectedUser.ecas.includes(newEca)) {
+      toast({ title: "Esta ECA já está atribuída", variant: "destructive" });
+      return;
+    }
+    setSaving(true);
+    const { error } = await supabase.from("user_ecas").insert({
+      user_id: selectedUser.user_id,
+      eca_name: newEca,
+    });
+    setSaving(false);
+    if (error) {
+      toast({ title: "Erro ao atribuir ECA", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "ECA atribuída com sucesso" });
+      setNewEca("");
+      setEcaDialogOpen(false);
+      fetchUsers();
+    }
+  };
+
+  const removeEca = async (userId: string, ecaName: string) => {
+    setSaving(true);
+    const { error } = await supabase
+      .from("user_ecas")
+      .delete()
+      .eq("user_id", userId)
+      .eq("eca_name", ecaName);
+    setSaving(false);
+    if (error) {
+      toast({ title: "Erro ao remover ECA", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "ECA removida" });
       fetchUsers();
     }
   };
@@ -336,6 +386,68 @@ const Utilizadores = () => {
                       </Dialog>
                     </div>
                   </div>
+
+                  {/* ECAs - only for tecnico_extensionista */}
+                  {u.roles.includes("tecnico_extensionista") && (
+                    <div className="flex-1 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <School className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">ECAs</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {u.ecas.length === 0 && (
+                          <span className="text-xs text-muted-foreground italic">Nenhuma ECA</span>
+                        )}
+                        {u.ecas.map((eca) => (
+                          <Badge key={eca} className="gap-1 pr-1 bg-accent text-accent-foreground">
+                            {eca}
+                            <button
+                              onClick={() => removeEca(u.user_id, eca)}
+                              className="ml-1 hover:text-destructive transition-colors"
+                              title="Remover ECA"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </button>
+                          </Badge>
+                        ))}
+                        <Dialog
+                          open={ecaDialogOpen && selectedUser?.id === u.id}
+                          onOpenChange={(open) => {
+                            setEcaDialogOpen(open);
+                            if (open) setSelectedUser(u);
+                          }}
+                        >
+                          <DialogTrigger asChild>
+                            <Button variant="outline" size="sm" className="h-6 px-2 text-xs gap-1">
+                              <Plus className="h-3 w-3" /> ECA
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent>
+                            <DialogHeader>
+                              <DialogTitle>Atribuir ECA a {u.full_name}</DialogTitle>
+                            </DialogHeader>
+                            <div className="space-y-4 pt-2">
+                              <Select value={newEca} onValueChange={setNewEca}>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Selecione uma ECA..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {ECA_NAMES.map((eca) => (
+                                    <SelectItem key={eca} value={eca} disabled={u.ecas.includes(eca)}>
+                                      {eca}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <Button onClick={addEca} disabled={!newEca || saving} className="w-full">
+                                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Atribuir ECA"}
+                              </Button>
+                            </div>
+                          </DialogContent>
+                        </Dialog>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </Card>
             ))}
