@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { Plus, Search, Filter, Download, Eye, Edit, MoreHorizontal, User } from "lucide-react";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -193,7 +194,9 @@ const Agricultores = () => {
                     </td>
                     <td className="px-6 py-3 text-right">
                       <div className="flex items-center justify-end gap-1">
-                        <Button variant="ghost" size="icon" className="h-8 w-8"><Eye className="h-4 w-4" /></Button>
+                        <Link to={`/agricultores/${f.id}`}>
+                          <Button variant="ghost" size="icon" className="h-8 w-8"><Eye className="h-4 w-4" /></Button>
+                        </Link>
                         <Button variant="ghost" size="icon" className="h-8 w-8"><Edit className="h-4 w-4" /></Button>
                       </div>
                     </td>
