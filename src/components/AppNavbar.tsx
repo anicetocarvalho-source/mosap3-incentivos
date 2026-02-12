@@ -97,10 +97,11 @@ export const navItems: NavItem[] = [
   {
     icon: Settings,
     label: "Configurações",
+    sidebar: true,
     allowedRoles: ["admin"],
     children: [
-      { label: "Geral", path: "/configuracoes" },
-      { label: "Províncias", path: "/provincias" },
+      { label: "Geral", path: "/configuracoes", icon: Settings },
+      { label: "Províncias", path: "/provincias", icon: MapPin },
     ],
   },
   { icon: Smartphone, label: "Instalar", path: "/instalar" },
