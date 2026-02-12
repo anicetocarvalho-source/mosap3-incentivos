@@ -49,6 +49,7 @@ const statusIcon = (status: string) => {
 type PhaseLog = {
   farmerId: string;
   farmerName: string;
+  parcel: string;
   phase: ProductionPhase;
   date: string;
   observations: string;
@@ -70,6 +71,7 @@ const EscolaDetalhe = () => {
 
   // Phase update form
   const [phaseForm, setPhaseForm] = useState({
+    parcel: "" as string,
     phase: "" as string,
     date: new Date().toISOString().split("T")[0],
     observations: "",
@@ -118,6 +120,7 @@ const EscolaDetalhe = () => {
     const nextPhaseIdx = phaseOrder.indexOf(farmer.currentPhase) + 1;
     const nextPhase = nextPhaseIdx < phaseOrder.length ? phaseOrder[nextPhaseIdx] : farmer.currentPhase;
     setPhaseForm({
+      parcel: farmer.parcels.length === 1 ? farmer.parcels[0].label : "",
       phase: nextPhase,
       date: new Date().toISOString().split("T")[0],
       observations: "",
@@ -144,14 +147,16 @@ const EscolaDetalhe = () => {
   };
 
   const submitPhaseUpdate = () => {
-    if (!selectedFarmer || !phaseForm.phase || !phaseForm.observations) {
-      toast({ title: "Campos obrigatórios", description: "Preencha a fase, data e observações.", variant: "destructive" });
+    if (!selectedFarmer || !phaseForm.phase || !phaseForm.observations || !phaseForm.parcel) {
+      toast({ title: "Campos obrigatórios", description: "Preencha a parcela, fase, data e observações.", variant: "destructive" });
       return;
     }
 
+    const selectedParcel = selectedFarmer.parcels.find(p => p.label === phaseForm.parcel);
     const newLog: PhaseLog = {
       farmerId: selectedFarmer.id,
       farmerName: selectedFarmer.name,
+      parcel: `${phaseForm.parcel} (${selectedParcel?.area || ""} — ${selectedParcel?.lat}, ${selectedParcel?.lon})`,
       phase: phaseForm.phase as ProductionPhase,
       date: phaseForm.date,
       observations: phaseForm.observations,
@@ -180,6 +185,7 @@ const EscolaDetalhe = () => {
     const newLog: PhaseLog = {
       farmerId: selectedFarmer.id,
       farmerName: selectedFarmer.name,
+      parcel: "Todas",
       phase: selectedFarmer.currentPhase,
       date: new Date().toISOString().split("T")[0],
       observations: `PROBLEMA: ${issueForm.type}`,
@@ -355,6 +361,7 @@ const EscolaDetalhe = () => {
                           )}
                           <span className="text-xs text-muted-foreground">{log.date}</span>
                         </div>
+                        <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1"><MapPin className="h-3 w-3" />Parcela: {log.parcel}</p>
                         <p className="text-sm text-muted-foreground mt-1">{log.hasIssue ? log.issueDescription : log.observations}</p>
                         {log.techNote && (
                           <p className="text-xs mt-1 flex items-center gap-1"><FileText className="h-3 w-3 text-primary" /><span className="text-primary font-medium">Nota:</span> {log.techNote}</p>
@@ -464,6 +471,29 @@ const EscolaDetalhe = () => {
                   <p className="font-semibold text-sm">{selectedFarmer.name}</p>
                   <p className="text-xs text-muted-foreground">{selectedFarmer.culture} • {selectedFarmer.area} • Fase actual: {selectedFarmer.currentPhase}</p>
                 </div>
+              </div>
+              {/* Parcel select */}
+              <div className="space-y-2">
+                <Label>Parcela *</Label>
+                <Select value={phaseForm.parcel} onValueChange={(v) => setPhaseForm((f) => ({ ...f, parcel: v }))}>
+                  <SelectTrigger><SelectValue placeholder="Selecionar parcela" /></SelectTrigger>
+                  <SelectContent>
+                    {selectedFarmer.parcels.map((p) => (
+                      <SelectItem key={p.label} value={p.label}>
+                        {p.label} — {p.area} ({p.culture})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {phaseForm.parcel && (() => {
+                  const sel = selectedFarmer.parcels.find(p => p.label === phaseForm.parcel);
+                  return sel ? (
+                    <div className="flex items-center gap-3 text-xs text-muted-foreground bg-muted/50 rounded p-2">
+                      <MapPin className="h-3.5 w-3.5 text-primary flex-shrink-0" />
+                      <span><strong>{sel.label}</strong> • {sel.area} • {sel.culture} • GPS: {sel.lat}, {sel.lon}</span>
+                    </div>
+                  ) : null;
+                })()}
               </div>
 
               {/* Phase select */}
