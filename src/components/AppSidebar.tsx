@@ -111,11 +111,17 @@ const navItems: NavItem[] = [
   { icon: Smartphone, label: "Instalar App", path: "/instalar" },
 ];
 
-const AppSidebar = () => {
+interface AppSidebarProps {
+  mobileOpen?: boolean;
+  onMobileClose?: () => void;
+}
+
+const AppSidebar = ({ mobileOpen, onMobileClose }: AppSidebarProps) => {
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
   const [openMenus, setOpenMenus] = useState<string[]>(["Registo do Pequeno Produtor"]);
   const { roles, isAdmin, user } = useAuth();
+  const isMobile = mobileOpen !== undefined;
 
   const toggleMenu = (label: string) => {
     setOpenMenus((prev) =>
@@ -139,11 +145,16 @@ const AppSidebar = () => {
 
   const visibleItems = navItems.filter(canSee);
 
+  const handleLinkClick = () => {
+    if (isMobile && onMobileClose) onMobileClose();
+  };
+  const sidebarHidden = isMobile && !mobileOpen;
+
   return (
     <aside
       className={`fixed top-0 left-0 h-screen flex flex-col z-40 transition-all duration-300 ${
-        collapsed ? "w-[72px]" : "w-64"
-      }`}
+        sidebarHidden ? "-translate-x-full" : "translate-x-0"
+      } ${isMobile ? "w-64" : collapsed ? "w-[72px]" : "w-64"}`}
       style={{ background: "hsl(var(--sidebar-background))" }}
     >
       {/* Logo */}
@@ -176,6 +187,7 @@ const AppSidebar = () => {
                     <Link
                       key={item.path}
                       to={item.path!}
+                      onClick={handleLinkClick}
                       className={`sidebar-link ${isActive ? "active" : ""} ${!collapsed ? "flex-col gap-1 py-2 text-xs" : ""}`}
                       title={collapsed ? item.label : undefined}
                     >
@@ -221,6 +233,7 @@ const AppSidebar = () => {
                           <Link
                             key={child.path}
                             to={child.path}
+                            onClick={handleLinkClick}
                             className={`sidebar-link text-xs py-2 ${isActive ? "active" : ""}`}
                           >
                             {child.icon && <child.icon className="h-4 w-4 flex-shrink-0" />}
@@ -238,6 +251,7 @@ const AppSidebar = () => {
                 <Link
                   key={item.path}
                   to={item.path!}
+                  onClick={handleLinkClick}
                   className={`sidebar-link ${isActive ? "active" : ""}`}
                   title={collapsed ? item.label : undefined}
                 >
