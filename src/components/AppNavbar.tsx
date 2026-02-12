@@ -90,6 +90,7 @@ export const navItems: NavItem[] = [
   {
     icon: UserCog,
     label: "Utilizadores",
+    sidebar: true,
     allowedRoles: ["admin"],
     children: [
       { label: "Lista de Utilizadores", path: "/utilizadores" },
