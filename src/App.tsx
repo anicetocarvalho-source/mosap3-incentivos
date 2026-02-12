@@ -8,6 +8,8 @@ import ProvinciaEscolas from "@/pages/ProvinciaEscolas";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import AppLayout from "@/components/AppLayout";
+import ProtectedRoute from "@/components/ProtectedRoute";
+import Auth from "@/pages/Auth";
 import Dashboard from "@/pages/Dashboard";
 import Agricultores from "@/pages/Agricultores";
 import Empresas from "@/pages/Empresas";
@@ -33,26 +35,29 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
-          <Route element={<AppLayout />}>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/agricultores" element={<Agricultores />} />
-            <Route path="/agricultores/:id" element={<FarmerProfile />} />
-            <Route path="/escolas" element={<EscolasCampo />} />
-            <Route path="/escolas/provincia/:slug" element={<ProvinciaEscolas />} />
-            <Route path="/escolas/:id" element={<EscolaDetalhe />} />
-            <Route path="/escolas/:id/ficha" element={<FichaEscola />} />
-            <Route path="/agricultores/:id/ficha" element={<FichaProdutor />} />
-            <Route path="/empresas" element={<Empresas />} />
-            <Route path="/transacoes" element={<Transacoes />} />
-            <Route path="/utilizadores" element={<Utilizadores />} />
-            <Route path="/perfis" element={<Utilizadores />} />
-            <Route path="/incentivos" element={<Incentivos />} />
-            <Route path="/compras" element={<Compras />} />
-            <Route path="/parcelas" element={<Parcelas />} />
-            <Route path="/producao" element={<Producao />} />
-            <Route path="/configuracoes" element={<Dashboard />} />
-            <Route path="/instalar" element={<Instalar />} />
-            <Route path="/provincias" element={<Dashboard />} />
+          <Route path="/auth" element={<Auth />} />
+          <Route element={<ProtectedRoute />}>
+            <Route element={<AppLayout />}>
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/agricultores" element={<Agricultores />} />
+              <Route path="/agricultores/:id" element={<FarmerProfile />} />
+              <Route path="/escolas" element={<EscolasCampo />} />
+              <Route path="/escolas/provincia/:slug" element={<ProvinciaEscolas />} />
+              <Route path="/escolas/:id" element={<EscolaDetalhe />} />
+              <Route path="/escolas/:id/ficha" element={<FichaEscola />} />
+              <Route path="/agricultores/:id/ficha" element={<FichaProdutor />} />
+              <Route path="/empresas" element={<Empresas />} />
+              <Route path="/transacoes" element={<Transacoes />} />
+              <Route path="/utilizadores" element={<Utilizadores />} />
+              <Route path="/perfis" element={<Utilizadores />} />
+              <Route path="/incentivos" element={<Incentivos />} />
+              <Route path="/compras" element={<Compras />} />
+              <Route path="/parcelas" element={<Parcelas />} />
+              <Route path="/producao" element={<Producao />} />
+              <Route path="/configuracoes" element={<Dashboard />} />
+              <Route path="/instalar" element={<Instalar />} />
+              <Route path="/provincias" element={<Dashboard />} />
+            </Route>
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>
