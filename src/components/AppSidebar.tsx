@@ -14,6 +14,9 @@ import {
   UserPlus,
   School,
   Wheat,
+  Gift,
+  ShoppingCart,
+  MapPin,
 } from "lucide-react";
 import mosapLogo from "@/assets/mosap3-logo.png";
 
@@ -34,6 +37,9 @@ const navItems: NavItem[] = [
     ],
   },
   { icon: School, label: "Escolas de Campo", path: "/escolas" },
+  { icon: Gift, label: "Incentivos", path: "/incentivos" },
+  { icon: ShoppingCart, label: "Compras Subsidiadas", path: "/compras" },
+  { icon: MapPin, label: "Parcelas", path: "/parcelas" },
   { icon: Building2, label: "Empresas", path: "/empresas" },
   { icon: ArrowLeftRight, label: "Transações", path: "/transacoes" },
   { icon: Wheat, label: "Produção", path: "/producao" },
