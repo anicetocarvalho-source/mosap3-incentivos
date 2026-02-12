@@ -38,7 +38,10 @@ type NavItem = {
   path?: string;
   children?: { label: string; path: string; icon?: any }[];
   allowedRoles?: AppRole[];
+  sidebar?: boolean;
 };
+
+export type { NavItem, AppRole };
 
 const ALL_ROLES: AppRole[] = [
   "admin", "gestor_incentivos",
@@ -47,11 +50,12 @@ const ALL_ROLES: AppRole[] = [
   "tecnico_extensionista",
 ];
 
-const navItems: NavItem[] = [
-  { icon: LayoutDashboard, label: "Dashboard", path: "/" },
+export const navItems: NavItem[] = [
+  { icon: LayoutDashboard, label: "Dashboard", path: "/", sidebar: true },
   {
     icon: Users,
     label: "Produtores",
+    sidebar: true,
     children: [
       { label: "Registo do Pequeno Produtor", path: "/agricultores", icon: UserPlus },
     ],
@@ -77,6 +81,7 @@ const navItems: NavItem[] = [
     icon: Building2,
     label: "Empresas",
     path: "/empresas",
+    sidebar: true,
     allowedRoles: ["admin", "gestor_incentivos", "senior_agronegocio", "junior_agronegocio"],
   },
   { icon: Wheat, label: "Produção", path: "/producao" },
