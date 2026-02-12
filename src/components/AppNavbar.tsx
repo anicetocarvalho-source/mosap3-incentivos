@@ -64,6 +64,7 @@ export const navItems: NavItem[] = [
   {
     icon: Gift,
     label: "Incentivos",
+    sidebar: true,
     allowedRoles: ["admin", "gestor_incentivos"],
     children: [
       { label: "Incentivos", path: "/incentivos", icon: Gift },
