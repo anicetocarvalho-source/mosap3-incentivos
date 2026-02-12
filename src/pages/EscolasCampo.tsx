@@ -1,69 +1,45 @@
 import { motion } from "framer-motion";
-import { Plus, MapPin, Users, User } from "lucide-react";
+import { MapPin, School, Users } from "lucide-react";
 import { Link } from "react-router-dom";
-import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-
-const schools = [
-  { name: "EC Caimbambo", id: "ec-caimbambo", province: "Benguela", municipality: "Caimbambo", village: "Aldeia Saca", technician: "José Fernandes", farmers: 45, status: "Ativa" },
-  { name: "EC Longonjo", id: "ec-longonjo", province: "Huambo", municipality: "Longonjo", village: "Aldeia Chiva", technician: "Ana Pereira", farmers: 38, status: "Ativa" },
-  { name: "EC Cuemba", id: "ec-cuemba", province: "Bié", municipality: "Cuemba", village: "Aldeia Soqui", technician: "Manuel Costa", farmers: 52, status: "Ativa" },
-  { name: "EC Lobito", id: "ec-lobito", province: "Benguela", municipality: "Lobito", village: "Aldeia Hanha", technician: "Teresa Luís", farmers: 31, status: "Ativa" },
-  { name: "EC Bailundo", id: "ec-bailundo", province: "Huambo", municipality: "Bailundo", village: "Aldeia Bimbe", technician: "Carlos Dias", farmers: 27, status: "Inativa" },
-  { name: "EC Lubango", id: "ec-lubango", province: "Huíla", municipality: "Lubango", village: "Aldeia Chibia", technician: "Isabel Santos", farmers: 41, status: "Ativa" },
-  { name: "EC Ganda", id: "ec-ganda", province: "Benguela", municipality: "Ganda", village: "Aldeia Ebanga", technician: "Francisco Miguel", farmers: 36, status: "Ativa" },
-  { name: "EC Cacuso", id: "ec-cacuso", province: "Malanje", municipality: "Cacuso", village: "Aldeia Pungo", technician: "Rita Domingos", farmers: 29, status: "Ativa" },
-];
+import { provinces } from "@/data/escolasData";
 
 const EscolasCampo = () => {
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="page-title">Escolas de Campo</h1>
-          <p className="text-muted-foreground text-sm mt-1">Gestão das escolas de campo e extensionistas</p>
-        </div>
-        <Button className="gap-2">
-          <Plus className="h-4 w-4" />
-          Nova Escola
-        </Button>
+      <div>
+        <h1 className="page-title">Escolas de Campo</h1>
+        <p className="text-muted-foreground text-sm mt-1">Selecione uma província para ver as escolas de campo</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {schools.map((school, i) => (
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        {provinces.map((province, i) => (
           <motion.div
-            key={school.name}
+            key={province.slug}
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.05 }}
+            transition={{ delay: i * 0.03 }}
           >
-            <Link to={`/escolas/${school.id}`}>
-            <Card className="p-5 hover:shadow-md transition-shadow cursor-pointer">
-              <div className="flex items-start justify-between mb-3">
-                <div>
-                  <h3 className="font-heading font-semibold text-base">{school.name}</h3>
-                  <div className="flex items-center gap-1 text-muted-foreground text-xs mt-1">
-                    <MapPin className="h-3 w-3" />
-                    <span>{school.village}, {school.municipality}</span>
+            <Link to={`/escolas/provincia/${province.slug}`}>
+              <Card className="p-5 hover:shadow-md transition-shadow cursor-pointer hover:border-primary/40">
+                <div className="flex items-start justify-between mb-3">
+                  <h3 className="font-heading font-semibold text-base">{province.name}</h3>
+                  <MapPin className="h-4 w-4 text-muted-foreground" />
+                </div>
+                <p className="text-xs text-muted-foreground mb-3">Capital: {province.capital}</p>
+                <div className="flex items-center gap-4 pt-3 border-t border-border">
+                  <div className="flex items-center gap-1.5 text-sm">
+                    <School className="h-4 w-4 text-primary" />
+                    <span className="font-semibold">{province.schools}</span>
+                    <span className="text-muted-foreground text-xs">escolas</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-sm">
+                    <Users className="h-4 w-4 text-muted-foreground" />
+                    <span className="font-semibold">{province.farmers}</span>
+                    <span className="text-muted-foreground text-xs">produtores</span>
                   </div>
                 </div>
-                <span className={school.status === "Ativa" ? "badge-active" : "badge-suspended"}>
-                  {school.status}
-                </span>
-              </div>
-              <div className="flex items-center gap-4 pt-3 border-t border-border">
-                <div className="flex items-center gap-1.5 text-sm">
-                  <Users className="h-4 w-4 text-primary" />
-                  <span className="font-semibold">{school.farmers}</span>
-                  <span className="text-muted-foreground text-xs">agricultores</span>
-                </div>
-                <div className="flex items-center gap-1.5 text-sm">
-                  <User className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-muted-foreground text-xs">{school.technician}</span>
-                </div>
-              </div>
-              <p className="text-xs text-muted-foreground mt-2">{school.province}</p>
-            </Card>
+              </Card>
             </Link>
           </motion.div>
         ))}
