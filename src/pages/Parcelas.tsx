@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Plus, Search, MapPin, Maximize2, Eye, Layers } from "lucide-react";
+import { Plus, Search, MapPin, Maximize2, Eye, Layers, Map } from "lucide-react";
+import ParcelasMap from "@/components/ParcelasMap";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -37,6 +38,7 @@ const parcelasData = [
 const Parcelas = () => {
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [showMap, setShowMap] = useState(true);
 
   const filtered = parcelasData.filter((p) =>
     p.farmer.toLowerCase().includes(search.toLowerCase()) ||
@@ -129,6 +131,20 @@ const Parcelas = () => {
         <StatCard title="Área Total" value={`${totalArea.toFixed(1)} ha`} change="Hectares georreferenciados" changeType="positive" icon={Maximize2} iconBg="hsl(var(--success) / 0.15)" />
         <StatCard title="Verificadas" value={String(totalVerificadas)} change={`${Math.round(totalVerificadas / parcelasData.length * 100)}% do total`} changeType="positive" icon={MapPin} iconBg="hsl(var(--info) / 0.15)" />
         <StatCard title="Culturas" value="7" change="Tipos de cultura" changeType="neutral" icon={Layers} iconBg="hsl(var(--warning) / 0.15)" />
+      </div>
+
+      {/* Map Toggle + Map */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold flex items-center gap-2">
+            <Map className="h-4 w-4" />
+            Mapa de Parcelas — Vista Satélite
+          </h2>
+          <Button variant="outline" size="sm" onClick={() => setShowMap(!showMap)}>
+            {showMap ? "Ocultar Mapa" : "Mostrar Mapa"}
+          </Button>
+        </div>
+        {showMap && <ParcelasMap parcelas={parcelasData} />}
       </div>
 
       {/* Filters */}
