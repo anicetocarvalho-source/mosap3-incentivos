@@ -14,6 +14,7 @@ import Incentivos from "@/pages/Incentivos";
 import Compras from "@/pages/Compras";
 import Parcelas from "@/pages/Parcelas";
 import Producao from "@/pages/Producao";
+import FarmerProfile from "@/pages/FarmerProfile";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -28,6 +29,7 @@ const App = () => (
           <Route element={<AppLayout />}>
             <Route path="/" element={<Dashboard />} />
             <Route path="/agricultores" element={<Agricultores />} />
+            <Route path="/agricultores/:id" element={<FarmerProfile />} />
             <Route path="/escolas" element={<EscolasCampo />} />
             <Route path="/empresas" element={<Empresas />} />
             <Route path="/transacoes" element={<Transacoes />} />
