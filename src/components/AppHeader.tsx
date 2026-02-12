@@ -1,8 +1,34 @@
-import { Bell, Search, User } from "lucide-react";
+import { Bell, Search, User, LogOut } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
+import { useNavigate } from "react-router-dom";
+
+const ROLE_LABELS: Record<string, string> = {
+  admin: "Administrador",
+  gestor_incentivos: "Gestor de Incentivos",
+  senior_agricultura: "Sénior Agricultura",
+  senior_monitoria: "Sénior Monitoria",
+  junior_monitoria: "Júnior Monitoria",
+  junior_agricultura: "Júnior Agricultura",
+  senior_agronegocio: "Sénior Agronegócio",
+  junior_agronegocio: "Júnior Agronegócio",
+  tecnico_extensionista: "Técnico Extensionista",
+};
 
 const AppHeader = () => {
+  const { user, profile, roles } = useAuth();
+  const navigate = useNavigate();
+
+  const displayName = profile?.full_name || user?.email || "Utilizador";
+  const primaryRole = roles.length > 0 ? ROLE_LABELS[roles[0]] || roles[0] : "Sem perfil";
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    navigate("/");
+  };
+
   return (
     <header className="h-16 border-b border-border bg-card flex items-center justify-between px-6 sticky top-0 z-30">
       <div className="relative w-80">
@@ -24,9 +50,14 @@ const AppHeader = () => {
             <User className="h-4 w-4 text-primary-foreground" />
           </div>
           <div className="text-sm">
-            <p className="font-semibold font-heading leading-none">Admin MOSAP3</p>
-            <p className="text-muted-foreground text-xs">Administrador</p>
+            <p className="font-semibold font-heading leading-none">{displayName}</p>
+            <p className="text-muted-foreground text-xs">{primaryRole}</p>
           </div>
+          {user && (
+            <Button variant="ghost" size="icon" onClick={handleLogout} title="Terminar sessão">
+              <LogOut className="h-4 w-4 text-muted-foreground" />
+            </Button>
+          )}
         </div>
       </div>
     </header>
