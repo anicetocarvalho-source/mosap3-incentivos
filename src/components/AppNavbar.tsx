@@ -137,7 +137,7 @@ const AppNavbar = () => {
     return item.allowedRoles.some((r) => roles.includes(r));
   };
 
-  const visibleItems = navItems.filter(canSee);
+  const visibleItems = navItems.filter((item) => canSee(item) && !item.sidebar);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
