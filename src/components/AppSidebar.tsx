@@ -17,6 +17,7 @@ import {
   Gift,
   ShoppingCart,
   MapPin,
+  Smartphone,
 } from "lucide-react";
 import mosapLogo from "@/assets/mosap3-logo.png";
 
@@ -65,6 +66,7 @@ const navItems: NavItem[] = [
       { label: "Províncias", path: "/provincias" },
     ],
   },
+  { icon: Smartphone, label: "Instalar App", path: "/instalar" },
 ];
 
 const AppSidebar = () => {
