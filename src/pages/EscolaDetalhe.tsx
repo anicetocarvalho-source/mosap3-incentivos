@@ -1,16 +1,13 @@
 import { useParams, Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ArrowLeft, MapPin, User, Users, Sprout, Droplets, Sun, Wheat, CheckCircle2, Clock, AlertTriangle } from "lucide-react";
+import { ArrowLeft, MapPin, User, Users, Sprout, Droplets, Sun, Wheat, CheckCircle2, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-
-type ProductionPhase = "Preparação" | "Sementeira" | "Crescimento" | "Floração" | "Colheita" | "Pós-Colheita";
-
-const phaseOrder: ProductionPhase[] = ["Preparação", "Sementeira", "Crescimento", "Floração", "Colheita", "Pós-Colheita"];
+import { getSchoolById, phaseOrder, type ProductionPhase } from "@/data/escolasData";
 
 const phaseIcons: Record<ProductionPhase, any> = {
   "Preparação": Sprout,
@@ -30,104 +27,6 @@ const phaseColors: Record<ProductionPhase, string> = {
   "Pós-Colheita": "bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200",
 };
 
-interface FarmerTracking {
-  id: string;
-  name: string;
-  culture: string;
-  area: string;
-  currentPhase: ProductionPhase;
-  startDate: string;
-  expectedHarvest: string;
-  status: "No Prazo" | "Atrasado" | "Concluído";
-  visits: number;
-  lastVisit: string;
-  notes: string;
-}
-
-const schoolsData: Record<string, {
-  id: string;
-  name: string;
-  province: string;
-  municipality: string;
-  village: string;
-  technician: string;
-  technicianPhone: string;
-  status: string;
-  createdAt: string;
-  totalFarmers: number;
-  totalArea: string;
-  activeCycles: number;
-  farmers: FarmerTracking[];
-  visits: { date: string; type: string; observations: string; farmersPresent: number }[];
-}> = {
-  "ec-caimbambo": {
-    id: "ec-caimbambo",
-    name: "EC Caimbambo",
-    province: "Benguela",
-    municipality: "Caimbambo",
-    village: "Aldeia Saca",
-    technician: "José Fernandes",
-    technicianPhone: "+244 923 456 789",
-    status: "Ativa",
-    createdAt: "2024-03-15",
-    totalFarmers: 45,
-    totalArea: "128 ha",
-    activeCycles: 12,
-    farmers: [
-      { id: "AGR-001", name: "João Manuel Silva", culture: "Milho", area: "2.5 ha", currentPhase: "Crescimento", startDate: "2025-01-10", expectedHarvest: "2025-06-15", status: "No Prazo", visits: 4, lastVisit: "2026-02-05", notes: "Bom desenvolvimento vegetativo" },
-      { id: "AGR-002", name: "Maria da Conceição", culture: "Feijão", area: "1.8 ha", currentPhase: "Floração", startDate: "2024-12-20", expectedHarvest: "2025-05-01", status: "No Prazo", visits: 5, lastVisit: "2026-02-08", notes: "Floração abundante, sem pragas" },
-      { id: "AGR-003", name: "António Domingos", culture: "Mandioca", area: "3.0 ha", currentPhase: "Crescimento", startDate: "2024-11-05", expectedHarvest: "2025-08-20", status: "Atrasado", visits: 3, lastVisit: "2026-01-20", notes: "Necessita adubação adicional" },
-      { id: "AGR-004", name: "Teresa Baptista", culture: "Amendoim", area: "1.2 ha", currentPhase: "Sementeira", startDate: "2026-01-28", expectedHarvest: "2026-06-10", status: "No Prazo", visits: 1, lastVisit: "2026-02-01", notes: "Sementeira em curso, sementes de qualidade" },
-      { id: "AGR-005", name: "Francisco Lopes", culture: "Milho", area: "2.0 ha", currentPhase: "Colheita", startDate: "2024-09-15", expectedHarvest: "2025-02-10", status: "Concluído", visits: 7, lastVisit: "2026-02-10", notes: "Colheita finalizada, rendimento acima da média" },
-      { id: "AGR-006", name: "Ana Cristina Pedro", culture: "Soja", area: "1.5 ha", currentPhase: "Preparação", startDate: "2026-02-01", expectedHarvest: "2026-07-15", status: "No Prazo", visits: 1, lastVisit: "2026-02-03", notes: "Terreno em preparação, lavoura concluída" },
-      { id: "AGR-007", name: "Manuel José Vaz", culture: "Feijão", area: "2.2 ha", currentPhase: "Crescimento", startDate: "2025-01-05", expectedHarvest: "2025-05-20", status: "Atrasado", visits: 3, lastVisit: "2026-01-25", notes: "Crescimento lento, falta de chuva" },
-      { id: "AGR-008", name: "Isabel Fernandes", culture: "Batata-doce", area: "1.0 ha", currentPhase: "Pós-Colheita", startDate: "2024-08-10", expectedHarvest: "2025-01-15", status: "Concluído", visits: 8, lastVisit: "2026-02-09", notes: "Armazenamento em curso, boa conservação" },
-    ],
-    visits: [
-      { date: "2026-02-10", type: "Acompanhamento", observations: "Visita geral às parcelas do grupo. Milho em bom estado.", farmersPresent: 38 },
-      { date: "2026-02-03", type: "Formação", observations: "Capacitação sobre controlo de pragas e uso de pesticidas orgânicos.", farmersPresent: 42 },
-      { date: "2026-01-25", type: "Acompanhamento", observations: "Verificação das sementeiras tardias. Necessidade de irrigação.", farmersPresent: 30 },
-      { date: "2026-01-15", type: "Distribuição", observations: "Entrega de sementes melhoradas de feijão e milho.", farmersPresent: 45 },
-      { date: "2026-01-05", type: "Formação", observations: "Workshop sobre técnicas de conservação do solo.", farmersPresent: 40 },
-    ],
-  },
-  "ec-longonjo": {
-    id: "ec-longonjo",
-    name: "EC Longonjo",
-    province: "Huambo",
-    municipality: "Longonjo",
-    village: "Aldeia Chiva",
-    technician: "Ana Pereira",
-    technicianPhone: "+244 912 345 678",
-    status: "Ativa",
-    createdAt: "2024-04-20",
-    totalFarmers: 38,
-    totalArea: "95 ha",
-    activeCycles: 10,
-    farmers: [
-      { id: "AGR-010", name: "Pedro Gaspar", culture: "Milho", area: "3.0 ha", currentPhase: "Floração", startDate: "2024-12-01", expectedHarvest: "2025-05-15", status: "No Prazo", visits: 5, lastVisit: "2026-02-07", notes: "Excelente desenvolvimento" },
-      { id: "AGR-011", name: "Rosa Mateus", culture: "Feijão", area: "1.5 ha", currentPhase: "Crescimento", startDate: "2025-01-10", expectedHarvest: "2025-06-01", status: "No Prazo", visits: 3, lastVisit: "2026-02-04", notes: "Crescimento normal" },
-      { id: "AGR-012", name: "Carlos Henriques", culture: "Mandioca", area: "2.5 ha", currentPhase: "Crescimento", startDate: "2024-10-15", expectedHarvest: "2025-07-30", status: "No Prazo", visits: 4, lastVisit: "2026-02-06", notes: "Sem problemas identificados" },
-    ],
-    visits: [
-      { date: "2026-02-07", type: "Acompanhamento", observations: "Verificação geral das parcelas.", farmersPresent: 32 },
-      { date: "2026-01-28", type: "Formação", observations: "Técnicas de irrigação por gotejamento.", farmersPresent: 35 },
-    ],
-  },
-};
-
-// Map school names to IDs
-const schoolNameToId: Record<string, string> = {
-  "EC Caimbambo": "ec-caimbambo",
-  "EC Longonjo": "ec-longonjo",
-  "EC Cuemba": "ec-cuemba",
-  "EC Lobito": "ec-lobito",
-  "EC Bailundo": "ec-bailundo",
-  "EC Lubango": "ec-lubango",
-  "EC Ganda": "ec-ganda",
-  "EC Cacuso": "ec-cacuso",
-};
-
 const getPhaseProgress = (phase: ProductionPhase) => {
   const idx = phaseOrder.indexOf(phase);
   return ((idx + 1) / phaseOrder.length) * 100;
@@ -141,7 +40,7 @@ const statusIcon = (status: string) => {
 
 const EscolaDetalhe = () => {
   const { id } = useParams();
-  const school = id ? schoolsData[id] : null;
+  const school = id ? getSchoolById(id) : null;
 
   if (!school) {
     return (
@@ -167,7 +66,7 @@ const EscolaDetalhe = () => {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <Link to="/escolas">
+        <Link to={`/escolas/provincia/${school.provinceSlug}`}>
           <Button variant="ghost" size="icon"><ArrowLeft className="h-4 w-4" /></Button>
         </Link>
         <div className="flex-1">
@@ -184,37 +83,15 @@ const EscolaDetalhe = () => {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground">Agricultores</p>
-            <p className="text-2xl font-bold">{school.totalFarmers}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground">Área Total</p>
-            <p className="text-2xl font-bold">{school.totalArea}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground">Ciclos Activos</p>
-            <p className="text-2xl font-bold">{school.activeCycles}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground">Visitas do Mês</p>
-            <p className="text-2xl font-bold">{school.visits.filter((v) => v.date.startsWith("2026-02")).length}</p>
-          </CardContent>
-        </Card>
+        <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Agricultores</p><p className="text-2xl font-bold">{school.totalFarmers}</p></CardContent></Card>
+        <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Área Total</p><p className="text-2xl font-bold">{school.totalArea}</p></CardContent></Card>
+        <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Ciclos Activos</p><p className="text-2xl font-bold">{school.activeCycles}</p></CardContent></Card>
+        <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Visitas do Mês</p><p className="text-2xl font-bold">{school.visits.filter((v) => v.date.startsWith("2026-02")).length}</p></CardContent></Card>
       </div>
 
       {/* Phase Overview */}
       <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">Distribuição por Fase de Produção</CardTitle>
-        </CardHeader>
+        <CardHeader className="pb-3"><CardTitle className="text-base">Distribuição por Fase de Produção</CardTitle></CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
             {phaseStats.map(({ phase, count }) => {
@@ -239,14 +116,12 @@ const EscolaDetalhe = () => {
           <TabsTrigger value="resumo">Resumo</TabsTrigger>
         </TabsList>
 
-        {/* Tab: Acompanhamento dos Agricultores */}
         <TabsContent value="acompanhamento" className="space-y-4">
           <div className="flex items-center gap-3 text-sm">
             <Badge variant="outline" className="gap-1"><CheckCircle2 className="h-3 w-3 text-green-600" />{noPrazo} No Prazo</Badge>
             <Badge variant="outline" className="gap-1"><AlertTriangle className="h-3 w-3 text-yellow-600" />{atrasados} Atrasados</Badge>
             <Badge variant="outline" className="gap-1"><CheckCircle2 className="h-3 w-3 text-primary" />{concluidos} Concluídos</Badge>
           </div>
-
           <div className="rounded-md border overflow-x-auto">
             <Table>
               <TableHeader>
@@ -264,24 +139,14 @@ const EscolaDetalhe = () => {
               </TableHeader>
               <TableBody>
                 {school.farmers.map((farmer, i) => (
-                  <motion.tr
-                    key={farmer.id}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: i * 0.03 }}
-                    className="border-b transition-colors hover:bg-muted/50"
-                  >
+                  <motion.tr key={farmer.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.03 }} className="border-b transition-colors hover:bg-muted/50">
                     <TableCell>
-                      <Link to={`/agricultores/${farmer.id}`} className="font-medium text-primary hover:underline">
-                        {farmer.name}
-                      </Link>
+                      <Link to={`/agricultores/${farmer.id}`} className="font-medium text-primary hover:underline">{farmer.name}</Link>
                     </TableCell>
                     <TableCell>{farmer.culture}</TableCell>
                     <TableCell>{farmer.area}</TableCell>
                     <TableCell>
-                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${phaseColors[farmer.currentPhase]}`}>
-                        {farmer.currentPhase}
-                      </span>
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${phaseColors[farmer.currentPhase]}`}>{farmer.currentPhase}</span>
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2 min-w-[120px]">
@@ -290,10 +155,7 @@ const EscolaDetalhe = () => {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-1">
-                        {statusIcon(farmer.status)}
-                        <span className="text-xs">{farmer.status}</span>
-                      </div>
+                      <div className="flex items-center gap-1">{statusIcon(farmer.status)}<span className="text-xs">{farmer.status}</span></div>
                     </TableCell>
                     <TableCell className="text-center">{farmer.visits}</TableCell>
                     <TableCell className="text-xs text-muted-foreground">{farmer.lastVisit}</TableCell>
@@ -305,7 +167,6 @@ const EscolaDetalhe = () => {
           </div>
         </TabsContent>
 
-        {/* Tab: Visitas */}
         <TabsContent value="visitas" className="space-y-4">
           <div className="rounded-md border overflow-x-auto">
             <Table>
@@ -319,24 +180,13 @@ const EscolaDetalhe = () => {
               </TableHeader>
               <TableBody>
                 {school.visits.map((visit, i) => (
-                  <motion.tr
-                    key={i}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: i * 0.05 }}
-                    className="border-b transition-colors hover:bg-muted/50"
-                  >
+                  <motion.tr key={i} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.05 }} className="border-b transition-colors hover:bg-muted/50">
                     <TableCell className="font-medium">{visit.date}</TableCell>
                     <TableCell>
-                      <Badge variant={visit.type === "Formação" ? "default" : visit.type === "Distribuição" ? "secondary" : "outline"}>
-                        {visit.type}
-                      </Badge>
+                      <Badge variant={visit.type === "Formação" ? "default" : visit.type === "Distribuição" ? "secondary" : "outline"}>{visit.type}</Badge>
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-1">
-                        <Users className="h-3.5 w-3.5 text-muted-foreground" />
-                        <span>{visit.farmersPresent}</span>
-                      </div>
+                      <div className="flex items-center gap-1"><Users className="h-3.5 w-3.5 text-muted-foreground" /><span>{visit.farmersPresent}</span></div>
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">{visit.observations}</TableCell>
                   </motion.tr>
@@ -346,7 +196,6 @@ const EscolaDetalhe = () => {
           </div>
         </TabsContent>
 
-        {/* Tab: Resumo */}
         <TabsContent value="resumo" className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Card>
@@ -372,7 +221,6 @@ const EscolaDetalhe = () => {
                 </div>
               </CardContent>
             </Card>
-
             <Card className="md:col-span-2">
               <CardHeader><CardTitle className="text-base">Culturas Acompanhadas</CardTitle></CardHeader>
               <CardContent>
@@ -381,8 +229,7 @@ const EscolaDetalhe = () => {
                     const count = school.farmers.filter((f) => f.culture === culture).length;
                     return (
                       <Badge key={culture} variant="outline" className="gap-1 px-3 py-1">
-                        <Wheat className="h-3 w-3" />
-                        {culture} ({count})
+                        <Wheat className="h-3 w-3" />{culture} ({count})
                       </Badge>
                     );
                   })}
@@ -396,5 +243,4 @@ const EscolaDetalhe = () => {
   );
 };
 
-export { schoolNameToId };
 export default EscolaDetalhe;

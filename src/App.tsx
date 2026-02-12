@@ -3,6 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import EscolasCampo from "@/pages/EscolasCampo";
 import EscolaDetalhe from "@/pages/EscolaDetalhe";
+import ProvinciaEscolas from "@/pages/ProvinciaEscolas";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import AppLayout from "@/components/AppLayout";
@@ -32,6 +33,7 @@ const App = () => (
             <Route path="/agricultores" element={<Agricultores />} />
             <Route path="/agricultores/:id" element={<FarmerProfile />} />
             <Route path="/escolas" element={<EscolasCampo />} />
+            <Route path="/escolas/provincia/:slug" element={<ProvinciaEscolas />} />
             <Route path="/escolas/:id" element={<EscolaDetalhe />} />
             <Route path="/empresas" element={<Empresas />} />
             <Route path="/transacoes" element={<Transacoes />} />
