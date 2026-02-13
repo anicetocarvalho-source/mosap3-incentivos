@@ -19,6 +19,7 @@ const ROLES = Object.keys(ROLE_LABELS);
 
 const MODULE_NAMES = [
   "Dashboard",
+  "Cadastro de Agricultores",
   "Registo do Pequeno Produtor",
   "Escolas de Campo",
   "Incentivos",
@@ -36,7 +37,7 @@ const DEFAULT_ACCESS: Record<string, Record<string, boolean>> = {};
 MODULE_NAMES.forEach((mod) => {
   DEFAULT_ACCESS[mod] = {};
   ROLES.forEach((role) => {
-    const allAccess = ["Dashboard", "Registo do Pequeno Produtor", "Escolas de Campo", "Parcelas", "Produção"];
+    const allAccess = ["Dashboard", "Cadastro de Agricultores", "Registo do Pequeno Produtor", "Escolas de Campo", "Parcelas", "Produção"];
     if (allAccess.includes(mod)) {
       DEFAULT_ACCESS[mod][role] = true;
     } else if (mod === "Incentivos" || mod === "Transações") {
