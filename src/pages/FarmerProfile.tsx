@@ -1,12 +1,15 @@
 import { useParams, Link } from "react-router-dom";
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, User, MapPin, Phone, CreditCard, Wheat, ShoppingCart, Gift, Calendar, FileText, Users, Sprout, Sun, Droplets, CheckCircle2, Camera, ChevronDown, ChevronUp, Clock, Printer, Beef } from "lucide-react";
+import { ArrowLeft, User, MapPin, Phone, CreditCard, Wheat, ShoppingCart, Gift, Calendar, FileText, Users, Sprout, Sun, Droplets, CheckCircle2, Camera, ChevronDown, ChevronUp, Clock, Printer, Beef, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { toast } from "sonner";
+import LivestockRegistrationForm from "@/components/LivestockRegistrationForm";
 
 const farmersData: Record<string, any> = {
   "AGR-001": {
@@ -570,6 +573,36 @@ const FarmerProfile = () => {
 
           {/* Pecuária Tab */}
           <TabsContent value="pecuaria" className="mt-4 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-heading font-semibold text-lg">Pecuária</h3>
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button size="sm" className="gap-1.5">
+                    <Plus className="h-4 w-4" /> Registar
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle>Registar Pecuária — {farmer.name}</DialogTitle>
+                  </DialogHeader>
+                  <LivestockRegistrationForm
+                    farmerId={farmer.id}
+                    schoolId={undefined}
+                    existingLivestock={
+                      (farmer.pecuaria || []).map((a: any, i: number) => ({
+                        id: `mock-${i}`,
+                        species: a.species,
+                        breed: a.breed || null,
+                        quantity: a.quantity,
+                      }))
+                    }
+                    onSuccess={() => {
+                      toast.success("Dados actualizados!");
+                    }}
+                  />
+                </DialogContent>
+              </Dialog>
+            </div>
             {(!farmer.pecuaria || farmer.pecuaria.length === 0) ? (
               <Card className="p-12 text-center">
                 <Beef className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
