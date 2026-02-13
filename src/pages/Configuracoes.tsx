@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Settings, Globe, Bell, Shield, Database, Save } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Settings, Globe, Bell, Shield, Database, Save, Loader2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -14,25 +14,75 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+
+const SETTINGS_KEYS = [
+  "org_name", "org_email", "org_phone",
+  "campanha", "idioma",
+  "notif_email", "notif_push",
+  "modo_offline", "auto_sync", "intervalo_sync",
+] as const;
+
+type SettingsMap = Record<string, string>;
 
 const Configuracoes = () => {
-  const [campanha, setCampanha] = useState("2025/2026");
-  const [idioma, setIdioma] = useState("pt");
-  const [notifEmail, setNotifEmail] = useState(true);
-  const [notifPush, setNotifPush] = useState(true);
-  const [modoOffline, setModoOffline] = useState(true);
-  const [autoSync, setAutoSync] = useState(true);
-  const [intervaloSync, setIntervaloSync] = useState("15");
-  const [nomeOrganizacao, setNomeOrganizacao] = useState("MOSAP3 — Ministério da Agricultura e Pescas");
-  const [emailContacto, setEmailContacto] = useState("suporte@mosap3.gov.ao");
-  const [telefoneContacto, setTelefoneContacto] = useState("+244 222 123 456");
+  const { isAdmin } = useAuth();
+  const [settings, setSettings] = useState<SettingsMap>({});
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
-  const handleSave = () => {
-    toast({
-      title: "Configurações guardadas",
-      description: "As alterações foram aplicadas com sucesso.",
-    });
+  useEffect(() => {
+    const fetchSettings = async () => {
+      const { data, error } = await supabase
+        .from("system_settings")
+        .select("key, value");
+
+      if (!error && data) {
+        const map: SettingsMap = {};
+        data.forEach((row) => { map[row.key] = row.value; });
+        setSettings(map);
+      }
+      setLoading(false);
+    };
+    fetchSettings();
+  }, []);
+
+  const update = (key: string, value: string) => {
+    setSettings((prev) => ({ ...prev, [key]: value }));
   };
+
+  const handleSave = async () => {
+    setSaving(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    const userId = user?.id;
+    const promises = Object.entries(settings).map(([key, value]) =>
+      supabase
+        .from("system_settings")
+        .update({ value, updated_by: userId })
+        .eq("key", key)
+    );
+
+    const results = await Promise.all(promises);
+    const hasError = results.some((r) => r.error);
+
+    if (hasError) {
+      toast({ title: "Erro", description: "Não foi possível guardar algumas configurações.", variant: "destructive" });
+    } else {
+      toast({ title: "Configurações guardadas", description: "As alterações foram aplicadas com sucesso." });
+    }
+    setSaving(false);
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  const readOnly = !isAdmin;
 
   return (
     <div className="space-y-6">
@@ -41,10 +91,12 @@ const Configuracoes = () => {
           <h1 className="page-title">Configurações Gerais</h1>
           <p className="text-muted-foreground text-sm mt-1">Parâmetros globais do sistema MOSAP3</p>
         </div>
-        <Button className="gap-2" onClick={handleSave}>
-          <Save className="h-4 w-4" />
-          Guardar Alterações
-        </Button>
+        {!readOnly && (
+          <Button className="gap-2" onClick={handleSave} disabled={saving}>
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            Guardar Alterações
+          </Button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -58,15 +110,15 @@ const Configuracoes = () => {
           <div className="space-y-3">
             <div className="space-y-1.5">
               <Label className="text-xs">Nome da Organização</Label>
-              <Input value={nomeOrganizacao} onChange={(e) => setNomeOrganizacao(e.target.value)} />
+              <Input value={settings.org_name ?? ""} onChange={(e) => update("org_name", e.target.value)} readOnly={readOnly} />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Email de Contacto</Label>
-              <Input type="email" value={emailContacto} onChange={(e) => setEmailContacto(e.target.value)} />
+              <Input type="email" value={settings.org_email ?? ""} onChange={(e) => update("org_email", e.target.value)} readOnly={readOnly} />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Telefone</Label>
-              <Input value={telefoneContacto} onChange={(e) => setTelefoneContacto(e.target.value)} />
+              <Input value={settings.org_phone ?? ""} onChange={(e) => update("org_phone", e.target.value)} readOnly={readOnly} />
             </div>
           </div>
         </Card>
@@ -81,7 +133,7 @@ const Configuracoes = () => {
           <div className="space-y-3">
             <div className="space-y-1.5">
               <Label className="text-xs">Campanha Activa</Label>
-              <Select value={campanha} onValueChange={setCampanha}>
+              <Select value={settings.campanha ?? "2025/2026"} onValueChange={(v) => update("campanha", v)} disabled={readOnly}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="2025/2026">2025/2026</SelectItem>
@@ -92,7 +144,7 @@ const Configuracoes = () => {
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Idioma do Sistema</Label>
-              <Select value={idioma} onValueChange={setIdioma}>
+              <Select value={settings.idioma ?? "pt"} onValueChange={(v) => update("idioma", v)} disabled={readOnly}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="pt">Português</SelectItem>
@@ -117,14 +169,14 @@ const Configuracoes = () => {
                 <p className="text-sm font-medium">Notificações por Email</p>
                 <p className="text-xs text-muted-foreground">Receber alertas por email</p>
               </div>
-              <Switch checked={notifEmail} onCheckedChange={setNotifEmail} />
+              <Switch checked={settings.notif_email === "true"} onCheckedChange={(v) => update("notif_email", String(v))} disabled={readOnly} />
             </div>
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium">Notificações Push</p>
                 <p className="text-xs text-muted-foreground">Alertas no dispositivo</p>
               </div>
-              <Switch checked={notifPush} onCheckedChange={setNotifPush} />
+              <Switch checked={settings.notif_push === "true"} onCheckedChange={(v) => update("notif_push", String(v))} disabled={readOnly} />
             </div>
           </div>
         </Card>
@@ -142,18 +194,18 @@ const Configuracoes = () => {
                 <p className="text-sm font-medium">Modo Offline</p>
                 <p className="text-xs text-muted-foreground">Permitir uso sem internet</p>
               </div>
-              <Switch checked={modoOffline} onCheckedChange={setModoOffline} />
+              <Switch checked={settings.modo_offline === "true"} onCheckedChange={(v) => update("modo_offline", String(v))} disabled={readOnly} />
             </div>
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium">Sincronização Automática</p>
                 <p className="text-xs text-muted-foreground">Sincronizar ao restabelecer ligação</p>
               </div>
-              <Switch checked={autoSync} onCheckedChange={setAutoSync} />
+              <Switch checked={settings.auto_sync === "true"} onCheckedChange={(v) => update("auto_sync", String(v))} disabled={readOnly} />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Intervalo de Sincronização (minutos)</Label>
-              <Select value={intervaloSync} onValueChange={setIntervaloSync}>
+              <Select value={settings.intervalo_sync ?? "15"} onValueChange={(v) => update("intervalo_sync", v)} disabled={readOnly}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="5">5 minutos</SelectItem>
