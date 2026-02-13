@@ -2,6 +2,7 @@ import { motion } from "framer-motion";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import mosapLogo from "@/assets/mosap3-logo.png";
+import { ProducaoCharts, AgricultoresCharts, IncentivosCharts, ComprasCharts } from "./ReportCharts";
 
 type Filters = {
   provincia: string;
@@ -160,45 +161,48 @@ const ProducaoTable = ({ filters }: { filters: Filters }) => {
     producaoTon: acc.producaoTon + r.producaoTon,
   }), { agricultores: 0, parcelas: 0, areaTotalHa: 0, producaoTon: 0 });
 
-  return (
-    <div className="overflow-x-auto">
-      <table className={tableClass}>
-        <thead>
-          <tr>
-            <th className={thClass}>Província</th>
-            <th className={thClass}>Escola de Campo</th>
-            <th className={cn(thClass, "text-right")}>Agricultores</th>
-            <th className={cn(thClass, "text-right")}>Parcelas</th>
-            <th className={cn(thClass, "text-right")}>Área (ha)</th>
-            <th className={cn(thClass, "text-right")}>Produção (ton)</th>
-            <th className={cn(thClass, "text-right")}>Média/ha</th>
-          </tr>
-        </thead>
-        <tbody>
-          {data.map((r, i) => (
-            <tr key={i} className="hover:bg-muted/20">
-              <td className={tdClass}>{r.provincia}</td>
-              <td className={tdClass}>{r.escola}</td>
-              <td className={tdNumClass}>{formatNumber(r.agricultores)}</td>
-              <td className={tdNumClass}>{formatNumber(r.parcelas)}</td>
-              <td className={tdNumClass}>{formatNumber(r.areaTotalHa)}</td>
-              <td className={tdNumClass}>{formatNumber(r.producaoTon)}</td>
-              <td className={tdNumClass}>{r.mediaHa.toFixed(2)}</td>
+    return (
+    <>
+      <div className="overflow-x-auto">
+        <table className={tableClass}>
+          <thead>
+            <tr>
+              <th className={thClass}>Província</th>
+              <th className={thClass}>Escola de Campo</th>
+              <th className={cn(thClass, "text-right")}>Agricultores</th>
+              <th className={cn(thClass, "text-right")}>Parcelas</th>
+              <th className={cn(thClass, "text-right")}>Área (ha)</th>
+              <th className={cn(thClass, "text-right")}>Produção (ton)</th>
+              <th className={cn(thClass, "text-right")}>Média/ha</th>
             </tr>
-          ))}
-        </tbody>
-        <tfoot>
-          <tr>
-            <td className={tfClass} colSpan={2}>TOTAL</td>
-            <td className={tfNumClass}>{formatNumber(totals.agricultores)}</td>
-            <td className={tfNumClass}>{formatNumber(totals.parcelas)}</td>
-            <td className={tfNumClass}>{formatNumber(totals.areaTotalHa)}</td>
-            <td className={tfNumClass}>{formatNumber(totals.producaoTon)}</td>
-            <td className={tfNumClass}>{totals.producaoTon && totals.areaTotalHa ? (totals.producaoTon / totals.areaTotalHa).toFixed(2) : "—"}</td>
-          </tr>
-        </tfoot>
-      </table>
-    </div>
+          </thead>
+          <tbody>
+            {data.map((r, i) => (
+              <tr key={i} className="hover:bg-muted/20">
+                <td className={tdClass}>{r.provincia}</td>
+                <td className={tdClass}>{r.escola}</td>
+                <td className={tdNumClass}>{formatNumber(r.agricultores)}</td>
+                <td className={tdNumClass}>{formatNumber(r.parcelas)}</td>
+                <td className={tdNumClass}>{formatNumber(r.areaTotalHa)}</td>
+                <td className={tdNumClass}>{formatNumber(r.producaoTon)}</td>
+                <td className={tdNumClass}>{r.mediaHa.toFixed(2)}</td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr>
+              <td className={tfClass} colSpan={2}>TOTAL</td>
+              <td className={tfNumClass}>{formatNumber(totals.agricultores)}</td>
+              <td className={tfNumClass}>{formatNumber(totals.parcelas)}</td>
+              <td className={tfNumClass}>{formatNumber(totals.areaTotalHa)}</td>
+              <td className={tfNumClass}>{formatNumber(totals.producaoTon)}</td>
+              <td className={tfNumClass}>{totals.producaoTon && totals.areaTotalHa ? (totals.producaoTon / totals.areaTotalHa).toFixed(2) : "—"}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+      <ProducaoCharts data={data} />
+    </>
   );
 };
 
@@ -210,6 +214,7 @@ const AgricultoresTable = ({ filters }: { filters: Filters }) => {
   }), { ativo: 0, pendente: 0, suspenso: 0, validado: 0, total: 0 });
 
   return (
+    <>
     <div className="overflow-x-auto">
       <table className={tableClass}>
         <thead>
@@ -249,6 +254,8 @@ const AgricultoresTable = ({ filters }: { filters: Filters }) => {
         </tfoot>
       </table>
     </div>
+    <AgricultoresCharts data={data} />
+    </>
   );
 };
 
@@ -262,6 +269,7 @@ const IncentivosTable = ({ filters }: { filters: Filters }) => {
   }), { beneficiarios: 0, totalKz: 0, kitsEntregues: 0, sementesKg: 0 });
 
   return (
+    <>
     <div className="overflow-x-auto">
       <table className={tableClass}>
         <thead>
@@ -297,6 +305,8 @@ const IncentivosTable = ({ filters }: { filters: Filters }) => {
         </tfoot>
       </table>
     </div>
+    <IncentivosCharts data={data} />
+    </>
   );
 };
 
@@ -308,6 +318,7 @@ const ComprasTable = ({ filters }: { filters: Filters }) => {
   }), { transacoes: 0, volumeKz: 0 });
 
   return (
+    <>
     <div className="overflow-x-auto">
       <table className={tableClass}>
         <thead>
@@ -340,6 +351,8 @@ const ComprasTable = ({ filters }: { filters: Filters }) => {
         </tfoot>
       </table>
     </div>
+    <ComprasCharts data={data} />
+    </>
   );
 };
 
