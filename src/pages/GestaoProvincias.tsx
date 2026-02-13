@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { MapPin, Search, School, Users, ChevronRight, Plus, Trash2, Edit2, X, Building } from "lucide-react";
+import { MapPin, Search, School, Users, ChevronRight, Plus, Trash2, Edit2, X, Building, Download, FileText } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -119,13 +119,94 @@ const GestaoProvincias = () => {
     setSchoolForm({ name: "", municipality: "", village: "", technician: "", phone: "" });
   };
 
+  const exportMunicipiosCSV = () => {
+    const header = "Província;Município\n";
+    const rows = provincesData
+      .flatMap((p) => p.municipalities.map((m) => `${p.name};${m}`))
+      .join("\n");
+    downloadFile(header + rows, "municipios.csv", "text/csv;charset=utf-8");
+    toast({ title: "Exportado", description: "Lista de municípios exportada em CSV." });
+  };
+
+  const exportEscolasCSV = () => {
+    const header = "Província;Município;Escola;Técnico;Telefone;Produtores;Estado\n";
+    const rows = allSchools
+      .map((s) => `${s.province};${s.municipality};${s.name};${s.technician};${s.technicianPhone};${s.totalFarmers};${s.status}`)
+      .join("\n");
+    downloadFile(header + rows, "escolas_campo.csv", "text/csv;charset=utf-8");
+    toast({ title: "Exportado", description: "Lista de escolas exportada em CSV." });
+  };
+
+  const downloadFile = (content: string, filename: string, type: string) => {
+    const BOM = "\uFEFF";
+    const blob = new Blob([BOM + content], { type });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const exportPDF = () => {
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
+
+    const municipiosRows = provincesData
+      .flatMap((p) => p.municipalities.map((m) => `<tr><td>${p.name}</td><td>${m}</td></tr>`))
+      .join("");
+
+    const escolasRows = allSchools
+      .map((s) => `<tr><td>${s.province}</td><td>${s.municipality}</td><td>${s.name}</td><td>${s.technician}</td><td>${s.totalFarmers}</td><td>${s.status}</td></tr>`)
+      .join("");
+
+    printWindow.document.write(`<!DOCTYPE html><html><head><title>MOSAP3 — Províncias, Municípios e Escolas</title>
+      <style>
+        body { font-family: Arial, sans-serif; padding: 24px; color: #1a1a1a; }
+        h1 { font-size: 18px; margin-bottom: 4px; }
+        h2 { font-size: 14px; margin-top: 24px; margin-bottom: 8px; color: #2d6a2e; }
+        p.sub { font-size: 11px; color: #666; margin-bottom: 16px; }
+        table { width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 16px; }
+        th, td { border: 1px solid #ddd; padding: 6px 8px; text-align: left; }
+        th { background: #2d6a2e; color: white; font-weight: 600; }
+        tr:nth-child(even) { background: #f9f9f9; }
+        @media print { body { padding: 0; } }
+      </style></head><body>
+      <h1>MOSAP3 — Províncias, Municípios e Escolas de Campo</h1>
+      <p class="sub">Exportado em ${new Date().toLocaleDateString("pt-AO")}</p>
+      <h2>Municípios (${totalMunicipios})</h2>
+      <table><thead><tr><th>Província</th><th>Município</th></tr></thead><tbody>${municipiosRows}</tbody></table>
+      <h2>Escolas de Campo (${allSchools.length})</h2>
+      <table><thead><tr><th>Província</th><th>Município</th><th>Escola</th><th>Técnico</th><th>Produtores</th><th>Estado</th></tr></thead><tbody>${escolasRows}</tbody></table>
+      </body></html>`);
+    printWindow.document.close();
+    printWindow.print();
+    toast({ title: "PDF gerado", description: "Use a opção 'Guardar como PDF' na janela de impressão." });
+  };
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="page-title">Gestão de Províncias</h1>
-        <p className="text-muted-foreground text-sm mt-1">
-          Visão geral das províncias, municípios e cobertura do programa
-        </p>
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h1 className="page-title">Gestão de Províncias</h1>
+          <p className="text-muted-foreground text-sm mt-1">
+            Visão geral das províncias, municípios e cobertura do programa
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={exportMunicipiosCSV}>
+            <Download className="h-3.5 w-3.5" />
+            Municípios CSV
+          </Button>
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={exportEscolasCSV}>
+            <Download className="h-3.5 w-3.5" />
+            Escolas CSV
+          </Button>
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={exportPDF}>
+            <FileText className="h-3.5 w-3.5" />
+            Exportar PDF
+          </Button>
+        </div>
       </div>
 
       {/* Summary stats */}
