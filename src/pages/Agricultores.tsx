@@ -28,12 +28,23 @@ const farmersData = [
 const Agricultores = () => {
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingFarmer, setEditingFarmer] = useState<typeof farmersData[number] | null>(null);
 
   const filtered = farmersData.filter((f) =>
     f.name.toLowerCase().includes(search.toLowerCase()) ||
     f.id.toLowerCase().includes(search.toLowerCase()) ||
     f.province.toLowerCase().includes(search.toLowerCase())
   );
+
+  const handleEdit = (farmer: typeof farmersData[number]) => {
+    setEditingFarmer(farmer);
+    setDialogOpen(true);
+  };
+
+  const handleCloseDialog = (open: boolean) => {
+    setDialogOpen(open);
+    if (!open) setEditingFarmer(null);
+  };
 
   return (
     <div className="space-y-6">
@@ -42,11 +53,11 @@ const Agricultores = () => {
           <h1 className="page-title">Agricultores</h1>
           <p className="text-muted-foreground text-sm mt-1">Cadastro e gestão de produtores do MOSAP3</p>
         </div>
-        <Button className="gap-2" onClick={() => setDialogOpen(true)}>
+        <Button className="gap-2" onClick={() => { setEditingFarmer(null); setDialogOpen(true); }}>
           <Plus className="h-4 w-4" />
           Novo Agricultor
         </Button>
-        <FarmerRegistrationForm open={dialogOpen} onOpenChange={setDialogOpen} />
+        <FarmerRegistrationForm open={dialogOpen} onOpenChange={handleCloseDialog} editData={editingFarmer} />
       </div>
 
       {/* Filters */}
@@ -133,7 +144,7 @@ const Agricultores = () => {
                         <Link to={`/agricultores/${f.id}`}>
                           <Button variant="ghost" size="icon" className="h-8 w-8"><Eye className="h-4 w-4" /></Button>
                         </Link>
-                        <Button variant="ghost" size="icon" className="h-8 w-8"><Edit className="h-4 w-4" /></Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(f)}><Edit className="h-4 w-4" /></Button>
                       </div>
                     </td>
                   </tr>

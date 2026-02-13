@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Camera, Fingerprint, User, X, ChevronRight, ChevronLeft, Check, WifiOff, Wifi } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,12 +40,24 @@ const steps = [
   { id: 3, title: "Biometria", icon: Fingerprint },
 ];
 
+type EditData = {
+  id: string;
+  name: string;
+  bi: string;
+  phone: string;
+  province: string;
+  municipality: string;
+  school: string;
+} | null;
+
 type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  editData?: EditData;
 };
 
-const FarmerRegistrationForm = ({ open, onOpenChange }: Props) => {
+const FarmerRegistrationForm = ({ open, onOpenChange, editData }: Props) => {
+  const isEditing = !!editData;
   const [step, setStep] = useState(1);
   const [photos, setPhotos] = useState<Record<string, string>>({});
   const [biometrics, setBiometrics] = useState<Record<string, string>>({});
@@ -57,6 +69,22 @@ const FarmerRegistrationForm = ({ open, onOpenChange }: Props) => {
   const [activeUpload, setActiveUpload] = useState<string | null>(null);
   const isOnline = useOnlineStatus();
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (editData && open) {
+      setFormData({
+        nome: editData.name,
+        bi: editData.bi,
+        dataNascimento: "",
+        genero: "",
+        telefone: editData.phone,
+        provincia: editData.province.toLowerCase(),
+        municipio: editData.municipality,
+        escolaCampo: "",
+      });
+      setStep(1);
+    }
+  }, [editData, open]);
 
   const handlePhotoUpload = (key: string) => {
     setActiveUpload(key);
@@ -119,7 +147,7 @@ const FarmerRegistrationForm = ({ open, onOpenChange }: Props) => {
       <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <div className="flex items-center justify-between">
-            <DialogTitle className="font-heading text-lg">Registar Agricultor</DialogTitle>
+            <DialogTitle className="font-heading text-lg">{isEditing ? "Editar Agricultor" : "Registar Agricultor"}</DialogTitle>
             <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full ${
               isOnline ? "bg-primary/10 text-primary" : "bg-warning/15 text-orange-600"
             }`}>
@@ -317,7 +345,7 @@ const FarmerRegistrationForm = ({ open, onOpenChange }: Props) => {
             ) : (
               <Button onClick={handleSubmit} className="gap-1">
                 <Check className="h-4 w-4" />
-                Registar Agricultor
+                {isEditing ? "Guardar Alterações" : "Registar Agricultor"}
               </Button>
             )}
           </div>
