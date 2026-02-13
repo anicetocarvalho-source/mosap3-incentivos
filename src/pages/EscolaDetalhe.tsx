@@ -1,5 +1,6 @@
 import { useParams, Link } from "react-router-dom";
 import { useState } from "react";
+import { Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { ArrowLeft, MapPin, User, Users, Sprout, Droplets, Sun, Wheat, CheckCircle2, AlertTriangle, Plus, ClipboardEdit, AlertCircle, Camera, X, Send, FileText, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -14,7 +15,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { getSchoolById, phaseOrder, type ProductionPhase, type FarmerTracking } from "@/data/escolasData";
+import { phaseOrder, type ProductionPhase, type FarmerTracking } from "@/data/escolasData";
+import { useSchoolDetail } from "@/hooks/useSchoolDetail";
 import { toast } from "@/hooks/use-toast";
 
 const phaseIcons: Record<ProductionPhase, any> = {
@@ -63,7 +65,7 @@ type PhaseLog = {
 
 const EscolaDetalhe = () => {
   const { id } = useParams();
-  const school = id ? getSchoolById(id) : null;
+  const { school, loading } = useSchoolDetail(id);
 
   const [phaseDialogOpen, setPhaseDialogOpen] = useState(false);
   const [issueDialogOpen, setIssueDialogOpen] = useState(false);
@@ -103,6 +105,14 @@ const EscolaDetalhe = () => {
 
   // Phase logs
   const [phaseLogs, setPhaseLogs] = useState<PhaseLog[]>([]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   if (!school) {
     return (
@@ -473,7 +483,7 @@ const EscolaDetalhe = () => {
               <CardHeader><CardTitle className="text-base">Culturas Acompanhadas</CardTitle></CardHeader>
               <CardContent>
                 <div className="flex flex-wrap gap-2">
-                  {[...new Set(school.farmers.map((f) => f.culture))].map((culture) => {
+                  {[...new Set(school.farmers.map((f) => f.culture))].map((culture: string) => {
                     const count = school.farmers.filter((f) => f.culture === culture).length;
                     return (
                       <Badge key={culture} variant="outline" className="gap-1 px-3 py-1">

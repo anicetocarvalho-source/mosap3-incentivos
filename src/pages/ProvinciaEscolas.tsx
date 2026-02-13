@@ -1,15 +1,24 @@
 import { useParams, Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ArrowLeft, MapPin, Users, User, School } from "lucide-react";
+import { ArrowLeft, MapPin, Users, User, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { getProvinceBySlug, getSchoolsByProvince } from "@/data/escolasData";
+import { useProvincesData } from "@/hooks/useProvincesData";
 
 const ProvinciaEscolas = () => {
   const { slug } = useParams();
-  const province = slug ? getProvinceBySlug(slug) : null;
-  const schools = slug ? getSchoolsByProvince(slug) : [];
+  const { provinces, municipalities, schools, loading, getMunicipalitiesByProvince, getSchoolsByProvince } = useProvincesData();
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  const province = provinces.find((p) => p.slug === slug);
 
   if (!province) {
     return (
@@ -22,16 +31,23 @@ const ProvinciaEscolas = () => {
     );
   }
 
+  const provSchools = getSchoolsByProvince(province.id);
+  const provMunicipalities = getMunicipalitiesByProvince(province.id);
+
   // Group schools by municipality
-  const byMunicipality: Record<string, typeof schools> = {};
-  schools.forEach((s) => {
-    if (!byMunicipality[s.municipality]) byMunicipality[s.municipality] = [];
-    byMunicipality[s.municipality].push(s);
+  const byMunicipality: Record<string, { name: string; schools: typeof provSchools }> = {};
+  provSchools.forEach((s) => {
+    const mun = provMunicipalities.find((m) => m.id === s.municipality_id);
+    const munName = mun?.name || "Desconhecido";
+    if (!byMunicipality[s.municipality_id]) {
+      byMunicipality[s.municipality_id] = { name: munName, schools: [] };
+    }
+    byMunicipality[s.municipality_id].schools.push(s);
   });
 
   // Municipalities without schools
-  const municipalitiesWithSchools = Object.keys(byMunicipality);
-  const municipalitiesWithout = province.municipalities.filter((m) => !municipalitiesWithSchools.includes(m));
+  const municipalityIdsWithSchools = new Set(Object.keys(byMunicipality));
+  const municipalitiesWithout = provMunicipalities.filter((m) => !municipalityIdsWithSchools.has(m.id));
 
   return (
     <div className="space-y-6">
@@ -52,28 +68,28 @@ const ProvinciaEscolas = () => {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card className="p-4">
           <p className="text-xs text-muted-foreground">Total Escolas</p>
-          <p className="text-2xl font-bold">{schools.length}</p>
+          <p className="text-2xl font-bold">{provSchools.length}</p>
         </Card>
         <Card className="p-4">
           <p className="text-xs text-muted-foreground">Total Produtores</p>
-          <p className="text-2xl font-bold">{schools.reduce((s, sc) => s + sc.totalFarmers, 0)}</p>
+          <p className="text-2xl font-bold">{provSchools.reduce((s, sc) => s + sc.total_farmers, 0)}</p>
         </Card>
         <Card className="p-4">
           <p className="text-xs text-muted-foreground">Municípios</p>
-          <p className="text-2xl font-bold">{province.municipalities.length}</p>
+          <p className="text-2xl font-bold">{provMunicipalities.length}</p>
         </Card>
         <Card className="p-4">
           <p className="text-xs text-muted-foreground">Escolas Activas</p>
-          <p className="text-2xl font-bold">{schools.filter((s) => s.status === "Ativa").length}</p>
+          <p className="text-2xl font-bold">{provSchools.filter((s) => s.status === "Ativa").length}</p>
         </Card>
       </div>
 
       {/* Municipalities with schools */}
-      {Object.entries(byMunicipality).map(([municipality, municipalitySchools]) => (
-        <div key={municipality} className="space-y-3">
+      {Object.entries(byMunicipality).map(([munId, { name, schools: municipalitySchools }]) => (
+        <div key={munId} className="space-y-3">
           <div className="flex items-center gap-2">
             <MapPin className="h-4 w-4 text-primary" />
-            <h2 className="font-heading font-semibold text-lg">{municipality}</h2>
+            <h2 className="font-heading font-semibold text-lg">{name}</h2>
             <Badge variant="outline" className="text-xs">{municipalitySchools.length} escola(s)</Badge>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -91,7 +107,7 @@ const ProvinciaEscolas = () => {
                         <h3 className="font-heading font-semibold text-base">{school.name}</h3>
                         <div className="flex items-center gap-1 text-muted-foreground text-xs mt-1">
                           <MapPin className="h-3 w-3" />
-                          <span>{school.village}</span>
+                          <span>{school.village || "—"}</span>
                         </div>
                       </div>
                       <Badge variant={school.status === "Ativa" ? "default" : "secondary"} className="text-xs">
@@ -101,12 +117,12 @@ const ProvinciaEscolas = () => {
                     <div className="flex items-center gap-4 pt-3 border-t border-border">
                       <div className="flex items-center gap-1.5 text-sm">
                         <Users className="h-4 w-4 text-primary" />
-                        <span className="font-semibold">{school.totalFarmers}</span>
+                        <span className="font-semibold">{school.total_farmers}</span>
                         <span className="text-muted-foreground text-xs">produtores</span>
                       </div>
                       <div className="flex items-center gap-1.5 text-sm">
                         <User className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-muted-foreground text-xs">{school.technician}</span>
+                        <span className="text-muted-foreground text-xs">{school.technician || "—"}</span>
                       </div>
                     </div>
                   </Card>
@@ -123,7 +139,7 @@ const ProvinciaEscolas = () => {
           <h2 className="font-heading font-semibold text-lg text-muted-foreground">Municípios sem Escolas de Campo</h2>
           <div className="flex flex-wrap gap-2">
             {municipalitiesWithout.map((m) => (
-              <Badge key={m} variant="outline" className="text-xs text-muted-foreground">{m}</Badge>
+              <Badge key={m.id} variant="outline" className="text-xs text-muted-foreground">{m.name}</Badge>
             ))}
           </div>
         </div>
