@@ -28,6 +28,8 @@ const MODULE_NAMES = [
   "Parcelas",
   "Empresas",
   "Produção",
+  "Relatórios",
+  "Gestão de Províncias",
   "Utilizadores",
   "Configurações",
   "Gestão de ECAs",
@@ -40,6 +42,10 @@ MODULE_NAMES.forEach((mod) => {
     const allAccess = ["Dashboard", "Cadastro de Agricultores", "Registo do Pequeno Produtor", "Escolas de Campo", "Parcelas", "Produção"];
     if (allAccess.includes(mod)) {
       DEFAULT_ACCESS[mod][role] = true;
+    } else if (mod === "Relatórios") {
+      DEFAULT_ACCESS[mod][role] = !["junior_agronegocio", "tecnico_extensionista"].includes(role);
+    } else if (mod === "Gestão de Províncias") {
+      DEFAULT_ACCESS[mod][role] = ["admin", "senior_agricultura", "senior_monitoria"].includes(role);
     } else if (mod === "Incentivos" || mod === "Transações") {
       DEFAULT_ACCESS[mod][role] = ["admin", "gestor_incentivos"].includes(role);
     } else if (mod === "Compras" || mod === "Empresas") {
