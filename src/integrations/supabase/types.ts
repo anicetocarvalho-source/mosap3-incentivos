@@ -14,6 +14,35 @@ export type Database = {
   }
   public: {
     Tables: {
+      municipalities: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          province_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          province_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          province_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "municipalities_province_id_fkey"
+            columns: ["province_id"]
+            isOneToOne: false
+            referencedRelation: "provinces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
@@ -40,6 +69,93 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      provinces: {
+        Row: {
+          capital: string
+          created_at: string
+          id: string
+          name: string
+          slug: string
+        }
+        Insert: {
+          capital: string
+          created_at?: string
+          id?: string
+          name: string
+          slug: string
+        }
+        Update: {
+          capital?: string
+          created_at?: string
+          id?: string
+          name?: string
+          slug?: string
+        }
+        Relationships: []
+      }
+      schools: {
+        Row: {
+          active_cycles: number
+          created_at: string
+          id: string
+          municipality_id: string
+          name: string
+          province_id: string
+          status: string
+          technician: string | null
+          technician_phone: string | null
+          total_area: string | null
+          total_farmers: number
+          updated_at: string
+          village: string | null
+        }
+        Insert: {
+          active_cycles?: number
+          created_at?: string
+          id?: string
+          municipality_id: string
+          name: string
+          province_id: string
+          status?: string
+          technician?: string | null
+          technician_phone?: string | null
+          total_area?: string | null
+          total_farmers?: number
+          updated_at?: string
+          village?: string | null
+        }
+        Update: {
+          active_cycles?: number
+          created_at?: string
+          id?: string
+          municipality_id?: string
+          name?: string
+          province_id?: string
+          status?: string
+          technician?: string | null
+          technician_phone?: string | null
+          total_area?: string | null
+          total_farmers?: number
+          updated_at?: string
+          village?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "schools_municipality_id_fkey"
+            columns: ["municipality_id"]
+            isOneToOne: false
+            referencedRelation: "municipalities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "schools_province_id_fkey"
+            columns: ["province_id"]
+            isOneToOne: false
+            referencedRelation: "provinces"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       system_settings: {
         Row: {
