@@ -18,6 +18,7 @@ import {
   ShoppingCart,
   MapPin,
   Smartphone,
+  FileText,
 } from "lucide-react";
 import mosapLogo from "@/assets/mosap3-logo.png";
 import { useAuth } from "@/hooks/useAuth";
@@ -88,6 +89,12 @@ const navItems: NavItem[] = [
     icon: Wheat,
     label: "Produção",
     path: "/producao",
+    compact: true,
+  },
+  {
+    icon: FileText,
+    label: "Relatórios",
+    path: "/relatorios",
     compact: true,
   },
   {
