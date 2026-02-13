@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { MapPin, Search, School, Users, ChevronRight, Plus, Trash2, Edit2, X, Building, Download, FileText } from "lucide-react";
+import { MapPin, Search, School, ChevronRight, Plus, Trash2, Edit2, X, Building, Download, FileText, Loader2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -29,114 +29,98 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { provinces as initialProvinces, allSchools, type ProvinceInfo, type School as SchoolType } from "@/data/escolasData";
 import { useNavigate } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { useProvincesData, type DbProvince } from "@/hooks/useProvincesData";
 
 const GestaoProvincias = () => {
   const [search, setSearch] = useState("");
-  const [provincesData, setProvincesData] = useState<ProvinceInfo[]>(initialProvinces);
-  const [selectedProvince, setSelectedProvince] = useState<ProvinceInfo | null>(null);
+  const [selectedProvince, setSelectedProvince] = useState<DbProvince | null>(null);
   const [newMunicipio, setNewMunicipio] = useState("");
-  const [editingMunicipio, setEditingMunicipio] = useState<{ index: number; value: string } | null>(null);
+  const [editingMunicipio, setEditingMunicipio] = useState<{ id: string; value: string } | null>(null);
 
   // School dialog
   const [showSchoolDialog, setShowSchoolDialog] = useState(false);
-  const [schoolForm, setSchoolForm] = useState({ name: "", municipality: "", village: "", technician: "", phone: "" });
+  const [schoolForm, setSchoolForm] = useState({ name: "", municipality_id: "", village: "", technician: "", phone: "" });
 
   const { isAdmin } = useAuth();
   const navigate = useNavigate();
+  const {
+    provinces, municipalities, schools, loading,
+    getMunicipalitiesByProvince, getSchoolsByProvince,
+    addMunicipality, updateMunicipality, deleteMunicipality,
+    addSchool,
+  } = useProvincesData();
 
-  const filtered = provincesData.filter((p) =>
+  const filtered = provinces.filter((p) =>
     p.name.toLowerCase().includes(search.toLowerCase()) ||
     p.capital.toLowerCase().includes(search.toLowerCase())
   );
 
-  const totalEscolas = provincesData.reduce((a, p) => a + p.schools, 0);
-  const totalProdutores = provincesData.reduce((a, p) => a + p.farmers, 0);
-  const totalMunicipios = provincesData.reduce((a, p) => a + p.municipalities.length, 0);
+  const totalEscolas = schools.length;
+  const totalProdutores = schools.reduce((a, s) => a + s.total_farmers, 0);
+  const totalMunicipios = municipalities.length;
 
-  const provinceSchools = selectedProvince
-    ? allSchools.filter((s) => s.provinceSlug === selectedProvince.slug)
-    : [];
+  const selectedMunicipalities = selectedProvince ? getMunicipalitiesByProvince(selectedProvince.id) : [];
+  const selectedSchools = selectedProvince ? getSchoolsByProvince(selectedProvince.id) : [];
 
-  const handleAddMunicipio = () => {
+  const handleAddMunicipio = async () => {
     if (!selectedProvince || !newMunicipio.trim()) return;
     const trimmed = newMunicipio.trim();
-    if (selectedProvince.municipalities.includes(trimmed)) {
+    if (selectedMunicipalities.some((m) => m.name === trimmed)) {
       toast({ title: "Duplicado", description: "Este município já existe.", variant: "destructive" });
       return;
     }
-    setProvincesData((prev) =>
-      prev.map((p) =>
-        p.slug === selectedProvince.slug
-          ? { ...p, municipalities: [...p.municipalities, trimmed] }
-          : p
-      )
-    );
-    setSelectedProvince((prev) =>
-      prev ? { ...prev, municipalities: [...prev.municipalities, trimmed] } : prev
-    );
-    setNewMunicipio("");
-    toast({ title: "Município adicionado", description: `${trimmed} foi adicionado a ${selectedProvince.name}.` });
+    try {
+      await addMunicipality(trimmed, selectedProvince.id);
+      setNewMunicipio("");
+      toast({ title: "Município adicionado", description: `${trimmed} foi adicionado a ${selectedProvince.name}.` });
+    } catch {
+      toast({ title: "Erro", description: "Não foi possível adicionar o município.", variant: "destructive" });
+    }
   };
 
-  const handleRemoveMunicipio = (index: number) => {
-    if (!selectedProvince) return;
-    const name = selectedProvince.municipalities[index];
-    const updated = selectedProvince.municipalities.filter((_, i) => i !== index);
-    setProvincesData((prev) =>
-      prev.map((p) =>
-        p.slug === selectedProvince.slug ? { ...p, municipalities: updated } : p
-      )
-    );
-    setSelectedProvince((prev) => (prev ? { ...prev, municipalities: updated } : prev));
-    toast({ title: "Município removido", description: `${name} foi removido.` });
+  const handleRemoveMunicipio = async (id: string, name: string) => {
+    try {
+      await deleteMunicipality(id);
+      toast({ title: "Município removido", description: `${name} foi removido.` });
+    } catch {
+      toast({ title: "Erro", description: "Não foi possível remover. Pode ter escolas associadas.", variant: "destructive" });
+    }
   };
 
-  const handleSaveEditMunicipio = () => {
-    if (!selectedProvince || !editingMunicipio || !editingMunicipio.value.trim()) return;
-    const updated = [...selectedProvince.municipalities];
-    updated[editingMunicipio.index] = editingMunicipio.value.trim();
-    setProvincesData((prev) =>
-      prev.map((p) =>
-        p.slug === selectedProvince.slug ? { ...p, municipalities: updated } : p
-      )
-    );
-    setSelectedProvince((prev) => (prev ? { ...prev, municipalities: updated } : prev));
-    setEditingMunicipio(null);
-    toast({ title: "Município actualizado" });
+  const handleSaveEditMunicipio = async () => {
+    if (!editingMunicipio || !editingMunicipio.value.trim()) return;
+    try {
+      await updateMunicipality(editingMunicipio.id, editingMunicipio.value.trim());
+      setEditingMunicipio(null);
+      toast({ title: "Município actualizado" });
+    } catch {
+      toast({ title: "Erro", description: "Não foi possível actualizar.", variant: "destructive" });
+    }
   };
 
-  const handleAddSchool = () => {
-    if (!selectedProvince || !schoolForm.name.trim() || !schoolForm.municipality) return;
-    toast({
-      title: "Escola adicionada (demo)",
-      description: `${schoolForm.name} foi registada em ${selectedProvince.name}. Para persistir, conecte à base de dados.`,
-    });
-    setShowSchoolDialog(false);
-    setSchoolForm({ name: "", municipality: "", village: "", technician: "", phone: "" });
+  const handleAddSchool = async () => {
+    if (!selectedProvince || !schoolForm.name.trim() || !schoolForm.municipality_id) return;
+    try {
+      await addSchool({
+        name: schoolForm.name.trim(),
+        province_id: selectedProvince.id,
+        municipality_id: schoolForm.municipality_id,
+        village: schoolForm.village || undefined,
+        technician: schoolForm.technician || undefined,
+        technician_phone: schoolForm.phone || undefined,
+      });
+      setShowSchoolDialog(false);
+      setSchoolForm({ name: "", municipality_id: "", village: "", technician: "", phone: "" });
+      toast({ title: "Escola registada", description: `${schoolForm.name} foi adicionada com sucesso.` });
+    } catch {
+      toast({ title: "Erro", description: "Não foi possível registar a escola.", variant: "destructive" });
+    }
   };
 
-  const exportMunicipiosCSV = () => {
-    const header = "Província;Município\n";
-    const rows = provincesData
-      .flatMap((p) => p.municipalities.map((m) => `${p.name};${m}`))
-      .join("\n");
-    downloadFile(header + rows, "municipios.csv", "text/csv;charset=utf-8");
-    toast({ title: "Exportado", description: "Lista de municípios exportada em CSV." });
-  };
-
-  const exportEscolasCSV = () => {
-    const header = "Província;Município;Escola;Técnico;Telefone;Produtores;Estado\n";
-    const rows = allSchools
-      .map((s) => `${s.province};${s.municipality};${s.name};${s.technician};${s.technicianPhone};${s.totalFarmers};${s.status}`)
-      .join("\n");
-    downloadFile(header + rows, "escolas_campo.csv", "text/csv;charset=utf-8");
-    toast({ title: "Exportado", description: "Lista de escolas exportada em CSV." });
-  };
-
+  // Export helpers
   const downloadFile = (content: string, filename: string, type: string) => {
     const BOM = "\uFEFF";
     const blob = new Blob([BOM + content], { type });
@@ -148,17 +132,39 @@ const GestaoProvincias = () => {
     URL.revokeObjectURL(url);
   };
 
+  const exportMunicipiosCSV = () => {
+    const header = "Província;Município\n";
+    const rows = provinces
+      .flatMap((p) => getMunicipalitiesByProvince(p.id).map((m) => `${p.name};${m.name}`))
+      .join("\n");
+    downloadFile(header + rows, "municipios.csv", "text/csv;charset=utf-8");
+    toast({ title: "Exportado", description: "Lista de municípios exportada em CSV." });
+  };
+
+  const exportEscolasCSV = () => {
+    const header = "Província;Município;Escola;Técnico;Telefone;Produtores;Estado\n";
+    const rows = schools.map((s) => {
+      const prov = provinces.find((p) => p.id === s.province_id);
+      const mun = municipalities.find((m) => m.id === s.municipality_id);
+      return `${prov?.name ?? ""};${mun?.name ?? ""};${s.name};${s.technician ?? ""};${s.technician_phone ?? ""};${s.total_farmers};${s.status}`;
+    }).join("\n");
+    downloadFile(header + rows, "escolas_campo.csv", "text/csv;charset=utf-8");
+    toast({ title: "Exportado", description: "Lista de escolas exportada em CSV." });
+  };
+
   const exportPDF = () => {
     const printWindow = window.open("", "_blank");
     if (!printWindow) return;
 
-    const municipiosRows = provincesData
-      .flatMap((p) => p.municipalities.map((m) => `<tr><td>${p.name}</td><td>${m}</td></tr>`))
+    const municipiosRows = provinces
+      .flatMap((p) => getMunicipalitiesByProvince(p.id).map((m) => `<tr><td>${p.name}</td><td>${m.name}</td></tr>`))
       .join("");
 
-    const escolasRows = allSchools
-      .map((s) => `<tr><td>${s.province}</td><td>${s.municipality}</td><td>${s.name}</td><td>${s.technician}</td><td>${s.totalFarmers}</td><td>${s.status}</td></tr>`)
-      .join("");
+    const escolasRows = schools.map((s) => {
+      const prov = provinces.find((p) => p.id === s.province_id);
+      const mun = municipalities.find((m) => m.id === s.municipality_id);
+      return `<tr><td>${prov?.name ?? ""}</td><td>${mun?.name ?? ""}</td><td>${s.name}</td><td>${s.technician ?? ""}</td><td>${s.total_farmers}</td><td>${s.status}</td></tr>`;
+    }).join("");
 
     printWindow.document.write(`<!DOCTYPE html><html><head><title>MOSAP3 — Províncias, Municípios e Escolas</title>
       <style>
@@ -176,13 +182,21 @@ const GestaoProvincias = () => {
       <p class="sub">Exportado em ${new Date().toLocaleDateString("pt-AO")}</p>
       <h2>Municípios (${totalMunicipios})</h2>
       <table><thead><tr><th>Província</th><th>Município</th></tr></thead><tbody>${municipiosRows}</tbody></table>
-      <h2>Escolas de Campo (${allSchools.length})</h2>
+      <h2>Escolas de Campo (${totalEscolas})</h2>
       <table><thead><tr><th>Província</th><th>Município</th><th>Escola</th><th>Técnico</th><th>Produtores</th><th>Estado</th></tr></thead><tbody>${escolasRows}</tbody></table>
       </body></html>`);
     printWindow.document.close();
     printWindow.print();
     toast({ title: "PDF gerado", description: "Use a opção 'Guardar como PDF' na janela de impressão." });
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -212,7 +226,7 @@ const GestaoProvincias = () => {
       {/* Summary stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card className="p-4 text-center">
-          <p className="text-2xl font-bold text-primary">{provincesData.length}</p>
+          <p className="text-2xl font-bold text-primary">{provinces.length}</p>
           <p className="text-xs text-muted-foreground mt-1">Províncias</p>
         </Card>
         <Card className="p-4 text-center">
@@ -242,54 +256,59 @@ const GestaoProvincias = () => {
 
       {/* Province cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filtered.map((prov) => (
-          <Card
-            key={prov.slug}
-            className="p-4 hover:shadow-md transition-shadow cursor-pointer group"
-            onClick={() => setSelectedProvince(prov)}
-          >
-            <div className="flex items-start justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center">
-                  <MapPin className="h-4 w-4 text-primary" />
+        {filtered.map((prov) => {
+          const provMunicipalities = getMunicipalitiesByProvince(prov.id);
+          const provSchools = getSchoolsByProvince(prov.id);
+          const provFarmers = provSchools.reduce((a, s) => a + s.total_farmers, 0);
+          return (
+            <Card
+              key={prov.id}
+              className="p-4 hover:shadow-md transition-shadow cursor-pointer group"
+              onClick={() => setSelectedProvince(prov)}
+            >
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center">
+                    <MapPin className="h-4 w-4 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-sm">{prov.name}</h3>
+                    <p className="text-xs text-muted-foreground">Capital: {prov.capital}</p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="font-semibold text-sm">{prov.name}</h3>
-                  <p className="text-xs text-muted-foreground">Capital: {prov.capital}</p>
+                <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+              </div>
+
+              <div className="grid grid-cols-3 gap-2 mb-3">
+                <div className="text-center bg-muted/50 rounded-md py-2">
+                  <p className="text-sm font-bold">{provMunicipalities.length}</p>
+                  <p className="text-[10px] text-muted-foreground">Municípios</p>
+                </div>
+                <div className="text-center bg-muted/50 rounded-md py-2">
+                  <p className="text-sm font-bold">{provSchools.length}</p>
+                  <p className="text-[10px] text-muted-foreground">Escolas</p>
+                </div>
+                <div className="text-center bg-muted/50 rounded-md py-2">
+                  <p className="text-sm font-bold">{provFarmers}</p>
+                  <p className="text-[10px] text-muted-foreground">Produtores</p>
                 </div>
               </div>
-              <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-            </div>
 
-            <div className="grid grid-cols-3 gap-2 mb-3">
-              <div className="text-center bg-muted/50 rounded-md py-2">
-                <p className="text-sm font-bold">{prov.municipalities.length}</p>
-                <p className="text-[10px] text-muted-foreground">Municípios</p>
+              <div className="flex flex-wrap gap-1">
+                {provMunicipalities.slice(0, 4).map((m) => (
+                  <Badge key={m.id} variant="secondary" className="text-[10px] px-1.5 py-0">
+                    {m.name}
+                  </Badge>
+                ))}
+                {provMunicipalities.length > 4 && (
+                  <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                    +{provMunicipalities.length - 4}
+                  </Badge>
+                )}
               </div>
-              <div className="text-center bg-muted/50 rounded-md py-2">
-                <p className="text-sm font-bold">{prov.schools}</p>
-                <p className="text-[10px] text-muted-foreground">Escolas</p>
-              </div>
-              <div className="text-center bg-muted/50 rounded-md py-2">
-                <p className="text-sm font-bold">{prov.farmers}</p>
-                <p className="text-[10px] text-muted-foreground">Produtores</p>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap gap-1">
-              {prov.municipalities.slice(0, 4).map((m) => (
-                <Badge key={m} variant="secondary" className="text-[10px] px-1.5 py-0">
-                  {m}
-                </Badge>
-              ))}
-              {prov.municipalities.length > 4 && (
-                <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-                  +{prov.municipalities.length - 4}
-                </Badge>
-              )}
-            </div>
-          </Card>
-        ))}
+            </Card>
+          );
+        })}
       </div>
 
       {filtered.length === 0 && (
@@ -317,22 +336,22 @@ const GestaoProvincias = () => {
                 <div className="flex items-center justify-between">
                   <h3 className="text-sm font-semibold flex items-center gap-2">
                     <Building className="h-4 w-4 text-primary" />
-                    Municípios ({selectedProvince.municipalities.length})
+                    Municípios ({selectedMunicipalities.length})
                   </h3>
                 </div>
                 <Separator />
 
                 <div className="space-y-1.5">
-                  {selectedProvince.municipalities.map((m, i) => (
+                  {selectedMunicipalities.map((m) => (
                     <div
-                      key={i}
+                      key={m.id}
                       className="flex items-center justify-between px-3 py-2 rounded-md bg-muted/40 group/item"
                     >
-                      {editingMunicipio?.index === i ? (
+                      {editingMunicipio?.id === m.id ? (
                         <div className="flex items-center gap-2 flex-1">
                           <Input
                             value={editingMunicipio.value}
-                            onChange={(e) => setEditingMunicipio({ index: i, value: e.target.value })}
+                            onChange={(e) => setEditingMunicipio({ id: m.id, value: e.target.value })}
                             className="h-7 text-sm"
                             autoFocus
                             onKeyDown={(e) => e.key === "Enter" && handleSaveEditMunicipio()}
@@ -346,14 +365,14 @@ const GestaoProvincias = () => {
                         </div>
                       ) : (
                         <>
-                          <span className="text-sm">{m}</span>
+                          <span className="text-sm">{m.name}</span>
                           {isAdmin && (
                             <div className="flex gap-1 opacity-0 group-hover/item:opacity-100 transition-opacity">
                               <Button
                                 size="sm"
                                 variant="ghost"
                                 className="h-7 w-7 p-0"
-                                onClick={() => setEditingMunicipio({ index: i, value: m })}
+                                onClick={() => setEditingMunicipio({ id: m.id, value: m.name })}
                               >
                                 <Edit2 className="h-3 w-3" />
                               </Button>
@@ -361,7 +380,7 @@ const GestaoProvincias = () => {
                                 size="sm"
                                 variant="ghost"
                                 className="h-7 w-7 p-0 text-destructive hover:text-destructive"
-                                onClick={() => handleRemoveMunicipio(i)}
+                                onClick={() => handleRemoveMunicipio(m.id, m.name)}
                               >
                                 <Trash2 className="h-3 w-3" />
                               </Button>
@@ -395,7 +414,7 @@ const GestaoProvincias = () => {
                 <div className="flex items-center justify-between">
                   <h3 className="text-sm font-semibold flex items-center gap-2">
                     <School className="h-4 w-4 text-primary" />
-                    Escolas de Campo ({provinceSchools.length})
+                    Escolas de Campo ({selectedSchools.length})
                   </h3>
                   {isAdmin && (
                     <Button size="sm" variant="outline" className="h-7 gap-1 text-xs" onClick={() => setShowSchoolDialog(true)}>
@@ -406,7 +425,7 @@ const GestaoProvincias = () => {
                 </div>
                 <Separator />
 
-                {provinceSchools.length > 0 ? (
+                {selectedSchools.length > 0 ? (
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -418,23 +437,22 @@ const GestaoProvincias = () => {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {provinceSchools.map((s) => (
-                        <TableRow
-                          key={s.id}
-                          className="cursor-pointer hover:bg-muted/50"
-                          onClick={() => navigate(`/escolas/${s.id}`)}
-                        >
-                          <TableCell className="text-sm font-medium">{s.name}</TableCell>
-                          <TableCell className="text-sm">{s.municipality}</TableCell>
-                          <TableCell className="text-sm">{s.technician}</TableCell>
-                          <TableCell className="text-sm text-center">{s.totalFarmers}</TableCell>
-                          <TableCell className="text-center">
-                            <Badge variant={s.status === "Ativa" ? "default" : "secondary"} className="text-[10px]">
-                              {s.status}
-                            </Badge>
-                          </TableCell>
-                        </TableRow>
-                      ))}
+                      {selectedSchools.map((s) => {
+                        const mun = municipalities.find((m) => m.id === s.municipality_id);
+                        return (
+                          <TableRow key={s.id} className="cursor-pointer hover:bg-muted/50">
+                            <TableCell className="text-sm font-medium">{s.name}</TableCell>
+                            <TableCell className="text-sm">{mun?.name ?? ""}</TableCell>
+                            <TableCell className="text-sm">{s.technician ?? ""}</TableCell>
+                            <TableCell className="text-sm text-center">{s.total_farmers}</TableCell>
+                            <TableCell className="text-center">
+                              <Badge variant={s.status === "Ativa" ? "default" : "secondary"} className="text-[10px]">
+                                {s.status}
+                              </Badge>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
                     </TableBody>
                   </Table>
                 ) : (
@@ -475,13 +493,13 @@ const GestaoProvincias = () => {
             <div className="space-y-1.5">
               <Label className="text-xs">Município</Label>
               <Select
-                value={schoolForm.municipality}
-                onValueChange={(v) => setSchoolForm((f) => ({ ...f, municipality: v }))}
+                value={schoolForm.municipality_id}
+                onValueChange={(v) => setSchoolForm((f) => ({ ...f, municipality_id: v }))}
               >
                 <SelectTrigger><SelectValue placeholder="Seleccionar município" /></SelectTrigger>
                 <SelectContent>
-                  {selectedProvince?.municipalities.map((m) => (
-                    <SelectItem key={m} value={m}>{m}</SelectItem>
+                  {selectedMunicipalities.map((m) => (
+                    <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -514,7 +532,7 @@ const GestaoProvincias = () => {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowSchoolDialog(false)}>Cancelar</Button>
-            <Button onClick={handleAddSchool} disabled={!schoolForm.name.trim() || !schoolForm.municipality}>
+            <Button onClick={handleAddSchool} disabled={!schoolForm.name.trim() || !schoolForm.municipality_id}>
               Registar Escola
             </Button>
           </DialogFooter>
