@@ -1,4 +1,4 @@
-import { Users, ThumbsUp, ArrowRightLeft, Building2, TrendingUp, School, MapPin, Wheat, ShoppingCart, Gift, AlertTriangle, CheckCircle2, Clock } from "lucide-react";
+import { Users, ThumbsUp, ArrowRightLeft, Building2, TrendingUp, School, MapPin, Wheat, ShoppingCart, Gift, AlertTriangle, CheckCircle2, Clock, Beef } from "lucide-react";
 import { motion } from "framer-motion";
 import StatCard from "@/components/StatCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -48,6 +48,14 @@ const productionByCulture = [
   { name: "Amendoim", area: 1200, producao: 1440 },
   { name: "Soja", area: 800, producao: 1280 },
   { name: "Batata-doce", area: 1500, producao: 6000 },
+];
+
+const livestockBySpecies = [
+  { name: "Bovinos", quantidade: 4250, produtores: 1820 },
+  { name: "Caprinos", quantidade: 6800, produtores: 2450 },
+  { name: "Suínos", quantidade: 3100, produtores: 1200 },
+  { name: "Aves", quantidade: 28500, produtores: 5600 },
+  { name: "Ovinos", quantidade: 2200, produtores: 890 },
 ];
 
 const incentivesByMonth = [
@@ -100,7 +108,7 @@ const Dashboard = () => {
         <StatCard title="Escolas de Campo" value="72" change="+4 este mês" changeType="positive" icon={School} iconBg="hsl(45 90% 88%)" />
         <StatCard title="Parcelas Registadas" value="9.245" change="12.850 ha total" changeType="neutral" icon={MapPin} iconBg="hsl(130 40% 90%)" />
         <StatCard title="Produção (ton)" value="35.040" change="+12% vs anterior" changeType="positive" icon={Wheat} iconBg="hsl(38 80% 88%)" />
-        <StatCard title="Incentivos Distribuídos" value="302M Kz" change="261M Kz gastos" changeType="neutral" icon={Gift} iconBg="hsl(280 40% 90%)" />
+        <StatCard title="Efectivo Pecuário" value="44.850" change="11.960 produtores" changeType="neutral" icon={Beef} iconBg="hsl(25 70% 90%)" />
       </div>
 
       {/* Volume */}
@@ -201,6 +209,26 @@ const Dashboard = () => {
           </Card>
         </motion.div>
       </div>
+
+      {/* Pecuária Chart */}
+      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.32 }}>
+        <Card className="p-6">
+          <h2 className="font-heading font-semibold text-sm uppercase tracking-wider text-muted-foreground mb-6">
+            Efectivo Pecuário por Espécie
+          </h2>
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={livestockBySpecies}>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(100 10% 89%)" />
+              <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+              <YAxis tick={{ fontSize: 12 }} />
+              <Tooltip />
+              <Legend />
+              <Bar dataKey="quantidade" name="Cabeças" fill="hsl(25, 65%, 45%)" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="produtores" name="Produtores" fill="hsl(45, 80%, 50%)" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </Card>
+      </motion.div>
 
       {/* Charts Row 3: Incentivos + Transações */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
