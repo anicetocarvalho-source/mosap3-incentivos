@@ -1,8 +1,9 @@
 import { useParams, Link } from "react-router-dom";
-import { ArrowLeft, Printer, MapPin, User, Users, School, Wheat, Phone, Calendar, AlertTriangle, CheckCircle2, XCircle, UserMinus, UserPlus, HeartPulse } from "lucide-react";
+import { ArrowLeft, Printer, MapPin, User, Users, School, Wheat, Phone, Calendar, AlertTriangle, CheckCircle2, XCircle, UserMinus, UserPlus, HeartPulse, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { getSchoolById, phaseOrder, type ProductionPhase } from "@/data/escolasData";
+import { phaseOrder, type ProductionPhase } from "@/data/escolasData";
+import { useSchoolDetail } from "@/hooks/useSchoolDetail";
 
 type FarmerStatus = "Em produção" | "Abandono" | "Doente" | "Falecido" | "Substituído";
 
@@ -61,7 +62,15 @@ const schoolFarmerStatuses: Record<string, FarmerWithStatus[]> = {
 
 const FichaEscola = () => {
   const { id } = useParams();
-  const school = id ? getSchoolById(id) : null;
+  const { school, loading } = useSchoolDetail(id);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   if (!school) {
     return (

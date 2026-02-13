@@ -1,10 +1,29 @@
 import { motion } from "framer-motion";
-import { MapPin, School, Users } from "lucide-react";
+import { MapPin, School, Users, Loader2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Card } from "@/components/ui/card";
-import { provinces } from "@/data/escolasData";
+import { useProvincesData } from "@/hooks/useProvincesData";
 
 const EscolasCampo = () => {
+  const { provinces, schools, loading } = useProvincesData();
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  const provincesWithStats = provinces.map((p) => {
+    const provSchools = schools.filter((s) => s.province_id === p.id);
+    return {
+      ...p,
+      schoolCount: provSchools.length,
+      farmerCount: provSchools.reduce((sum, s) => sum + s.total_farmers, 0),
+    };
+  });
+
   return (
     <div className="space-y-6">
       <div>
@@ -13,9 +32,9 @@ const EscolasCampo = () => {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-        {provinces.map((province, i) => (
+        {provincesWithStats.map((province, i) => (
           <motion.div
-            key={province.slug}
+            key={province.id}
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.03 }}
@@ -30,12 +49,12 @@ const EscolasCampo = () => {
                 <div className="flex items-center gap-4 pt-3 border-t border-border">
                   <div className="flex items-center gap-1.5 text-sm">
                     <School className="h-4 w-4 text-primary" />
-                    <span className="font-semibold">{province.schools}</span>
+                    <span className="font-semibold">{province.schoolCount}</span>
                     <span className="text-muted-foreground text-xs">escolas</span>
                   </div>
                   <div className="flex items-center gap-1.5 text-sm">
                     <Users className="h-4 w-4 text-muted-foreground" />
-                    <span className="font-semibold">{province.farmers}</span>
+                    <span className="font-semibold">{province.farmerCount}</span>
                     <span className="text-muted-foreground text-xs">produtores</span>
                   </div>
                 </div>
