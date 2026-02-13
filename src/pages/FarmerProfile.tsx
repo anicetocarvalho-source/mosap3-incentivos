@@ -1,7 +1,7 @@
 import { useParams, Link } from "react-router-dom";
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, User, MapPin, Phone, CreditCard, Wheat, ShoppingCart, Gift, Calendar, FileText, Users, Sprout, Sun, Droplets, CheckCircle2, Camera, ChevronDown, ChevronUp, Clock, Printer } from "lucide-react";
+import { ArrowLeft, User, MapPin, Phone, CreditCard, Wheat, ShoppingCart, Gift, Calendar, FileText, Users, Sprout, Sun, Droplets, CheckCircle2, Camera, ChevronDown, ChevronUp, Clock, Printer, Beef } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -66,6 +66,32 @@ const farmersData: Record<string, any> = {
       { name: "Luísa Mateus", relationship: "Filha", gender: "Feminino", birthDate: "15/08/2010", age: 15, education: "Ensino Primário", occupation: "Estudante" },
       { name: "Pedro Mateus", relationship: "Filho", gender: "Masculino", birthDate: "22/01/2015", age: 11, education: "Ensino Primário", occupation: "Estudante" },
       { name: "Rosa Mateus", relationship: "Mãe", gender: "Feminino", birthDate: "05/04/1958", age: 67, education: "Sem escolaridade", occupation: "Doméstica" },
+    ],
+    pecuaria: [
+      { species: "Bovinos", breed: "Nelore", quantity: 12, male: 3, female: 7, young: 2, pastureArea: "5.0 ha", infrastructure: "Curral cercado, bebedouro", monthlyProduction: 180,
+        healthRecords: [
+          { type: "Vacinação", description: "Febre aftosa", date: "15/01/2026" },
+          { type: "Desparasitação", description: "Ivermectina", date: "10/12/2025" },
+        ],
+        production: [
+          { product: "Leite", quantity: 180, unit: "litros", period: "Jan/2026" },
+          { product: "Leite", quantity: 165, unit: "litros", period: "Dez/2025" },
+        ],
+      },
+      { species: "Caprinos", breed: "Boer", quantity: 8, male: 2, female: 5, young: 1, pastureArea: "2.0 ha", infrastructure: "Aprisco", monthlyProduction: 12,
+        healthRecords: [
+          { type: "Vacinação", description: "Clostridiose", date: "20/01/2026" },
+        ],
+        production: [
+          { product: "Leite", quantity: 12, unit: "litros", period: "Jan/2026" },
+        ],
+      },
+      { species: "Aves", breed: "Caipira", quantity: 35, male: 5, female: 30, young: 0, infrastructure: "Galinheiro", monthlyProduction: 450,
+        healthRecords: [],
+        production: [
+          { product: "Ovos", quantity: 450, unit: "unidades", period: "Jan/2026" },
+        ],
+      },
     ],
   },
   "AGR-002": {
@@ -363,6 +389,9 @@ const FarmerProfile = () => {
             <TabsTrigger value="producao" className="gap-2 data-[state=active]:bg-card">
               <Wheat className="h-4 w-4" /> Produção ({farmer.production.length})
             </TabsTrigger>
+            <TabsTrigger value="pecuaria" className="gap-2 data-[state=active]:bg-card">
+              <Beef className="h-4 w-4" /> Pecuária ({farmer.pecuaria?.length || 0})
+            </TabsTrigger>
             <TabsTrigger value="incentivos" className="gap-2 data-[state=active]:bg-card">
               <Gift className="h-4 w-4" /> Incentivos ({farmer.incentives.length})
             </TabsTrigger>
@@ -537,6 +566,89 @@ const FarmerProfile = () => {
                 </Card>
               );
             })}
+          </TabsContent>
+
+          {/* Pecuária Tab */}
+          <TabsContent value="pecuaria" className="mt-4 space-y-4">
+            {(!farmer.pecuaria || farmer.pecuaria.length === 0) ? (
+              <Card className="p-12 text-center">
+                <Beef className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+                <p className="font-medium">Nenhum registo pecuário</p>
+                <p className="text-sm text-muted-foreground mt-1">Os dados de pecuária deste produtor serão apresentados aqui.</p>
+              </Card>
+            ) : (
+              <>
+                {/* Summary */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  <Card className="p-4">
+                    <p className="text-xs text-muted-foreground">Total Animais</p>
+                    <p className="text-2xl font-bold">{farmer.pecuaria.reduce((s: number, a: any) => s + a.quantity, 0)}</p>
+                  </Card>
+                  <Card className="p-4">
+                    <p className="text-xs text-muted-foreground">Espécies</p>
+                    <p className="text-2xl font-bold">{farmer.pecuaria.length}</p>
+                  </Card>
+                  <Card className="p-4">
+                    <p className="text-xs text-muted-foreground">Área Pastagem</p>
+                    <p className="text-2xl font-bold">{farmer.pecuaria[0]?.pastureArea || "—"}</p>
+                  </Card>
+                  <Card className="p-4">
+                    <p className="text-xs text-muted-foreground">Prod. Mensal</p>
+                    <p className="text-2xl font-bold">{farmer.pecuaria.reduce((s: number, a: any) => s + (a.monthlyProduction || 0), 0)} un.</p>
+                  </Card>
+                </div>
+
+                {/* Species cards */}
+                {farmer.pecuaria.map((animal: any, i: number) => (
+                  <Card key={i} className="p-5">
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-xl bg-accent flex items-center justify-center">
+                          <Beef className="h-5 w-5 text-accent-foreground" />
+                        </div>
+                        <div>
+                          <h3 className="font-heading font-semibold">{animal.species}</h3>
+                          {animal.breed && <p className="text-xs text-muted-foreground">Raça: {animal.breed}</p>}
+                        </div>
+                      </div>
+                      <Badge variant="outline" className="text-xs">{animal.quantity} cabeças</Badge>
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                      <div><span className="text-xs text-muted-foreground">Machos</span><p className="font-semibold">{animal.male}</p></div>
+                      <div><span className="text-xs text-muted-foreground">Fêmeas</span><p className="font-semibold">{animal.female}</p></div>
+                      <div><span className="text-xs text-muted-foreground">Crias</span><p className="font-semibold">{animal.young}</p></div>
+                      <div><span className="text-xs text-muted-foreground">Infraestrutura</span><p className="font-semibold">{animal.infrastructure || "—"}</p></div>
+                    </div>
+                    {animal.healthRecords && animal.healthRecords.length > 0 && (
+                      <div className="mt-4 border-t border-border pt-3">
+                        <p className="text-xs font-semibold text-muted-foreground mb-2">Registos de Saúde</p>
+                        <div className="space-y-1.5">
+                          {animal.healthRecords.map((h: any, hi: number) => (
+                            <div key={hi} className="flex items-center justify-between text-xs bg-muted/40 rounded px-3 py-1.5">
+                              <span className="font-medium">{h.type}: {h.description}</span>
+                              <span className="text-muted-foreground">{h.date}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {animal.production && animal.production.length > 0 && (
+                      <div className="mt-4 border-t border-border pt-3">
+                        <p className="text-xs font-semibold text-muted-foreground mb-2">Produção Animal</p>
+                        <div className="space-y-1.5">
+                          {animal.production.map((pr: any, pi: number) => (
+                            <div key={pi} className="flex items-center justify-between text-xs bg-muted/40 rounded px-3 py-1.5">
+                              <span className="font-medium">{pr.product}: {pr.quantity} {pr.unit}</span>
+                              <span className="text-muted-foreground">{pr.period}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </Card>
+                ))}
+              </>
+            )}
           </TabsContent>
 
           {/* Incentivos Tab */}

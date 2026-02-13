@@ -131,6 +131,7 @@ const ReportPreview = ({ reportType, reportLabel, filters }: Props) => {
         {/* Report Body */}
         <div className="p-6 print:p-4">
           {reportType === "producao_provincia" && <ProducaoTable filters={filters} />}
+          {reportType === "pecuaria_provincia" && <PecuariaTable filters={filters} />}
           {reportType === "agricultores_estado" && <AgricultoresTable filters={filters} />}
           {reportType === "incentivos_distribuidos" && <IncentivosTable filters={filters} />}
           {reportType === "compras_transacoes" && <ComprasTable filters={filters} />}
@@ -203,6 +204,78 @@ const ProducaoTable = ({ filters }: { filters: Filters }) => {
       </div>
       <ProducaoCharts data={data} />
     </>
+  );
+};
+
+const generatePecuariaData = (filters: Filters) => {
+  const rows = [
+    { provincia: "Benguela", escola: "EC Caimbambo", bovinos: 320, caprinos: 480, suinos: 150, aves: 2800, produtores: 145, leiteL: 4800, ovosUn: 18500 },
+    { provincia: "Benguela", escola: "EC Lobito", bovinos: 180, caprinos: 310, suinos: 90, aves: 1500, produtores: 95, leiteL: 2700, ovosUn: 9800 },
+    { provincia: "Huambo", escola: "EC Longonjo", bovinos: 450, caprinos: 620, suinos: 200, aves: 3500, produtores: 210, leiteL: 6800, ovosUn: 22000 },
+    { provincia: "Huambo", escola: "EC Bailundo", bovinos: 280, caprinos: 390, suinos: 120, aves: 2200, produtores: 140, leiteL: 4200, ovosUn: 14500 },
+    { provincia: "Bié", escola: "EC Cuemba", bovinos: 350, caprinos: 520, suinos: 180, aves: 3000, produtores: 165, leiteL: 5300, ovosUn: 19800 },
+    { provincia: "Huíla", escola: "EC Lubango", bovinos: 520, caprinos: 700, suinos: 250, aves: 4200, produtores: 195, leiteL: 7800, ovosUn: 27500 },
+    { provincia: "Malanje", escola: "EC Cacuso", bovinos: 200, caprinos: 340, suinos: 100, aves: 1800, produtores: 110, leiteL: 3000, ovosUn: 11800 },
+  ];
+  let filtered = rows;
+  if (filters.provincia && filters.provincia !== "all") filtered = filtered.filter(r => r.provincia === filters.provincia);
+  if (filters.escola && filters.escola !== "all") filtered = filtered.filter(r => r.escola === filters.escola);
+  return filtered;
+};
+
+const PecuariaTable = ({ filters }: { filters: Filters }) => {
+  const data = generatePecuariaData(filters);
+  const totals = data.reduce((acc, r) => ({
+    bovinos: acc.bovinos + r.bovinos, caprinos: acc.caprinos + r.caprinos,
+    suinos: acc.suinos + r.suinos, aves: acc.aves + r.aves,
+    produtores: acc.produtores + r.produtores, leiteL: acc.leiteL + r.leiteL, ovosUn: acc.ovosUn + r.ovosUn,
+  }), { bovinos: 0, caprinos: 0, suinos: 0, aves: 0, produtores: 0, leiteL: 0, ovosUn: 0 });
+
+  return (
+    <div className="overflow-x-auto">
+      <table className={tableClass}>
+        <thead>
+          <tr>
+            <th className={thClass}>Província</th>
+            <th className={thClass}>Escola</th>
+            <th className={cn(thClass, "text-right")}>Produtores</th>
+            <th className={cn(thClass, "text-right")}>Bovinos</th>
+            <th className={cn(thClass, "text-right")}>Caprinos</th>
+            <th className={cn(thClass, "text-right")}>Suínos</th>
+            <th className={cn(thClass, "text-right")}>Aves</th>
+            <th className={cn(thClass, "text-right")}>Leite (L)</th>
+            <th className={cn(thClass, "text-right")}>Ovos</th>
+          </tr>
+        </thead>
+        <tbody>
+          {data.map((r, i) => (
+            <tr key={i} className="hover:bg-muted/20">
+              <td className={tdClass}>{r.provincia}</td>
+              <td className={tdClass}>{r.escola}</td>
+              <td className={tdNumClass}>{formatNumber(r.produtores)}</td>
+              <td className={tdNumClass}>{formatNumber(r.bovinos)}</td>
+              <td className={tdNumClass}>{formatNumber(r.caprinos)}</td>
+              <td className={tdNumClass}>{formatNumber(r.suinos)}</td>
+              <td className={tdNumClass}>{formatNumber(r.aves)}</td>
+              <td className={tdNumClass}>{formatNumber(r.leiteL)}</td>
+              <td className={tdNumClass}>{formatNumber(r.ovosUn)}</td>
+            </tr>
+          ))}
+        </tbody>
+        <tfoot>
+          <tr>
+            <td className={tfClass} colSpan={2}>TOTAL</td>
+            <td className={tfNumClass}>{formatNumber(totals.produtores)}</td>
+            <td className={tfNumClass}>{formatNumber(totals.bovinos)}</td>
+            <td className={tfNumClass}>{formatNumber(totals.caprinos)}</td>
+            <td className={tfNumClass}>{formatNumber(totals.suinos)}</td>
+            <td className={tfNumClass}>{formatNumber(totals.aves)}</td>
+            <td className={tfNumClass}>{formatNumber(totals.leiteL)}</td>
+            <td className={tfNumClass}>{formatNumber(totals.ovosUn)}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
   );
 };
 

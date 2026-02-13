@@ -14,6 +14,148 @@ export type Database = {
   }
   public: {
     Tables: {
+      livestock: {
+        Row: {
+          breed: string | null
+          created_at: string
+          farmer_id: string
+          female_count: number
+          id: string
+          infrastructure_notes: string | null
+          male_count: number
+          pasture_area: string | null
+          quantity: number
+          school_id: string | null
+          species: string
+          updated_at: string
+          young_count: number
+        }
+        Insert: {
+          breed?: string | null
+          created_at?: string
+          farmer_id: string
+          female_count?: number
+          id?: string
+          infrastructure_notes?: string | null
+          male_count?: number
+          pasture_area?: string | null
+          quantity?: number
+          school_id?: string | null
+          species: string
+          updated_at?: string
+          young_count?: number
+        }
+        Update: {
+          breed?: string | null
+          created_at?: string
+          farmer_id?: string
+          female_count?: number
+          id?: string
+          infrastructure_notes?: string | null
+          male_count?: number
+          pasture_area?: string | null
+          quantity?: number
+          school_id?: string | null
+          species?: string
+          updated_at?: string
+          young_count?: number
+        }
+        Relationships: []
+      }
+      livestock_health: {
+        Row: {
+          cost: number | null
+          created_at: string
+          date: string
+          description: string
+          id: string
+          livestock_id: string
+          notes: string | null
+          quantity_affected: number
+          record_type: string
+          veterinarian: string | null
+        }
+        Insert: {
+          cost?: number | null
+          created_at?: string
+          date?: string
+          description: string
+          id?: string
+          livestock_id: string
+          notes?: string | null
+          quantity_affected?: number
+          record_type: string
+          veterinarian?: string | null
+        }
+        Update: {
+          cost?: number | null
+          created_at?: string
+          date?: string
+          description?: string
+          id?: string
+          livestock_id?: string
+          notes?: string | null
+          quantity_affected?: number
+          record_type?: string
+          veterinarian?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "livestock_health_livestock_id_fkey"
+            columns: ["livestock_id"]
+            isOneToOne: false
+            referencedRelation: "livestock"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      livestock_production: {
+        Row: {
+          created_at: string
+          id: string
+          livestock_id: string
+          notes: string | null
+          period_end: string
+          period_start: string
+          product_type: string
+          quantity: number
+          revenue: number | null
+          unit: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          livestock_id: string
+          notes?: string | null
+          period_end: string
+          period_start: string
+          product_type: string
+          quantity: number
+          revenue?: number | null
+          unit: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          livestock_id?: string
+          notes?: string | null
+          period_end?: string
+          period_start?: string
+          product_type?: string
+          quantity?: number
+          revenue?: number | null
+          unit?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "livestock_production_livestock_id_fkey"
+            columns: ["livestock_id"]
+            isOneToOne: false
+            referencedRelation: "livestock"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       municipalities: {
         Row: {
           created_at: string

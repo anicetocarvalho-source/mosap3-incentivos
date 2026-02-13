@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { motion } from "framer-motion";
-import { FileText, Printer, Filter, Calendar, MapPin, School, Users, ShoppingCart, Gift, Wheat, BarChart3 } from "lucide-react";
+import { FileText, Printer, Filter, Calendar, MapPin, School, Users, ShoppingCart, Gift, Wheat, BarChart3, Beef } from "lucide-react";
 import { format } from "date-fns";
 import { pt } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,7 @@ import ReportPreview from "@/components/reports/ReportPreview";
 
 const reportTypes = [
   { id: "producao_provincia", label: "Produção por Província", icon: Wheat, description: "Cruzar dados de produção com províncias e escolas de campo" },
+  { id: "pecuaria_provincia", label: "Pecuária por Província", icon: Beef, description: "Efectivo pecuário, saúde animal e produção por região" },
   { id: "agricultores_estado", label: "Agricultores por Estado", icon: Users, description: "Agricultores agrupados por estado e província" },
   { id: "incentivos_distribuidos", label: "Incentivos Distribuídos", icon: Gift, description: "Incentivos por região, escola e período" },
   { id: "compras_transacoes", label: "Compras e Transações", icon: ShoppingCart, description: "Resumo de compras e transações por empresa e período" },
