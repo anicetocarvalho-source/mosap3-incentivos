@@ -1,6 +1,7 @@
+import { useState, useCallback } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { Check, X } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { toast } from "@/hooks/use-toast";
 
 const ROLE_LABELS: Record<string, string> = {
   admin: "Admin",
@@ -16,30 +17,59 @@ const ROLE_LABELS: Record<string, string> = {
 
 const ROLES = Object.keys(ROLE_LABELS);
 
-type Module = {
-  name: string;
-  allowedRoles: string[] | "all";
-};
-
-const MODULES: Module[] = [
-  { name: "Dashboard", allowedRoles: "all" },
-  { name: "Registo do Pequeno Produtor", allowedRoles: "all" },
-  { name: "Escolas de Campo", allowedRoles: "all" },
-  { name: "Incentivos", allowedRoles: ["admin", "gestor_incentivos"] },
-  { name: "Transações", allowedRoles: ["admin", "gestor_incentivos"] },
-  { name: "Compras", allowedRoles: ["admin", "gestor_incentivos", "senior_agronegocio", "junior_agronegocio"] },
-  { name: "Parcelas", allowedRoles: "all" },
-  { name: "Empresas", allowedRoles: ["admin", "gestor_incentivos", "senior_agronegocio", "junior_agronegocio"] },
-  { name: "Produção", allowedRoles: "all" },
-  { name: "Utilizadores", allowedRoles: ["admin"] },
-  { name: "Configurações", allowedRoles: ["admin"] },
-  { name: "Gestão de ECAs", allowedRoles: ["admin", "tecnico_extensionista"] },
+const MODULE_NAMES = [
+  "Dashboard",
+  "Registo do Pequeno Produtor",
+  "Escolas de Campo",
+  "Incentivos",
+  "Transações",
+  "Compras",
+  "Parcelas",
+  "Empresas",
+  "Produção",
+  "Utilizadores",
+  "Configurações",
+  "Gestão de ECAs",
 ];
 
-const hasAccess = (module: Module, role: string) =>
-  module.allowedRoles === "all" || module.allowedRoles.includes(role);
+const DEFAULT_ACCESS: Record<string, Record<string, boolean>> = {};
+MODULE_NAMES.forEach((mod) => {
+  DEFAULT_ACCESS[mod] = {};
+  ROLES.forEach((role) => {
+    const allAccess = ["Dashboard", "Registo do Pequeno Produtor", "Escolas de Campo", "Parcelas", "Produção"];
+    if (allAccess.includes(mod)) {
+      DEFAULT_ACCESS[mod][role] = true;
+    } else if (mod === "Incentivos" || mod === "Transações") {
+      DEFAULT_ACCESS[mod][role] = ["admin", "gestor_incentivos"].includes(role);
+    } else if (mod === "Compras" || mod === "Empresas") {
+      DEFAULT_ACCESS[mod][role] = ["admin", "gestor_incentivos", "senior_agronegocio", "junior_agronegocio"].includes(role);
+    } else if (mod === "Utilizadores" || mod === "Configurações") {
+      DEFAULT_ACCESS[mod][role] = role === "admin";
+    } else if (mod === "Gestão de ECAs") {
+      DEFAULT_ACCESS[mod][role] = ["admin", "tecnico_extensionista"].includes(role);
+    } else {
+      DEFAULT_ACCESS[mod][role] = false;
+    }
+  });
+});
 
 const Perfis = () => {
+  const [access, setAccess] = useState<Record<string, Record<string, boolean>>>(DEFAULT_ACCESS);
+
+  const toggleAccess = useCallback((mod: string, role: string) => {
+    setAccess((prev) => {
+      const newVal = !prev[mod][role];
+      toast({
+        title: newVal ? "Acesso ativado" : "Acesso desativado",
+        description: `${ROLE_LABELS[role]} → ${mod}`,
+      });
+      return {
+        ...prev,
+        [mod]: { ...prev[mod], [role]: newVal },
+      };
+    });
+  }, []);
+
   return (
     <div className="space-y-6">
       <div>
@@ -64,22 +94,18 @@ const Perfis = () => {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {MODULES.map((mod) => (
-              <TableRow key={mod.name}>
+            {MODULE_NAMES.map((mod) => (
+              <TableRow key={mod}>
                 <TableCell className="sticky left-0 bg-card z-10 font-medium text-sm">
-                  {mod.name}
+                  {mod}
                 </TableCell>
                 {ROLES.map((role) => (
                   <TableCell key={role} className="text-center">
-                    {hasAccess(mod, role) ? (
-                      <Badge variant="outline" className="bg-accent text-accent-foreground border-0 h-7 w-7 p-0 inline-flex items-center justify-center">
-                        <Check className="h-4 w-4" />
-                      </Badge>
-                    ) : (
-                      <span className="inline-flex items-center justify-center h-7 w-7 text-muted-foreground/40">
-                        <X className="h-4 w-4" />
-                      </span>
-                    )}
+                    <Switch
+                      checked={access[mod][role]}
+                      onCheckedChange={() => toggleAccess(mod, role)}
+                      className="mx-auto"
+                    />
                   </TableCell>
                 ))}
               </TableRow>
@@ -90,7 +116,7 @@ const Perfis = () => {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         {ROLES.map((role) => {
-          const accessCount = MODULES.filter((m) => hasAccess(m, role)).length;
+          const accessCount = MODULE_NAMES.filter((m) => access[m][role]).length;
           return (
             <div key={role} className="flex items-center gap-3 p-3 rounded-lg border border-border bg-card">
               <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xs font-bold">
@@ -98,7 +124,7 @@ const Perfis = () => {
               </div>
               <div>
                 <p className="font-medium text-sm">{ROLE_LABELS[role]}</p>
-                <p className="text-xs text-muted-foreground">{accessCount} de {MODULES.length} módulos</p>
+                <p className="text-xs text-muted-foreground">{accessCount} de {MODULE_NAMES.length} módulos</p>
               </div>
             </div>
           );
