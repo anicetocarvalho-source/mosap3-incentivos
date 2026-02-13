@@ -25,6 +25,8 @@ import FichaProdutor from "@/pages/FichaProdutor";
 import FichaEscola from "@/pages/FichaEscola";
 import Instalar from "@/pages/Instalar";
 import Relatorios from "@/pages/Relatorios";
+import Configuracoes from "@/pages/Configuracoes";
+import GestaoProvincias from "@/pages/GestaoProvincias";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -57,9 +59,9 @@ const App = () => (
               <Route path="/parcelas" element={<Parcelas />} />
               <Route path="/producao" element={<Producao />} />
               <Route path="/relatorios" element={<Relatorios />} />
-              <Route path="/configuracoes" element={<Dashboard />} />
+              <Route path="/configuracoes" element={<Configuracoes />} />
               <Route path="/instalar" element={<Instalar />} />
-              <Route path="/provincias" element={<Dashboard />} />
+              <Route path="/provincias" element={<GestaoProvincias />} />
             </Route>
           </Route>
           <Route path="*" element={<NotFound />} />
