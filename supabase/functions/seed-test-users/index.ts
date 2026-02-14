@@ -17,6 +17,12 @@ Deno.serve(async (req) => {
     { email: "admin@mosap3.test", password: "teste123", full_name: "Admin MOSAP3", role: "admin" },
     { email: "gestor@mosap3.test", password: "teste123", full_name: "Gestor Incentivos", role: "gestor_incentivos" },
     { email: "tecnico@mosap3.test", password: "teste123", full_name: "Técnico Extensionista", role: "tecnico_extensionista" },
+    { email: "sr.agricultura@mosap3.test", password: "teste123", full_name: "Sénior Agricultura", role: "senior_agricultura" },
+    { email: "jr.agricultura@mosap3.test", password: "teste123", full_name: "Júnior Agricultura", role: "junior_agricultura" },
+    { email: "sr.monitoria@mosap3.test", password: "teste123", full_name: "Sénior Monitoria", role: "senior_monitoria" },
+    { email: "jr.monitoria@mosap3.test", password: "teste123", full_name: "Júnior Monitoria", role: "junior_monitoria" },
+    { email: "sr.agronegocio@mosap3.test", password: "teste123", full_name: "Sénior Agronegócio", role: "senior_agronegocio" },
+    { email: "jr.agronegocio@mosap3.test", password: "teste123", full_name: "Júnior Agronegócio", role: "junior_agronegocio" },
   ];
 
   const results = [];
