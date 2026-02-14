@@ -14,6 +14,285 @@ export type Database = {
   }
   public: {
     Tables: {
+      farmer_dependents: {
+        Row: {
+          age: number | null
+          birth_date: string | null
+          created_at: string
+          education: string | null
+          farmer_code: string
+          gender: string | null
+          id: string
+          name: string
+          occupation: string | null
+          relationship: string
+        }
+        Insert: {
+          age?: number | null
+          birth_date?: string | null
+          created_at?: string
+          education?: string | null
+          farmer_code: string
+          gender?: string | null
+          id?: string
+          name: string
+          occupation?: string | null
+          relationship: string
+        }
+        Update: {
+          age?: number | null
+          birth_date?: string | null
+          created_at?: string
+          education?: string | null
+          farmer_code?: string
+          gender?: string | null
+          id?: string
+          name?: string
+          occupation?: string | null
+          relationship?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "farmer_dependents_farmer_code_fkey"
+            columns: ["farmer_code"]
+            isOneToOne: false
+            referencedRelation: "farmers"
+            referencedColumns: ["code"]
+          },
+        ]
+      }
+      farmer_incentives: {
+        Row: {
+          amount: string
+          created_at: string
+          farmer_code: string
+          id: string
+          incentive_code: string
+          incentive_date: string | null
+          method: string | null
+          status: string
+          type: string
+        }
+        Insert: {
+          amount: string
+          created_at?: string
+          farmer_code: string
+          id?: string
+          incentive_code: string
+          incentive_date?: string | null
+          method?: string | null
+          status?: string
+          type: string
+        }
+        Update: {
+          amount?: string
+          created_at?: string
+          farmer_code?: string
+          id?: string
+          incentive_code?: string
+          incentive_date?: string | null
+          method?: string | null
+          status?: string
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "farmer_incentives_farmer_code_fkey"
+            columns: ["farmer_code"]
+            isOneToOne: false
+            referencedRelation: "farmers"
+            referencedColumns: ["code"]
+          },
+        ]
+      }
+      farmer_parcels: {
+        Row: {
+          area: string
+          created_at: string
+          culture: string
+          farmer_code: string
+          id: string
+          lat: string | null
+          lon: string | null
+          parcel_code: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          area: string
+          created_at?: string
+          culture: string
+          farmer_code: string
+          id?: string
+          lat?: string | null
+          lon?: string | null
+          parcel_code: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          area?: string
+          created_at?: string
+          culture?: string
+          farmer_code?: string
+          id?: string
+          lat?: string | null
+          lon?: string | null
+          parcel_code?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "farmer_parcels_farmer_code_fkey"
+            columns: ["farmer_code"]
+            isOneToOne: false
+            referencedRelation: "farmers"
+            referencedColumns: ["code"]
+          },
+        ]
+      }
+      farmer_production: {
+        Row: {
+          actual_yield: string | null
+          area: string | null
+          created_at: string
+          culture: string
+          current_phase: string | null
+          escola: string | null
+          estimated_yield: string | null
+          expected_harvest: string | null
+          farmer_code: string
+          id: string
+          planted_date: string | null
+          production_code: string
+          status: string
+          technician: string | null
+          updated_at: string
+        }
+        Insert: {
+          actual_yield?: string | null
+          area?: string | null
+          created_at?: string
+          culture: string
+          current_phase?: string | null
+          escola?: string | null
+          estimated_yield?: string | null
+          expected_harvest?: string | null
+          farmer_code: string
+          id?: string
+          planted_date?: string | null
+          production_code: string
+          status?: string
+          technician?: string | null
+          updated_at?: string
+        }
+        Update: {
+          actual_yield?: string | null
+          area?: string | null
+          created_at?: string
+          culture?: string
+          current_phase?: string | null
+          escola?: string | null
+          estimated_yield?: string | null
+          expected_harvest?: string | null
+          farmer_code?: string
+          id?: string
+          planted_date?: string | null
+          production_code?: string
+          status?: string
+          technician?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "farmer_production_farmer_code_fkey"
+            columns: ["farmer_code"]
+            isOneToOne: false
+            referencedRelation: "farmers"
+            referencedColumns: ["code"]
+          },
+        ]
+      }
+      farmer_production_phases: {
+        Row: {
+          created_at: string
+          id: string
+          notes: string | null
+          phase: string
+          phase_date: string | null
+          photos: string[] | null
+          production_id: string
+          tech_note: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          phase: string
+          phase_date?: string | null
+          photos?: string[] | null
+          production_id: string
+          tech_note?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          phase?: string
+          phase_date?: string | null
+          photos?: string[] | null
+          production_id?: string
+          tech_note?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "farmer_production_phases_production_id_fkey"
+            columns: ["production_id"]
+            isOneToOne: false
+            referencedRelation: "farmer_production"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      farmer_transactions: {
+        Row: {
+          created_at: string
+          empresa: string
+          farmer_code: string
+          id: string
+          product: string
+          transaction_date: string | null
+          valor: string
+        }
+        Insert: {
+          created_at?: string
+          empresa: string
+          farmer_code: string
+          id?: string
+          product: string
+          transaction_date?: string | null
+          valor: string
+        }
+        Update: {
+          created_at?: string
+          empresa?: string
+          farmer_code?: string
+          id?: string
+          product?: string
+          transaction_date?: string | null
+          valor?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "farmer_transactions_farmer_code_fkey"
+            columns: ["farmer_code"]
+            isOneToOne: false
+            referencedRelation: "farmers"
+            referencedColumns: ["code"]
+          },
+        ]
+      }
       farmers: {
         Row: {
           bi: string | null
@@ -34,9 +313,12 @@ export type Database = {
           photo_profile_right_url: string | null
           province: string | null
           registered_by: string | null
+          saldo_final: string | null
           school: string | null
           status: string
+          total_gasto: string | null
           updated_at: string
+          valor_recebido: string | null
         }
         Insert: {
           bi?: string | null
@@ -57,9 +339,12 @@ export type Database = {
           photo_profile_right_url?: string | null
           province?: string | null
           registered_by?: string | null
+          saldo_final?: string | null
           school?: string | null
           status?: string
+          total_gasto?: string | null
           updated_at?: string
+          valor_recebido?: string | null
         }
         Update: {
           bi?: string | null
@@ -80,9 +365,12 @@ export type Database = {
           photo_profile_right_url?: string | null
           province?: string | null
           registered_by?: string | null
+          saldo_final?: string | null
           school?: string | null
           status?: string
+          total_gasto?: string | null
           updated_at?: string
+          valor_recebido?: string | null
         }
         Relationships: []
       }
