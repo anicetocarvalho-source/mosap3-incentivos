@@ -117,45 +117,46 @@ const FarmerProfile = () => {
   const saldoFinal = farmerRaw?.saldo_final || "0,00";
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       {/* Back + Header */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2 md:gap-4">
         <Link to="/agricultores">
-          <Button variant="ghost" size="icon"><ArrowLeft className="h-5 w-5" /></Button>
+          <Button variant="ghost" size="icon" className="h-8 w-8 md:h-10 md:w-10"><ArrowLeft className="h-4 w-4 md:h-5 md:w-5" /></Button>
         </Link>
-        <div className="flex-1">
-          <h1 className="page-title">{farmer.name}</h1>
-          <p className="text-muted-foreground text-sm mt-0.5">{farmer.id} · Registado em {farmer.registeredAt}</p>
+        <div className="flex-1 min-w-0">
+          <h1 className="page-title text-lg md:text-2xl truncate">{farmer.name}</h1>
+          <p className="text-muted-foreground text-xs md:text-sm mt-0.5 truncate">{farmer.id} · {farmer.registeredAt}</p>
         </div>
         <Link to={`/agricultores/${farmer.id}/ficha`}>
-          <Button variant="outline" className="gap-2"><Printer className="h-4 w-4" />Ficha</Button>
+          <Button variant="outline" size="sm" className="gap-1.5 hidden sm:flex"><Printer className="h-4 w-4" />Ficha</Button>
+          <Button variant="outline" size="icon" className="h-8 w-8 sm:hidden"><Printer className="h-4 w-4" /></Button>
         </Link>
-        <span className={
+        <span className={`text-[10px] md:text-xs ${
           farmer.status === "Ativo" ? "badge-active" :
           farmer.status === "Pendente" || farmer.status === "Validado" ? "badge-pending" : "badge-suspended"
-        }>{farmer.status}</span>
+        }`}>{farmer.status}</span>
       </div>
 
       {/* Profile Summary Card */}
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
-        <Card className="p-6">
-          <div className="flex items-start gap-6">
+        <Card className="p-4 md:p-6">
+          <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 md:gap-6">
             {farmer.photos?.frontal ? (
-              <img src={farmer.photos.frontal} alt={farmer.name} className="h-20 w-20 rounded-2xl object-cover flex-shrink-0 border border-border cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all" onClick={() => setZoomedImage({ src: farmer.photos!.frontal, label: farmer.name })} />
+              <img src={farmer.photos.frontal} alt={farmer.name} className="h-16 w-16 md:h-20 md:w-20 rounded-2xl object-cover flex-shrink-0 border border-border cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all" onClick={() => setZoomedImage({ src: farmer.photos!.frontal, label: farmer.name })} />
             ) : (
-              <div className="h-20 w-20 rounded-2xl bg-primary/10 flex items-center justify-center flex-shrink-0">
-                <User className="h-10 w-10 text-primary" />
+              <div className="h-16 w-16 md:h-20 md:w-20 rounded-2xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+                <User className="h-8 w-8 md:h-10 md:w-10 text-primary" />
               </div>
             )}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-x-8 gap-y-4 flex-1">
-              <div><p className="text-xs text-muted-foreground font-medium">Nome Completo</p><p className="text-sm font-semibold mt-0.5">{farmer.name}</p></div>
-              <div><p className="text-xs text-muted-foreground font-medium">Nº BI</p><p className="text-sm font-semibold mt-0.5 font-mono">{farmer.bi}</p></div>
-              <div><p className="text-xs text-muted-foreground font-medium">Telefone</p><p className="text-sm font-semibold mt-0.5">{farmer.phone}</p></div>
-              <div><p className="text-xs text-muted-foreground font-medium">Género</p><p className="text-sm font-semibold mt-0.5">{farmer.gender}</p></div>
-              <div><p className="text-xs text-muted-foreground font-medium">Data de Nascimento</p><p className="text-sm font-semibold mt-0.5">{farmer.birthDate}</p></div>
-              <div><p className="text-xs text-muted-foreground font-medium">Província / Município</p><p className="text-sm font-semibold mt-0.5">{farmer.province}, {farmer.municipality}</p></div>
-              <div><p className="text-xs text-muted-foreground font-medium">Aldeia</p><p className="text-sm font-semibold mt-0.5">—</p></div>
-              <div><p className="text-xs text-muted-foreground font-medium">Escola de Campo</p><p className="text-sm font-semibold mt-0.5">{farmer.school}</p></div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4 md:gap-x-8 gap-y-3 md:gap-y-4 flex-1 w-full">
+              <div><p className="text-[10px] md:text-xs text-muted-foreground font-medium">Nome Completo</p><p className="text-xs md:text-sm font-semibold mt-0.5 truncate">{farmer.name}</p></div>
+              <div><p className="text-[10px] md:text-xs text-muted-foreground font-medium">Nº BI</p><p className="text-xs md:text-sm font-semibold mt-0.5 font-mono truncate">{farmer.bi}</p></div>
+              <div><p className="text-[10px] md:text-xs text-muted-foreground font-medium">Telefone</p><p className="text-xs md:text-sm font-semibold mt-0.5">{farmer.phone}</p></div>
+              <div><p className="text-[10px] md:text-xs text-muted-foreground font-medium">Género</p><p className="text-xs md:text-sm font-semibold mt-0.5">{farmer.gender}</p></div>
+              <div><p className="text-[10px] md:text-xs text-muted-foreground font-medium">Data Nascimento</p><p className="text-xs md:text-sm font-semibold mt-0.5">{farmer.birthDate}</p></div>
+              <div><p className="text-[10px] md:text-xs text-muted-foreground font-medium">Província / Município</p><p className="text-xs md:text-sm font-semibold mt-0.5 truncate">{farmer.province}, {farmer.municipality}</p></div>
+              <div><p className="text-[10px] md:text-xs text-muted-foreground font-medium">Aldeia</p><p className="text-xs md:text-sm font-semibold mt-0.5">—</p></div>
+              <div><p className="text-[10px] md:text-xs text-muted-foreground font-medium">Escola de Campo</p><p className="text-xs md:text-sm font-semibold mt-0.5 truncate">{farmer.school}</p></div>
             </div>
           </div>
 
@@ -229,21 +230,21 @@ const FarmerProfile = () => {
       {/* Tabs */}
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
         <Tabs defaultValue="parcelas" className="w-full">
-          <TabsList className="w-full justify-start bg-muted/50 p-1 h-auto flex-wrap">
-            <TabsTrigger value="parcelas" className="gap-2 data-[state=active]:bg-card">
-              <MapPin className="h-4 w-4" /> Parcelas ({parcels.length})
+          <TabsList className="w-full justify-start bg-muted/50 p-1 h-auto overflow-x-auto flex-nowrap scrollbar-hide">
+            <TabsTrigger value="parcelas" className="gap-1.5 text-xs md:text-sm data-[state=active]:bg-card whitespace-nowrap">
+              <MapPin className="h-3.5 w-3.5 md:h-4 md:w-4" /> <span className="hidden sm:inline">Parcelas</span> ({parcels.length})
             </TabsTrigger>
-            <TabsTrigger value="producao" className="gap-2 data-[state=active]:bg-card">
-              <Wheat className="h-4 w-4" /> Produção ({production.length})
+            <TabsTrigger value="producao" className="gap-1.5 text-xs md:text-sm data-[state=active]:bg-card whitespace-nowrap">
+              <Wheat className="h-3.5 w-3.5 md:h-4 md:w-4" /> <span className="hidden sm:inline">Produção</span> ({production.length})
             </TabsTrigger>
-            <TabsTrigger value="pecuaria" className="gap-2 data-[state=active]:bg-card">
-              <Beef className="h-4 w-4" /> Pecuária ({livestock.length})
+            <TabsTrigger value="pecuaria" className="gap-1.5 text-xs md:text-sm data-[state=active]:bg-card whitespace-nowrap">
+              <Beef className="h-3.5 w-3.5 md:h-4 md:w-4" /> <span className="hidden sm:inline">Pecuária</span> ({livestock.length})
             </TabsTrigger>
-            <TabsTrigger value="incentivos" className="gap-2 data-[state=active]:bg-card">
-              <Gift className="h-4 w-4" /> Incentivos ({incentives.length})
+            <TabsTrigger value="incentivos" className="gap-1.5 text-xs md:text-sm data-[state=active]:bg-card whitespace-nowrap">
+              <Gift className="h-3.5 w-3.5 md:h-4 md:w-4" /> <span className="hidden sm:inline">Incentivos</span> ({incentives.length})
             </TabsTrigger>
-            <TabsTrigger value="dependentes" className="gap-2 data-[state=active]:bg-card">
-              <Users className="h-4 w-4" /> Dependentes ({dependents.length})
+            <TabsTrigger value="dependentes" className="gap-1.5 text-xs md:text-sm data-[state=active]:bg-card whitespace-nowrap">
+              <Users className="h-3.5 w-3.5 md:h-4 md:w-4" /> <span className="hidden sm:inline">Dependentes</span> ({dependents.length})
             </TabsTrigger>
           </TabsList>
 
@@ -266,8 +267,10 @@ const FarmerProfile = () => {
                 </DialogContent>
               </Dialog>
             </div>
+            {/* Mobile: card layout, Desktop: table */}
             <Card className="p-0 overflow-hidden">
-              <div className="overflow-x-auto">
+              {/* Desktop table */}
+              <div className="hidden md:block overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-border bg-muted/50">
@@ -293,6 +296,24 @@ const FarmerProfile = () => {
                   </tbody>
                 </table>
               </div>
+              {/* Mobile card list */}
+              <div className="md:hidden divide-y divide-border">
+                {parcels.length === 0 ? (
+                  <div className="px-4 py-8 text-center text-muted-foreground text-sm">Nenhuma parcela registada</div>
+                ) : parcels.map((p) => (
+                  <div key={p.id} className="p-4 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium px-2 py-1 rounded bg-accent text-accent-foreground">{p.culture}</span>
+                      <span className={p.status === "Verificada" ? "badge-active" : "badge-pending"}>{p.status}</span>
+                    </div>
+                    <div className="flex justify-between text-xs">
+                      <span className="text-muted-foreground font-mono">{p.parcel_code}</span>
+                      <span className="font-semibold">{p.area}</span>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground font-mono">{p.lat}, {p.lon}</p>
+                  </div>
+                ))}
+              </div>
             </Card>
           </TabsContent>
 
@@ -310,22 +331,22 @@ const FarmerProfile = () => {
 
               return (
                 <Card key={p.id} className="overflow-hidden">
-                  <div className="p-5 cursor-pointer hover:bg-muted/30 transition-colors" onClick={() => setExpandedProduction(isExpanded ? null : p.id)}>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-4">
-                        <div className="h-12 w-12 rounded-xl bg-accent flex items-center justify-center flex-shrink-0">
-                          <Wheat className="h-6 w-6 text-accent-foreground" />
+                   <div className="p-3 md:p-5 cursor-pointer hover:bg-muted/30 transition-colors" onClick={() => setExpandedProduction(isExpanded ? null : p.id)}>
+                    <div className="flex items-start md:items-center justify-between gap-2">
+                      <div className="flex items-start md:items-center gap-3 md:gap-4 min-w-0">
+                        <div className="h-10 w-10 md:h-12 md:w-12 rounded-xl bg-accent flex items-center justify-center flex-shrink-0">
+                          <Wheat className="h-5 w-5 md:h-6 md:w-6 text-accent-foreground" />
                         </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <h3 className="font-heading font-semibold">{p.culture}</h3>
-                            <Badge variant="outline" className="text-xs">{p.area}</Badge>
-                            <span className={p.status === "Colhida" ? "badge-active" : p.status === "Em Crescimento" ? "badge-pending" : "badge-suspended"}>{p.status}</span>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h3 className="font-heading font-semibold text-sm md:text-base">{p.culture}</h3>
+                            <Badge variant="outline" className="text-[10px] md:text-xs">{p.area}</Badge>
+                            <span className={`text-[10px] md:text-xs ${p.status === "Colhida" ? "badge-active" : p.status === "Em Crescimento" ? "badge-pending" : "badge-suspended"}`}>{p.status}</span>
                           </div>
-                          <div className="flex items-center gap-4 text-xs text-muted-foreground mt-1">
-                            <span className="flex items-center gap-1"><Calendar className="h-3 w-3" />Plantio: {p.planted_date}</span>
-                            <span className="flex items-center gap-1"><Clock className="h-3 w-3" />Colheita prev.: {p.expected_harvest}</span>
-                            <span>Est: {p.estimated_yield} | Real: {p.actual_yield}</span>
+                          <div className="flex flex-wrap items-center gap-2 md:gap-4 text-[10px] md:text-xs text-muted-foreground mt-1">
+                            <span className="flex items-center gap-1"><Calendar className="h-3 w-3" />{p.planted_date}</span>
+                            <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{p.expected_harvest}</span>
+                            <span className="hidden sm:inline">Est: {p.estimated_yield} | Real: {p.actual_yield}</span>
                           </div>
                         </div>
                       </div>
@@ -345,14 +366,14 @@ const FarmerProfile = () => {
                       <span className="text-xs text-muted-foreground font-medium">{Math.round(progress)}%</span>
                     </div>
 
-                    <div className="mt-2 flex items-center gap-1">
+                     <div className="mt-2 flex items-center gap-1 overflow-x-auto">
                       {allPhases.map((phase, i) => {
                         const completed = i <= phaseIndex;
                         const isCurrent = phase === p.current_phase;
                         return (
-                          <div key={phase} className="flex-1 flex flex-col items-center">
+                          <div key={phase} className="flex-1 min-w-[40px] flex flex-col items-center">
                             <div className={`h-1.5 w-full rounded-full ${completed ? "bg-primary" : "bg-muted"} ${isCurrent ? "ring-1 ring-primary ring-offset-1" : ""}`} />
-                            <span className={`text-[10px] mt-1 ${isCurrent ? "font-semibold text-primary" : "text-muted-foreground"}`}>{phase}</span>
+                            <span className={`text-[8px] md:text-[10px] mt-1 whitespace-nowrap ${isCurrent ? "font-semibold text-primary" : "text-muted-foreground"}`}>{phase}</span>
                           </div>
                         );
                       })}
@@ -535,7 +556,8 @@ const FarmerProfile = () => {
                   </DialogContent>
                 </Dialog>
               </div>
-              <div className="overflow-x-auto">
+              {/* Desktop table */}
+              <div className="hidden md:block overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-border bg-muted/50">
@@ -558,6 +580,23 @@ const FarmerProfile = () => {
                     ))}
                   </tbody>
                 </table>
+              </div>
+              {/* Mobile card list */}
+              <div className="md:hidden divide-y divide-border">
+                {transactions.length === 0 ? (
+                  <div className="px-4 py-8 text-center text-muted-foreground text-sm">Nenhuma transação registada</div>
+                ) : transactions.map((t) => (
+                  <div key={t.id} className="p-4 space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium text-sm">{t.product}</span>
+                      <span className="font-semibold text-sm">{t.valor} kz</span>
+                    </div>
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span className="truncate max-w-[60%]">{t.empresa}</span>
+                      <span>{t.transaction_date}</span>
+                    </div>
+                  </div>
+                ))}
               </div>
             </Card>
           </TabsContent>
@@ -585,7 +624,8 @@ const FarmerProfile = () => {
                   </DialogContent>
                 </Dialog>
               </div>
-              <div className="overflow-x-auto">
+              {/* Desktop table */}
+              <div className="hidden md:block overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-border bg-muted/50">
@@ -621,6 +661,27 @@ const FarmerProfile = () => {
                     ))}
                   </tbody>
                 </table>
+              </div>
+              {/* Mobile card list */}
+              <div className="md:hidden divide-y divide-border">
+                {dependents.length === 0 ? (
+                  <div className="px-4 py-8 text-center text-muted-foreground text-sm">Nenhum dependente registado</div>
+                ) : dependents.map((d) => (
+                  <div key={d.id} className="p-4 space-y-1.5">
+                    <div className="flex items-center gap-2">
+                      <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                        <User className="h-3.5 w-3.5 text-primary" />
+                      </div>
+                      <span className="font-medium text-sm">{d.name}</span>
+                      <Badge variant="outline" className="text-[10px] ml-auto">{d.relationship}</Badge>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 text-xs text-muted-foreground">
+                      <span>{d.gender}</span>
+                      <span>{d.age} anos</span>
+                      <span>{d.education || "—"}</span>
+                    </div>
+                  </div>
+                ))}
               </div>
             </Card>
           </TabsContent>
