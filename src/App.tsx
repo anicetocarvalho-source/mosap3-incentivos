@@ -9,6 +9,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import AppLayout from "@/components/AppLayout";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import RoleGuard from "@/components/RoleGuard";
 import Auth from "@/pages/Auth";
 import Dashboard from "@/pages/Dashboard";
 import Agricultores from "@/pages/Agricultores";
@@ -42,6 +43,7 @@ const App = () => (
           <Route path="/auth" element={<Auth />} />
           <Route element={<ProtectedRoute />}>
             <Route element={<AppLayout />}>
+              {/* Acesso livre a todos os perfis */}
               <Route path="/" element={<Dashboard />} />
               <Route path="/agricultores" element={<Agricultores />} />
               <Route path="/agricultores/:id" element={<FarmerProfile />} />
@@ -50,18 +52,26 @@ const App = () => (
               <Route path="/escolas/:id" element={<EscolaDetalhe />} />
               <Route path="/escolas/:id/ficha" element={<FichaEscola />} />
               <Route path="/agricultores/:id/ficha" element={<FichaProdutor />} />
-              <Route path="/empresas" element={<Empresas />} />
-              <Route path="/transacoes" element={<Transacoes />} />
-              <Route path="/utilizadores" element={<Utilizadores />} />
-              <Route path="/perfis" element={<Perfis />} />
-              <Route path="/incentivos" element={<Incentivos />} />
-              <Route path="/compras" element={<Compras />} />
               <Route path="/parcelas" element={<Parcelas />} />
               <Route path="/producao" element={<Producao />} />
-              <Route path="/relatorios" element={<Relatorios />} />
-              <Route path="/configuracoes" element={<Configuracoes />} />
               <Route path="/instalar" element={<Instalar />} />
-              <Route path="/provincias" element={<GestaoProvincias />} />
+
+              {/* Incentivos & Transações: admin, gestor_incentivos */}
+              <Route path="/incentivos" element={<RoleGuard allowedRoles={["admin", "gestor_incentivos"]}><Incentivos /></RoleGuard>} />
+              <Route path="/transacoes" element={<RoleGuard allowedRoles={["admin", "gestor_incentivos"]}><Transacoes /></RoleGuard>} />
+
+              {/* Compras & Empresas: admin, gestor_incentivos, senior/junior agronegócio */}
+              <Route path="/compras" element={<RoleGuard allowedRoles={["admin", "gestor_incentivos", "senior_agronegocio", "junior_agronegocio"]}><Compras /></RoleGuard>} />
+              <Route path="/empresas" element={<RoleGuard allowedRoles={["admin", "gestor_incentivos", "senior_agronegocio", "junior_agronegocio"]}><Empresas /></RoleGuard>} />
+
+              {/* Relatórios: todos excepto junior_agronegocio e tecnico_extensionista */}
+              <Route path="/relatorios" element={<RoleGuard allowedRoles={["admin", "gestor_incentivos", "senior_agricultura", "senior_monitoria", "junior_monitoria", "junior_agricultura", "senior_agronegocio"]}><Relatorios /></RoleGuard>} />
+
+              {/* Admin only */}
+              <Route path="/utilizadores" element={<RoleGuard allowedRoles={["admin"]}><Utilizadores /></RoleGuard>} />
+              <Route path="/perfis" element={<RoleGuard allowedRoles={["admin"]}><Perfis /></RoleGuard>} />
+              <Route path="/configuracoes" element={<RoleGuard allowedRoles={["admin"]}><Configuracoes /></RoleGuard>} />
+              <Route path="/provincias" element={<RoleGuard allowedRoles={["admin"]}><GestaoProvincias /></RoleGuard>} />
             </Route>
           </Route>
           <Route path="*" element={<NotFound />} />
