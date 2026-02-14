@@ -1,6 +1,7 @@
 import { useRef, useState, useEffect, useCallback } from "react";
-import { Fingerprint, RotateCcw, Check } from "lucide-react";
+import { Fingerprint, RotateCcw, Check, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 
 type Props = {
   label: string;
@@ -9,13 +10,29 @@ type Props = {
   onRemove?: () => void;
 };
 
+const REQUIRED_POINTS = 120;
+const QUALITY_THRESHOLDS = { low: 40, medium: 75, high: 100 };
+
+function getQualityLabel(progress: number) {
+  if (progress < QUALITY_THRESHOLDS.low) return { text: "Fraca", color: "text-red-400" };
+  if (progress < QUALITY_THRESHOLDS.medium) return { text: "Média", color: "text-yellow-400" };
+  if (progress < QUALITY_THRESHOLDS.high) return { text: "Boa", color: "text-green-400" };
+  return { text: "Excelente", color: "text-emerald-300" };
+}
+
+function vibrate(ms = 8) {
+  try { navigator.vibrate?.(ms); } catch { /* not supported */ }
+}
+
 const FingerprintCapture = ({ label, onCapture, captured, onRemove }: Props) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const scanLineRef = useRef(0);
+  const animFrameRef = useRef<number>(0);
   const [isCapturing, setIsCapturing] = useState(false);
   const [touchPoints, setTouchPoints] = useState(0);
   const [progress, setProgress] = useState(0);
   const isDrawing = useRef(false);
-  const requiredPoints = 150;
+  const centerRef = useRef({ cx: 0, cy: 0 });
 
   const initCanvas = useCallback(() => {
     const canvas = canvasRef.current;
@@ -23,31 +40,84 @@ const FingerprintCapture = ({ label, onCapture, captured, onRemove }: Props) => 
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    // Set canvas size
     const rect = canvas.getBoundingClientRect();
-    canvas.width = rect.width * 2;
-    canvas.height = rect.height * 2;
-    ctx.scale(2, 2);
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+    ctx.scale(dpr, dpr);
 
-    // Dark background like real scanners
-    ctx.fillStyle = "#111827";
-    ctx.fillRect(0, 0, rect.width, rect.height);
+    const w = rect.width;
+    const h = rect.height;
+    centerRef.current = { cx: w / 2, cy: h / 2 };
 
-    // Fingerprint guide circle
-    ctx.strokeStyle = "rgba(34,197,94,0.3)";
-    ctx.lineWidth = 2;
-    ctx.setLineDash([6, 4]);
+    // Dark scanner background with subtle gradient
+    const bg = ctx.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, Math.max(w, h) / 1.5);
+    bg.addColorStop(0, "#0f1a12");
+    bg.addColorStop(1, "#080d09");
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, w, h);
+
+    // Fingerprint oval guide
+    const rx = Math.min(w, h) / 2.8;
+    const ry = rx * 1.3;
+    ctx.strokeStyle = "rgba(34,197,94,0.15)";
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([4, 6]);
     ctx.beginPath();
-    ctx.arc(rect.width / 2, rect.height / 2, Math.min(rect.width, rect.height) / 2.5, 0, Math.PI * 2);
+    ctx.ellipse(w / 2, h / 2, rx, ry, 0, 0, Math.PI * 2);
     ctx.stroke();
     ctx.setLineDash([]);
 
+    // Corner brackets
+    const bLen = 14;
+    const bPad = 16;
+    ctx.strokeStyle = "rgba(34,197,94,0.35)";
+    ctx.lineWidth = 2;
+    // Top-left
+    ctx.beginPath(); ctx.moveTo(bPad, bPad + bLen); ctx.lineTo(bPad, bPad); ctx.lineTo(bPad + bLen, bPad); ctx.stroke();
+    // Top-right
+    ctx.beginPath(); ctx.moveTo(w - bPad - bLen, bPad); ctx.lineTo(w - bPad, bPad); ctx.lineTo(w - bPad, bPad + bLen); ctx.stroke();
+    // Bottom-left
+    ctx.beginPath(); ctx.moveTo(bPad, h - bPad - bLen); ctx.lineTo(bPad, h - bPad); ctx.lineTo(bPad + bLen, h - bPad); ctx.stroke();
+    // Bottom-right
+    ctx.beginPath(); ctx.moveTo(w - bPad - bLen, h - bPad); ctx.lineTo(w - bPad, h - bPad); ctx.lineTo(w - bPad, h - bPad - bLen); ctx.stroke();
+
     // Guide text
-    ctx.fillStyle = "rgba(255,255,255,0.4)";
-    ctx.font = "12px sans-serif";
+    ctx.fillStyle = "rgba(255,255,255,0.3)";
+    ctx.font = "11px system-ui, sans-serif";
     ctx.textAlign = "center";
-    ctx.fillText("Pressione o dedo aqui", rect.width / 2, rect.height - 16);
+    ctx.fillText("Pressione o dedo aqui", w / 2, h - 14);
+
+    // Start scan-line animation
+    startScanLine(canvas, ctx, dpr);
   }, []);
+
+  const startScanLine = (canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D, dpr: number) => {
+    cancelAnimationFrame(animFrameRef.current);
+    const w = canvas.width / dpr;
+    const h = canvas.height / dpr;
+    let y = 0;
+    const speed = 0.6;
+
+    const animate = () => {
+      // Draw scan line over existing content
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+      const grad = ctx.createLinearGradient(0, y - 4, 0, y + 4);
+      grad.addColorStop(0, "rgba(34,197,94,0)");
+      grad.addColorStop(0.5, "rgba(34,197,94,0.08)");
+      grad.addColorStop(1, "rgba(34,197,94,0)");
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, y - 4, w, 8);
+      ctx.restore();
+
+      y += speed;
+      if (y > h) y = 0;
+      scanLineRef.current = y;
+      animFrameRef.current = requestAnimationFrame(animate);
+    };
+    animFrameRef.current = requestAnimationFrame(animate);
+  };
 
   useEffect(() => {
     if (isCapturing) {
@@ -55,6 +125,7 @@ const FingerprintCapture = ({ label, onCapture, captured, onRemove }: Props) => 
       setTouchPoints(0);
       setProgress(0);
     }
+    return () => cancelAnimationFrame(animFrameRef.current);
   }, [isCapturing, initCanvas]);
 
   const drawTouch = (x: number, y: number) => {
@@ -66,34 +137,63 @@ const FingerprintCapture = ({ label, onCapture, captured, onRemove }: Props) => 
     const rect = canvas.getBoundingClientRect();
     const px = x - rect.left;
     const py = y - rect.top;
+    const { cx, cy } = centerRef.current;
 
-    // Simulate fingerprint ridge lines
-    ctx.strokeStyle = `rgba(34,197,94,${0.3 + Math.random() * 0.4})`;
-    ctx.lineWidth = 1 + Math.random() * 1.5;
+    // Distance from center for concentric ridge effect
+    const dist = Math.sqrt((px - cx) ** 2 + (py - cy) ** 2);
+    const angle = Math.atan2(py - cy, px - cx);
+
+    // Simulate concentric fingerprint ridges
+    const ridgePhase = dist * 0.35;
+    const ridgeIntensity = 0.3 + 0.4 * Math.abs(Math.sin(ridgePhase));
+
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+
+    // Main ridge arc
+    ctx.strokeStyle = `rgba(34,197,94,${ridgeIntensity})`;
+    ctx.lineWidth = 0.8 + Math.random() * 0.8;
     ctx.beginPath();
-
-    const angle = Math.atan2(py - rect.height / 2, px - rect.width / 2);
-    const len = 4 + Math.random() * 8;
-    ctx.moveTo(px - Math.cos(angle + 1.2) * len, py - Math.sin(angle + 1.2) * len);
-    ctx.lineTo(px + Math.cos(angle + 1.2) * len, py + Math.sin(angle + 1.2) * len);
+    const arcLen = 0.3 + Math.random() * 0.5;
+    const arcRadius = dist + (Math.random() - 0.5) * 3;
+    ctx.arc(cx, cy, Math.max(2, arcRadius), angle - arcLen, angle + arcLen);
     ctx.stroke();
 
-    // Small dots
-    ctx.fillStyle = `rgba(34,197,94,${0.4 + Math.random() * 0.3})`;
-    ctx.beginPath();
-    ctx.arc(px, py, 1 + Math.random() * 1.5, 0, Math.PI * 2);
-    ctx.fill();
+    // Secondary micro-ridges
+    if (Math.random() > 0.4) {
+      ctx.strokeStyle = `rgba(34,197,94,${ridgeIntensity * 0.5})`;
+      ctx.lineWidth = 0.5;
+      ctx.beginPath();
+      const offset = (Math.random() - 0.5) * 6;
+      ctx.arc(cx, cy, Math.max(2, arcRadius + offset), angle - arcLen * 0.7, angle + arcLen * 0.7);
+      ctx.stroke();
+    }
+
+    // Minutiae dots (bifurcations / endings)
+    if (Math.random() > 0.7) {
+      ctx.fillStyle = `rgba(34,197,94,${0.3 + Math.random() * 0.3})`;
+      ctx.beginPath();
+      ctx.arc(px + (Math.random() - 0.5) * 3, py + (Math.random() - 0.5) * 3, 0.8 + Math.random(), 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.restore();
+
+    // Haptic feedback on mobile
+    vibrate(4);
 
     setTouchPoints((prev) => {
       const next = prev + 1;
-      setProgress(Math.min(100, (next / requiredPoints) * 100));
-      if (next >= requiredPoints) {
-        // Capture complete
+      const pct = Math.min(100, (next / REQUIRED_POINTS) * 100);
+      setProgress(pct);
+      if (next >= REQUIRED_POINTS) {
+        vibrate(30);
+        cancelAnimationFrame(animFrameRef.current);
         setTimeout(() => {
           const dataUrl = canvas.toDataURL("image/png");
           onCapture(dataUrl);
           setIsCapturing(false);
-        }, 300);
+        }, 400);
       }
       return next;
     });
@@ -113,28 +213,31 @@ const FingerprintCapture = ({ label, onCapture, captured, onRemove }: Props) => 
 
   const handleStart = () => {
     isDrawing.current = true;
+    vibrate(12);
   };
   const handleEnd = () => {
     isDrawing.current = false;
   };
 
+  // ── Captured state ──
   if (captured) {
     return (
-      <div className="space-y-2">
-        <label className="text-xs font-medium">{label}</label>
-        <div className="relative h-36 rounded-lg overflow-hidden border border-border bg-gray-900">
+      <div className="space-y-1.5">
+        <label className="text-xs font-medium text-foreground">{label}</label>
+        <div className="relative h-40 rounded-xl overflow-hidden border border-primary/30 bg-gray-900 shadow-lg shadow-primary/5">
           <img src={captured} alt={label} className="w-full h-full object-cover" />
-          <div className="absolute bottom-0 left-0 right-0 bg-primary/90 text-primary-foreground text-xs text-center py-1.5 font-medium flex items-center justify-center gap-1">
-            <Check className="h-3 w-3" />
-            Capturado
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+          <div className="absolute bottom-0 left-0 right-0 flex items-center justify-center gap-1.5 py-2">
+            <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
+            <span className="text-xs font-semibold text-emerald-300">Capturada</span>
           </div>
           {onRemove && (
             <button
               onClick={onRemove}
-              className="absolute top-1.5 right-1.5 bg-muted/80 hover:bg-destructive text-foreground hover:text-destructive-foreground rounded-full p-1.5 transition-colors"
+              className="absolute top-2 right-2 bg-black/50 backdrop-blur-sm hover:bg-destructive text-white rounded-full p-1.5 transition-all hover:scale-110"
               title="Recapturar"
             >
-              <RotateCcw className="h-3 w-3" />
+              <RotateCcw className="h-3.5 w-3.5" />
             </button>
           )}
         </div>
@@ -142,15 +245,17 @@ const FingerprintCapture = ({ label, onCapture, captured, onRemove }: Props) => 
     );
   }
 
+  // ── Capturing state ──
   if (isCapturing) {
+    const quality = getQualityLabel(progress);
     return (
       <div className="space-y-2">
-        <label className="text-xs font-medium">{label}</label>
-        <div className="relative rounded-lg overflow-hidden border-2 border-primary bg-gray-900">
+        <label className="text-xs font-medium text-foreground">{label}</label>
+        <div className="relative rounded-xl overflow-hidden border-2 border-primary/60 bg-gray-950 shadow-xl shadow-primary/10">
           <canvas
             ref={canvasRef}
             className="w-full touch-none cursor-crosshair"
-            style={{ height: 160 }}
+            style={{ height: 180 }}
             onTouchStart={handleStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleEnd}
@@ -159,46 +264,61 @@ const FingerprintCapture = ({ label, onCapture, captured, onRemove }: Props) => 
             onMouseUp={handleEnd}
             onMouseLeave={handleEnd}
           />
+
           {/* Progress bar */}
-          <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-gray-800">
-            <div
-              className="h-full bg-primary transition-all duration-150"
-              style={{ width: `${progress}%` }}
-            />
+          <div className="absolute bottom-0 left-0 right-0">
+            <Progress value={progress} className="h-1.5 rounded-none bg-gray-800 [&>div]:bg-gradient-to-r [&>div]:from-green-500 [&>div]:to-emerald-400" />
           </div>
-          {/* Status */}
-          <div className="absolute top-2 left-2 right-2 flex items-center justify-between">
-            <span className="text-xs text-green-400 font-medium bg-black/50 px-2 py-0.5 rounded">
-              {progress < 100 ? "A capturar..." : "Concluído!"}
-            </span>
-            <span className="text-xs text-white/60 bg-black/50 px-2 py-0.5 rounded">
-              {Math.round(progress)}%
-            </span>
+
+          {/* HUD overlay */}
+          <div className="absolute top-0 left-0 right-0 p-2 flex items-center justify-between pointer-events-none">
+            <div className="flex items-center gap-1.5 bg-black/60 backdrop-blur-sm px-2 py-1 rounded-md">
+              <span className={`inline-block h-1.5 w-1.5 rounded-full ${progress >= 100 ? "bg-emerald-400" : "bg-green-500 animate-pulse"}`} />
+              <span className="text-[10px] font-medium text-green-300">
+                {progress >= 100 ? "Concluído" : "A capturar…"}
+              </span>
+            </div>
+            <div className="flex items-center gap-2 bg-black/60 backdrop-blur-sm px-2 py-1 rounded-md">
+              <span className={`text-[10px] font-semibold ${quality.color}`}>
+                {quality.text}
+              </span>
+              <span className="text-[10px] text-white/50 font-mono">
+                {Math.round(progress)}%
+              </span>
+            </div>
           </div>
         </div>
         <Button
-          variant="outline"
+          variant="ghost"
           size="sm"
-          className="w-full text-xs"
-          onClick={() => { setIsCapturing(false); setTouchPoints(0); setProgress(0); }}
+          className="w-full text-xs text-muted-foreground hover:text-destructive"
+          onClick={() => {
+            cancelAnimationFrame(animFrameRef.current);
+            setIsCapturing(false);
+            setTouchPoints(0);
+            setProgress(0);
+          }}
         >
-          Cancelar
+          Cancelar captura
         </Button>
       </div>
     );
   }
 
+  // ── Idle state ──
   return (
-    <div className="space-y-2">
-      <label className="text-xs font-medium">{label}</label>
+    <div className="space-y-1.5">
+      <label className="text-xs font-medium text-foreground">{label}</label>
       <button
         onClick={() => setIsCapturing(true)}
-        className="h-36 w-full rounded-lg border-2 border-dashed border-border bg-muted/50 flex flex-col items-center justify-center gap-2 hover:bg-muted active:scale-[0.98] transition-all"
+        className="group h-40 w-full rounded-xl border-2 border-dashed border-border bg-muted/30 flex flex-col items-center justify-center gap-2.5 hover:bg-muted/60 hover:border-primary/40 active:scale-[0.97] transition-all"
       >
-        <div className="h-12 w-12 rounded-full bg-accent flex items-center justify-center">
-          <Fingerprint className="h-6 w-6 text-accent-foreground" />
+        <div className="h-14 w-14 rounded-full bg-primary/10 group-hover:bg-primary/20 flex items-center justify-center transition-colors">
+          <Fingerprint className="h-7 w-7 text-primary/70 group-hover:text-primary transition-colors" />
         </div>
-        <span className="text-xs text-muted-foreground font-medium">Toque para capturar</span>
+        <span className="text-xs text-muted-foreground font-medium group-hover:text-foreground transition-colors">
+          Toque para capturar
+        </span>
       </button>
     </div>
   );
