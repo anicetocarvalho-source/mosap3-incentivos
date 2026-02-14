@@ -1,4 +1,5 @@
 import { Users, ThumbsUp, ArrowRightLeft, Building2, TrendingUp, School, MapPin, Wheat, ShoppingCart, Gift, AlertTriangle, CheckCircle2, Clock, Beef } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 import { motion } from "framer-motion";
 import StatCard from "@/components/StatCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -84,14 +85,29 @@ const topProvinces = [
   { name: "Bié", farmers: 6200, schools: 4, progress: 45 },
 ];
 
+const roleLabels: Record<string, string> = {
+  admin: "Administrador",
+  gestor_incentivos: "Gestor de Incentivos",
+  senior_agricultura: "Sénior Agricultura",
+  senior_monitoria: "Sénior Monitoria",
+  junior_monitoria: "Júnior Monitoria",
+  junior_agricultura: "Júnior Agricultura",
+  senior_agronegocio: "Sénior Agronegócio",
+  junior_agronegocio: "Júnior Agronegócio",
+  tecnico_extensionista: "Técnico Extensionista",
+};
+
 const Dashboard = () => {
+  const { roles } = useAuth();
+  const roleName = roles.length > 0 ? (roleLabels[roles[0]] ?? roles[0]) : "Utilizador";
+
   return (
     <div className="space-y-4 md:space-y-6">
       {/* Header */}
       <div>
         <h1 className="page-title text-lg md:text-2xl">Dashboard</h1>
         <p className="text-muted-foreground text-xs md:text-sm mt-1">
-          <span className="text-primary font-medium">Dashboard</span> &gt; Administrador
+          <span className="text-primary font-medium">Dashboard</span> &gt; {roleName}
         </p>
       </div>
 
