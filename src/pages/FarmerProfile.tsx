@@ -39,6 +39,7 @@ const FarmerProfile = () => {
   const { farmerInfo, farmer: farmerRaw, loading: dbLoading } = useFarmerFromDb(id);
   const { parcels, production, incentives, transactions, dependents, loading: enrichedLoading } = useFarmerEnrichedData(id);
   const [expandedProduction, setExpandedProduction] = useState<string | null>(null);
+  const [zoomedImage, setZoomedImage] = useState<{ src: string; label: string } | null>(null);
 
   // Fetch livestock from DB
   const [livestock, setLivestock] = useState<any[]>([]);
@@ -107,7 +108,7 @@ const FarmerProfile = () => {
         <Card className="p-6">
           <div className="flex items-start gap-6">
             {farmer.photos?.frontal ? (
-              <img src={farmer.photos.frontal} alt={farmer.name} className="h-20 w-20 rounded-2xl object-cover flex-shrink-0 border border-border" />
+              <img src={farmer.photos.frontal} alt={farmer.name} className="h-20 w-20 rounded-2xl object-cover flex-shrink-0 border border-border cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all" onClick={() => setZoomedImage({ src: farmer.photos!.frontal, label: farmer.name })} />
             ) : (
               <div className="h-20 w-20 rounded-2xl bg-primary/10 flex items-center justify-center flex-shrink-0">
                 <User className="h-10 w-10 text-primary" />
@@ -142,7 +143,7 @@ const FarmerProfile = () => {
                       ].map((slot) => (
                         <div key={slot.key} className="text-center">
                           {farmer.photos?.[slot.key] ? (
-                            <img src={farmer.photos[slot.key]} alt={slot.label} className="h-20 w-16 rounded-lg object-cover border border-border" />
+                            <img src={farmer.photos[slot.key]} alt={slot.label} className="h-20 w-16 rounded-lg object-cover border border-border cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all" onClick={() => setZoomedImage({ src: farmer.photos![slot.key], label: slot.label })} />
                           ) : (
                             <div className="h-20 w-16 rounded-lg border-2 border-dashed border-border bg-muted/30 flex items-center justify-center">
                               <Camera className="h-4 w-4 text-muted-foreground/40" />
@@ -343,7 +344,7 @@ const FarmerProfile = () => {
                                 {phase.photos && phase.photos.length > 0 && (
                                   <div className="mt-2 flex gap-2 flex-wrap">
                                     {phase.photos.map((photo, pi) => (
-                                      <div key={pi} className="relative group">
+                                      <div key={pi} className="relative group cursor-pointer" onClick={() => setZoomedImage({ src: photo, label: `${phase.phase} - foto ${pi + 1}` })}>
                                         <img src={photo} alt={`${phase.phase} - foto ${pi + 1}`} className="h-20 w-28 object-cover rounded-lg border border-border" />
                                         <div className="absolute inset-0 bg-foreground/0 group-hover:bg-foreground/10 rounded-lg transition-colors flex items-center justify-center">
                                           <Camera className="h-4 w-4 text-background opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -543,6 +544,17 @@ const FarmerProfile = () => {
           </TabsContent>
         </Tabs>
       </motion.div>
+      {/* Image Zoom Modal */}
+      <Dialog open={!!zoomedImage} onOpenChange={(open) => !open && setZoomedImage(null)}>
+        <DialogContent className="max-w-2xl p-2">
+          <DialogHeader className="px-4 pt-2">
+            <DialogTitle className="text-sm">{zoomedImage?.label}</DialogTitle>
+          </DialogHeader>
+          {zoomedImage && (
+            <img src={zoomedImage.src} alt={zoomedImage.label} className="w-full max-h-[75vh] object-contain rounded-lg" />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
