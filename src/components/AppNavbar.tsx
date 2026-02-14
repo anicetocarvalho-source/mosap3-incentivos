@@ -28,6 +28,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useIsMobile } from "@/hooks/use-mobile";
+import NotificationBell from "@/components/NotificationBell";
 import type { Database } from "@/integrations/supabase/types";
 
 type AppRole = Database["public"]["Enums"]["app_role"];
@@ -250,12 +251,7 @@ const AppNavbar = () => {
 
         {/* Right side: user info */}
         <div className="flex items-center gap-2 flex-shrink-0">
-          <Button variant="ghost" size="icon" className="relative">
-            <Bell className="h-5 w-5" style={{ color: "hsl(var(--sidebar-foreground))" }} />
-            <span className="absolute -top-0.5 -right-0.5 h-4 w-4 rounded-full bg-destructive text-destructive-foreground text-[10px] flex items-center justify-center font-bold">
-              3
-            </span>
-          </Button>
+          <NotificationBell />
           <div className="hidden sm:flex items-center gap-2 pl-2 border-l" style={{ borderColor: "hsl(var(--sidebar-border))" }}>
             <div className="h-7 w-7 rounded-full bg-primary flex items-center justify-center">
               <User className="h-3.5 w-3.5 text-primary-foreground" />
