@@ -65,7 +65,7 @@ export interface FarmerDependent {
   occupation: string | null;
 }
 
-export function useFarmerEnrichedData(farmerCode: string | undefined) {
+export function useFarmerEnrichedData(farmerCode: string | undefined, refreshKey?: number) {
   const [parcels, setParcels] = useState<FarmerParcel[]>([]);
   const [production, setProduction] = useState<FarmerProduction[]>([]);
   const [incentives, setIncentives] = useState<FarmerIncentive[]>([]);
@@ -150,7 +150,7 @@ export function useFarmerEnrichedData(farmerCode: string | undefined) {
 
     fetchAll();
     return () => { cancelled = true; };
-  }, [farmerCode]);
+  }, [farmerCode, refreshKey]);
 
   return { parcels, production, incentives, transactions, dependents, loading };
 }
