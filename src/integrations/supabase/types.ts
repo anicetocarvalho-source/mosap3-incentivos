@@ -14,6 +14,78 @@ export type Database = {
   }
   public: {
     Tables: {
+      farmers: {
+        Row: {
+          bi: string | null
+          biometric_index_left_url: string | null
+          biometric_index_right_url: string | null
+          biometric_thumb_left_url: string | null
+          biometric_thumb_right_url: string | null
+          birth_date: string | null
+          code: string
+          created_at: string
+          full_name: string
+          gender: string | null
+          id: string
+          municipality: string | null
+          phone: string | null
+          photo_frontal_url: string | null
+          photo_profile_left_url: string | null
+          photo_profile_right_url: string | null
+          province: string | null
+          registered_by: string | null
+          school: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          bi?: string | null
+          biometric_index_left_url?: string | null
+          biometric_index_right_url?: string | null
+          biometric_thumb_left_url?: string | null
+          biometric_thumb_right_url?: string | null
+          birth_date?: string | null
+          code: string
+          created_at?: string
+          full_name: string
+          gender?: string | null
+          id?: string
+          municipality?: string | null
+          phone?: string | null
+          photo_frontal_url?: string | null
+          photo_profile_left_url?: string | null
+          photo_profile_right_url?: string | null
+          province?: string | null
+          registered_by?: string | null
+          school?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          bi?: string | null
+          biometric_index_left_url?: string | null
+          biometric_index_right_url?: string | null
+          biometric_thumb_left_url?: string | null
+          biometric_thumb_right_url?: string | null
+          birth_date?: string | null
+          code?: string
+          created_at?: string
+          full_name?: string
+          gender?: string | null
+          id?: string
+          municipality?: string | null
+          phone?: string | null
+          photo_frontal_url?: string | null
+          photo_profile_left_url?: string | null
+          photo_profile_right_url?: string | null
+          province?: string | null
+          registered_by?: string | null
+          school?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       livestock: {
         Row: {
           breed: string | null
