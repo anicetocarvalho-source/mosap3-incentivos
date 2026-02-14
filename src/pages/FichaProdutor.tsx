@@ -76,16 +76,20 @@ const farmersData: Record<string, any> = {
 const FichaProdutor = () => {
   const { id } = useParams();
   const mockFarmer = farmersData[id || ""];
-  const { dbPhotos, dbBiometrics } = useFarmerFromDb(id);
+  const { farmerInfo } = useFarmerFromDb(id);
 
-  // Overlay DB photos/biometrics onto mock data when available
-  const farmer = mockFarmer ? {
-    ...mockFarmer,
-    photos: dbPhotos && Object.keys(dbPhotos).length > 0 ? dbPhotos : mockFarmer.photos,
-    biometrics: dbBiometrics && Object.keys(dbBiometrics).length > 0
-      ? Object.fromEntries(Object.entries(dbBiometrics).map(([k, v]) => [k, !!v]))
-      : mockFarmer.biometrics,
-  } : null;
+  // Merge: DB base info + mock enrichment data
+  const farmer = farmerInfo ? {
+    ...(mockFarmer || {}),
+    ...farmerInfo,
+    parcels: mockFarmer?.parcels || [],
+    production: mockFarmer?.production || [],
+    transactions: mockFarmer?.transactions || [],
+    dependentes: mockFarmer?.dependentes || [],
+    valorRecebido: mockFarmer?.valorRecebido || "0,00",
+    totalGasto: mockFarmer?.totalGasto || "0,00",
+    saldoFinal: mockFarmer?.saldoFinal || "0,00",
+  } : mockFarmer || null;
 
   if (!farmer) {
     return (
