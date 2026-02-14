@@ -71,6 +71,7 @@ const FarmerRegistrationForm = ({ open, onOpenChange, editData }: Props) => {
   });
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [activeUpload, setActiveUpload] = useState<string | null>(null);
+  const activeUploadRef = useRef<string | null>(null);
   const isOnline = useOnlineStatus();
   const { toast } = useToast();
 
@@ -92,15 +93,17 @@ const FarmerRegistrationForm = ({ open, onOpenChange, editData }: Props) => {
 
   const handlePhotoUpload = (key: string) => {
     setActiveUpload(key);
+    activeUploadRef.current = key;
     fileInputRef.current?.click();
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file && activeUpload) {
+    const currentUpload = activeUploadRef.current;
+    if (file && currentUpload) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        setPhotos((prev) => ({ ...prev, [activeUpload!]: reader.result as string }));
+        setPhotos((prev) => ({ ...prev, [currentUpload]: reader.result as string }));
       };
       reader.readAsDataURL(file);
     }
