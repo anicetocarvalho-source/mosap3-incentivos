@@ -86,17 +86,17 @@ const topProvinces = [
 
 const Dashboard = () => {
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       {/* Header */}
       <div>
-        <h1 className="page-title">Dashboard</h1>
-        <p className="text-muted-foreground text-sm mt-1">
+        <h1 className="page-title text-lg md:text-2xl">Dashboard</h1>
+        <p className="text-muted-foreground text-xs md:text-sm mt-1">
           <span className="text-primary font-medium">Dashboard</span> &gt; Administrador
         </p>
       </div>
 
       {/* Stats Row 1 */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
         <StatCard title="Total Registado" value="14.819" icon={Users} iconBg="hsl(160 50% 90%)" />
         <StatCard title="Total Aprovado" value="14.818" change="(Carteira Money)" changeType="neutral" icon={ThumbsUp} iconBg="hsl(160 50% 90%)" />
         <StatCard title="Total Transações" value="66.430" icon={ArrowRightLeft} iconBg="hsl(160 50% 90%)" />
@@ -104,7 +104,7 @@ const Dashboard = () => {
       </div>
 
       {/* Stats Row 2 */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
         <StatCard title="Escolas de Campo" value="72" change="+4 este mês" changeType="positive" icon={School} iconBg="hsl(45 90% 88%)" />
         <StatCard title="Parcelas Registadas" value="9.245" change="12.850 ha total" changeType="neutral" icon={MapPin} iconBg="hsl(130 40% 90%)" />
         <StatCard title="Produção (ton)" value="35.040" change="+12% vs anterior" changeType="positive" icon={Wheat} iconBg="hsl(38 80% 88%)" />
@@ -113,31 +113,31 @@ const Dashboard = () => {
 
       {/* Volume */}
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-        <Card className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-3xl font-bold font-heading tracking-tight">2.138.548.919,33 AOA</p>
-              <p className="text-sm text-primary font-semibold mt-1">Volume Movimentado</p>
+        <Card className="p-4 md:p-6">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-lg md:text-3xl font-bold font-heading tracking-tight truncate">2.138.548.919,33 AOA</p>
+              <p className="text-xs md:text-sm text-primary font-semibold mt-1">Volume Movimentado</p>
             </div>
-            <div className="h-14 w-14 rounded-full flex items-center justify-center" style={{ background: "hsl(160 50% 90%)" }}>
-              <TrendingUp className="h-7 w-7 text-primary" />
+            <div className="h-10 w-10 md:h-14 md:w-14 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: "hsl(160 50% 90%)" }}>
+              <TrendingUp className="h-5 w-5 md:h-7 md:w-7 text-primary" />
             </div>
           </div>
         </Card>
       </motion.div>
 
       {/* Charts Row 1 */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
-          <Card className="p-6">
-            <h2 className="font-heading font-semibold text-sm uppercase tracking-wider text-muted-foreground mb-6">
-              Produtores Registados por Província
+          <Card className="p-4 md:p-6">
+            <h2 className="font-heading font-semibold text-xs md:text-sm uppercase tracking-wider text-muted-foreground mb-4 md:mb-6">
+              Produtores por Província
             </h2>
-            <ResponsiveContainer width="100%" height={300}>
+            <ResponsiveContainer width="100%" height={250}>
               <BarChart data={provinceData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(100 10% 89%)" />
-                <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                <YAxis tick={{ fontSize: 12 }} />
+                <XAxis dataKey="name" tick={{ fontSize: 10 }} interval={0} angle={-30} textAnchor="end" height={50} />
+                <YAxis tick={{ fontSize: 10 }} width={40} />
                 <Tooltip />
                 <Bar dataKey="value" name="Produtores" radius={[4, 4, 0, 0]}>
                   {provinceData.map((_, index) => (
@@ -150,13 +150,13 @@ const Dashboard = () => {
         </motion.div>
 
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
-          <Card className="p-6">
-            <h2 className="font-heading font-semibold text-sm uppercase tracking-wider text-muted-foreground mb-6">
-              Produtores Registados por Género
+          <Card className="p-4 md:p-6">
+            <h2 className="font-heading font-semibold text-xs md:text-sm uppercase tracking-wider text-muted-foreground mb-4 md:mb-6">
+              Produtores por Género
             </h2>
-            <ResponsiveContainer width="100%" height={300}>
+            <ResponsiveContainer width="100%" height={250}>
               <PieChart>
-                <Pie data={genderData} cx="50%" cy="50%" innerRadius={70} outerRadius={120} dataKey="value" label={({ value }) => `${value}%`} labelLine={false}>
+                <Pie data={genderData} cx="50%" cy="50%" innerRadius={50} outerRadius={90} dataKey="value" label={({ value }) => `${value}%`} labelLine={false}>
                   {genderData.map((entry, index) => (
                     <Cell key={index} fill={entry.color} />
                   ))}
@@ -169,39 +169,39 @@ const Dashboard = () => {
         </motion.div>
       </div>
 
-      {/* Charts Row 2: Registos mensais + Produção por cultura */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* Charts Row 2 */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
-          <Card className="p-6">
-            <h2 className="font-heading font-semibold text-sm uppercase tracking-wider text-muted-foreground mb-6">
+          <Card className="p-4 md:p-6">
+            <h2 className="font-heading font-semibold text-xs md:text-sm uppercase tracking-wider text-muted-foreground mb-4 md:mb-6">
               Evolução de Registos Mensais
             </h2>
-            <ResponsiveContainer width="100%" height={300}>
+            <ResponsiveContainer width="100%" height={250}>
               <LineChart data={monthlyRegistrations}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(100 10% 89%)" />
-                <XAxis dataKey="month" tick={{ fontSize: 12 }} />
-                <YAxis tick={{ fontSize: 12 }} />
+                <XAxis dataKey="month" tick={{ fontSize: 10 }} />
+                <YAxis tick={{ fontSize: 10 }} width={40} />
                 <Tooltip />
-                <Legend />
-                <Line type="monotone" dataKey="registados" name="Registados" stroke="hsl(130, 55%, 30%)" strokeWidth={2} dot={{ r: 4 }} />
-                <Line type="monotone" dataKey="aprovados" name="Aprovados" stroke="hsl(45, 95%, 55%)" strokeWidth={2} dot={{ r: 4 }} />
+                <Legend wrapperStyle={{ fontSize: 11 }} />
+                <Line type="monotone" dataKey="registados" name="Registados" stroke="hsl(130, 55%, 30%)" strokeWidth={2} dot={{ r: 3 }} />
+                <Line type="monotone" dataKey="aprovados" name="Aprovados" stroke="hsl(45, 95%, 55%)" strokeWidth={2} dot={{ r: 3 }} />
               </LineChart>
             </ResponsiveContainer>
           </Card>
         </motion.div>
 
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
-          <Card className="p-6">
-            <h2 className="font-heading font-semibold text-sm uppercase tracking-wider text-muted-foreground mb-6">
-              Produção por Cultura (toneladas)
+          <Card className="p-4 md:p-6">
+            <h2 className="font-heading font-semibold text-xs md:text-sm uppercase tracking-wider text-muted-foreground mb-4 md:mb-6">
+              Produção por Cultura (ton)
             </h2>
-            <ResponsiveContainer width="100%" height={300}>
+            <ResponsiveContainer width="100%" height={250}>
               <BarChart data={productionByCulture} layout="vertical">
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(100 10% 89%)" />
-                <XAxis type="number" tick={{ fontSize: 12 }} />
-                <YAxis type="category" dataKey="name" tick={{ fontSize: 12 }} width={80} />
+                <XAxis type="number" tick={{ fontSize: 10 }} />
+                <YAxis type="category" dataKey="name" tick={{ fontSize: 10 }} width={65} />
                 <Tooltip />
-                <Legend />
+                <Legend wrapperStyle={{ fontSize: 11 }} />
                 <Bar dataKey="area" name="Área (ha)" fill="hsl(210, 70%, 55%)" radius={[0, 4, 4, 0]} />
                 <Bar dataKey="producao" name="Produção (ton)" fill="hsl(130, 55%, 40%)" radius={[0, 4, 4, 0]} />
               </BarChart>
@@ -212,17 +212,17 @@ const Dashboard = () => {
 
       {/* Pecuária Chart */}
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.32 }}>
-        <Card className="p-6">
-          <h2 className="font-heading font-semibold text-sm uppercase tracking-wider text-muted-foreground mb-6">
+        <Card className="p-4 md:p-6">
+          <h2 className="font-heading font-semibold text-xs md:text-sm uppercase tracking-wider text-muted-foreground mb-4 md:mb-6">
             Efectivo Pecuário por Espécie
           </h2>
-          <ResponsiveContainer width="100%" height={300}>
+          <ResponsiveContainer width="100%" height={250}>
             <BarChart data={livestockBySpecies}>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(100 10% 89%)" />
-              <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-              <YAxis tick={{ fontSize: 12 }} />
+              <XAxis dataKey="name" tick={{ fontSize: 10 }} />
+              <YAxis tick={{ fontSize: 10 }} width={40} />
               <Tooltip />
-              <Legend />
+              <Legend wrapperStyle={{ fontSize: 11 }} />
               <Bar dataKey="quantidade" name="Cabeças" fill="hsl(25, 65%, 45%)" radius={[4, 4, 0, 0]} />
               <Bar dataKey="produtores" name="Produtores" fill="hsl(45, 80%, 50%)" radius={[4, 4, 0, 0]} />
             </BarChart>
@@ -230,20 +230,20 @@ const Dashboard = () => {
         </Card>
       </motion.div>
 
-      {/* Charts Row 3: Incentivos + Transações */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* Charts Row 3 */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}>
-          <Card className="p-6">
-            <h2 className="font-heading font-semibold text-sm uppercase tracking-wider text-muted-foreground mb-6">
-              Incentivos — Distribuído vs Gasto (Kz)
+          <Card className="p-4 md:p-6">
+            <h2 className="font-heading font-semibold text-xs md:text-sm uppercase tracking-wider text-muted-foreground mb-4 md:mb-6">
+              Incentivos — Distribuído vs Gasto
             </h2>
-            <ResponsiveContainer width="100%" height={300}>
+            <ResponsiveContainer width="100%" height={250}>
               <AreaChart data={incentivesByMonth}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(100 10% 89%)" />
-                <XAxis dataKey="month" tick={{ fontSize: 12 }} />
-                <YAxis tick={{ fontSize: 12 }} tickFormatter={(v) => `${(v / 1000000).toFixed(0)}M`} />
+                <XAxis dataKey="month" tick={{ fontSize: 10 }} />
+                <YAxis tick={{ fontSize: 10 }} width={35} tickFormatter={(v) => `${(v / 1000000).toFixed(0)}M`} />
                 <Tooltip formatter={(value: number) => `${(value / 1000000).toFixed(1)}M Kz`} />
-                <Legend />
+                <Legend wrapperStyle={{ fontSize: 11 }} />
                 <Area type="monotone" dataKey="distribuido" name="Distribuído" stroke="hsl(130, 55%, 30%)" fill="hsl(130, 55%, 30%)" fillOpacity={0.15} strokeWidth={2} />
                 <Area type="monotone" dataKey="gasto" name="Gasto" stroke="hsl(0, 60%, 55%)" fill="hsl(0, 60%, 55%)" fillOpacity={0.1} strokeWidth={2} />
               </AreaChart>
@@ -252,17 +252,17 @@ const Dashboard = () => {
         </motion.div>
 
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
-          <Card className="p-6">
-            <h2 className="font-heading font-semibold text-sm uppercase tracking-wider text-muted-foreground mb-6">
-              Histórico de Transações Realizadas
+          <Card className="p-4 md:p-6">
+            <h2 className="font-heading font-semibold text-xs md:text-sm uppercase tracking-wider text-muted-foreground mb-4 md:mb-6">
+              Histórico de Transações
             </h2>
-            <ResponsiveContainer width="100%" height={300}>
+            <ResponsiveContainer width="100%" height={250}>
               <BarChart data={transactionHistory}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(100 10% 89%)" />
-                <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                <YAxis tick={{ fontSize: 12 }} />
+                <XAxis dataKey="name" tick={{ fontSize: 10 }} interval={0} angle={-30} textAnchor="end" height={50} />
+                <YAxis tick={{ fontSize: 10 }} width={40} />
                 <Tooltip />
-                <Legend />
+                <Legend wrapperStyle={{ fontSize: 11 }} />
                 <Bar dataKey="value" name="Transações" radius={[4, 4, 0, 0]}>
                   {transactionHistory.map((_, index) => (
                     <Cell key={index} fill={provinceColors[index]} />
@@ -274,20 +274,19 @@ const Dashboard = () => {
         </motion.div>
       </div>
 
-      {/* Bottom Row: Top Províncias + Actividade Recente */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Top Provinces */}
+      {/* Bottom Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 }}>
-          <Card className="p-6">
-            <h2 className="font-heading font-semibold text-sm uppercase tracking-wider text-muted-foreground mb-4">
+          <Card className="p-4 md:p-6">
+            <h2 className="font-heading font-semibold text-xs md:text-sm uppercase tracking-wider text-muted-foreground mb-4">
               Top Províncias por Cobertura
             </h2>
-            <div className="space-y-4">
-              {topProvinces.map((prov, i) => (
+            <div className="space-y-3 md:space-y-4">
+              {topProvinces.map((prov) => (
                 <div key={prov.name} className="space-y-1.5">
-                  <div className="flex items-center justify-between text-sm">
+                  <div className="flex items-center justify-between text-xs md:text-sm">
                     <span className="font-medium">{prov.name}</span>
-                    <span className="text-muted-foreground text-xs">{prov.farmers.toLocaleString()} produtores • {prov.schools} escolas</span>
+                    <span className="text-muted-foreground text-[10px] md:text-xs">{prov.farmers.toLocaleString()} prod. • {prov.schools} esc.</span>
                   </div>
                   <Progress value={prov.progress} className="h-2" />
                 </div>
@@ -296,16 +295,15 @@ const Dashboard = () => {
           </Card>
         </motion.div>
 
-        {/* Recent Activity */}
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}>
-          <Card className="p-6">
-            <h2 className="font-heading font-semibold text-sm uppercase tracking-wider text-muted-foreground mb-4">
+          <Card className="p-4 md:p-6">
+            <h2 className="font-heading font-semibold text-xs md:text-sm uppercase tracking-wider text-muted-foreground mb-4">
               Actividade Recente
             </h2>
-            <div className="space-y-3">
+            <div className="space-y-2.5 md:space-y-3">
               {recentActivities.map((activity, i) => (
-                <div key={i} className="flex items-start gap-3 pb-3 border-b border-border last:border-0 last:pb-0">
-                  <div className={`h-8 w-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                <div key={i} className="flex items-start gap-2.5 md:gap-3 pb-2.5 md:pb-3 border-b border-border last:border-0 last:pb-0">
+                  <div className={`h-7 w-7 md:h-8 md:w-8 rounded-full flex items-center justify-center flex-shrink-0 ${
                     activity.type === "register" ? "bg-accent" :
                     activity.type === "incentive" ? "bg-secondary/20" :
                     activity.type === "purchase" ? "bg-muted" :
@@ -313,18 +311,18 @@ const Dashboard = () => {
                     activity.type === "harvest" ? "bg-secondary/20" :
                     "bg-muted"
                   }`}>
-                    {activity.type === "register" && <Users className="h-4 w-4 text-primary" />}
-                    {activity.type === "incentive" && <Gift className="h-4 w-4 text-secondary-foreground" />}
-                    {activity.type === "purchase" && <ShoppingCart className="h-4 w-4 text-muted-foreground" />}
-                    {activity.type === "visit" && <School className="h-4 w-4 text-primary" />}
-                    {activity.type === "harvest" && <Wheat className="h-4 w-4 text-secondary-foreground" />}
-                    {activity.type === "school" && <MapPin className="h-4 w-4 text-muted-foreground" />}
+                    {activity.type === "register" && <Users className="h-3.5 w-3.5 text-primary" />}
+                    {activity.type === "incentive" && <Gift className="h-3.5 w-3.5 text-secondary-foreground" />}
+                    {activity.type === "purchase" && <ShoppingCart className="h-3.5 w-3.5 text-muted-foreground" />}
+                    {activity.type === "visit" && <School className="h-3.5 w-3.5 text-primary" />}
+                    {activity.type === "harvest" && <Wheat className="h-3.5 w-3.5 text-secondary-foreground" />}
+                    {activity.type === "school" && <MapPin className="h-3.5 w-3.5 text-muted-foreground" />}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium">{activity.action}</p>
-                    <p className="text-xs text-muted-foreground truncate">{activity.detail}</p>
+                    <p className="text-xs md:text-sm font-medium">{activity.action}</p>
+                    <p className="text-[10px] md:text-xs text-muted-foreground truncate">{activity.detail}</p>
                   </div>
-                  <span className="text-xs text-muted-foreground whitespace-nowrap">{activity.time}</span>
+                  <span className="text-[10px] md:text-xs text-muted-foreground whitespace-nowrap">{activity.time}</span>
                 </div>
               ))}
             </div>
