@@ -239,7 +239,7 @@ const Auth = () => {
               )}
             </Button>
           </form>
-          {isLogin && (
+          {isLogin && isOnline && (
             <div className="mt-6 pt-4 border-t border-border">
               <p className="text-xs text-muted-foreground mb-3 text-center">Utilizadores de teste</p>
               <div className="grid gap-2">
