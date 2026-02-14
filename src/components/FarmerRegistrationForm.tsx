@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Camera, Fingerprint, User, X, ChevronRight, ChevronLeft, Check, WifiOff, Wifi, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,6 +23,7 @@ import { uploadAllFarmerMedia } from "@/lib/farmerStorage";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { farmerSchema } from "@/lib/formValidation";
+import { compressImage } from "@/lib/imageCompression";
 
 const photoSlots = [
   { label: "Foto Frontal", key: "frontal" },
@@ -97,18 +98,23 @@ const FarmerRegistrationForm = ({ open, onOpenChange, editData }: Props) => {
     fileInputRef.current?.click();
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     const currentUpload = activeUploadRef.current;
     if (file && currentUpload) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPhotos((prev) => ({ ...prev, [currentUpload]: reader.result as string }));
-      };
-      reader.readAsDataURL(file);
+      try {
+        const compressed = await compressImage(file, 1024, 0.7);
+        setPhotos((prev) => ({ ...prev, [currentUpload]: compressed }));
+      } catch {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setPhotos((prev) => ({ ...prev, [currentUpload]: reader.result as string }));
+        };
+        reader.readAsDataURL(file);
+      }
     }
     e.target.value = "";
-  };
+  }, []);
 
   const removePhoto = (key: string) => {
     setPhotos((prev) => { const n = { ...prev }; delete n[key]; return n; });
