@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { Plus, Search, Download, Eye, Edit, User } from "lucide-react";
+import FarmerAvatar from "@/components/FarmerAvatar";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -131,13 +132,7 @@ const Agricultores = () => {
                   <tr key={f.id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
                     <td className="px-6 py-3">
                       <div className="flex items-center gap-3">
-                        {f.photo_frontal_url ? (
-                          <img src={f.photo_frontal_url} alt={f.full_name} className="h-9 w-9 rounded-full object-cover flex-shrink-0 border border-border" />
-                        ) : (
-                          <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                            <User className="h-4 w-4 text-primary" />
-                          </div>
-                        )}
+                        <FarmerAvatar photoUrl={f.photo_frontal_url} name={f.full_name} />
                         <div>
                           <p className="font-medium">{f.full_name}</p>
                           <p className="text-xs text-muted-foreground">{f.code}</p>
@@ -179,13 +174,7 @@ const Agricultores = () => {
               ))
             ) : filtered.map((f) => (
               <div key={f.id} className="p-3 flex items-center gap-3">
-                {f.photo_frontal_url ? (
-                  <img src={f.photo_frontal_url} alt={f.full_name} className="h-10 w-10 rounded-full object-cover flex-shrink-0 border border-border" />
-                ) : (
-                  <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                    <User className="h-4 w-4 text-primary" />
-                  </div>
-                )}
+                <FarmerAvatar photoUrl={f.photo_frontal_url} name={f.full_name} size="h-10 w-10" />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <p className="font-medium text-sm truncate">{f.full_name}</p>

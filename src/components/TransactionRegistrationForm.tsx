@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
+import { transactionSchema } from "@/lib/formValidation";
 
 interface TransactionRegistrationFormProps {
   farmerCode: string;
@@ -22,8 +23,9 @@ const TransactionRegistrationForm = ({ farmerCode, onSuccess }: TransactionRegis
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.product || !form.empresa || !form.valor) {
-      toast.error("Produto, empresa e valor são obrigatórios.");
+    const validation = transactionSchema.safeParse(form);
+    if (!validation.success) {
+      toast.error(validation.error.errors[0].message);
       return;
     }
 

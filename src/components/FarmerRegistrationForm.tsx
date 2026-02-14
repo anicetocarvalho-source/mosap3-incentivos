@@ -22,6 +22,7 @@ import { saveFarmerOffline } from "@/lib/offlineDb";
 import { uploadAllFarmerMedia } from "@/lib/farmerStorage";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { farmerSchema } from "@/lib/formValidation";
 
 const photoSlots = [
   { label: "Foto Frontal", key: "frontal" },
@@ -115,6 +116,11 @@ const FarmerRegistrationForm = ({ open, onOpenChange, editData }: Props) => {
   };
 
   const handleSubmit = async () => {
+    const validation = farmerSchema.safeParse(formData);
+    if (!validation.success) {
+      toast({ title: "Erro de validação", description: validation.error.errors[0].message, variant: "destructive" });
+      return;
+    }
     setSaving(true);
     const farmerCode = isEditing
       ? editData!.id

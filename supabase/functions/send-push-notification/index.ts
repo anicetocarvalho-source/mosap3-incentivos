@@ -6,7 +6,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Web Push utilities using Web Crypto API
+// Web Push utilities
 async function urlBase64ToUint8Array(base64String: string): Promise<Uint8Array> {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
@@ -30,7 +30,6 @@ async function createVapidAuthHeader(
   const url = new URL(endpoint);
   const audience = `${url.protocol}//${url.host}`;
 
-  // Create JWT header and payload
   const header = { typ: "JWT", alg: "ES256" };
   const payload = {
     aud: audience,
@@ -42,7 +41,6 @@ async function createVapidAuthHeader(
   const payloadB64 = uint8ArrayToUrlBase64(new TextEncoder().encode(JSON.stringify(payload)));
   const unsignedToken = `${headerB64}.${payloadB64}`;
 
-  // Import private key
   const privateKeyBytes = await urlBase64ToUint8Array(vapidPrivateKey);
   const privateKey = await crypto.subtle.importKey(
     "jwk",
@@ -58,14 +56,12 @@ async function createVapidAuthHeader(
     ["sign"]
   );
 
-  // Sign
   const signature = await crypto.subtle.sign(
     { name: "ECDSA", hash: "SHA-256" },
     privateKey,
     new TextEncoder().encode(unsignedToken)
   );
 
-  // Convert DER signature to raw r||s format if needed
   const signatureB64 = uint8ArrayToUrlBase64(new Uint8Array(signature));
   const jwt = `${unsignedToken}.${signatureB64}`;
 
@@ -80,7 +76,45 @@ serve(async (req) => {
   }
 
   try {
+    // Auth check
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const supabaseAuth = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+      { global: { headers: { Authorization: authHeader } } }
+    );
+
+    const { data: claimsData, error: claimsError } = await supabaseAuth.auth.getClaims(
+      authHeader.replace("Bearer ", "")
+    );
+    if (claimsError || !claimsData?.claims) {
+      return new Response(JSON.stringify({ error: "Invalid token" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const callerId = claimsData.claims.sub;
+
     const { user_id, title, body, data } = await req.json();
+
+    // Only allow sending to self or if admin
+    if (user_id !== callerId) {
+      const { data: isAdmin } = await supabaseAuth.rpc("is_admin", { _user_id: callerId });
+      if (!isAdmin) {
+        return new Response(JSON.stringify({ error: "Forbidden" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -88,7 +122,6 @@ serve(async (req) => {
     const vapidPrivateKey = Deno.env.get("VAPID_PRIVATE_KEY");
 
     if (!vapidPublicKey || !vapidPrivateKey) {
-      console.log("VAPID keys not configured, skipping push notification");
       return new Response(
         JSON.stringify({ sent: 0, message: "VAPID keys not configured" }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -97,7 +130,6 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Get all push subscriptions for this user
     const { data: subscriptions, error } = await supabase
       .from("push_subscriptions")
       .select("*")
@@ -115,15 +147,12 @@ serve(async (req) => {
 
     for (const sub of subscriptions) {
       try {
-        // For now, send notification without payload encryption (title-only via push API)
         const vapidHeaders = await createVapidAuthHeader(
           sub.endpoint,
           vapidPublicKey,
           vapidPrivateKey,
           "mailto:mosap3@lovable.app"
         );
-
-        const payload = JSON.stringify({ title, body, data });
 
         const response = await fetch(sub.endpoint, {
           method: "POST",
@@ -138,13 +167,12 @@ serve(async (req) => {
         if (response.status === 201 || response.status === 200) {
           sent++;
         } else if (response.status === 404 || response.status === 410) {
-          // Subscription expired, remove it
           await supabase.from("push_subscriptions").delete().eq("id", sub.id);
         } else {
-          errors.push(`${sub.endpoint}: ${response.status}`);
+          errors.push(`Status: ${response.status}`);
         }
       } catch (e) {
-        errors.push(`${sub.endpoint}: ${e.message}`);
+        errors.push(`Error sending notification`);
       }
     }
 
@@ -153,7 +181,7 @@ serve(async (req) => {
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
+    return new Response(JSON.stringify({ error: "Internal server error" }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

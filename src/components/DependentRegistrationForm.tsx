@@ -12,6 +12,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
+import { dependentSchema } from "@/lib/formValidation";
 
 interface DependentRegistrationFormProps {
   farmerCode: string;
@@ -44,8 +45,9 @@ const DependentRegistrationForm = ({ farmerCode, onSuccess }: DependentRegistrat
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.name || !form.relationship) {
-      toast.error("Nome e parentesco são obrigatórios.");
+    const validation = dependentSchema.safeParse(form);
+    if (!validation.success) {
+      toast.error(validation.error.errors[0].message);
       return;
     }
 

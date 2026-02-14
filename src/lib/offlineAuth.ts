@@ -1,17 +1,18 @@
 import { openDB } from "idb";
 
 export interface CachedSession {
-  id: string; // always "current"
+  id: string;
   email: string;
   userId: string;
   profile: { full_name: string; phone: string | null } | null;
   roles: string[];
-  passwordHash: string; // simple hash for offline verification
+  passwordHash: string;
+  salt: string; // per-user random salt
   cachedAt: number;
 }
 
 const DB_NAME = "mosap3-auth";
-const DB_VERSION = 1;
+const DB_VERSION = 2; // bumped for salt field
 const STORE = "session";
 
 async function getAuthDb() {
@@ -24,14 +25,36 @@ async function getAuthDb() {
   });
 }
 
-/** Simple hash for offline password verification (NOT cryptographic security) */
-async function hashPassword(password: string): Promise<string> {
+/** Derive key using PBKDF2 with per-user salt (100k iterations) */
+async function hashPassword(password: string, salt: Uint8Array): Promise<string> {
   const encoder = new TextEncoder();
-  const data = encoder.encode(password + "mosap3-salt");
-  const buffer = await crypto.subtle.digest("SHA-256", data);
-  return Array.from(new Uint8Array(buffer))
+  const keyMaterial = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(password),
+    "PBKDF2",
+    false,
+    ["deriveBits"],
+  );
+  const derivedBits = await crypto.subtle.deriveBits(
+    { name: "PBKDF2", salt: salt as unknown as ArrayBuffer, iterations: 100_000, hash: "SHA-256" },
+    keyMaterial,
+    256,
+  );
+  return Array.from(new Uint8Array(derivedBits))
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
+}
+
+function uint8ToHex(arr: Uint8Array): string {
+  return Array.from(arr).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+function hexToUint8(hex: string): Uint8Array {
+  const bytes = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < hex.length; i += 2) {
+    bytes[i / 2] = parseInt(hex.substring(i, i + 2), 16);
+  }
+  return bytes;
 }
 
 /** Save session after successful online login */
@@ -43,7 +66,8 @@ export async function cacheSession(
   roles: string[],
 ): Promise<void> {
   const db = await getAuthDb();
-  const passwordHash = await hashPassword(password);
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const passwordHash = await hashPassword(password, salt);
   await db.put(STORE, {
     id: email.toLowerCase(),
     email: email.toLowerCase(),
@@ -51,6 +75,7 @@ export async function cacheSession(
     profile,
     roles,
     passwordHash,
+    salt: uint8ToHex(salt),
     cachedAt: Date.now(),
   } satisfies CachedSession);
 }
@@ -64,7 +89,8 @@ export async function offlineLogin(
   const cached = await db.get(STORE, email.toLowerCase());
   if (!cached) return null;
 
-  const hash = await hashPassword(password);
+  const salt = hexToUint8(cached.salt);
+  const hash = await hashPassword(password, salt);
   if (hash !== cached.passwordHash) return null;
 
   return cached as CachedSession;
@@ -81,7 +107,6 @@ export async function getLastSession(): Promise<CachedSession | null> {
   const db = await getAuthDb();
   const all = await db.getAll(STORE);
   if (all.length === 0) return null;
-  // Return the most recently cached
   return all.sort((a, b) => b.cachedAt - a.cachedAt)[0] as CachedSession;
 }
 
