@@ -3,7 +3,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Loader2 } from "lucide-react";
 
 const ProtectedRoute = () => {
-  const { user, loading } = useAuth();
+  const { user, loading, isOfflineSession } = useAuth();
 
   if (loading) {
     return (
@@ -13,7 +13,7 @@ const ProtectedRoute = () => {
     );
   }
 
-  if (!user) {
+  if (!user && !isOfflineSession) {
     return <Navigate to="/auth" replace />;
   }
 

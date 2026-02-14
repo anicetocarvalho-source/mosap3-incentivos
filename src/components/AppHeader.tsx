@@ -23,15 +23,22 @@ interface AppHeaderProps {
 }
 
 const AppHeader = ({ onMenuClick }: AppHeaderProps) => {
-  const { user, profile, roles } = useAuth();
+  const { user, profile, roles, isOfflineSession, offlineLogout } = useAuth();
   const navigate = useNavigate();
 
   const displayName = profile?.full_name || user?.email || "Utilizador";
   const primaryRole = roles.length > 0 ? ROLE_LABELS[roles[0]] || roles[0] : "Sem perfil";
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    navigate("/");
+    // Clear offline cached session too
+    import("@/lib/offlineAuth").then((m) => m.clearCachedSession());
+    if (isOfflineSession) {
+      offlineLogout();
+      navigate("/auth");
+    } else {
+      await supabase.auth.signOut();
+      navigate("/");
+    }
   };
 
   return (
