@@ -96,6 +96,7 @@ const navItems: NavItem[] = [
     label: "Relatórios",
     path: "/relatorios",
     compact: true,
+    allowedRoles: ["admin", "gestor_incentivos", "senior_agricultura", "senior_monitoria", "junior_monitoria", "junior_agricultura", "senior_agronegocio"],
   },
   {
     icon: UserCog,

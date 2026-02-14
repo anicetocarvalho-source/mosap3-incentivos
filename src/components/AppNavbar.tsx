@@ -21,6 +21,7 @@ import {
   LogOut,
   Menu,
   X,
+  FileText,
 } from "lucide-react";
 import mosapLogo from "@/assets/mosap3-logo.png";
 import { useAuth } from "@/hooks/useAuth";
@@ -88,6 +89,12 @@ export const navItems: NavItem[] = [
     allowedRoles: ["admin", "gestor_incentivos", "senior_agronegocio", "junior_agronegocio"],
   },
   { icon: Wheat, label: "Produção", path: "/producao" },
+  {
+    icon: FileText,
+    label: "Relatórios",
+    path: "/relatorios",
+    allowedRoles: ["admin", "gestor_incentivos", "senior_agricultura", "senior_monitoria", "junior_monitoria", "junior_agricultura", "senior_agronegocio"],
+  },
   {
     icon: UserCog,
     label: "Utilizadores",
