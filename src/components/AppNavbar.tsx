@@ -150,6 +150,7 @@ const AppNavbar = () => {
   };
 
   const visibleItems = navItems.filter((item) => canSee(item) && !item.sidebar);
+  const mobileVisibleItems = navItems.filter((item) => canSee(item));
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -288,7 +289,7 @@ const AppNavbar = () => {
       {/* Mobile nav dropdown */}
       {isMobile && mobileOpen && (
         <nav className="border-t px-3 py-2 max-h-[70vh] overflow-y-auto" style={{ borderColor: "hsl(var(--sidebar-border))" }}>
-          {visibleItems.map((item) => {
+          {mobileVisibleItems.map((item) => {
             if (item.children) {
               const open = openDropdown === item.label;
               const active = isChildActive(item);
