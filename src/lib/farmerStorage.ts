@@ -14,7 +14,7 @@ function dataUrlToBlob(dataUrl: string): Blob {
 
 /**
  * Upload a base64 image to the farmer-media bucket.
- * Returns the public URL on success.
+ * Returns the storage path (not a public URL since bucket is private).
  */
 export async function uploadFarmerMedia(
   farmerCode: string,
@@ -32,12 +32,24 @@ export async function uploadFarmerMedia(
 
   if (error) throw error;
 
-  const { data } = supabase.storage.from("farmer-media").getPublicUrl(path);
-  return data.publicUrl;
+  // Return the storage path; use getSignedUrl when displaying
+  return path;
 }
 
 /**
- * Upload all photos and biometrics, returning the URL map.
+ * Get a signed URL for a farmer media file (1 hour expiry).
+ */
+export async function getFarmerMediaSignedUrl(path: string): Promise<string | null> {
+  if (!path) return null;
+  const { data, error } = await supabase.storage
+    .from("farmer-media")
+    .createSignedUrl(path, 3600);
+  if (error) return null;
+  return data.signedUrl;
+}
+
+/**
+ * Upload all photos and biometrics, returning the path map.
  */
 export async function uploadAllFarmerMedia(
   farmerCode: string,
@@ -55,8 +67,8 @@ export async function uploadAllFarmerMedia(
   for (const [key, dataUrl] of Object.entries(photos)) {
     if (!dataUrl) continue;
     uploads.push(
-      uploadFarmerMedia(farmerCode, "photos", key, dataUrl).then((url) => {
-        photoUrls[key] = url;
+      uploadFarmerMedia(farmerCode, "photos", key, dataUrl).then((path) => {
+        photoUrls[key] = path;
       }),
     );
   }
@@ -64,8 +76,8 @@ export async function uploadAllFarmerMedia(
   for (const [key, dataUrl] of Object.entries(biometrics)) {
     if (!dataUrl) continue;
     uploads.push(
-      uploadFarmerMedia(farmerCode, "biometrics", key, dataUrl).then((url) => {
-        biometricUrls[key] = url;
+      uploadFarmerMedia(farmerCode, "biometrics", key, dataUrl).then((path) => {
+        biometricUrls[key] = path;
       }),
     );
   }

@@ -13,6 +13,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
+import { parcelSchema } from "@/lib/formValidation";
 
 interface ParcelRegistrationFormProps {
   farmerCode: string;
@@ -33,8 +34,9 @@ const ParcelRegistrationForm = ({ farmerCode, onSuccess }: ParcelRegistrationFor
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.culture || !form.area) {
-      toast.error("Cultura e área são obrigatórios.");
+    const validation = parcelSchema.safeParse(form);
+    if (!validation.success) {
+      toast.error(validation.error.errors[0].message);
       return;
     }
 
