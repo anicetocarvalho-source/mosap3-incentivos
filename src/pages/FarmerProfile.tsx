@@ -316,17 +316,25 @@ const phaseColors: Record<string, string> = {
 const FarmerProfile = () => {
   const { id } = useParams();
   const mockFarmer = farmersData[id || ""];
-  const { dbPhotos, dbBiometrics } = useFarmerFromDb(id);
+  const { farmerInfo, loading: dbLoading } = useFarmerFromDb(id);
   const [expandedProduction, setExpandedProduction] = useState<string | null>(null);
 
-  // Overlay DB photos/biometrics onto mock data when available
-  const farmer = mockFarmer ? {
-    ...mockFarmer,
-    photos: dbPhotos && Object.keys(dbPhotos).length > 0 ? dbPhotos : mockFarmer.photos,
-    biometrics: dbBiometrics && Object.keys(dbBiometrics).length > 0
-      ? Object.fromEntries(Object.entries(dbBiometrics).map(([k, v]) => [k, !!v]))
-      : mockFarmer.biometrics,
-  } : null;
+  // Merge: DB base info + mock enrichment data (parcels, production, etc.)
+  const farmer = farmerInfo ? {
+    ...(mockFarmer || {}),
+    ...farmerInfo,
+    // Keep mock enrichment if available
+    parcels: mockFarmer?.parcels || [],
+    production: mockFarmer?.production || [],
+    incentives: mockFarmer?.incentives || [],
+    transactions: mockFarmer?.transactions || [],
+    purchases: mockFarmer?.purchases || [],
+    dependentes: mockFarmer?.dependentes || [],
+    pecuaria: mockFarmer?.pecuaria || [],
+    valorRecebido: mockFarmer?.valorRecebido || "0,00",
+    totalGasto: mockFarmer?.totalGasto || "0,00",
+    saldoFinal: mockFarmer?.saldoFinal || "0,00",
+  } : mockFarmer || null;
 
   if (!farmer) {
     return (
