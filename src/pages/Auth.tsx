@@ -208,7 +208,7 @@ const Auth = () => {
                   >
                     <u.icon className={`h-4 w-4 ${u.color}`} />
                     <span className="font-medium">{u.label}</span>
-                    <span className="text-muted-foreground ml-auto text-xs">{u.email}</span>
+                    <span className="text-muted-foreground ml-auto text-xs">{u.email} / {u.password}</span>
                   </button>
                 ))}
               </div>
