@@ -13,6 +13,7 @@ import mosapLogo from "@/assets/mosap3-logo.png";
 import { cacheSession } from "@/lib/offlineAuth";
 import { offlineLogin } from "@/lib/offlineAuth";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
+import { useAuth } from "@/hooks/useAuth";
 
 const TEST_USERS = [
   { email: "admin@mosap3.test", password: "teste123", label: "Admin", icon: Shield, color: "text-red-500" },
@@ -43,6 +44,7 @@ const Auth = () => {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const isOnline = useOnlineStatus();
+  const { setOfflineSession } = useAuth();
 
   const handleLogin = async () => {
     const result = loginSchema.safeParse({ email, password });
@@ -57,6 +59,7 @@ const Auth = () => {
       const cached = await offlineLogin(result.data.email, result.data.password);
       setLoading(false);
       if (cached) {
+        setOfflineSession(cached);
         toast({ title: "Sessão offline", description: "Entrou com dados em cache. Algumas funcionalidades podem estar limitadas." });
         navigate("/");
       } else {

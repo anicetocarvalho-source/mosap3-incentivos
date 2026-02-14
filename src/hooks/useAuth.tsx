@@ -16,6 +16,7 @@ interface AuthState {
   isAdmin: boolean;
   isOfflineSession: boolean;
   offlineLogout: () => void;
+  setOfflineSession: (session: CachedSession) => void;
 }
 
 const AuthContext = createContext<AuthState>({
@@ -28,6 +29,7 @@ const AuthContext = createContext<AuthState>({
   isAdmin: false,
   isOfflineSession: false,
   offlineLogout: () => {},
+  setOfflineSession: () => {},
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -87,6 +89,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setIsOfflineSession(false);
   }, []);
 
+  const setOfflineSession = useCallback((session: CachedSession) => {
+    setUser({ id: session.userId, email: session.email } as User);
+    setProfile(session.profile);
+    setRoles(session.roles as AppRole[]);
+    setIsOfflineSession(true);
+    setLoading(false);
+  }, []);
+
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
@@ -143,7 +153,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   return (
     <AuthContext.Provider
-      value={{ user, profile, roles, loading, hasRole, hasAnyRole, isAdmin, isOfflineSession, offlineLogout }}
+      value={{ user, profile, roles, loading, hasRole, hasAnyRole, isAdmin, isOfflineSession, offlineLogout, setOfflineSession }}
     >
       {children}
     </AuthContext.Provider>
