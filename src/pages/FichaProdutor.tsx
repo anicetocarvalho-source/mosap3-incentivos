@@ -1,11 +1,17 @@
 import { useParams, Link } from "react-router-dom";
-import { ArrowLeft, Printer, User, MapPin, Phone, CreditCard, Wheat, Calendar, Users, FileText } from "lucide-react";
+import { ArrowLeft, Printer, User, MapPin, Phone, CreditCard, Wheat, Calendar, Users, FileText, Camera, Fingerprint } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
 const farmersData: Record<string, any> = {
   "AGR-001": {
     id: "AGR-001", name: "João Mateus", bi: "001234567LA042", phone: "923 456 789", gender: "Masculino", birthDate: "15/03/1985", province: "Benguela", municipality: "Caimbambo", commune: "Caimbambo", village: "Aldeia Saca", school: "EC Caimbambo", status: "Ativo", registeredAt: "05/01/2025",
+    photos: {
+      frontal: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=260&fit=crop&crop=face",
+      perfilEsq: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=200&h=260&fit=crop&crop=face",
+      perfilDir: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200&h=260&fit=crop&crop=face",
+    },
+    biometrics: { polegarDir: true, indicadorDir: true, polegarEsq: true, indicadorEsq: true },
     estadoProdutor: "Em produção",
     parcels: [
       { id: "PRC-001", culture: "Milho", area: "2.5 ha", lat: "-12.5678", lon: "14.2345", status: "Verificada" },
@@ -34,6 +40,8 @@ const farmersData: Record<string, any> = {
   },
   "AGR-002": {
     id: "AGR-002", name: "Maria Silva", bi: "002345678LA043", phone: "924 567 890", gender: "Feminino", birthDate: "22/07/1990", province: "Huambo", municipality: "Longonjo", commune: "Longonjo", village: "Aldeia Chiva", school: "EC Longonjo", status: "Pendente", registeredAt: "10/01/2025",
+    photos: { frontal: "https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=200&h=260&fit=crop&crop=face" },
+    biometrics: { polegarDir: true, indicadorDir: true },
     estadoProdutor: "Em produção",
     parcels: [{ id: "PRC-003", culture: "Mandioca", area: "3.2 ha", lat: "-14.9180", lon: "13.4920", status: "Pendente" }],
     production: [{ culture: "Mandioca", area: "3.2 ha", planted: "01/09/2025", expected: "01/06/2026", currentPhase: "Crescimento", status: "Em Crescimento", estimatedYield: "8.000 kg", actualYield: "-" }],
@@ -46,6 +54,8 @@ const farmersData: Record<string, any> = {
   },
   "AGR-003": {
     id: "AGR-003", name: "Pedro Neto", bi: "003456789LA044", phone: "925 678 901", gender: "Masculino", birthDate: "03/11/1978", province: "Bié", municipality: "Cuemba", commune: "Cuemba", village: "Aldeia Soqui", school: "EC Cuemba", status: "Ativo", registeredAt: "15/01/2025",
+    photos: { frontal: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200&h=260&fit=crop&crop=face" },
+    biometrics: { polegarDir: true, indicadorDir: true, polegarEsq: true, indicadorEsq: true },
     estadoProdutor: "Em produção",
     parcels: [{ id: "PRC-004", culture: "Soja", area: "4.0 ha", lat: "-12.3456", lon: "13.5432", status: "Verificada" }, { id: "PRC-005", culture: "Amendoim", area: "1.8 ha", lat: "-12.3470", lon: "13.5445", status: "Verificada" }],
     production: [
@@ -116,7 +126,73 @@ const FichaProdutor = () => {
           </div>
         </div>
 
-        {/* Section 2: Location */}
+        {/* Section 1b: Fotografias e Biometria */}
+        {(farmer.photos || farmer.biometrics) && (
+          <div>
+            <h2 className="font-heading font-semibold text-base border-b border-border pb-1 mb-3 flex items-center gap-2">
+              <Camera className="h-4 w-4 text-primary" />Identificação Visual e Biométrica
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Photos */}
+              {farmer.photos && (
+                <div>
+                  <p className="text-xs text-muted-foreground font-medium mb-2">Fotografias</p>
+                  <div className="flex gap-3">
+                    {[
+                      { key: "frontal", label: "Frontal" },
+                      { key: "perfilEsq", label: "Perfil Esq." },
+                      { key: "perfilDir", label: "Perfil Dir." },
+                    ].map((slot) => (
+                      <div key={slot.key} className="text-center">
+                        {farmer.photos[slot.key] ? (
+                          <img src={farmer.photos[slot.key]} alt={slot.label} className="h-24 w-20 rounded border border-border object-cover print:h-20 print:w-16" />
+                        ) : (
+                          <div className="h-24 w-20 rounded border-2 border-dashed border-border bg-muted/20 flex items-center justify-center print:h-20 print:w-16">
+                            <Camera className="h-4 w-4 text-muted-foreground/30" />
+                          </div>
+                        )}
+                        <p className="text-[10px] text-muted-foreground mt-1">{slot.label}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Biometrics */}
+              {farmer.biometrics && (
+                <div>
+                  <p className="text-xs text-muted-foreground font-medium mb-2">Impressões Digitais</p>
+                  <div className="flex gap-3">
+                    {[
+                      { key: "polegarDir", label: "Polegar Dir." },
+                      { key: "indicadorDir", label: "Indicador Dir." },
+                      { key: "polegarEsq", label: "Polegar Esq." },
+                      { key: "indicadorEsq", label: "Indicador Esq." },
+                    ].map((slot) => (
+                      <div key={slot.key} className="text-center">
+                        <div className={`h-14 w-14 rounded border flex items-center justify-center ${
+                          farmer.biometrics[slot.key]
+                            ? "bg-primary/10 border-primary/30"
+                            : "bg-muted/20 border-dashed border-border"
+                        }`}>
+                          <Fingerprint className={`h-6 w-6 ${
+                            farmer.biometrics[slot.key] ? "text-primary" : "text-muted-foreground/20"
+                          }`} />
+                        </div>
+                        <p className="text-[10px] text-muted-foreground mt-1">{slot.label}</p>
+                        {farmer.biometrics[slot.key] && (
+                          <p className="text-[9px] text-primary font-medium">✓</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+
         <div>
           <h2 className="font-heading font-semibold text-base border-b border-border pb-1 mb-3 flex items-center gap-2">
             <MapPin className="h-4 w-4 text-primary" />2. Localização

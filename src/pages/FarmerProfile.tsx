@@ -1,7 +1,7 @@
 import { useParams, Link } from "react-router-dom";
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, User, MapPin, Phone, CreditCard, Wheat, ShoppingCart, Gift, Calendar, FileText, Users, Sprout, Sun, Droplets, CheckCircle2, Camera, ChevronDown, ChevronUp, Clock, Printer, Beef, Plus } from "lucide-react";
+import { ArrowLeft, User, MapPin, Phone, CreditCard, Wheat, ShoppingCart, Gift, Calendar, FileText, Users, Sprout, Sun, Droplets, CheckCircle2, Camera, ChevronDown, ChevronUp, Clock, Printer, Beef, Plus, Fingerprint } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -14,6 +14,12 @@ import LivestockRegistrationForm from "@/components/LivestockRegistrationForm";
 const farmersData: Record<string, any> = {
   "AGR-001": {
     id: "AGR-001", name: "João Mateus", bi: "001234567LA042", phone: "923 456 789", gender: "Masculino", birthDate: "15/03/1985", province: "Benguela", municipality: "Caimbambo", commune: "Caimbambo", village: "Aldeia Saca", school: "EC Caimbambo", status: "Ativo", registeredAt: "05/01/2025",
+    photos: {
+      frontal: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=260&fit=crop&crop=face",
+      perfilEsq: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=200&h=260&fit=crop&crop=face",
+      perfilDir: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200&h=260&fit=crop&crop=face",
+    },
+    biometrics: { polegarDir: true, indicadorDir: true, polegarEsq: true, indicadorEsq: true },
     parcels: [
       { id: "PRC-001", culture: "Milho", area: "2.5 ha", lat: "-12.5678", lon: "14.2345", status: "Verificada" },
       { id: "PRC-002", culture: "Feijão", area: "2.0 ha", lat: "-12.5690", lon: "14.2360", status: "Verificada" },
@@ -99,6 +105,10 @@ const farmersData: Record<string, any> = {
   },
   "AGR-002": {
     id: "AGR-002", name: "Maria Silva", bi: "002345678LA043", phone: "924 567 890", gender: "Feminino", birthDate: "22/07/1990", province: "Huambo", municipality: "Longonjo", commune: "Longonjo", village: "Aldeia Chiva", school: "EC Longonjo", status: "Pendente", registeredAt: "10/01/2025",
+    photos: {
+      frontal: "https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=200&h=260&fit=crop&crop=face",
+    },
+    biometrics: { polegarDir: true, indicadorDir: true },
     parcels: [
       { id: "PRC-003", culture: "Mandioca", area: "3.2 ha", lat: "-14.9180", lon: "13.4920", status: "Pendente" },
     ],
@@ -130,6 +140,11 @@ const farmersData: Record<string, any> = {
   },
   "AGR-003": {
     id: "AGR-003", name: "Pedro Neto", bi: "003456789LA044", phone: "925 678 901", gender: "Masculino", birthDate: "03/11/1978", province: "Bié", municipality: "Cuemba", commune: "Cuemba", village: "Aldeia Soqui", school: "EC Cuemba", status: "Ativo", registeredAt: "15/01/2025",
+    photos: {
+      frontal: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200&h=260&fit=crop&crop=face",
+      perfilEsq: "https://images.unsplash.com/photo-1504257432389-52343af06ae3?w=200&h=260&fit=crop&crop=face",
+    },
+    biometrics: { polegarDir: true, indicadorDir: true, polegarEsq: true, indicadorEsq: true },
     parcels: [
       { id: "PRC-004", culture: "Soja", area: "4.0 ha", lat: "-12.3456", lon: "13.5432", status: "Verificada" },
       { id: "PRC-005", culture: "Amendoim", area: "1.8 ha", lat: "-12.3470", lon: "13.5445", status: "Verificada" },
@@ -341,9 +356,18 @@ const FarmerProfile = () => {
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
         <Card className="p-6">
           <div className="flex items-start gap-6">
-            <div className="h-20 w-20 rounded-2xl bg-primary/10 flex items-center justify-center flex-shrink-0">
-              <User className="h-10 w-10 text-primary" />
-            </div>
+            {/* Photo or avatar */}
+            {farmer.photos?.frontal ? (
+              <img
+                src={farmer.photos.frontal}
+                alt={farmer.name}
+                className="h-20 w-20 rounded-2xl object-cover flex-shrink-0 border border-border"
+              />
+            ) : (
+              <div className="h-20 w-20 rounded-2xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+                <User className="h-10 w-10 text-primary" />
+              </div>
+            )}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-x-8 gap-y-4 flex-1">
               <div>
                 <p className="text-xs text-muted-foreground font-medium">Nome Completo</p>
@@ -379,6 +403,77 @@ const FarmerProfile = () => {
               </div>
             </div>
           </div>
+
+          {/* Photos & Biometrics row */}
+          {(farmer.photos || farmer.biometrics) && (
+            <div className="mt-5 pt-5 border-t border-border">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Photos */}
+                {farmer.photos && Object.keys(farmer.photos).length > 0 && (
+                  <div>
+                    <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                      <Camera className="h-3.5 w-3.5" /> Fotografias
+                    </h3>
+                    <div className="flex gap-3">
+                      {[
+                        { key: "frontal", label: "Frontal" },
+                        { key: "perfilEsq", label: "Perfil Esq." },
+                        { key: "perfilDir", label: "Perfil Dir." },
+                      ].map((slot) => (
+                        <div key={slot.key} className="text-center">
+                          {farmer.photos[slot.key] ? (
+                            <img
+                              src={farmer.photos[slot.key]}
+                              alt={slot.label}
+                              className="h-20 w-16 rounded-lg object-cover border border-border"
+                            />
+                          ) : (
+                            <div className="h-20 w-16 rounded-lg border-2 border-dashed border-border bg-muted/30 flex items-center justify-center">
+                              <Camera className="h-4 w-4 text-muted-foreground/40" />
+                            </div>
+                          )}
+                          <p className="text-[10px] text-muted-foreground mt-1">{slot.label}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Biometrics */}
+                {farmer.biometrics && (
+                  <div>
+                    <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                      <Fingerprint className="h-3.5 w-3.5" /> Biometria
+                    </h3>
+                    <div className="flex gap-3">
+                      {[
+                        { key: "polegarDir", label: "Polegar Dir." },
+                        { key: "indicadorDir", label: "Indicador Dir." },
+                        { key: "polegarEsq", label: "Polegar Esq." },
+                        { key: "indicadorEsq", label: "Indicador Esq." },
+                      ].map((slot) => (
+                        <div key={slot.key} className="text-center">
+                          <div className={`h-14 w-14 rounded-lg border flex items-center justify-center ${
+                            farmer.biometrics[slot.key]
+                              ? "bg-primary/10 border-primary/30"
+                              : "bg-muted/30 border-dashed border-border"
+                          }`}>
+                            <Fingerprint className={`h-6 w-6 ${
+                              farmer.biometrics[slot.key] ? "text-primary" : "text-muted-foreground/30"
+                            }`} />
+                          </div>
+                          <p className="text-[10px] text-muted-foreground mt-1">{slot.label}</p>
+                          {farmer.biometrics[slot.key] && (
+                            <p className="text-[9px] text-primary font-medium">✓ Capturada</p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </Card>
       </motion.div>
 
