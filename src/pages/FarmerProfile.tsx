@@ -1,7 +1,7 @@
 import { useParams, Link } from "react-router-dom";
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, User, MapPin, Phone, CreditCard, Wheat, ShoppingCart, Gift, Calendar, FileText, Users, Sprout, Sun, Droplets, CheckCircle2, Camera, ChevronDown, ChevronUp, Clock, Printer, Beef, Plus, Fingerprint } from "lucide-react";
+import { ArrowLeft, User, MapPin, Phone, CreditCard, Wheat, ShoppingCart, Gift, Calendar, FileText, Users, Sprout, Sun, Droplets, CheckCircle2, Camera, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Clock, Printer, Beef, Plus, Fingerprint } from "lucide-react";
 import { useFarmerFromDb } from "@/hooks/useFarmerFromDb";
 import { useFarmerEnrichedData } from "@/hooks/useFarmerEnrichedData";
 import { Button } from "@/components/ui/button";
@@ -41,7 +41,7 @@ const FarmerProfile = () => {
   const { id } = useParams();
   const { farmerInfo, farmer: farmerRaw, loading: dbLoading } = useFarmerFromDb(id);
   const [expandedProduction, setExpandedProduction] = useState<string | null>(null);
-  const [zoomedImage, setZoomedImage] = useState<{ src: string; label: string } | null>(null);
+  const [zoomedImageIndex, setZoomedImageIndex] = useState<number | null>(null);
   const [parcelDialogOpen, setParcelDialogOpen] = useState(false);
   const [dependentDialogOpen, setDependentDialogOpen] = useState(false);
   const [transactionDialogOpen, setTransactionDialogOpen] = useState(false);
@@ -61,6 +61,32 @@ const FarmerProfile = () => {
   });
 
   const farmer = farmerInfo;
+
+  // Build list of all zoomable images for navigation
+  const allImages: { src: string; label: string }[] = [];
+  if (farmer) {
+    if (farmer.photos?.frontal) allImages.push({ src: farmer.photos.frontal, label: "Frontal" });
+    if (farmer.photos?.perfilEsq) allImages.push({ src: farmer.photos.perfilEsq, label: "Perfil Esq." });
+    if (farmer.photos?.perfilDir) allImages.push({ src: farmer.photos.perfilDir, label: "Perfil Dir." });
+    production.forEach((p) => {
+      (p as any).farmer_production_phases?.forEach((phase: any) => {
+        phase.photos?.forEach((photo: string, pi: number) => {
+          allImages.push({ src: photo, label: `${p.culture} – ${phase.phase} foto ${pi + 1}` });
+        });
+      });
+    });
+  }
+
+  const zoomedImage = zoomedImageIndex !== null ? allImages[zoomedImageIndex] : null;
+  const setZoomedImage = (img: { src: string; label: string }) => {
+    const idx = allImages.findIndex((i) => i.src === img.src && i.label === img.label);
+    setZoomedImageIndex(idx >= 0 ? idx : null);
+  };
+  const navigateImage = (dir: 1 | -1) => {
+    if (zoomedImageIndex === null) return;
+    const next = (zoomedImageIndex + dir + allImages.length) % allImages.length;
+    setZoomedImageIndex(next);
+  };
 
   if (dbLoading || enrichedLoading) {
     return (
@@ -600,14 +626,35 @@ const FarmerProfile = () => {
           </TabsContent>
         </Tabs>
       </motion.div>
-      {/* Image Zoom Modal */}
-      <Dialog open={!!zoomedImage} onOpenChange={(open) => !open && setZoomedImage(null)}>
+      {/* Image Zoom Modal with Navigation */}
+      <Dialog open={!!zoomedImage} onOpenChange={(open) => !open && setZoomedImageIndex(null)}>
         <DialogContent className="max-w-2xl p-2">
           <DialogHeader className="px-4 pt-2">
             <DialogTitle className="text-sm">{zoomedImage?.label}</DialogTitle>
           </DialogHeader>
           {zoomedImage && (
-            <img src={zoomedImage.src} alt={zoomedImage.label} className="w-full max-h-[75vh] object-contain rounded-lg" />
+            <div className="relative">
+              <img src={zoomedImage.src} alt={zoomedImage.label} className="w-full max-h-[75vh] object-contain rounded-lg" />
+              {allImages.length > 1 && (
+                <>
+                  <button
+                    onClick={() => navigateImage(-1)}
+                    className="absolute left-2 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full bg-background/80 backdrop-blur-sm border border-border flex items-center justify-center hover:bg-background transition-colors shadow-md"
+                  >
+                    <ChevronLeft className="h-5 w-5" />
+                  </button>
+                  <button
+                    onClick={() => navigateImage(1)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full bg-background/80 backdrop-blur-sm border border-border flex items-center justify-center hover:bg-background transition-colors shadow-md"
+                  >
+                    <ChevronRight className="h-5 w-5" />
+                  </button>
+                </>
+              )}
+              <p className="text-center text-xs text-muted-foreground mt-2">
+                {(zoomedImageIndex ?? 0) + 1} / {allImages.length}
+              </p>
+            </div>
           )}
         </DialogContent>
       </Dialog>
