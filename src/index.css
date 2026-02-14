@@ -157,6 +157,15 @@
     background: hsl(var(--destructive) / 0.12);
     color: hsl(var(--destructive));
   }
+
+  /* Hide scrollbar but keep scroll functionality */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 @media print {
