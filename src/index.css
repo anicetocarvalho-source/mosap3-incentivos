@@ -112,7 +112,7 @@
 
 @layer components {
   .stat-card {
-    @apply bg-card rounded-xl p-6 border border-border;
+    @apply bg-card rounded-xl p-4 md:p-6 border border-border;
     box-shadow: var(--shadow-card);
     transition: box-shadow 0.2s ease, transform 0.2s ease;
   }

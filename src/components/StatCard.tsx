@@ -18,11 +18,11 @@ const StatCard = ({ title, value, change, changeType = "neutral", icon: Icon, ic
       className="stat-card"
     >
       <div className="flex items-start justify-between">
-        <div className="space-y-2">
-          <p className="text-sm text-muted-foreground font-medium">{title}</p>
-          <p className="text-3xl font-bold font-heading tracking-tight">{value}</p>
+        <div className="space-y-1 md:space-y-2 min-w-0">
+          <p className="text-xs md:text-sm text-muted-foreground font-medium truncate">{title}</p>
+          <p className="text-xl md:text-3xl font-bold font-heading tracking-tight">{value}</p>
           {change && (
-            <p className={`text-xs font-semibold ${
+            <p className={`text-[10px] md:text-xs font-semibold ${
               changeType === "positive" ? "text-success" : changeType === "negative" ? "text-destructive" : "text-muted-foreground"
             }`}>
               {change}
@@ -30,10 +30,10 @@ const StatCard = ({ title, value, change, changeType = "neutral", icon: Icon, ic
           )}
         </div>
         <div
-          className="h-12 w-12 rounded-xl flex items-center justify-center flex-shrink-0"
+          className="h-10 w-10 md:h-12 md:w-12 rounded-xl flex items-center justify-center flex-shrink-0"
           style={{ background: iconBg || "hsl(var(--primary) / 0.1)" }}
         >
-          <Icon className="h-6 w-6" style={{ color: iconBg ? "hsl(var(--primary-foreground))" : "hsl(var(--primary))" }} />
+          <Icon className="h-5 w-5 md:h-6 md:w-6" style={{ color: iconBg ? "hsl(var(--primary-foreground))" : "hsl(var(--primary))" }} />
         </div>
       </div>
     </motion.div>
