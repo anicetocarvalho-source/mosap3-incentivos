@@ -44,7 +44,17 @@ export interface SyncQueueItem {
   matchValue?: string;
   timestamp: number;
   synced: boolean;
+  retries: number;
   error?: string;
+}
+
+// ─── Offline cache ─────────────────────────────────────────────────────────
+
+export interface CachedQuery {
+  id: string; // table:key
+  table: string;
+  data: unknown[];
+  cachedAt: number;
 }
 
 // ─── DB Schema ─────────────────────────────────────────────────────────────
@@ -66,13 +76,20 @@ interface MOSAP3DB extends DBSchema {
       "by-timestamp": number;
     };
   };
+  offlineCache: {
+    key: string;
+    value: CachedQuery;
+    indexes: {
+      "by-table": string;
+    };
+  };
 }
 
 let dbInstance: IDBPDatabase<MOSAP3DB> | null = null;
 
 async function getDb() {
   if (dbInstance) return dbInstance;
-  dbInstance = await openDB<MOSAP3DB>("mosap3-offline", 2, {
+  dbInstance = await openDB<MOSAP3DB>("mosap3-offline", 3, {
     upgrade(db, oldVersion) {
       if (oldVersion < 1) {
         const store = db.createObjectStore("farmers", { keyPath: "id" });
@@ -83,6 +100,10 @@ async function getDb() {
         const queue = db.createObjectStore("syncQueue", { keyPath: "id" });
         queue.createIndex("by-synced", "synced");
         queue.createIndex("by-timestamp", "timestamp");
+      }
+      if (oldVersion < 3) {
+        const cache = db.createObjectStore("offlineCache", { keyPath: "id" });
+        cache.createIndex("by-table", "table");
       }
     },
   });
@@ -135,6 +156,7 @@ export async function enqueueOperation(
     matchValue,
     timestamp: Date.now(),
     synced: false,
+    retries: 0,
   };
   await db.put("syncQueue", item);
   window.dispatchEvent(new CustomEvent("mosap3-saved"));
@@ -151,6 +173,13 @@ export async function getPendingCount(): Promise<number> {
   const farmers = await getPendingFarmers();
   const queue = await getPendingQueueItems();
   return farmers.length + queue.length;
+}
+
+const MAX_RETRIES = 5;
+
+function getBackoffMs(retries: number): number {
+  // Exponential backoff: 1s, 2s, 4s, 8s, 16s (capped)
+  return Math.min(1000 * Math.pow(2, retries), 16000);
 }
 
 async function executeSyncItem(item: SyncQueueItem): Promise<void> {
@@ -177,6 +206,12 @@ export async function syncPendingQueue(): Promise<{ synced: number; failed: numb
   const db = await getDb();
 
   for (const item of pending) {
+    // Skip items that exceeded max retries
+    if (item.retries >= MAX_RETRIES) {
+      failed++;
+      continue;
+    }
+
     try {
       await executeSyncItem(item);
       item.synced = true;
@@ -184,9 +219,15 @@ export async function syncPendingQueue(): Promise<{ synced: number; failed: numb
       await db.put("syncQueue", item);
       synced++;
     } catch (err: any) {
+      item.retries = (item.retries || 0) + 1;
       item.error = err?.message || "Erro desconhecido";
       await db.put("syncQueue", item);
       failed++;
+
+      // If retryable, wait with backoff before continuing
+      if (item.retries < MAX_RETRIES) {
+        await new Promise((r) => setTimeout(r, getBackoffMs(item.retries)));
+      }
     }
   }
 
@@ -218,16 +259,99 @@ export async function syncAll(): Promise<{ synced: number; failed: number }> {
   };
 }
 
-// ─── Auto-sync when coming back online ─────────────────────────────────────
+// ─── Offline cache helpers ─────────────────────────────────────────────────
+
+const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
+
+export async function setCachedData(table: string, key: string, data: unknown[]): Promise<void> {
+  const db = await getDb();
+  await db.put("offlineCache", {
+    id: `${table}:${key}`,
+    table,
+    data,
+    cachedAt: Date.now(),
+  });
+}
+
+export async function getCachedData(table: string, key: string): Promise<unknown[] | null> {
+  const db = await getDb();
+  const cached = await db.get("offlineCache", `${table}:${key}`);
+  if (!cached) return null;
+  // Return even if stale — offline needs something
+  return cached.data;
+}
+
+export async function isCacheFresh(table: string, key: string): Promise<boolean> {
+  const db = await getDb();
+  const cached = await db.get("offlineCache", `${table}:${key}`);
+  if (!cached) return false;
+  return Date.now() - cached.cachedAt < CACHE_TTL;
+}
+
+export async function clearCacheForTable(table: string): Promise<void> {
+  const db = await getDb();
+  const items = await db.getAllFromIndex("offlineCache", "by-table", table);
+  const tx = db.transaction("offlineCache", "readwrite");
+  for (const item of items) {
+    await tx.store.delete(item.id);
+  }
+  await tx.done;
+}
+
+// ─── Auto-sync when coming back online + periodic sync ─────────────────────
+
+let syncIntervalId: ReturnType<typeof setInterval> | null = null;
+let isSyncing = false;
+
+async function performSync() {
+  if (isSyncing || !navigator.onLine) return;
+  const pending = await getPendingCount();
+  if (pending === 0) return;
+
+  isSyncing = true;
+  try {
+    const result = await syncAll();
+    window.dispatchEvent(
+      new CustomEvent("mosap3-sync", { detail: result })
+    );
+  } finally {
+    isSyncing = false;
+  }
+}
 
 export function setupAutoSync() {
-  window.addEventListener("online", async () => {
-    const pending = await getPendingCount();
-    if (pending > 0) {
-      const result = await syncAll();
-      window.dispatchEvent(
-        new CustomEvent("mosap3-sync", { detail: result })
-      );
-    }
+  // Sync on reconnection
+  window.addEventListener("online", () => {
+    performSync();
   });
+
+  // Periodic sync every 30 seconds when online
+  if (syncIntervalId) clearInterval(syncIntervalId);
+  syncIntervalId = setInterval(() => {
+    if (navigator.onLine) {
+      performSync();
+    }
+  }, 30_000);
+}
+
+// ─── Helper: optimistic operation (try online, fallback to queue) ──────────
+
+export async function optimisticInsert(
+  table: string,
+  data: Record<string, unknown>,
+): Promise<{ online: boolean; error?: string }> {
+  if (navigator.onLine) {
+    try {
+      const { error } = await (supabase.from as any)(table).insert(data);
+      if (error) throw error;
+      return { online: true };
+    } catch (err: any) {
+      // If online but failed (e.g. network flake), queue it
+      await enqueueOperation(table, "insert", data);
+      return { online: false, error: err.message };
+    }
+  } else {
+    await enqueueOperation(table, "insert", data);
+    return { online: false };
+  }
 }

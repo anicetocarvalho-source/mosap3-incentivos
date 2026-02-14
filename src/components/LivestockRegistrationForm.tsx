@@ -2,7 +2,8 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { supabase } from "@/integrations/supabase/client";
+import { optimisticInsert } from "@/lib/offlineDb";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -11,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card } from "@/components/ui/card";
-import { Beef, HeartPulse, Milk, Loader2 } from "lucide-react";
+import { Beef, HeartPulse, Milk, Loader2, WifiOff, Wifi } from "lucide-react";
 
 const animalSchema = z.object({
   species: z.string().min(1, "Seleccione a espécie"),
@@ -72,6 +73,7 @@ const UNITS = ["litros", "unidades", "kg", "toneladas"];
 export default function LivestockRegistrationForm({ farmerId, schoolId, existingLivestock, onSuccess }: Props) {
   const [activeTab, setActiveTab] = useState("animal");
   const [submitting, setSubmitting] = useState(false);
+  const isOnline = useOnlineStatus();
 
   const animalForm = useForm<AnimalForm>({
     resolver: zodResolver(animalSchema),
@@ -91,7 +93,7 @@ export default function LivestockRegistrationForm({ farmerId, schoolId, existing
   const onSubmitAnimal = async (data: AnimalForm) => {
     setSubmitting(true);
     try {
-      const { error } = await supabase.from("livestock").insert({
+      const result = await optimisticInsert("livestock", {
         farmer_id: farmerId,
         school_id: schoolId || null,
         species: data.species,
@@ -103,8 +105,11 @@ export default function LivestockRegistrationForm({ farmerId, schoolId, existing
         pasture_area: data.pasture_area || null,
         infrastructure_notes: data.infrastructure_notes || null,
       });
-      if (error) throw error;
-      toast.success("Animal registado com sucesso!");
+      if (result.online) {
+        toast.success("Animal registado com sucesso!");
+      } else {
+        toast.success("Animal guardado offline — será sincronizado automaticamente.");
+      }
       animalForm.reset();
       onSuccess();
     } catch (err: any) {
@@ -117,7 +122,7 @@ export default function LivestockRegistrationForm({ farmerId, schoolId, existing
   const onSubmitHealth = async (data: HealthForm) => {
     setSubmitting(true);
     try {
-      const { error } = await supabase.from("livestock_health").insert({
+      const result = await optimisticInsert("livestock_health", {
         livestock_id: data.livestock_id,
         record_type: data.record_type,
         description: data.description,
@@ -127,8 +132,11 @@ export default function LivestockRegistrationForm({ farmerId, schoolId, existing
         cost: data.cost || null,
         notes: data.notes || null,
       });
-      if (error) throw error;
-      toast.success("Registo de saúde adicionado!");
+      if (result.online) {
+        toast.success("Registo de saúde adicionado!");
+      } else {
+        toast.success("Saúde guardada offline — será sincronizada automaticamente.");
+      }
       healthForm.reset();
       onSuccess();
     } catch (err: any) {
@@ -141,7 +149,7 @@ export default function LivestockRegistrationForm({ farmerId, schoolId, existing
   const onSubmitProduction = async (data: ProductionForm) => {
     setSubmitting(true);
     try {
-      const { error } = await supabase.from("livestock_production").insert({
+      const result = await optimisticInsert("livestock_production", {
         livestock_id: data.livestock_id,
         product_type: data.product_type,
         quantity: data.quantity,
@@ -151,8 +159,11 @@ export default function LivestockRegistrationForm({ farmerId, schoolId, existing
         revenue: data.revenue || null,
         notes: data.notes || null,
       });
-      if (error) throw error;
-      toast.success("Produção registada com sucesso!");
+      if (result.online) {
+        toast.success("Produção registada com sucesso!");
+      } else {
+        toast.success("Produção guardada offline — será sincronizada automaticamente.");
+      }
       productionForm.reset();
       onSuccess();
     } catch (err: any) {
@@ -161,6 +172,15 @@ export default function LivestockRegistrationForm({ farmerId, schoolId, existing
       setSubmitting(false);
     }
   };
+
+  const OfflineIndicator = () => (
+    <div className={`flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full mb-3 ${
+      isOnline ? "bg-primary/10 text-primary" : "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300"
+    }`}>
+      {isOnline ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
+      {isOnline ? "Online — dados serão guardados directamente" : "Offline — dados serão sincronizados depois"}
+    </div>
+  );
 
   return (
     <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -179,6 +199,7 @@ export default function LivestockRegistrationForm({ farmerId, schoolId, existing
       {/* Animal Registration */}
       <TabsContent value="animal">
         <form onSubmit={animalForm.handleSubmit(onSubmitAnimal)} className="space-y-4 pt-4">
+          <OfflineIndicator />
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Espécie *</Label>
@@ -237,6 +258,7 @@ export default function LivestockRegistrationForm({ farmerId, schoolId, existing
 
           <Button type="submit" className="w-full" disabled={submitting}>
             {submitting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+            {!isOnline && <WifiOff className="h-4 w-4 mr-2" />}
             Registar Animal
           </Button>
         </form>
@@ -245,6 +267,7 @@ export default function LivestockRegistrationForm({ farmerId, schoolId, existing
       {/* Health Registration */}
       <TabsContent value="health">
         <form onSubmit={healthForm.handleSubmit(onSubmitHealth)} className="space-y-4 pt-4">
+          <OfflineIndicator />
           {existingLivestock.length === 0 ? (
             <Card className="p-6 text-center">
               <p className="text-muted-foreground text-sm">Registe primeiro um animal na aba "Animal" antes de adicionar registos de saúde.</p>
@@ -322,6 +345,7 @@ export default function LivestockRegistrationForm({ farmerId, schoolId, existing
 
               <Button type="submit" className="w-full" disabled={submitting}>
                 {submitting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                {!isOnline && <WifiOff className="h-4 w-4 mr-2" />}
                 Registar Saúde
               </Button>
             </>
@@ -332,6 +356,7 @@ export default function LivestockRegistrationForm({ farmerId, schoolId, existing
       {/* Production Registration */}
       <TabsContent value="production">
         <form onSubmit={productionForm.handleSubmit(onSubmitProduction)} className="space-y-4 pt-4">
+          <OfflineIndicator />
           {existingLivestock.length === 0 ? (
             <Card className="p-6 text-center">
               <p className="text-muted-foreground text-sm">Registe primeiro um animal na aba "Animal" antes de adicionar produção.</p>
@@ -422,6 +447,7 @@ export default function LivestockRegistrationForm({ farmerId, schoolId, existing
 
               <Button type="submit" className="w-full" disabled={submitting}>
                 {submitting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                {!isOnline && <WifiOff className="h-4 w-4 mr-2" />}
                 Registar Produção
               </Button>
             </>
