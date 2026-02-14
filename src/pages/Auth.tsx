@@ -7,9 +7,12 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
-import { Loader2, Mail, Lock, UserPlus, LogIn, Shield, Gift, Sprout, Wheat, Eye, TrendingUp } from "lucide-react";
+import { Loader2, Mail, Lock, UserPlus, LogIn, Shield, Gift, Sprout, Wheat, Eye, TrendingUp, WifiOff } from "lucide-react";
 import { z } from "zod";
 import mosapLogo from "@/assets/mosap3-logo.png";
+import { cacheSession } from "@/lib/offlineAuth";
+import { offlineLogin } from "@/lib/offlineAuth";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 
 const TEST_USERS = [
   { email: "admin@mosap3.test", password: "teste123", label: "Admin", icon: Shield, color: "text-red-500" },
@@ -39,6 +42,7 @@ const Auth = () => {
   const [fullName, setFullName] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const isOnline = useOnlineStatus();
 
   const handleLogin = async () => {
     const result = loginSchema.safeParse({ email, password });
@@ -47,14 +51,36 @@ const Auth = () => {
       return;
     }
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({
+
+    if (!isOnline) {
+      // Offline login attempt
+      const cached = await offlineLogin(result.data.email, result.data.password);
+      setLoading(false);
+      if (cached) {
+        toast({ title: "Sessão offline", description: "Entrou com dados em cache. Algumas funcionalidades podem estar limitadas." });
+        navigate("/");
+      } else {
+        toast({ title: "Sem sessão em cache", description: "Nunca fez login com este email neste dispositivo. Conecte-se à internet.", variant: "destructive" });
+      }
+      return;
+    }
+
+    const { data, error } = await supabase.auth.signInWithPassword({
       email: result.data.email,
       password: result.data.password,
     });
     setLoading(false);
     if (error) {
       toast({ title: "Erro ao entrar", description: error.message, variant: "destructive" });
-    } else {
+    } else if (data.user) {
+      // Fetch profile & roles, then cache for offline
+      const [profileRes, rolesRes] = await Promise.all([
+        supabase.from("profiles").select("full_name, phone").eq("user_id", data.user.id).maybeSingle(),
+        supabase.from("user_roles").select("role").eq("user_id", data.user.id),
+      ]);
+      const prof = profileRes.data ?? null;
+      const roles = rolesRes.data?.map((r) => r.role) ?? [];
+      await cacheSession(result.data.email, result.data.password, data.user.id, prof, roles);
       navigate("/");
     }
   };
@@ -63,6 +89,10 @@ const Auth = () => {
     const result = registerSchema.safeParse({ email, password, fullName });
     if (!result.success) {
       toast({ title: "Erro de validação", description: result.error.errors[0].message, variant: "destructive" });
+      return;
+    }
+    if (!isOnline) {
+      toast({ title: "Sem internet", description: "O registo requer ligação à internet.", variant: "destructive" });
       return;
     }
     setLoading(true);
@@ -112,6 +142,13 @@ const Auth = () => {
           </p>
         </div>
 
+        {!isOnline && (
+          <div className="flex items-center gap-2 bg-amber-500/20 text-amber-200 rounded-lg px-4 py-2 mb-4 text-sm">
+            <WifiOff className="h-4 w-4 flex-shrink-0" />
+            <span>Modo offline — pode entrar se já fez login antes neste dispositivo.</span>
+          </div>
+        )}
+
         <Card className="p-6 shadow-xl">
           {/* Tabs */}
           <div className="flex rounded-lg bg-muted p-1 mb-6">
@@ -128,9 +165,10 @@ const Auth = () => {
             <button
               type="button"
               onClick={() => setIsLogin(false)}
+              disabled={!isOnline}
               className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-md text-sm font-medium transition-all ${
                 !isLogin ? "bg-card shadow-sm text-foreground" : "text-muted-foreground"
-              }`}
+              } ${!isOnline ? "opacity-50 cursor-not-allowed" : ""}`}
             >
               <UserPlus className="h-4 w-4" />
               Registar
@@ -195,7 +233,7 @@ const Auth = () => {
               {loading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : isLogin ? (
-                "Entrar"
+                isOnline ? "Entrar" : "Entrar Offline"
               ) : (
                 "Criar conta"
               )}
