@@ -10,7 +10,7 @@ type Props = {
   onRemove?: () => void;
 };
 
-const REQUIRED_POINTS = 120;
+const REQUIRED_POINTS = 50;
 const QUALITY_THRESHOLDS = { low: 40, medium: 75, high: 100 };
 
 function getQualityLabel(progress: number) {
