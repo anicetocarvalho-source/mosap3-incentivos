@@ -27,7 +27,7 @@ const TEST_USERS = [
 ];
 
 const loginSchema = z.object({
-  email: z.string().trim().email("Email inválido").max(255),
+  email: z.string().trim().min(1, "Email é obrigatório").max(255),
   password: z.string().min(6, "A password deve ter pelo menos 6 caracteres").max(128),
 });
 
