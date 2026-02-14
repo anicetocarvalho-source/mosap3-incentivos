@@ -20,6 +20,9 @@ export interface FarmerDbRecord {
   biometric_index_right_url: string | null;
   biometric_thumb_left_url: string | null;
   biometric_index_left_url: string | null;
+  valor_recebido: string | null;
+  total_gasto: string | null;
+  saldo_final: string | null;
   created_at: string;
   updated_at: string;
 }
