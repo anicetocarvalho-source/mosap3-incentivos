@@ -30,12 +30,13 @@ const AppHeader = ({ onMenuClick }: AppHeaderProps) => {
   const primaryRole = roles.length > 0 ? ROLE_LABELS[roles[0]] || roles[0] : "Sem perfil";
 
   const handleLogout = async () => {
-    // Clear offline cached session too
-    import("@/lib/offlineAuth").then((m) => m.clearCachedSession());
     if (isOfflineSession) {
+      // Only clear cache when explicitly leaving offline mode
+      import("@/lib/offlineAuth").then((m) => m.clearCachedSession());
       offlineLogout();
       navigate("/auth");
     } else {
+      // Online logout: keep offline cache so user can still login offline later
       await supabase.auth.signOut();
       navigate("/");
     }
