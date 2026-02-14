@@ -12,6 +12,9 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import LivestockRegistrationForm from "@/components/LivestockRegistrationForm";
+import ParcelRegistrationForm from "@/components/ParcelRegistrationForm";
+import DependentRegistrationForm from "@/components/DependentRegistrationForm";
+import TransactionRegistrationForm from "@/components/TransactionRegistrationForm";
 import { supabase } from "@/integrations/supabase/client";
 
 const allPhases = ["Preparação", "Sementeira", "Crescimento", "Floração", "Colheita", "Pós-Colheita"];
@@ -37,9 +40,13 @@ const phaseColors: Record<string, string> = {
 const FarmerProfile = () => {
   const { id } = useParams();
   const { farmerInfo, farmer: farmerRaw, loading: dbLoading } = useFarmerFromDb(id);
-  const { parcels, production, incentives, transactions, dependents, loading: enrichedLoading } = useFarmerEnrichedData(id);
   const [expandedProduction, setExpandedProduction] = useState<string | null>(null);
   const [zoomedImage, setZoomedImage] = useState<{ src: string; label: string } | null>(null);
+  const [parcelDialogOpen, setParcelDialogOpen] = useState(false);
+  const [dependentDialogOpen, setDependentDialogOpen] = useState(false);
+  const [transactionDialogOpen, setTransactionDialogOpen] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const { parcels, production, incentives, transactions, dependents, loading: enrichedLoading } = useFarmerEnrichedData(id, refreshKey);
 
   // Fetch livestock from DB
   const [livestock, setLivestock] = useState<any[]>([]);
@@ -215,7 +222,24 @@ const FarmerProfile = () => {
           </TabsList>
 
           {/* Parcelas Tab */}
-          <TabsContent value="parcelas" className="mt-4">
+          <TabsContent value="parcelas" className="mt-4 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-heading font-semibold text-lg">Parcelas</h3>
+              <Dialog open={parcelDialogOpen} onOpenChange={setParcelDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button size="sm" className="gap-1.5"><Plus className="h-4 w-4" /> Nova Parcela</Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-lg">
+                  <DialogHeader>
+                    <DialogTitle>Registar Parcela — {farmer.name}</DialogTitle>
+                  </DialogHeader>
+                  <ParcelRegistrationForm
+                    farmerCode={farmer.id}
+                    onSuccess={() => { setParcelDialogOpen(false); setRefreshKey((k) => k + 1); }}
+                  />
+                </DialogContent>
+              </Dialog>
+            </div>
             <Card className="p-0 overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
@@ -466,8 +490,24 @@ const FarmerProfile = () => {
             </div>
 
             <Card className="p-0 overflow-hidden">
-              <div className="px-6 py-4 border-b border-border">
-                <h3 className="font-heading font-semibold text-lg">Transações do Produtor</h3>
+              <div className="px-6 py-4 border-b border-border flex items-center justify-between">
+                <div>
+                  <h3 className="font-heading font-semibold text-lg">Transações do Produtor</h3>
+                </div>
+                <Dialog open={transactionDialogOpen} onOpenChange={setTransactionDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button size="sm" className="gap-1.5"><Plus className="h-4 w-4" /> Nova Transação</Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-lg">
+                    <DialogHeader>
+                      <DialogTitle>Registar Transação — {farmer.name}</DialogTitle>
+                    </DialogHeader>
+                    <TransactionRegistrationForm
+                      farmerCode={farmer.id}
+                      onSuccess={() => { setTransactionDialogOpen(false); setRefreshKey((k) => k + 1); }}
+                    />
+                  </DialogContent>
+                </Dialog>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
@@ -499,9 +539,25 @@ const FarmerProfile = () => {
           {/* Dependentes Tab */}
           <TabsContent value="dependentes" className="mt-4">
             <Card className="p-0 overflow-hidden">
-              <div className="px-6 py-4 border-b border-border">
-                <h3 className="font-heading font-semibold text-lg">Agregado Familiar</h3>
-                <p className="text-xs text-muted-foreground mt-0.5">Membros do agregado familiar do produtor</p>
+              <div className="px-6 py-4 border-b border-border flex items-center justify-between">
+                <div>
+                  <h3 className="font-heading font-semibold text-lg">Agregado Familiar</h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">Membros do agregado familiar do produtor</p>
+                </div>
+                <Dialog open={dependentDialogOpen} onOpenChange={setDependentDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button size="sm" className="gap-1.5"><Plus className="h-4 w-4" /> Novo Dependente</Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-lg">
+                    <DialogHeader>
+                      <DialogTitle>Registar Dependente — {farmer.name}</DialogTitle>
+                    </DialogHeader>
+                    <DependentRegistrationForm
+                      farmerCode={farmer.id}
+                      onSuccess={() => { setDependentDialogOpen(false); setRefreshKey((k) => k + 1); }}
+                    />
+                  </DialogContent>
+                </Dialog>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
