@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Camera, Fingerprint, User, X, ChevronRight, ChevronLeft, Check, WifiOff, Wifi } from "lucide-react";
+import { Camera, Fingerprint, User, X, ChevronRight, ChevronLeft, Check, WifiOff, Wifi, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,6 +19,8 @@ import {
 import FingerprintCapture from "@/components/FingerprintCapture";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { saveFarmerOffline } from "@/lib/offlineDb";
+import { uploadAllFarmerMedia } from "@/lib/farmerStorage";
+import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
 const photoSlots = [
@@ -61,6 +63,7 @@ const FarmerRegistrationForm = ({ open, onOpenChange, editData }: Props) => {
   const [step, setStep] = useState(1);
   const [photos, setPhotos] = useState<Record<string, string>>({});
   const [biometrics, setBiometrics] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
     nome: "", bi: "", dataNascimento: "", genero: "",
     telefone: "", provincia: "", municipio: "", escolaCampo: "",
@@ -112,33 +115,82 @@ const FarmerRegistrationForm = ({ open, onOpenChange, editData }: Props) => {
   };
 
   const handleSubmit = async () => {
-    const record = {
-      id: `REG-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-      timestamp: Date.now(),
-      synced: false,
-      data: formData,
-      photos,
-      biometrics,
-    };
+    setSaving(true);
+    const farmerCode = isEditing
+      ? editData!.id
+      : `AGR-${Date.now().toString(36).toUpperCase()}`;
 
     try {
-      await saveFarmerOffline(record);
+      if (isOnline) {
+        // Upload media to cloud storage
+        const { photoUrls, biometricUrls } = await uploadAllFarmerMedia(
+          farmerCode, photos, biometrics,
+        );
+
+        // Save farmer record to database
+        const farmerRow = {
+          code: farmerCode,
+          full_name: formData.nome,
+          bi: formData.bi || null,
+          birth_date: formData.dataNascimento || null,
+          gender: formData.genero || null,
+          phone: formData.telefone || null,
+          province: formData.provincia || null,
+          municipality: formData.municipio || null,
+          school: formData.escolaCampo || null,
+          photo_frontal_url: photoUrls.frontal || null,
+          photo_profile_left_url: photoUrls.perfilEsq || null,
+          photo_profile_right_url: photoUrls.perfilDir || null,
+          biometric_thumb_right_url: biometricUrls.polegarDir || null,
+          biometric_index_right_url: biometricUrls.indicadorDir || null,
+          biometric_thumb_left_url: biometricUrls.polegarEsq || null,
+          biometric_index_left_url: biometricUrls.indicadorEsq || null,
+        };
+
+        if (isEditing) {
+          const { error } = await supabase
+            .from("farmers")
+            .update(farmerRow)
+            .eq("code", farmerCode);
+          if (error) throw error;
+        } else {
+          const { error } = await supabase
+            .from("farmers")
+            .insert(farmerRow);
+          if (error) throw error;
+        }
+
+        toast({
+          title: "Agricultor registado",
+          description: "O registo e ficheiros foram guardados com sucesso.",
+        });
+      } else {
+        // Offline: save locally
+        const record = {
+          id: farmerCode,
+          timestamp: Date.now(),
+          synced: false,
+          data: formData,
+          photos,
+          biometrics,
+        };
+        await saveFarmerOffline(record);
+        toast({
+          title: "Guardado offline",
+          description: "O registo será sincronizado quando houver ligação à internet.",
+        });
+      }
+
       window.dispatchEvent(new Event("mosap3-saved"));
-
-      toast({
-        title: isOnline ? "Agricultor registado" : "Guardado offline",
-        description: isOnline
-          ? "O registo foi guardado e será sincronizado."
-          : "O registo será sincronizado quando houver ligação à internet.",
-      });
-
       onOpenChange(false);
       setStep(1);
       setPhotos({});
       setBiometrics({});
       setFormData({ nome: "", bi: "", dataNascimento: "", genero: "", telefone: "", provincia: "", municipio: "", escolaCampo: "" });
-    } catch {
-      toast({ title: "Erro", description: "Não foi possível guardar o registo.", variant: "destructive" });
+    } catch (err: any) {
+      toast({ title: "Erro", description: err?.message || "Não foi possível guardar o registo.", variant: "destructive" });
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -293,7 +345,7 @@ const FarmerRegistrationForm = ({ open, onOpenChange, editData }: Props) => {
           </div>
         )}
 
-        {/* Step 3: Biometria — Touch-based fingerprint capture */}
+        {/* Step 3: Biometria */}
         {step === 3 && (
           <div className="py-2 space-y-4">
             <p className="text-sm text-muted-foreground">
@@ -324,7 +376,7 @@ const FarmerRegistrationForm = ({ open, onOpenChange, editData }: Props) => {
           <Button
             variant="outline"
             onClick={() => setStep(step - 1)}
-            disabled={step === 1}
+            disabled={step === 1 || saving}
             className="gap-1"
           >
             <ChevronLeft className="h-4 w-4" />
@@ -343,9 +395,13 @@ const FarmerRegistrationForm = ({ open, onOpenChange, editData }: Props) => {
                 <ChevronRight className="h-4 w-4" />
               </Button>
             ) : (
-              <Button onClick={handleSubmit} className="gap-1">
-                <Check className="h-4 w-4" />
-                {isEditing ? "Guardar Alterações" : "Registar Agricultor"}
+              <Button onClick={handleSubmit} disabled={saving} className="gap-1">
+                {saving ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Check className="h-4 w-4" />
+                )}
+                {saving ? "A guardar…" : isEditing ? "Guardar Alterações" : "Registar Agricultor"}
               </Button>
             )}
           </div>

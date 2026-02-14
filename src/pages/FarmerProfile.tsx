@@ -2,6 +2,7 @@ import { useParams, Link } from "react-router-dom";
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { ArrowLeft, User, MapPin, Phone, CreditCard, Wheat, ShoppingCart, Gift, Calendar, FileText, Users, Sprout, Sun, Droplets, CheckCircle2, Camera, ChevronDown, ChevronUp, Clock, Printer, Beef, Plus, Fingerprint } from "lucide-react";
+import { useFarmerFromDb } from "@/hooks/useFarmerFromDb";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -314,8 +315,18 @@ const phaseColors: Record<string, string> = {
 
 const FarmerProfile = () => {
   const { id } = useParams();
-  const farmer = farmersData[id || ""];
+  const mockFarmer = farmersData[id || ""];
+  const { dbPhotos, dbBiometrics } = useFarmerFromDb(id);
   const [expandedProduction, setExpandedProduction] = useState<string | null>(null);
+
+  // Overlay DB photos/biometrics onto mock data when available
+  const farmer = mockFarmer ? {
+    ...mockFarmer,
+    photos: dbPhotos && Object.keys(dbPhotos).length > 0 ? dbPhotos : mockFarmer.photos,
+    biometrics: dbBiometrics && Object.keys(dbBiometrics).length > 0
+      ? Object.fromEntries(Object.entries(dbBiometrics).map(([k, v]) => [k, !!v]))
+      : mockFarmer.biometrics,
+  } : null;
 
   if (!farmer) {
     return (

@@ -2,6 +2,7 @@ import { useParams, Link } from "react-router-dom";
 import { ArrowLeft, Printer, User, MapPin, Phone, CreditCard, Wheat, Calendar, Users, FileText, Camera, Fingerprint } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { useFarmerFromDb } from "@/hooks/useFarmerFromDb";
 
 const farmersData: Record<string, any> = {
   "AGR-001": {
@@ -74,7 +75,17 @@ const farmersData: Record<string, any> = {
 
 const FichaProdutor = () => {
   const { id } = useParams();
-  const farmer = farmersData[id || ""];
+  const mockFarmer = farmersData[id || ""];
+  const { dbPhotos, dbBiometrics } = useFarmerFromDb(id);
+
+  // Overlay DB photos/biometrics onto mock data when available
+  const farmer = mockFarmer ? {
+    ...mockFarmer,
+    photos: dbPhotos && Object.keys(dbPhotos).length > 0 ? dbPhotos : mockFarmer.photos,
+    biometrics: dbBiometrics && Object.keys(dbBiometrics).length > 0
+      ? Object.fromEntries(Object.entries(dbBiometrics).map(([k, v]) => [k, !!v]))
+      : mockFarmer.biometrics,
+  } : null;
 
   if (!farmer) {
     return (
