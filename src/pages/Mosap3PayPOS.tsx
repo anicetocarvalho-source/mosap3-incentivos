@@ -71,29 +71,72 @@ const Mosap3PayPOS = () => {
   const [kioskMode, setKioskMode] = useState(false);
   const farmerSearchRef = useRef<HTMLInputElement>(null);
   const productSearchRef = useRef<HTMLInputElement>(null);
+  const posContainerRef = useRef<HTMLDivElement>(null);
 
   // Purchased quantities this season (per farmer)
   const [seasonPurchases, setSeasonPurchases] = useState<Record<string, number>>({});
   const [patecItems, setPatecItems] = useState<{ id: string; name: string; category: string; patec_number: number }[]>([]);
 
+  // Toggle fullscreen API
+  const toggleFullscreen = useCallback(async (enable?: boolean) => {
+    const shouldEnable = enable ?? !kioskMode;
+    try {
+      if (shouldEnable && !document.fullscreenElement) {
+        await document.documentElement.requestFullscreen();
+      } else if (!shouldEnable && document.fullscreenElement) {
+        await document.exitFullscreen();
+      }
+    } catch { /* fullscreen not supported */ }
+    setKioskMode(shouldEnable);
+  }, [kioskMode]);
+
+  // Sync kiosk state when user exits fullscreen via browser (Esc on fullscreen)
+  useEffect(() => {
+    const handler = () => {
+      if (!document.fullscreenElement && kioskMode) setKioskMode(false);
+    };
+    document.addEventListener("fullscreenchange", handler);
+    return () => document.removeEventListener("fullscreenchange", handler);
+  }, [kioskMode]);
+
   // Kiosk keyboard shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      // Inside input fields: Enter submits context, Escape blurs
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
-        if (e.key === "Escape") (e.target as HTMLElement).blur();
-        return;
+        if (e.key === "Escape") {
+          e.preventDefault();
+          (e.target as HTMLElement).blur();
+        }
+        // F-keys still work from inputs
+        if (!e.key.startsWith("F")) return;
       }
+
       switch (e.key) {
         case "F1": e.preventDefault(); farmerSearchRef.current?.focus(); break;
         case "F2": e.preventDefault(); productSearchRef.current?.focus(); break;
         case "F3": e.preventDefault(); if (cart.length > 0 && farmer) setConfirmOpen(true); break;
-        case "F5": e.preventDefault(); setKioskMode(k => !k); break;
-        case "Escape": e.preventDefault(); if (kioskMode) setKioskMode(false); break;
+        case "F4": e.preventDefault(); if (cart.length > 0) { setCart([]); toast.info("Carrinho limpo"); } break;
+        case "F5": e.preventDefault(); toggleFullscreen(); break;
+        case "Enter":
+          // If not in an input and cart is ready, open payment
+          if (!(e.target instanceof HTMLInputElement) && !(e.target instanceof HTMLTextAreaElement)) {
+            if (cart.length > 0 && farmer && !confirmOpen) {
+              e.preventDefault();
+              setConfirmOpen(true);
+            }
+          }
+          break;
+        case "Escape":
+          e.preventDefault();
+          if (confirmOpen) setConfirmOpen(false);
+          else if (kioskMode) toggleFullscreen(false);
+          break;
       }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [cart, farmer, kioskMode]);
+  }, [cart, farmer, kioskMode, confirmOpen, toggleFullscreen]);
 
   useEffect(() => {
     supabase.from("suppliers").select("id, name").eq("status", "Ativo").order("name")
@@ -400,21 +443,36 @@ const Mosap3PayPOS = () => {
   };
 
   return (
-    <div className="space-y-4">
+    <div ref={posContainerRef} className={`space-y-4 ${kioskMode ? "fixed inset-0 z-50 bg-background p-4 overflow-y-auto" : ""}`}>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Monitor className="h-5 w-5 text-primary" />
-          <h1 className="text-xl font-heading font-bold">Terminal POS — MOSAP3Pay</h1>
+          <Monitor className={`h-5 w-5 text-primary ${kioskMode ? "animate-pulse" : ""}`} />
+          <h1 className={`font-heading font-bold ${kioskMode ? "text-2xl" : "text-xl"}`}>
+            Terminal POS — MOSAP3Pay
+            {kioskMode && <Badge variant="outline" className="ml-2 text-[10px] align-middle">KIOSK</Badge>}
+          </h1>
         </div>
         <div className="flex items-center gap-2 print:hidden">
-          <Button variant="outline" size="sm" className="gap-1 text-xs" onClick={() => setKioskMode(k => !k)} title="F5 — Modo Kiosk">
+          <Button variant="outline" size="sm" className="gap-1 text-xs" onClick={() => toggleFullscreen()} title="F5 — Modo Kiosk">
             {kioskMode ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
-            {kioskMode ? "Sair Kiosk" : "Modo Kiosk"}
+            {kioskMode ? "Sair Kiosk (F5)" : "Modo Kiosk (F5)"}
           </Button>
-          <Button variant="ghost" size="sm" className="gap-1 text-xs text-muted-foreground" title="Atalhos de teclado">
-            <Keyboard className="h-4 w-4" />
-            <span className="hidden md:inline">F1 Produtor • F2 Produto • F3 Pagar • F5 Kiosk</span>
-          </Button>
+          {kioskMode && (
+            <div className="flex items-center gap-3 px-3 py-1.5 bg-muted/50 rounded-lg text-[10px] text-muted-foreground">
+              <span><kbd className="px-1 py-0.5 bg-background border rounded text-[9px] font-mono">F1</kbd> Produtor</span>
+              <span><kbd className="px-1 py-0.5 bg-background border rounded text-[9px] font-mono">F2</kbd> Produto</span>
+              <span><kbd className="px-1 py-0.5 bg-background border rounded text-[9px] font-mono">F3</kbd> Pagar</span>
+              <span><kbd className="px-1 py-0.5 bg-background border rounded text-[9px] font-mono">F4</kbd> Limpar</span>
+              <span><kbd className="px-1 py-0.5 bg-background border rounded text-[9px] font-mono">Enter</kbd> Confirmar</span>
+              <span><kbd className="px-1 py-0.5 bg-background border rounded text-[9px] font-mono">Esc</kbd> Fechar</span>
+            </div>
+          )}
+          {!kioskMode && (
+            <Button variant="ghost" size="sm" className="gap-1 text-xs text-muted-foreground" title="Atalhos de teclado">
+              <Keyboard className="h-4 w-4" />
+              <span className="hidden md:inline">F1-F5 • Enter • Esc</span>
+            </Button>
+          )}
         </div>
       </div>
 
