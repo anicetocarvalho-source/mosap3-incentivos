@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Plus, Search, Download, Eye, Edit, User } from "lucide-react";
+import { Plus, Search, Download, Eye, Edit, User, Package } from "lucide-react";
 import FarmerAvatar from "@/components/FarmerAvatar";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -19,15 +19,26 @@ import { useFarmersList } from "@/hooks/useFarmersList";
 
 const Agricultores = () => {
   const [search, setSearch] = useState("");
+  const [filterPatec, setFilterPatec] = useState("all");
+  const [filterStatus, setFilterStatus] = useState("all");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingFarmer, setEditingFarmer] = useState<any>(null);
   const { farmers, loading } = useFarmersList();
 
-  const filtered = farmers.filter((f) =>
-    f.full_name.toLowerCase().includes(search.toLowerCase()) ||
-    f.code.toLowerCase().includes(search.toLowerCase()) ||
-    (f.province || "").toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = farmers.filter((f) => {
+    const matchesSearch =
+      f.full_name.toLowerCase().includes(search.toLowerCase()) ||
+      f.code.toLowerCase().includes(search.toLowerCase()) ||
+      (f.province || "").toLowerCase().includes(search.toLowerCase());
+    const matchesPatec =
+      filterPatec === "all" ||
+      (filterPatec === "none" && !f.patec) ||
+      String(f.patec) === filterPatec;
+    const matchesStatus =
+      filterStatus === "all" ||
+      f.status.toLowerCase() === filterStatus.toLowerCase();
+    return matchesSearch && matchesPatec && matchesStatus;
+  });
 
   const handleEdit = (farmer: any) => {
     setEditingFarmer({
@@ -85,13 +96,26 @@ const Agricultores = () => {
                 <SelectItem value="bie">Bié</SelectItem>
               </SelectContent>
             </Select>
-            <Select>
+            <Select value={filterStatus} onValueChange={setFilterStatus}>
               <SelectTrigger className="w-full sm:w-32 text-xs md:text-sm"><SelectValue placeholder="Estado" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todos</SelectItem>
                 <SelectItem value="ativo">Ativo</SelectItem>
                 <SelectItem value="pendente">Pendente</SelectItem>
                 <SelectItem value="suspenso">Suspenso</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={filterPatec} onValueChange={setFilterPatec}>
+              <SelectTrigger className="w-full sm:w-36 text-xs md:text-sm">
+                <Package className="h-3.5 w-3.5 mr-1.5 flex-shrink-0" />
+                <SelectValue placeholder="PATEC" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos PATEC</SelectItem>
+                <SelectItem value="1">PATEC 1 — Milho</SelectItem>
+                <SelectItem value="2">PATEC 2 — Massango</SelectItem>
+                <SelectItem value="3">PATEC 3 — Massambala</SelectItem>
+                <SelectItem value="none">Sem PATEC</SelectItem>
               </SelectContent>
             </Select>
             <Button variant="outline" size="icon" className="flex-shrink-0"><Download className="h-4 w-4" /></Button>
