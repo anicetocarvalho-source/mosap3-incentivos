@@ -24,6 +24,7 @@ import {
   FileText,
   BarChart3,
   Package,
+  Shield,
   CreditCard,
   Store,
   Monitor,
@@ -106,7 +107,10 @@ export const navItems: NavItem[] = [
       { label: "Fornecedores", path: "/mosap3pay/fornecedores", icon: Store },
       { label: "Terminal POS", path: "/mosap3pay/pos", icon: Monitor },
       { label: "Vendas", path: "/mosap3pay/vendas", icon: ShoppingCart },
+      { label: "Notas de Crédito", path: "/mosap3pay/notas-credito", icon: FileText },
+      { label: "Stock", path: "/mosap3pay/stock", icon: Package },
       { label: "Relatórios", path: "/mosap3pay/relatorios", icon: BarChart3 },
+      { label: "Auditoria", path: "/mosap3pay/auditoria", icon: Shield },
     ],
   },
   {
