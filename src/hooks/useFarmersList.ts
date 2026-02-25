@@ -12,6 +12,7 @@ export interface FarmerListItem {
   school: string | null;
   status: string;
   photo_frontal_url: string | null;
+  patec: number | null;
   created_at: string;
 }
 
@@ -23,7 +24,7 @@ export function useFarmersList() {
     setLoading(true);
     const { data } = await supabase
       .from("farmers")
-      .select("id, code, full_name, bi, phone, province, municipality, school, status, photo_frontal_url, created_at")
+      .select("id, code, full_name, bi, phone, province, municipality, school, status, photo_frontal_url, patec, created_at")
       .order("created_at", { ascending: false });
     setFarmers((data as FarmerListItem[]) || []);
     setLoading(false);

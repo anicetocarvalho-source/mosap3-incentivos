@@ -1,0 +1,1 @@
+ALTER TABLE public.farmers ADD COLUMN patec integer;

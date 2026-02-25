@@ -9,6 +9,7 @@ export const farmerSchema = z.object({
   provincia: z.string().optional().or(z.literal("")),
   municipio: z.string().max(100).optional().or(z.literal("")),
   escolaCampo: z.string().optional().or(z.literal("")),
+  patec: z.string().min(1, "PATEC é obrigatório").regex(/^[1-3]$/, "PATEC deve ser 1, 2 ou 3"),
 });
 
 export const dependentSchema = z.object({

@@ -23,6 +23,7 @@ export interface FarmerDbRecord {
   valor_recebido: string | null;
   total_gasto: string | null;
   saldo_final: string | null;
+  patec: number | null;
   created_at: string;
   updated_at: string;
 }
