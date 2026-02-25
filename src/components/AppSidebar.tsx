@@ -96,7 +96,6 @@ const navItems: NavItem[] = [
     icon: Package,
     label: "PATEC",
     path: "/patec",
-    compact: true,
   },
   {
     icon: FileText,
