@@ -53,6 +53,11 @@ const navItems: NavItem[] = [
     ],
   },
   {
+    icon: Package,
+    label: "PATEC",
+    path: "/patec",
+  },
+  {
     icon: School,
     label: "Escolas de Campo",
     path: "/escolas",
@@ -91,11 +96,6 @@ const navItems: NavItem[] = [
     label: "Produção",
     path: "/producao",
     compact: true,
-  },
-  {
-    icon: Package,
-    label: "PATEC",
-    path: "/patec",
   },
   {
     icon: FileText,
