@@ -171,6 +171,26 @@ const Mosap3PayNotasCredito = () => {
         cnItems.map(item => ({ ...item, credit_note_id: cn.id }))
       );
 
+      // Adjust farmer balance (credit back total to saldo_final, reduce total_gasto)
+      const { data: farmerData } = await supabase
+        .from("farmers")
+        .select("saldo_final, total_gasto")
+        .eq("code", selectedSale.farmer_code)
+        .maybeSingle();
+
+      if (farmerData) {
+        const parseCurrency = (v: string | null) => parseFloat((v || "0").replace(/\s/g, "").replace(",", ".")) || 0;
+        const currentSaldo = parseCurrency(farmerData.saldo_final);
+        const currentGasto = parseCurrency(farmerData.total_gasto);
+        const newSaldo = Math.round((currentSaldo + total) * 100) / 100;
+        const newGasto = Math.round(Math.max(0, currentGasto - total) * 100) / 100;
+
+        await supabase.from("farmers").update({
+          saldo_final: newSaldo.toFixed(2).replace(".", ","),
+          total_gasto: newGasto.toFixed(2).replace(".", ","),
+        }).eq("code", selectedSale.farmer_code);
+      }
+
       // Log audit
       await supabase.from("audit_logs").insert({
         user_id: user?.id,
@@ -178,7 +198,14 @@ const Mosap3PayNotasCredito = () => {
         action: "create",
         entity_type: "credit_note",
         entity_id: cn.id,
-        details: { credit_note_number: cn.credit_note_number, total, reason: reason.trim(), original_sale: selectedSale.sale_code },
+        details: {
+          credit_note_number: cn.credit_note_number,
+          total,
+          reason: reason.trim(),
+          original_sale: selectedSale.sale_code,
+          farmer_code: selectedSale.farmer_code,
+          balance_adjusted: true,
+        },
       });
 
       toast.success(`Nota de Crédito ${cn.credit_note_number} emitida com sucesso`);
