@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { ShoppingCart, Search, Filter, Eye, Printer, FileDown, Loader2 } from "lucide-react";
+import { ShoppingCart, Search, Filter, Eye, Printer, FileDown, Loader2, ShieldCheck, CheckCircle2, AlertTriangle, XCircle, Info } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { Label } from "@/components/ui/label";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { InvoicePDF, generateFiscalHash, buildQRContent, type InvoiceData } from "@/components/InvoicePDF";
@@ -60,6 +61,11 @@ const Mosap3PayVendas = () => {
   const [saftExporting, setSaftExporting] = useState(false);
   const [saftSuppliers, setSaftSuppliers] = useState<{ id: string; name: string }[]>([]);
 
+  // SAF-T validation state
+  const [validationOpen, setValidationOpen] = useState(false);
+  const [validating, setValidating] = useState(false);
+  const [validationResult, setValidationResult] = useState<any>(null);
+
 
   useEffect(() => {
     const fetchSales = async () => {
@@ -104,6 +110,25 @@ const Mosap3PayVendas = () => {
       toast.error("Erro ao exportar SAF-T: " + (e.message || "Erro desconhecido"));
     } finally {
       setSaftExporting(false);
+    }
+  };
+
+  const validateSaft = async () => {
+    if (!saftSupplierId) { toast.error("Seleccione um fornecedor"); return; }
+    setValidating(true);
+    setValidationResult(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("validate-saft", {
+        body: { supplier_id: saftSupplierId, start_date: saftStartDate, end_date: saftEndDate },
+      });
+      if (error) throw error;
+      setValidationResult(data);
+      setValidationOpen(true);
+    } catch (e: any) {
+      console.error("SAF-T validation error:", e);
+      toast.error("Erro ao validar SAF-T: " + (e.message || "Erro desconhecido"));
+    } finally {
+      setValidating(false);
     }
   };
 
@@ -341,12 +366,134 @@ const Mosap3PayVendas = () => {
               </div>
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
             <Button variant="outline" onClick={() => setSaftOpen(false)}>Cancelar</Button>
-            <Button onClick={exportSaft} disabled={saftExporting} className="gap-2">
+            <Button variant="secondary" onClick={validateSaft} disabled={validating || saftExporting} className="gap-2">
+              {validating ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+              {validating ? "A validar..." : "Validar XML"}
+            </Button>
+            <Button onClick={exportSaft} disabled={saftExporting || validating} className="gap-2">
               {saftExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
               {saftExporting ? "A gerar..." : "Exportar XML"}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* SAF-T Validation Results Dialog */}
+      <Dialog open={validationOpen} onOpenChange={setValidationOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ShieldCheck className="h-5 w-5 text-primary" />
+              Validação SAF-T (AO 1.01_01)
+            </DialogTitle>
+          </DialogHeader>
+          {validationResult && (
+            <div className="space-y-4">
+              {/* Result banner */}
+              <div className={`p-4 rounded-lg border flex items-center gap-3 ${
+                validationResult.valid
+                  ? "bg-primary/5 border-primary/20"
+                  : "bg-destructive/5 border-destructive/20"
+              }`}>
+                {validationResult.valid ? (
+                  <CheckCircle2 className="h-8 w-8 text-primary shrink-0" />
+                ) : (
+                  <XCircle className="h-8 w-8 text-destructive shrink-0" />
+                )}
+                <div>
+                  <p className="font-bold text-lg">
+                    {validationResult.valid ? "Ficheiro válido ✓" : "Ficheiro com erros"}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {validationResult.errors.length} erro(s) • {validationResult.warnings.length} aviso(s)
+                  </p>
+                </div>
+              </div>
+
+              {/* Summary */}
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                <div className="p-3 bg-muted/50 rounded-lg text-center">
+                  <p className="text-xl font-bold">{validationResult.summary.totalInvoices}</p>
+                  <p className="text-xs text-muted-foreground">Facturas</p>
+                </div>
+                <div className="p-3 bg-muted/50 rounded-lg text-center">
+                  <p className="text-xl font-bold">{validationResult.summary.totalProducts}</p>
+                  <p className="text-xs text-muted-foreground">Produtos</p>
+                </div>
+                <div className="p-3 bg-muted/50 rounded-lg text-center">
+                  <p className="text-xl font-bold">{validationResult.summary.totalCustomers}</p>
+                  <p className="text-xs text-muted-foreground">Clientes</p>
+                </div>
+                <div className="p-3 bg-muted/50 rounded-lg text-center col-span-2 md:col-span-1">
+                  <p className="text-xl font-bold">{parseFloat(validationResult.summary.totalCredit || "0").toLocaleString("pt-AO")} Kz</p>
+                  <p className="text-xs text-muted-foreground">Total Crédito</p>
+                </div>
+                <div className="p-3 bg-muted/50 rounded-lg text-center col-span-2">
+                  <p className="text-sm font-medium">{validationResult.summary.period}</p>
+                  <p className="text-xs text-muted-foreground">Período • Ano Fiscal {validationResult.summary.fiscalYear}</p>
+                </div>
+              </div>
+
+              {/* Errors */}
+              {validationResult.errors.length > 0 && (
+                <div className="space-y-2">
+                  <h3 className="font-semibold text-sm flex items-center gap-2 text-destructive">
+                    <XCircle className="h-4 w-4" /> Erros ({validationResult.errors.length})
+                  </h3>
+                  <ScrollArea className="max-h-48">
+                    <div className="space-y-1">
+                      {validationResult.errors.map((err: any, i: number) => (
+                        <div key={i} className="p-2 bg-destructive/5 border border-destructive/10 rounded text-xs">
+                          <div className="flex items-start gap-2">
+                            <Badge variant="destructive" className="text-[9px] shrink-0">{err.code}</Badge>
+                            <div>
+                              <p className="font-medium">{err.message}</p>
+                              <p className="text-muted-foreground font-mono text-[10px]">{err.path}</p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </div>
+              )}
+
+              {/* Warnings */}
+              {validationResult.warnings.length > 0 && (
+                <div className="space-y-2">
+                  <h3 className="font-semibold text-sm flex items-center gap-2 text-amber-600">
+                    <AlertTriangle className="h-4 w-4" /> Avisos ({validationResult.warnings.length})
+                  </h3>
+                  <ScrollArea className="max-h-40">
+                    <div className="space-y-1">
+                      {validationResult.warnings.map((warn: any, i: number) => (
+                        <div key={i} className="p-2 bg-amber-500/5 border border-amber-500/10 rounded text-xs">
+                          <div className="flex items-start gap-2">
+                            <Badge variant="secondary" className="text-[9px] shrink-0">{warn.code}</Badge>
+                            <div>
+                              <p className="font-medium">{warn.message}</p>
+                              <p className="text-muted-foreground font-mono text-[10px]">{warn.path}</p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </div>
+              )}
+
+              {validationResult.valid && validationResult.warnings.length === 0 && (
+                <div className="p-3 bg-primary/5 rounded-lg text-center">
+                  <CheckCircle2 className="h-6 w-6 text-primary mx-auto mb-1" />
+                  <p className="text-sm font-medium">Ficheiro SAF-T em total conformidade com as normas AGT</p>
+                </div>
+              )}
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setValidationOpen(false)}>Fechar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
