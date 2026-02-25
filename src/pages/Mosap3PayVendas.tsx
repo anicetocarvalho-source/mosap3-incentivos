@@ -245,8 +245,6 @@ const Mosap3PayVendas = () => {
               ) : filtered.map((s) => (
                 <TableRow key={s.id}>
                   <TableCell className="font-mono text-xs">{s.sale_code}</TableCell>
-                  <TableCell className="font-mono text-xs font-semibold text-primary">{s.invoice_number || "—"}</TableCell>
-                  <TableCell className="font-mono text-xs font-semibold text-primary">{s.invoice_number || "—"}</TableCell>
                   <TableCell>
                     <p className="font-medium text-sm">{s.farmer_name}</p>
                     <p className="text-[10px] text-muted-foreground">{s.farmer_code}</p>
