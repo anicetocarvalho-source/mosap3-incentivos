@@ -14,6 +14,149 @@ export type Database = {
   }
   public: {
     Tables: {
+      audit_logs: {
+        Row: {
+          action: string
+          created_at: string
+          details: Json | null
+          entity_id: string | null
+          entity_type: string
+          id: string
+          ip_address: string | null
+          user_id: string | null
+          user_name: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          details?: Json | null
+          entity_id?: string | null
+          entity_type: string
+          id?: string
+          ip_address?: string | null
+          user_id?: string | null
+          user_name?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          details?: Json | null
+          entity_id?: string | null
+          entity_type?: string
+          id?: string
+          ip_address?: string | null
+          user_id?: string | null
+          user_name?: string | null
+        }
+        Relationships: []
+      }
+      credit_note_items: {
+        Row: {
+          created_at: string
+          credit_note_id: string
+          id: string
+          iva_amount: number
+          iva_rate: number
+          line_total: number
+          product_name: string
+          quantity: number
+          unit_price: number
+        }
+        Insert: {
+          created_at?: string
+          credit_note_id: string
+          id?: string
+          iva_amount?: number
+          iva_rate?: number
+          line_total?: number
+          product_name: string
+          quantity?: number
+          unit_price: number
+        }
+        Update: {
+          created_at?: string
+          credit_note_id?: string
+          id?: string
+          iva_amount?: number
+          iva_rate?: number
+          line_total?: number
+          product_name?: string
+          quantity?: number
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "credit_note_items_credit_note_id_fkey"
+            columns: ["credit_note_id"]
+            isOneToOne: false
+            referencedRelation: "credit_notes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      credit_notes: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          credit_note_number: string
+          farmer_code: string
+          farmer_name: string
+          id: string
+          iva_total: number
+          original_sale_id: string | null
+          reason: string
+          status: string
+          subtotal: number
+          supplier_id: string
+          total: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          credit_note_number: string
+          farmer_code: string
+          farmer_name: string
+          id?: string
+          iva_total?: number
+          original_sale_id?: string | null
+          reason: string
+          status?: string
+          subtotal?: number
+          supplier_id: string
+          total?: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          credit_note_number?: string
+          farmer_code?: string
+          farmer_name?: string
+          id?: string
+          iva_total?: number
+          original_sale_id?: string | null
+          reason?: string
+          status?: string
+          subtotal?: number
+          supplier_id?: string
+          total?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "credit_notes_original_sale_id_fkey"
+            columns: ["original_sale_id"]
+            isOneToOne: false
+            referencedRelation: "pos_sales"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credit_notes_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       farmer_dependents: {
         Row: {
           age: number | null
@@ -961,6 +1104,63 @@ export type Database = {
         }
         Relationships: []
       }
+      stock_movements: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          movement_type: string
+          new_stock: number
+          previous_stock: number
+          product_id: string
+          quantity: number
+          reason: string | null
+          reference_id: string | null
+          supplier_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          movement_type: string
+          new_stock?: number
+          previous_stock?: number
+          product_id: string
+          quantity: number
+          reason?: string | null
+          reference_id?: string | null
+          supplier_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          movement_type?: string
+          new_stock?: number
+          previous_stock?: number
+          product_id?: string
+          quantity?: number
+          reason?: string | null
+          reference_id?: string | null
+          supplier_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_movements_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "supplier_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_movements_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       supplier_pos: {
         Row: {
           created_at: string
@@ -1013,6 +1213,7 @@ export type Database = {
           id: string
           iva_rate: number
           max_per_farmer_per_season: number | null
+          min_stock: number
           name: string
           patec_category: string | null
           patec_number: number | null
@@ -1030,6 +1231,7 @@ export type Database = {
           id?: string
           iva_rate?: number
           max_per_farmer_per_season?: number | null
+          min_stock?: number
           name: string
           patec_category?: string | null
           patec_number?: number | null
@@ -1047,6 +1249,7 @@ export type Database = {
           id?: string
           iva_rate?: number
           max_per_farmer_per_season?: number | null
+          min_stock?: number
           name?: string
           patec_category?: string | null
           patec_number?: number | null
@@ -1225,6 +1428,10 @@ export type Database = {
       is_managing_province: {
         Args: { _province: string; _user_id: string }
         Returns: boolean
+      }
+      next_credit_note_number: {
+        Args: { _supplier_id: string; _year: number }
+        Returns: string
       }
       next_invoice_number: {
         Args: { _supplier_id: string; _year: number }

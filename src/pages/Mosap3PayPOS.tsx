@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { Monitor, Search, ShoppingCart, Plus, Minus, Trash2, CreditCard, User, Package, AlertTriangle, Check, Printer } from "lucide-react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { Monitor, Search, ShoppingCart, Plus, Minus, Trash2, CreditCard, User, Package, AlertTriangle, Check, Printer, Maximize, Minimize, Keyboard } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -68,10 +68,32 @@ const Mosap3PayPOS = () => {
   const [invoiceHash, setInvoiceHash] = useState("");
   const [invoiceQR, setInvoiceQR] = useState("");
   const [showInvoice, setShowInvoice] = useState(false);
+  const [kioskMode, setKioskMode] = useState(false);
+  const farmerSearchRef = useRef<HTMLInputElement>(null);
+  const productSearchRef = useRef<HTMLInputElement>(null);
 
   // Purchased quantities this season (per farmer)
   const [seasonPurchases, setSeasonPurchases] = useState<Record<string, number>>({});
   const [patecItems, setPatecItems] = useState<{ id: string; name: string; category: string; patec_number: number }[]>([]);
+
+  // Kiosk keyboard shortcuts
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        if (e.key === "Escape") (e.target as HTMLElement).blur();
+        return;
+      }
+      switch (e.key) {
+        case "F1": e.preventDefault(); farmerSearchRef.current?.focus(); break;
+        case "F2": e.preventDefault(); productSearchRef.current?.focus(); break;
+        case "F3": e.preventDefault(); if (cart.length > 0 && farmer) setConfirmOpen(true); break;
+        case "F5": e.preventDefault(); setKioskMode(k => !k); break;
+        case "Escape": e.preventDefault(); if (kioskMode) setKioskMode(false); break;
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [cart, farmer, kioskMode]);
 
   useEffect(() => {
     supabase.from("suppliers").select("id, name").eq("status", "Ativo").order("name")
@@ -379,9 +401,21 @@ const Mosap3PayPOS = () => {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2">
-        <Monitor className="h-5 w-5 text-primary" />
-        <h1 className="text-xl font-heading font-bold">Terminal POS — MOSAP3Pay</h1>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Monitor className="h-5 w-5 text-primary" />
+          <h1 className="text-xl font-heading font-bold">Terminal POS — MOSAP3Pay</h1>
+        </div>
+        <div className="flex items-center gap-2 print:hidden">
+          <Button variant="outline" size="sm" className="gap-1 text-xs" onClick={() => setKioskMode(k => !k)} title="F5 — Modo Kiosk">
+            {kioskMode ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
+            {kioskMode ? "Sair Kiosk" : "Modo Kiosk"}
+          </Button>
+          <Button variant="ghost" size="sm" className="gap-1 text-xs text-muted-foreground" title="Atalhos de teclado">
+            <Keyboard className="h-4 w-4" />
+            <span className="hidden md:inline">F1 Produtor • F2 Produto • F3 Pagar • F5 Kiosk</span>
+          </Button>
+        </div>
       </div>
 
       {/* Supplier selection */}
