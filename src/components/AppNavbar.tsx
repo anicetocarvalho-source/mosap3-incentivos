@@ -22,6 +22,7 @@ import {
   Menu,
   X,
   FileText,
+  Package,
 } from "lucide-react";
 import mosapLogo from "@/assets/mosap3-logo.png";
 import { useAuth } from "@/hooks/useAuth";
@@ -62,6 +63,7 @@ export const navItems: NavItem[] = [
       { label: "Registo do Pequeno Produtor", path: "/agricultores", icon: UserPlus },
     ],
   },
+  { icon: Package, label: "PATEC", path: "/patec", sidebar: true },
   { icon: School, label: "Escolas", path: "/escolas" },
   {
     icon: Gift,
