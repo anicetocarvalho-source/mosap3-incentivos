@@ -1,0 +1,111 @@
+import { useEffect, useState } from "react";
+import { Outlet, useNavigate, Link, useLocation } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { LayoutDashboard, Package, Monitor, ShoppingCart, LogOut, Menu, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import mosapLogo from "@/assets/mosap3-logo.png";
+import { toast } from "sonner";
+
+interface Supplier {
+  id: string;
+  name: string;
+  status: string;
+}
+
+const navItems = [
+  { to: "/fornecedor", icon: LayoutDashboard, label: "Dashboard" },
+  { to: "/fornecedor/produtos", icon: Package, label: "Produtos" },
+  { to: "/fornecedor/pos", icon: Monitor, label: "Terminais POS" },
+  { to: "/fornecedor/vendas", icon: ShoppingCart, label: "Vendas" },
+];
+
+const FornecedorLayout = () => {
+  const [supplier, setSupplier] = useState<Supplier | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    const check = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { navigate("/fornecedor/login"); return; }
+      const { data } = await supabase.from("suppliers").select("id, name, status").eq("user_id", user.id).maybeSingle();
+      if (!data) { await supabase.auth.signOut(); navigate("/fornecedor/login"); toast.error("Conta não associada a fornecedor"); return; }
+      setSupplier(data);
+      setLoading(false);
+    };
+    check();
+  }, [navigate]);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    navigate("/fornecedor/login");
+  };
+
+  if (loading) return <div className="min-h-screen flex items-center justify-center"><div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" /></div>;
+
+  if (supplier?.status === "Pendente") {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <div className="text-center space-y-4 max-w-md">
+          <img src={mosapLogo} alt="MOSAP3" className="h-16 mx-auto" />
+          <h1 className="text-xl font-bold font-heading">Conta Pendente de Activação</h1>
+          <p className="text-muted-foreground">A sua conta de fornecedor está a aguardar aprovação pelo administrador do MOSAP3. Será notificado por email quando a conta for activada.</p>
+          <Button variant="outline" onClick={handleLogout}><LogOut className="h-4 w-4 mr-2" /> Sair</Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen flex">
+      {/* Sidebar */}
+      <aside className={`fixed inset-y-0 left-0 z-40 w-64 bg-sidebar text-sidebar-foreground transform transition-transform lg:translate-x-0 ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`}>
+        <div className="flex items-center gap-3 p-4 border-b border-sidebar-border">
+          <img src={mosapLogo} alt="MOSAP3" className="h-8" />
+          <div>
+            <p className="font-heading font-bold text-sm text-sidebar-primary">MOSAP3Pay</p>
+            <p className="text-[10px] text-sidebar-foreground/60 truncate">{supplier?.name}</p>
+          </div>
+          <button className="lg:hidden ml-auto" onClick={() => setMobileOpen(false)}>
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <nav className="p-3 space-y-1">
+          {navItems.map((item) => {
+            const active = location.pathname === item.to;
+            return (
+              <Link key={item.to} to={item.to} onClick={() => setMobileOpen(false)}
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${active ? "bg-sidebar-accent text-sidebar-primary" : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50"}`}>
+                <item.icon className="h-4 w-4" />
+                {item.label}
+              </Link>
+            );
+          })}
+        </nav>
+        <div className="absolute bottom-4 left-3 right-3">
+          <Button variant="ghost" className="w-full justify-start text-sidebar-foreground/60 hover:text-sidebar-foreground" onClick={handleLogout}>
+            <LogOut className="h-4 w-4 mr-2" /> Terminar sessão
+          </Button>
+        </div>
+      </aside>
+
+      {/* Overlay */}
+      {mobileOpen && <div className="fixed inset-0 z-30 bg-black/50 lg:hidden" onClick={() => setMobileOpen(false)} />}
+
+      {/* Main */}
+      <main className="flex-1 lg:ml-64">
+        <header className="sticky top-0 z-20 bg-card border-b border-border px-4 py-3 flex items-center gap-3 lg:hidden">
+          <button onClick={() => setMobileOpen(true)}><Menu className="h-5 w-5" /></button>
+          <span className="font-heading font-bold text-sm">MOSAP3Pay</span>
+        </header>
+        <div className="p-4 lg:p-6">
+          <Outlet context={{ supplier }} />
+        </div>
+      </main>
+    </div>
+  );
+};
+
+export default FornecedorLayout;
