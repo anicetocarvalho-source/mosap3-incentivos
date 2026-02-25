@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Package, Search, Filter, Edit2, Eye, CheckSquare, X } from "lucide-react";
+import { Package, Search, Filter, Edit2, Eye, CheckSquare, X, Plus, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
+import { useAuth } from "@/hooks/useAuth";
 
 interface FarmerPatec {
   id: string;
@@ -23,62 +24,35 @@ interface FarmerPatec {
   status: string;
 }
 
-const patecInfo: Record<number, { title: string; color: string; cultures: string; insumos: string[]; pecuaria: string[]; servicos: string[] }> = {
-  1: {
-    title: "PATEC 1 — Milho + Feijão + Gado",
-    color: "bg-amber-100 text-amber-800 border-amber-300",
-    cultures: "Milho + Feijão",
-    insumos: [
-      "Semente de milho", "Semente de feijão", "Adubo composto", "Adubo simples",
-      "Insecticida, fungicida", "Enxada, Catana, Lima, Ancinho, Machado, Carro de mão",
-    ],
-    pecuaria: [
-      "Cabra, Ovelha, Galinha, Boi", "Ração animal", "Vitaminas, Antibióticos",
-      "Brincos", "Rede galinheiro", "Pregos, Chapas",
-    ],
-    servicos: [
-      "Preparação de terra mecanizada", "Amanhos culturais",
-      "Transporte para escoamento da produção",
-    ],
-  },
-  2: {
-    title: "PATEC 2 — Massango + Feijão + Gado",
-    color: "bg-emerald-100 text-emerald-800 border-emerald-300",
-    cultures: "Massango + Feijão",
-    insumos: [
-      "Semente de massango", "Semente de feijão", "Adubo composto", "Adubo simples",
-      "Insecticida, fungicida", "Enxada, Catana, Lima, Ancinho, Machado, Carro de mão",
-    ],
-    pecuaria: [
-      "Cabra, Ovelha, Galinha, Boi", "Ração animal", "Rede galinheiro",
-      "Vitaminas, Antibióticos", "Brincos", "Pregos, Chapas",
-    ],
-    servicos: [
-      "Preparação de terra mecanizada", "Amanhos culturais",
-      "Transporte para escoamento da produção",
-    ],
-  },
-  3: {
-    title: "PATEC 3 — Massambala + Feijão + Gado",
-    color: "bg-violet-100 text-violet-800 border-violet-300",
-    cultures: "Massambala + Feijão",
-    insumos: [
-      "Semente de massambala", "Semente de feijão", "Adubo composto", "Adubo simples",
-      "Insecticida, fungicida", "Enxada, Catana, Lima, Ancinho, Machado, Carro de mão",
-    ],
-    pecuaria: [
-      "Cabra, Ovelha, Galinha, Boi", "Ração animal", "Rede galinheiro",
-      "Vitaminas, Antibióticos", "Brincos", "Pregos, Chapas",
-    ],
-    servicos: [
-      "Preparação de terra mecanizada", "Amanhos culturais",
-      "Transporte para escoamento da produção",
-    ],
-  },
+interface PatecItem {
+  id: string;
+  patec_number: number;
+  category: string;
+  name: string;
+}
+
+const patecMeta: Record<number, { title: string; color: string; cultures: string }> = {
+  1: { title: "PATEC 1 — Milho + Feijão + Gado", color: "bg-amber-100 text-amber-800 border-amber-300", cultures: "Milho + Feijão" },
+  2: { title: "PATEC 2 — Massango + Feijão + Gado", color: "bg-emerald-100 text-emerald-800 border-emerald-300", cultures: "Massango + Feijão" },
+  3: { title: "PATEC 3 — Massambala + Feijão + Gado", color: "bg-violet-100 text-violet-800 border-violet-300", cultures: "Massambala + Feijão" },
+};
+
+const categoryLabels: Record<string, string> = {
+  insumos: "Insumos Agrícolas",
+  pecuaria: "Pecuária e Materiais",
+  servicos: "Serviços Incluídos",
+};
+
+const categoryColors: Record<string, string> = {
+  insumos: "text-amber-700",
+  pecuaria: "text-emerald-700",
+  servicos: "text-blue-700",
 };
 
 const Patec = () => {
+  const { isAdmin } = useAuth();
   const [farmers, setFarmers] = useState<FarmerPatec[]>([]);
+  const [patecItems, setPatecItems] = useState<PatecItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filterPatec, setFilterPatec] = useState<string>("all");
@@ -92,6 +66,10 @@ const Patec = () => {
   const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
   const [bulkPatec, setBulkPatec] = useState<string>("");
 
+  // Add item state
+  const [addingCategory, setAddingCategory] = useState<{ patec: number; category: string } | null>(null);
+  const [newItemName, setNewItemName] = useState("");
+
   const fetchFarmers = async () => {
     setLoading(true);
     const { data } = await supabase
@@ -102,7 +80,48 @@ const Patec = () => {
     setLoading(false);
   };
 
-  useEffect(() => { fetchFarmers(); }, []);
+  const fetchPatecItems = async () => {
+    const { data } = await supabase
+      .from("patec_items")
+      .select("*")
+      .order("created_at");
+    setPatecItems((data as PatecItem[]) || []);
+  };
+
+  useEffect(() => {
+    fetchFarmers();
+    fetchPatecItems();
+  }, []);
+
+  const getItems = (patecNum: number, category: string) =>
+    patecItems.filter((i) => i.patec_number === patecNum && i.category === category);
+
+  const handleAddItem = async () => {
+    if (!addingCategory || !newItemName.trim()) return;
+    const { error } = await supabase.from("patec_items").insert({
+      patec_number: addingCategory.patec,
+      category: addingCategory.category,
+      name: newItemName.trim(),
+    });
+    if (error) {
+      toast.error("Erro ao adicionar item");
+    } else {
+      toast.success("Item adicionado");
+      setNewItemName("");
+      setAddingCategory(null);
+      fetchPatecItems();
+    }
+  };
+
+  const handleDeleteItem = async (item: PatecItem) => {
+    const { error } = await supabase.from("patec_items").delete().eq("id", item.id);
+    if (error) {
+      toast.error("Erro ao remover item");
+    } else {
+      toast.success(`"${item.name}" removido`);
+      fetchPatecItems();
+    }
+  };
 
   const filtered = farmers.filter((f) => {
     const matchesSearch =
@@ -141,7 +160,6 @@ const Patec = () => {
     }
   };
 
-  // Bulk selection helpers
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
@@ -165,22 +183,15 @@ const Patec = () => {
     setSaving(true);
     const newPatec = parseInt(bulkPatec);
     const ids = Array.from(selectedIds);
-
-    // Update in batches of 50
     let errorCount = 0;
     for (let i = 0; i < ids.length; i += 50) {
       const batch = ids.slice(i, i + 50);
-      const { error } = await supabase
-        .from("farmers")
-        .update({ patec: newPatec })
-        .in("id", batch);
+      const { error } = await supabase.from("farmers").update({ patec: newPatec }).in("id", batch);
       if (error) errorCount++;
     }
-
     setSaving(false);
     setBulkDialogOpen(false);
     setBulkPatec("");
-
     if (errorCount > 0) {
       toast.error(`Erro ao atribuir PATEC a alguns produtores`);
     } else {
@@ -192,6 +203,68 @@ const Patec = () => {
 
   const isAllSelected = filtered.length > 0 && selectedIds.size === filtered.length;
   const isSomeSelected = selectedIds.size > 0;
+
+  // Render editable item list for a category
+  const renderItemList = (patecNum: number, category: string) => {
+    const items = getItems(patecNum, category);
+    const isAdding = addingCategory?.patec === patecNum && addingCategory?.category === category;
+
+    return (
+      <div key={category} className="space-y-1.5">
+        <div className="flex items-center justify-between">
+          <p className={`font-semibold text-xs ${categoryColors[category]}`}>{categoryLabels[category]}</p>
+          {isAdmin && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 w-6 p-0"
+              onClick={() => { setAddingCategory({ patec: patecNum, category }); setNewItemName(""); }}
+              title="Adicionar item"
+            >
+              <Plus className="h-3 w-3" />
+            </Button>
+          )}
+        </div>
+        <div className="space-y-1">
+          {items.map((item) => (
+            <div key={item.id} className="flex items-center justify-between group bg-muted/30 rounded px-2 py-1">
+              <span className="text-xs">{item.name}</span>
+              {isAdmin && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-5 w-5 p-0 opacity-0 group-hover:opacity-100 transition-opacity text-destructive"
+                  onClick={() => handleDeleteItem(item)}
+                  title="Remover item"
+                >
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              )}
+            </div>
+          ))}
+          {items.length === 0 && <p className="text-xs text-muted-foreground italic">Sem itens</p>}
+        </div>
+        {isAdding && (
+          <div className="flex gap-1 mt-1">
+            <Input
+              value={newItemName}
+              onChange={(e) => setNewItemName(e.target.value)}
+              placeholder="Nome do item..."
+              className="h-7 text-xs"
+              autoFocus
+              onKeyDown={(e) => e.key === "Enter" && handleAddItem()}
+            />
+            <Button size="sm" className="h-7 text-xs px-2" onClick={handleAddItem} disabled={!newItemName.trim()}>
+              <Plus className="h-3 w-3" />
+            </Button>
+            <Button variant="ghost" size="sm" className="h-7 text-xs px-2" onClick={() => setAddingCategory(null)}>
+              <X className="h-3 w-3" />
+            </Button>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className="space-y-6">
@@ -218,8 +291,8 @@ const Patec = () => {
             <CardContent className="p-4 text-center">
               <p className="text-2xl font-bold">{p === 1 ? stats.patec1 : p === 2 ? stats.patec2 : stats.patec3}</p>
               <p className="text-xs text-muted-foreground">PATEC {p}</p>
-              <Badge variant="outline" className={`mt-1 text-[10px] ${patecInfo[p].color}`}>
-                {patecInfo[p].cultures}
+              <Badge variant="outline" className={`mt-1 text-[10px] ${patecMeta[p].color}`}>
+                {patecMeta[p].cultures}
               </Badge>
             </CardContent>
           </Card>
@@ -232,31 +305,20 @@ const Patec = () => {
         </Card>
       </div>
 
-      {/* Composition cards */}
+      {/* Composition cards - editable */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {[1, 2, 3].map((p) => (
           <Card key={p} className="border-l-4" style={{ borderLeftColor: p === 1 ? "hsl(var(--chart-1))" : p === 2 ? "hsl(var(--chart-2))" : "hsl(var(--chart-3))" }}>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm flex items-center justify-between">
-                {patecInfo[p].title}
+                {patecMeta[p].title}
                 <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setViewPatec(p)}>
                   <Eye className="h-3 w-3 mr-1" /> Detalhes
                 </Button>
               </CardTitle>
             </CardHeader>
-            <CardContent className="text-xs space-y-2">
-              <div>
-                <p className="font-semibold text-muted-foreground mb-1">Insumos</p>
-                <p className="leading-relaxed">{patecInfo[p].insumos.slice(0, 3).join(", ")}…</p>
-              </div>
-              <div>
-                <p className="font-semibold text-muted-foreground mb-1">Pecuária</p>
-                <p className="leading-relaxed">{patecInfo[p].pecuaria[0]}</p>
-              </div>
-              <div>
-                <p className="font-semibold text-muted-foreground mb-1">Serviços</p>
-                <p className="leading-relaxed">{patecInfo[p].servicos.join(", ")}</p>
-              </div>
+            <CardContent className="text-xs space-y-3">
+              {["insumos", "pecuaria", "servicos"].map((cat) => renderItemList(p, cat))}
             </CardContent>
           </Card>
         ))}
@@ -284,7 +346,6 @@ const Patec = () => {
           </Select>
         </div>
 
-        {/* Bulk action bar - visible when items selected */}
         {isSomeSelected && (
           <div className="flex items-center gap-3 bg-primary/5 border border-primary/20 rounded-lg px-4 py-2.5 animate-in fade-in slide-in-from-top-2">
             <CheckSquare className="h-4 w-4 text-primary" />
@@ -309,11 +370,7 @@ const Patec = () => {
             <TableHeader>
               <TableRow>
                 <TableHead className="w-10">
-                  <Checkbox
-                    checked={isAllSelected}
-                    onCheckedChange={toggleSelectAll}
-                    aria-label="Seleccionar todos"
-                  />
+                  <Checkbox checked={isAllSelected} onCheckedChange={toggleSelectAll} aria-label="Seleccionar todos" />
                 </TableHead>
                 <TableHead>Código</TableHead>
                 <TableHead>Nome</TableHead>
@@ -332,11 +389,7 @@ const Patec = () => {
               ) : filtered.map((f) => (
                 <TableRow key={f.id} className={selectedIds.has(f.id) ? "bg-primary/5" : ""}>
                   <TableCell>
-                    <Checkbox
-                      checked={selectedIds.has(f.id)}
-                      onCheckedChange={() => toggleSelect(f.id)}
-                      aria-label={`Seleccionar ${f.full_name}`}
-                    />
+                    <Checkbox checked={selectedIds.has(f.id)} onCheckedChange={() => toggleSelect(f.id)} aria-label={`Seleccionar ${f.full_name}`} />
                   </TableCell>
                   <TableCell className="font-mono text-xs">{f.code}</TableCell>
                   <TableCell className="font-medium">
@@ -349,7 +402,7 @@ const Patec = () => {
                   </TableCell>
                   <TableCell>
                     {f.patec ? (
-                      <Badge variant="outline" className={`text-[10px] ${patecInfo[f.patec]?.color || ""}`}>
+                      <Badge variant="outline" className={`text-[10px] ${patecMeta[f.patec]?.color || ""}`}>
                         PATEC {f.patec}
                       </Badge>
                     ) : (
@@ -379,31 +432,25 @@ const Patec = () => {
               Código: <span className="font-mono font-semibold">{editFarmer?.code}</span>
             </p>
             <Select value={editPatec} onValueChange={setEditPatec}>
-              <SelectTrigger>
-                <SelectValue placeholder="Seleccionar PATEC" />
-              </SelectTrigger>
+              <SelectTrigger><SelectValue placeholder="Seleccionar PATEC" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="1">PATEC 1 — Milho + Feijão + Gado</SelectItem>
                 <SelectItem value="2">PATEC 2 — Massango + Feijão + Gado</SelectItem>
                 <SelectItem value="3">PATEC 3 — Massambala + Feijão + Gado</SelectItem>
               </SelectContent>
             </Select>
-            {editPatec && patecInfo[parseInt(editPatec)] && (
+            {editPatec && (
               <div className="border rounded-lg p-3 text-xs space-y-2 bg-muted/30">
-                <p className="font-semibold">{patecInfo[parseInt(editPatec)].title}</p>
+                <p className="font-semibold">{patecMeta[parseInt(editPatec)]?.title}</p>
                 <div className="grid grid-cols-3 gap-2">
-                  <div>
-                    <p className="font-medium text-muted-foreground mb-1">Insumos</p>
-                    <ul className="space-y-0.5">{patecInfo[parseInt(editPatec)].insumos.map((i, idx) => <li key={idx}>• {i}</li>)}</ul>
-                  </div>
-                  <div>
-                    <p className="font-medium text-muted-foreground mb-1">Pecuária</p>
-                    <ul className="space-y-0.5">{patecInfo[parseInt(editPatec)].pecuaria.map((i, idx) => <li key={idx}>• {i}</li>)}</ul>
-                  </div>
-                  <div>
-                    <p className="font-medium text-muted-foreground mb-1">Serviços</p>
-                    <ul className="space-y-0.5">{patecInfo[parseInt(editPatec)].servicos.map((i, idx) => <li key={idx}>• {i}</li>)}</ul>
-                  </div>
+                  {["insumos", "pecuaria", "servicos"].map((cat) => (
+                    <div key={cat}>
+                      <p className="font-medium text-muted-foreground mb-1">{categoryLabels[cat]}</p>
+                      <ul className="space-y-0.5">
+                        {getItems(parseInt(editPatec), cat).map((i) => <li key={i.id}>• {i.name}</li>)}
+                      </ul>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
@@ -429,26 +476,18 @@ const Patec = () => {
               {filtered.filter((f) => selectedIds.has(f.id)).map((f) => (
                 <div key={f.id} className="flex items-center justify-between">
                   <span><span className="font-mono text-muted-foreground">{f.code}</span> — {f.full_name}</span>
-                  {f.patec && <Badge variant="outline" className={`text-[9px] ${patecInfo[f.patec]?.color || ""}`}>PATEC {f.patec}</Badge>}
+                  {f.patec && <Badge variant="outline" className={`text-[9px] ${patecMeta[f.patec]?.color || ""}`}>PATEC {f.patec}</Badge>}
                 </div>
               ))}
             </div>
             <Select value={bulkPatec} onValueChange={setBulkPatec}>
-              <SelectTrigger>
-                <SelectValue placeholder="Seleccionar PATEC para todos" />
-              </SelectTrigger>
+              <SelectTrigger><SelectValue placeholder="Seleccionar PATEC para todos" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="1">PATEC 1 — Milho + Feijão + Gado</SelectItem>
                 <SelectItem value="2">PATEC 2 — Massango + Feijão + Gado</SelectItem>
                 <SelectItem value="3">PATEC 3 — Massambala + Feijão + Gado</SelectItem>
               </SelectContent>
             </Select>
-            {bulkPatec && patecInfo[parseInt(bulkPatec)] && (
-              <div className="border rounded-lg p-3 text-xs space-y-1 bg-muted/30">
-                <p className="font-semibold">{patecInfo[parseInt(bulkPatec)].title}</p>
-                <p className="text-muted-foreground">{patecInfo[parseInt(bulkPatec)].cultures} — {patecInfo[parseInt(bulkPatec)].servicos.join(", ")}</p>
-              </div>
-            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setBulkDialogOpen(false)}>Cancelar</Button>
@@ -462,24 +501,65 @@ const Patec = () => {
       {/* View PATEC detail Dialog */}
       <Dialog open={viewPatec !== null} onOpenChange={(o) => !o && setViewPatec(null)}>
         <DialogContent className="max-w-lg">
-          {viewPatec && patecInfo[viewPatec] && (
+          {viewPatec && patecMeta[viewPatec] && (
             <>
               <DialogHeader>
-                <DialogTitle>{patecInfo[viewPatec].title}</DialogTitle>
+                <DialogTitle>{patecMeta[viewPatec].title}</DialogTitle>
               </DialogHeader>
               <div className="space-y-4 py-2 text-sm">
-                <div>
-                  <h3 className="font-semibold mb-2 text-primary">Insumos Agrícolas</h3>
-                  <ul className="space-y-1">{patecInfo[viewPatec].insumos.map((i, idx) => <li key={idx} className="flex items-start gap-2"><span className="text-primary">•</span>{i}</li>)}</ul>
-                </div>
-                <div>
-                  <h3 className="font-semibold mb-2 text-primary">Pecuária e Materiais</h3>
-                  <ul className="space-y-1">{patecInfo[viewPatec].pecuaria.map((i, idx) => <li key={idx} className="flex items-start gap-2"><span className="text-primary">•</span>{i}</li>)}</ul>
-                </div>
-                <div>
-                  <h3 className="font-semibold mb-2 text-primary">Serviços Incluídos</h3>
-                  <ul className="space-y-1">{patecInfo[viewPatec].servicos.map((i, idx) => <li key={idx} className="flex items-start gap-2"><span className="text-primary">•</span>{i}</li>)}</ul>
-                </div>
+                {["insumos", "pecuaria", "servicos"].map((cat) => (
+                  <div key={cat}>
+                    <h3 className="font-semibold mb-2 text-primary">{categoryLabels[cat]}</h3>
+                    <ul className="space-y-1">
+                      {getItems(viewPatec, cat).map((i) => (
+                        <li key={i.id} className="flex items-center justify-between group">
+                          <span className="flex items-start gap-2"><span className="text-primary">•</span>{i.name}</span>
+                          {isAdmin && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-5 w-5 p-0 opacity-0 group-hover:opacity-100 text-destructive"
+                              onClick={() => handleDeleteItem(i)}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                    {isAdmin && (
+                      <div className="mt-2">
+                        {addingCategory?.patec === viewPatec && addingCategory?.category === cat ? (
+                          <div className="flex gap-1">
+                            <Input
+                              value={newItemName}
+                              onChange={(e) => setNewItemName(e.target.value)}
+                              placeholder="Nome do item..."
+                              className="h-7 text-xs"
+                              autoFocus
+                              onKeyDown={(e) => e.key === "Enter" && handleAddItem()}
+                            />
+                            <Button size="sm" className="h-7 text-xs px-2" onClick={handleAddItem} disabled={!newItemName.trim()}>
+                              <Plus className="h-3 w-3" />
+                            </Button>
+                            <Button variant="ghost" size="sm" className="h-7 text-xs px-2" onClick={() => setAddingCategory(null)}>
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 text-xs text-primary"
+                            onClick={() => { setAddingCategory({ patec: viewPatec, category: cat }); setNewItemName(""); }}
+                          >
+                            <Plus className="h-3 w-3 mr-1" /> Adicionar item
+                          </Button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))}
                 <div className="text-xs text-muted-foreground border-t pt-3">
                   Produtores com este pacote: <span className="font-bold">{farmers.filter((f) => f.patec === viewPatec).length}</span>
                 </div>

@@ -584,6 +584,30 @@ export type Database = {
         }
         Relationships: []
       }
+      patec_items: {
+        Row: {
+          category: string
+          created_at: string
+          id: string
+          name: string
+          patec_number: number
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          id?: string
+          name: string
+          patec_number: number
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          id?: string
+          name?: string
+          patec_number?: number
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
