@@ -377,6 +377,38 @@ export type Database = {
         }
         Relationships: []
       }
+      invoice_sequences: {
+        Row: {
+          created_at: string
+          id: string
+          last_number: number
+          supplier_id: string | null
+          year: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          last_number?: number
+          supplier_id?: string | null
+          year: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          last_number?: number
+          supplier_id?: string | null
+          year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_sequences_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       livestock: {
         Row: {
           breed: string | null
@@ -670,6 +702,7 @@ export type Database = {
           farmer_name: string
           farmer_phone: string | null
           id: string
+          invoice_number: string | null
           iva_total: number
           notes: string | null
           patec_number: number | null
@@ -692,6 +725,7 @@ export type Database = {
           farmer_name: string
           farmer_phone?: string | null
           id?: string
+          invoice_number?: string | null
           iva_total?: number
           notes?: string | null
           patec_number?: number | null
@@ -714,6 +748,7 @@ export type Database = {
           farmer_name?: string
           farmer_phone?: string | null
           id?: string
+          invoice_number?: string | null
           iva_total?: number
           notes?: string | null
           patec_number?: number | null
@@ -1190,6 +1225,10 @@ export type Database = {
       is_managing_province: {
         Args: { _province: string; _user_id: string }
         Returns: boolean
+      }
+      next_invoice_number: {
+        Args: { _supplier_id: string; _year: number }
+        Returns: string
       }
       notify_all_users: {
         Args: {

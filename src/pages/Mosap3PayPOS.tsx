@@ -256,10 +256,27 @@ const Mosap3PayPOS = () => {
     setLastSaleCode(saleCode);
     setLastSaleId(sale.id);
 
+    // Generate sequential invoice number
+    let invoiceNumber = "";
+    try {
+      const currentYear = new Date().getFullYear();
+      const { data: invNum } = await supabase.rpc("next_invoice_number", {
+        _supplier_id: selectedSupplierId,
+        _year: currentYear,
+      });
+      if (invNum) {
+        invoiceNumber = invNum as string;
+        await supabase.from("pos_sales").update({ invoice_number: invoiceNumber }).eq("id", sale.id);
+      }
+    } catch (e) {
+      console.warn("Invoice numbering failed:", e);
+    }
+
     // Build invoice data
     const supplierData = suppliers.find((s) => s.id === selectedSupplierId);
     const invoiceInfo: InvoiceData = {
       sale_code: saleCode,
+      invoice_number: invoiceNumber || undefined,
       created_at: new Date().toISOString(),
       farmer_name: farmer.full_name,
       farmer_code: farmer.code,
