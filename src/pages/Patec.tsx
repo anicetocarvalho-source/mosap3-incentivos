@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Package, Search, Filter, Edit2, Eye, CheckSquare, X, Plus, Trash2 } from "lucide-react";
+import { Package, Search, Filter, Edit2, Eye, CheckSquare, X, Plus, Trash2, Pencil, Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -70,6 +70,10 @@ const Patec = () => {
   const [addingCategory, setAddingCategory] = useState<{ patec: number; category: string } | null>(null);
   const [newItemName, setNewItemName] = useState("");
 
+  // Edit item state
+  const [editingItem, setEditingItem] = useState<string | null>(null);
+  const [editingItemName, setEditingItemName] = useState("");
+
   const fetchFarmers = async () => {
     setLoading(true);
     const { data } = await supabase
@@ -121,6 +125,21 @@ const Patec = () => {
       toast.success(`"${item.name}" removido`);
       fetchPatecItems();
     }
+  };
+
+  const handleRenameItem = async (item: PatecItem) => {
+    if (!editingItemName.trim() || editingItemName.trim() === item.name) {
+      setEditingItem(null);
+      return;
+    }
+    const { error } = await supabase.from("patec_items").update({ name: editingItemName.trim() }).eq("id", item.id);
+    if (error) {
+      toast.error("Erro ao renomear item");
+    } else {
+      toast.success("Item renomeado");
+      fetchPatecItems();
+    }
+    setEditingItem(null);
   };
 
   const filtered = farmers.filter((f) => {
@@ -228,17 +247,51 @@ const Patec = () => {
         <div className="space-y-1">
           {items.map((item) => (
             <div key={item.id} className="flex items-center justify-between group bg-muted/30 rounded px-2 py-1">
-              <span className="text-xs">{item.name}</span>
-              {isAdmin && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-5 w-5 p-0 opacity-0 group-hover:opacity-100 transition-opacity text-destructive"
-                  onClick={() => handleDeleteItem(item)}
-                  title="Remover item"
-                >
-                  <Trash2 className="h-3 w-3" />
-                </Button>
+              {editingItem === item.id ? (
+                <div className="flex items-center gap-1 flex-1">
+                  <Input
+                    value={editingItemName}
+                    onChange={(e) => setEditingItemName(e.target.value)}
+                    className="h-6 text-xs flex-1"
+                    autoFocus
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleRenameItem(item);
+                      if (e.key === "Escape") setEditingItem(null);
+                    }}
+                  />
+                  <Button variant="ghost" size="sm" className="h-5 w-5 p-0 text-primary" onClick={() => handleRenameItem(item)}>
+                    <Check className="h-3 w-3" />
+                  </Button>
+                  <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={() => setEditingItem(null)}>
+                    <X className="h-3 w-3" />
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  <span className="text-xs">{item.name}</span>
+                  {isAdmin && (
+                    <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-5 w-5 p-0"
+                        onClick={() => { setEditingItem(item.id); setEditingItemName(item.name); }}
+                        title="Editar nome"
+                      >
+                        <Pencil className="h-3 w-3" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-5 w-5 p-0 text-destructive"
+                        onClick={() => handleDeleteItem(item)}
+                        title="Remover item"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           ))}
