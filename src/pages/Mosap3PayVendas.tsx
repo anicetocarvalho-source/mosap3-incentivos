@@ -202,8 +202,8 @@ const Mosap3PayVendas = () => {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <Card><CardContent className="p-4 text-center"><p className="text-2xl font-bold">{filtered.length}</p><p className="text-xs text-muted-foreground">Total Vendas</p></CardContent></Card>
         <Card><CardContent className="p-4 text-center"><p className="text-2xl font-bold">{totalRevenue.toLocaleString("pt-AO")} Kz</p><p className="text-xs text-muted-foreground">Receita Total</p></CardContent></Card>
-        <Card><CardContent className="p-4 text-center"><p className="text-2xl font-bold text-emerald-600">{filtered.filter((s) => s.payment_status === "pago").length}</p><p className="text-xs text-muted-foreground">Pagos</p></CardContent></Card>
-        <Card><CardContent className="p-4 text-center"><p className="text-2xl font-bold text-amber-600">{totalPending.toLocaleString("pt-AO")} Kz</p><p className="text-xs text-muted-foreground">Pendentes</p></CardContent></Card>
+        <Card><CardContent className="p-4 text-center"><p className="text-2xl font-bold text-success">{filtered.filter((s) => s.payment_status === "pago").length}</p><p className="text-xs text-muted-foreground">Pagos</p></CardContent></Card>
+        <Card><CardContent className="p-4 text-center"><p className="text-2xl font-bold text-warning">{totalPending.toLocaleString("pt-AO")} Kz</p><p className="text-xs text-muted-foreground">Pendentes</p></CardContent></Card>
       </div>
 
       <div className="flex flex-col sm:flex-row gap-3">
@@ -461,13 +461,13 @@ const Mosap3PayVendas = () => {
               {/* Warnings */}
               {validationResult.warnings.length > 0 && (
                 <div className="space-y-2">
-                  <h3 className="font-semibold text-sm flex items-center gap-2 text-amber-600">
+                  <h3 className="font-semibold text-sm flex items-center gap-2 text-warning">
                     <AlertTriangle className="h-4 w-4" /> Avisos ({validationResult.warnings.length})
                   </h3>
                   <ScrollArea className="max-h-40">
                     <div className="space-y-1">
                       {validationResult.warnings.map((warn: any, i: number) => (
-                        <div key={i} className="p-2 bg-amber-500/5 border border-amber-500/10 rounded text-xs">
+                        <div key={i} className="p-2 bg-warning/5 border border-warning/10 rounded text-xs">
                           <div className="flex items-start gap-2">
                             <Badge variant="secondary" className="text-[9px] shrink-0">{warn.code}</Badge>
                             <div>
