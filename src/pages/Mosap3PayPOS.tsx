@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Monitor, Search, ShoppingCart, Plus, Minus, Trash2, CreditCard, User, Package, AlertTriangle, Check, Printer, Maximize, Minimize, Keyboard } from "lucide-react";
+import { Monitor, Search, ShoppingCart, Plus, Minus, Trash2, CreditCard, User, Package, AlertTriangle, Check, Printer, Maximize, Minimize, Keyboard, Banknote, Smartphone, ArrowRightLeft, Settings2, Users } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -69,6 +69,9 @@ const Mosap3PayPOS = () => {
   const [invoiceQR, setInvoiceQR] = useState("");
   const [showInvoice, setShowInvoice] = useState(false);
   const [kioskMode, setKioskMode] = useState(false);
+  const [kioskCategory, setKioskCategory] = useState("Todos");
+  const [kioskPayMethod, setKioskPayMethod] = useState("unitel_money");
+  const [kioskDocType, setKioskDocType] = useState<"factura" | "frecibo">("factura");
   const farmerSearchRef = useRef<HTMLInputElement>(null);
   const productSearchRef = useRef<HTMLInputElement>(null);
   const posContainerRef = useRef<HTMLDivElement>(null);
@@ -442,37 +445,375 @@ const Mosap3PayPOS = () => {
     setTimeout(poll, 5000);
   };
 
+  // Get unique categories for kiosk filter
+  const productCategories = ["Todos", ...Array.from(new Set(products.map(p => p.category)))];
+
+  const getKioskProducts = () => {
+    let filtered = farmer ? getAvailableProducts() : products.filter(p => p.stock > 0);
+    if (kioskCategory !== "Todos") filtered = filtered.filter(p => p.category === kioskCategory);
+    if (productSearch) filtered = filtered.filter(p => p.name.toLowerCase().includes(productSearch.toLowerCase()));
+    return filtered;
+  };
+
+  // ─── KIOSK MODE ───
+  if (kioskMode) {
+    return (
+      <div ref={posContainerRef} className="fixed inset-0 z-50 flex bg-[hsl(220,20%,10%)] text-[hsl(0,0%,90%)]">
+        {/* LEFT — Products */}
+        <div className="flex-1 flex flex-col min-w-0">
+          {/* Top bar */}
+          <div className="flex items-center gap-3 px-4 py-3 border-b border-[hsl(220,15%,18%)]">
+            <div className="flex items-center gap-2">
+              <div className="h-8 w-8 rounded-lg bg-[hsl(45,90%,50%)] flex items-center justify-center">
+                <CreditCard className="h-4 w-4 text-[hsl(220,20%,10%)]" />
+              </div>
+              <span className="font-heading font-bold text-sm">MOSAP3 POS</span>
+            </div>
+            <div className="flex-1 max-w-sm">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[hsl(220,10%,40%)]" />
+                <input
+                  ref={productSearchRef}
+                  type="text"
+                  placeholder="Pesquisar produtos..."
+                  value={productSearch}
+                  onChange={(e) => setProductSearch(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2 rounded-lg bg-[hsl(220,15%,15%)] border border-[hsl(220,15%,20%)] text-sm text-[hsl(0,0%,85%)] placeholder:text-[hsl(220,10%,40%)] focus:outline-none focus:border-[hsl(45,90%,50%)]"
+                />
+              </div>
+            </div>
+            {/* Category tabs */}
+            <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide">
+              {productCategories.map(cat => (
+                <button
+                  key={cat}
+                  onClick={() => setKioskCategory(cat)}
+                  className={`px-4 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
+                    kioskCategory === cat
+                      ? "bg-[hsl(45,90%,50%)] text-[hsl(220,20%,10%)]"
+                      : "bg-[hsl(220,15%,18%)] text-[hsl(220,10%,55%)] hover:bg-[hsl(220,15%,22%)]"
+                  }`}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center gap-1 ml-auto">
+              <button onClick={() => toggleFullscreen(false)} className="p-2 rounded-lg bg-[hsl(220,15%,15%)] hover:bg-[hsl(220,15%,20%)] transition-colors" title="Sair Kiosk (F5)">
+                <Minimize className="h-4 w-4" />
+              </button>
+              <button className="p-2 rounded-lg bg-[hsl(220,15%,15%)] hover:bg-[hsl(220,15%,20%)] transition-colors" title="Atalhos: F1-F5">
+                <Settings2 className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+
+          {/* Supplier selector (if none selected) */}
+          {!selectedSupplierId && (
+            <div className="flex-1 flex items-center justify-center p-8">
+              <div className="text-center space-y-4">
+                <Monitor className="h-12 w-12 mx-auto text-[hsl(220,10%,30%)]" />
+                <p className="text-[hsl(220,10%,50%)]">Seleccione um fornecedor para começar</p>
+                <Select value={selectedSupplierId} onValueChange={setSelectedSupplierId}>
+                  <SelectTrigger className="w-64 mx-auto bg-[hsl(220,15%,15%)] border-[hsl(220,15%,25%)] text-[hsl(0,0%,85%)]">
+                    <SelectValue placeholder="Fornecedor..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {suppliers.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
+
+          {/* Product grid */}
+          {selectedSupplierId && (
+            <div className="flex-1 overflow-y-auto p-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+                {getKioskProducts().map((p) => {
+                  const remaining = farmer ? getRemainingLimit(p) : Infinity;
+                  const inCart = cart.find((c) => c.product.id === p.id);
+                  return (
+                    <button
+                      key={p.id}
+                      disabled={farmer ? remaining <= 0 : false}
+                      onClick={() => farmer ? (remaining > 0 && addToCart(p)) : toast.info("Identifique o cliente primeiro")}
+                      className={`relative flex flex-col items-start p-3 rounded-xl border transition-all text-left ${
+                        inCart
+                          ? "border-[hsl(45,90%,50%)] bg-[hsl(220,15%,15%)]"
+                          : "border-[hsl(220,15%,20%)] bg-[hsl(220,15%,13%)] hover:border-[hsl(220,15%,30%)] hover:bg-[hsl(220,15%,16%)]"
+                      } ${remaining <= 0 && farmer ? "opacity-40 cursor-not-allowed" : ""}`}
+                    >
+                      <div className="h-16 w-full flex items-center justify-center mb-2 rounded-lg bg-[hsl(220,15%,18%)]">
+                        <ShoppingCart className="h-8 w-8 text-[hsl(220,10%,35%)]" />
+                      </div>
+                      <p className="text-xs font-medium leading-tight line-clamp-2">{p.name}</p>
+                      <p className="text-sm font-bold text-[hsl(45,90%,55%)] mt-1 font-mono">
+                        {Number(p.price).toLocaleString("pt-AO")} Kz
+                      </p>
+                      {inCart && (
+                        <div className="absolute top-2 right-2 h-5 w-5 rounded-full bg-[hsl(45,90%,50%)] text-[hsl(220,20%,10%)] flex items-center justify-center text-[10px] font-bold">
+                          {inCart.quantity}
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
+                {getKioskProducts().length === 0 && (
+                  <div className="col-span-full flex flex-col items-center justify-center py-16 text-[hsl(220,10%,35%)]">
+                    <Package className="h-10 w-10 mb-2" />
+                    <p className="text-sm">Nenhum produto encontrado</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* RIGHT — Cart */}
+        <div className="w-80 lg:w-96 flex flex-col border-l border-[hsl(220,15%,18%)] bg-[hsl(220,18%,12%)]">
+          {/* Cart header */}
+          <div className="px-4 py-3 border-b border-[hsl(220,15%,18%)]">
+            <div className="flex items-center gap-2">
+              <ShoppingCart className="h-4 w-4 text-[hsl(45,90%,50%)]" />
+              <span className="font-heading font-bold text-sm">Carrinho</span>
+              {cart.length > 0 && (
+                <span className="ml-auto text-xs text-[hsl(220,10%,50%)]">{cart.length} item(s)</span>
+              )}
+            </div>
+          </div>
+
+          {/* Client button */}
+          <div className="px-4 py-2 border-b border-[hsl(220,15%,18%)]">
+            {farmer ? (
+              <div className="flex items-center gap-2 p-2 rounded-lg bg-[hsl(220,15%,15%)]">
+                <div className="h-8 w-8 rounded-full bg-[hsl(45,90%,50%)]/20 flex items-center justify-center">
+                  <User className="h-4 w-4 text-[hsl(45,90%,55%)]" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium truncate">{farmer.full_name}</p>
+                  <p className="text-[10px] text-[hsl(220,10%,45%)]">{farmer.code}</p>
+                </div>
+                <button onClick={() => { setFarmer(null); setFarmerSearch(""); setCart([]); }} className="text-[hsl(220,10%,40%)] hover:text-[hsl(0,70%,60%)]">
+                  <Trash2 className="h-3 w-3" />
+                </button>
+              </div>
+            ) : (
+              <div className="flex gap-2">
+                <input
+                  ref={farmerSearchRef}
+                  type="text"
+                  placeholder="Código / telefone / BI..."
+                  value={farmerSearch}
+                  onChange={(e) => setFarmerSearch(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && searchFarmer()}
+                  className="flex-1 px-3 py-2 rounded-lg bg-[hsl(220,15%,15%)] border border-[hsl(220,15%,22%)] text-xs text-[hsl(0,0%,85%)] placeholder:text-[hsl(220,10%,35%)] focus:outline-none focus:border-[hsl(45,90%,50%)]"
+                />
+                <button onClick={searchFarmer} className="px-3 rounded-lg bg-[hsl(220,15%,18%)] border border-[hsl(220,15%,22%)] hover:bg-[hsl(220,15%,22%)] transition-colors">
+                  <Users className="h-4 w-4" />
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Cart items */}
+          <div className="flex-1 overflow-y-auto px-4 py-2">
+            {cart.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full text-[hsl(220,10%,30%)]">
+                <ShoppingCart className="h-12 w-12 mb-3" />
+                <p className="font-medium text-sm">Carrinho vazio</p>
+                <p className="text-xs text-[hsl(220,10%,25%)]">Toque nos produtos</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {cart.map((c) => (
+                  <div key={c.product.id} className="flex items-center gap-2 p-2 rounded-lg bg-[hsl(220,15%,15%)]">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium truncate">{c.product.name}</p>
+                      <p className="text-[10px] text-[hsl(220,10%,45%)]">
+                        {Number(c.product.price).toLocaleString("pt-AO")} Kz × {c.quantity}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <button onClick={() => updateQuantity(c.product.id, -1)} className="h-6 w-6 rounded bg-[hsl(220,15%,20%)] flex items-center justify-center hover:bg-[hsl(220,15%,25%)]">
+                        <Minus className="h-3 w-3" />
+                      </button>
+                      <span className="text-xs font-bold w-5 text-center">{c.quantity}</span>
+                      <button onClick={() => updateQuantity(c.product.id, 1)} className="h-6 w-6 rounded bg-[hsl(220,15%,20%)] flex items-center justify-center hover:bg-[hsl(220,15%,25%)]">
+                        <Plus className="h-3 w-3" />
+                      </button>
+                      <button onClick={() => removeFromCart(c.product.id)} className="h-6 w-6 rounded flex items-center justify-center text-[hsl(0,60%,55%)] hover:bg-[hsl(0,50%,20%)]">
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Bottom: totals + payment */}
+          <div className="border-t border-[hsl(220,15%,18%)] px-4 py-3 space-y-2">
+            <div className="flex justify-between text-xs text-[hsl(220,10%,55%)]">
+              <span>Subtotal</span>
+              <span className="font-mono">{cartSubtotal.toLocaleString("pt-AO")} Kz</span>
+            </div>
+            <div className="flex justify-between text-xs text-[hsl(220,10%,45%)]">
+              <span>IVA (14%)</span>
+              <span className="font-mono">{cartIva.toLocaleString("pt-AO")} Kz</span>
+            </div>
+            <div className="flex justify-between items-center font-bold">
+              <span>Total</span>
+              <span className="text-lg font-mono text-[hsl(45,90%,55%)]">{cartTotal.toLocaleString("pt-AO")} Kz</span>
+            </div>
+
+            {/* Doc type */}
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => setKioskDocType("factura")}
+                className={`py-2 rounded-lg text-xs font-medium transition-colors ${
+                  kioskDocType === "factura"
+                    ? "bg-[hsl(220,15%,25%)] text-[hsl(0,0%,90%)] border border-[hsl(220,10%,40%)]"
+                    : "bg-[hsl(220,15%,15%)] text-[hsl(220,10%,45%)] border border-[hsl(220,15%,20%)]"
+                }`}
+              >
+                Factura
+              </button>
+              <button
+                onClick={() => setKioskDocType("frecibo")}
+                className={`py-2 rounded-lg text-xs font-medium transition-colors ${
+                  kioskDocType === "frecibo"
+                    ? "bg-[hsl(45,80%,45%)] text-[hsl(220,20%,10%)] border border-[hsl(45,80%,50%)]"
+                    : "bg-[hsl(220,15%,15%)] text-[hsl(220,10%,45%)] border border-[hsl(220,15%,20%)]"
+                }`}
+              >
+                F-Recibo
+              </button>
+            </div>
+
+            {/* Payment methods */}
+            <div className="grid grid-cols-4 gap-1.5">
+              {[
+                { key: "numerario", icon: Banknote, label: "Numerário" },
+                { key: "cartao", icon: CreditCard, label: "Cartão" },
+                { key: "transferencia", icon: ArrowRightLeft, label: "Transf." },
+                { key: "unitel_money", icon: Smartphone, label: "Mobile" },
+              ].map(m => (
+                <button
+                  key={m.key}
+                  onClick={() => setKioskPayMethod(m.key)}
+                  className={`flex flex-col items-center gap-1 py-2 rounded-lg text-[10px] font-medium transition-colors ${
+                    kioskPayMethod === m.key
+                      ? "bg-[hsl(200,60%,35%)] text-[hsl(0,0%,95%)] border border-[hsl(200,60%,45%)]"
+                      : "bg-[hsl(220,15%,15%)] text-[hsl(220,10%,50%)] border border-[hsl(220,15%,20%)] hover:bg-[hsl(220,15%,18%)]"
+                  }`}
+                >
+                  <m.icon className="h-4 w-4" />
+                  {m.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Submit */}
+            <button
+              disabled={cart.length === 0 || !farmer || processing}
+              onClick={() => setConfirmOpen(true)}
+              className="w-full py-3 rounded-lg font-bold text-sm flex items-center justify-center gap-2 transition-colors disabled:opacity-40 disabled:cursor-not-allowed bg-[hsl(45,70%,40%)] text-[hsl(220,20%,10%)] hover:bg-[hsl(45,75%,45%)]"
+            >
+              <CreditCard className="h-4 w-4" />
+              Emitir {kioskDocType === "factura" ? "FT" : "FR"}
+            </button>
+          </div>
+        </div>
+
+        {/* Kiosk dialogs reuse normal dialogs */}
+        <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+          <DialogContent className="bg-[hsl(220,18%,14%)] border-[hsl(220,15%,22%)] text-[hsl(0,0%,88%)]">
+            <DialogHeader><DialogTitle>Confirmar Venda</DialogTitle></DialogHeader>
+            <div className="space-y-3">
+              <div className="p-3 bg-[hsl(220,15%,12%)] rounded-lg">
+                <p className="font-medium">{farmer?.full_name}</p>
+                <p className="text-xs text-[hsl(220,10%,45%)]">{farmer?.code} • {farmer?.patec ? patecLabels[farmer.patec] : "Sem PATEC"}</p>
+              </div>
+              <div className="space-y-1">
+                {cart.map((c) => (
+                  <div key={c.product.id} className="flex justify-between text-sm">
+                    <span>{c.product.name} × {c.quantity}</span>
+                    <span className="font-mono">{(c.product.price * c.quantity).toLocaleString("pt-AO")} Kz</span>
+                  </div>
+                ))}
+              </div>
+              <Separator className="bg-[hsl(220,15%,22%)]" />
+              <div className="flex justify-between font-bold text-lg">
+                <span>Total</span>
+                <span className="text-[hsl(45,90%,55%)] font-mono">{cartTotal.toLocaleString("pt-AO")} Kz</span>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setConfirmOpen(false)}>Cancelar</Button>
+              <Button onClick={processSale} disabled={processing} className="bg-[hsl(45,70%,40%)] text-[hsl(220,20%,10%)] hover:bg-[hsl(45,75%,45%)]">
+                {processing ? "Processando..." : "Confirmar"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={receiptOpen} onOpenChange={setReceiptOpen}>
+          <DialogContent className="bg-[hsl(220,18%,14%)] border-[hsl(220,15%,22%)] text-[hsl(0,0%,88%)]">
+            <div className="text-center space-y-3">
+              <div className={`h-16 w-16 rounded-full flex items-center justify-center mx-auto ${paymentStatus === "paid" ? "bg-[hsl(140,60%,20%)]" : paymentStatus === "failed" ? "bg-[hsl(0,60%,20%)]" : "bg-[hsl(220,15%,18%)]"}`}>
+                {paymentStatus === "polling" ? (
+                  <div className="h-8 w-8 border-4 border-[hsl(45,90%,50%)] border-t-transparent rounded-full animate-spin" />
+                ) : paymentStatus === "paid" ? (
+                  <Check className="h-8 w-8 text-[hsl(140,60%,60%)]" />
+                ) : paymentStatus === "failed" ? (
+                  <AlertTriangle className="h-8 w-8 text-[hsl(0,70%,60%)]" />
+                ) : (
+                  <Check className="h-8 w-8 text-[hsl(45,90%,55%)]" />
+                )}
+              </div>
+              <h2 className="text-lg font-bold">
+                {paymentStatus === "polling" ? "Aguardando..." : paymentStatus === "paid" ? "Pago!" : paymentStatus === "failed" ? "Falhou" : "Registada!"}
+              </h2>
+              <p className="text-sm text-[hsl(220,10%,50%)]">Código: <span className="font-mono font-bold text-[hsl(0,0%,85%)]">{lastSaleCode}</span></p>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => setShowInvoice(true)} disabled={!invoiceData}>
+                  <Printer className="h-4 w-4 mr-1" /> Ver Factura
+                </Button>
+                <Button onClick={() => { setReceiptOpen(false); setFarmer(null); setFarmerSearch(""); setPaymentStatus("idle"); setInvoiceData(null); }} className="flex-1 bg-[hsl(45,70%,40%)] text-[hsl(220,20%,10%)] hover:bg-[hsl(45,75%,45%)]">
+                  Nova Venda
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={showInvoice} onOpenChange={setShowInvoice}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader><DialogTitle>Factura / Recibo</DialogTitle></DialogHeader>
+            {invoiceData && <InvoicePDF data={invoiceData} hash={invoiceHash} qrContent={invoiceQR} />}
+          </DialogContent>
+        </Dialog>
+      </div>
+    );
+  }
+
+  // ─── NORMAL MODE ───
   return (
-    <div ref={posContainerRef} className={`space-y-4 ${kioskMode ? "fixed inset-0 z-50 bg-background p-4 overflow-y-auto" : ""}`}>
+    <div ref={posContainerRef} className="space-y-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Monitor className={`h-5 w-5 text-primary ${kioskMode ? "animate-pulse" : ""}`} />
-          <h1 className={`font-heading font-bold ${kioskMode ? "text-2xl" : "text-xl"}`}>
-            Terminal POS — MOSAP3Pay
-            {kioskMode && <Badge variant="outline" className="ml-2 text-[10px] align-middle">KIOSK</Badge>}
-          </h1>
+          <Monitor className="h-5 w-5 text-primary" />
+          <h1 className="text-xl font-heading font-bold">Terminal POS — MOSAP3Pay</h1>
         </div>
         <div className="flex items-center gap-2 print:hidden">
           <Button variant="outline" size="sm" className="gap-1 text-xs" onClick={() => toggleFullscreen()} title="F5 — Modo Kiosk">
-            {kioskMode ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
-            {kioskMode ? "Sair Kiosk (F5)" : "Modo Kiosk (F5)"}
+            <Maximize className="h-4 w-4" /> Modo Kiosk (F5)
           </Button>
-          {kioskMode && (
-            <div className="flex items-center gap-3 px-3 py-1.5 bg-muted/50 rounded-lg text-[10px] text-muted-foreground">
-              <span><kbd className="px-1 py-0.5 bg-background border rounded text-[9px] font-mono">F1</kbd> Produtor</span>
-              <span><kbd className="px-1 py-0.5 bg-background border rounded text-[9px] font-mono">F2</kbd> Produto</span>
-              <span><kbd className="px-1 py-0.5 bg-background border rounded text-[9px] font-mono">F3</kbd> Pagar</span>
-              <span><kbd className="px-1 py-0.5 bg-background border rounded text-[9px] font-mono">F4</kbd> Limpar</span>
-              <span><kbd className="px-1 py-0.5 bg-background border rounded text-[9px] font-mono">Enter</kbd> Confirmar</span>
-              <span><kbd className="px-1 py-0.5 bg-background border rounded text-[9px] font-mono">Esc</kbd> Fechar</span>
-            </div>
-          )}
-          {!kioskMode && (
-            <Button variant="ghost" size="sm" className="gap-1 text-xs text-muted-foreground" title="Atalhos de teclado">
-              <Keyboard className="h-4 w-4" />
-              <span className="hidden md:inline">F1-F5 • Enter • Esc</span>
-            </Button>
-          )}
+          <Button variant="ghost" size="sm" className="gap-1 text-xs text-muted-foreground" title="Atalhos de teclado">
+            <Keyboard className="h-4 w-4" />
+            <span className="hidden md:inline">F1-F5 • Enter • Esc</span>
+          </Button>
         </div>
       </div>
 
@@ -495,39 +836,24 @@ const Mosap3PayPOS = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           {/* Left: Farmer ID + Products */}
           <div className="lg:col-span-2 space-y-4">
-            {/* Farmer identification */}
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm flex items-center gap-2">
-                  <User className="h-4 w-4" /> Identificar Produtor
-                </CardTitle>
+                <CardTitle className="text-sm flex items-center gap-2"><User className="h-4 w-4" /> Identificar Produtor</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="flex gap-2">
-                  <Input
-                    placeholder="Código, telefone ou BI do produtor..."
-                    value={farmerSearch}
-                    onChange={(e) => setFarmerSearch(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && searchFarmer()}
-                    className="flex-1"
-                  />
+                  <Input ref={farmerSearchRef} placeholder="Código, telefone ou BI do produtor..." value={farmerSearch} onChange={(e) => setFarmerSearch(e.target.value)} onKeyDown={(e) => e.key === "Enter" && searchFarmer()} className="flex-1" />
                   <Button onClick={searchFarmer}><Search className="h-4 w-4 mr-1" /> Pesquisar</Button>
                 </div>
                 {farmer && (
                   <div className="mt-3 p-3 rounded-lg bg-muted/50 flex items-center gap-3">
-                    <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-                      <User className="h-6 w-6 text-primary" />
-                    </div>
+                    <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center"><User className="h-6 w-6 text-primary" /></div>
                     <div className="flex-1">
                       <p className="font-semibold">{farmer.full_name}</p>
                       <p className="text-xs text-muted-foreground">Código: {farmer.code} • Tel: {farmer.phone || "—"}</p>
                     </div>
                     <div className="text-right">
-                      {farmer.patec ? (
-                        <Badge className="text-xs">{patecLabels[farmer.patec]}</Badge>
-                      ) : (
-                        <Badge variant="destructive" className="text-xs">Sem PATEC</Badge>
-                      )}
+                      {farmer.patec ? <Badge className="text-xs">{patecLabels[farmer.patec]}</Badge> : <Badge variant="destructive" className="text-xs">Sem PATEC</Badge>}
                       <p className="text-xs text-muted-foreground mt-1">Saldo: {farmer.saldo_final || "0,00"} Kz</p>
                     </div>
                   </div>
@@ -535,13 +861,10 @@ const Mosap3PayPOS = () => {
               </CardContent>
             </Card>
 
-            {/* Products grid */}
-             {farmer && patecItems.length > 0 && (
+            {farmer && patecItems.length > 0 && (
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm flex items-center gap-2">
-                    <Package className="h-4 w-4" /> Itens do {farmer.patec ? patecLabels[farmer.patec] : "PATEC"}
-                  </CardTitle>
+                  <CardTitle className="text-sm flex items-center gap-2"><Package className="h-4 w-4" /> Itens do {farmer.patec ? patecLabels[farmer.patec] : "PATEC"}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -552,10 +875,7 @@ const Mosap3PayPOS = () => {
                         <div key={cat} className="space-y-1">
                           <p className="text-xs font-semibold text-muted-foreground uppercase">{cat}</p>
                           {items.map((item) => (
-                            <div key={item.id} className="flex items-center gap-1.5 text-xs">
-                              <Check className="h-3 w-3 text-primary" />
-                              <span>{item.name}</span>
-                            </div>
+                            <div key={item.id} className="flex items-center gap-1.5 text-xs"><Check className="h-3 w-3 text-primary" /><span>{item.name}</span></div>
                           ))}
                         </div>
                       );
@@ -564,6 +884,7 @@ const Mosap3PayPOS = () => {
                 </CardContent>
               </Card>
             )}
+
             {farmer && (
               <Card>
                 <CardHeader className="pb-2">
@@ -573,16 +894,11 @@ const Mosap3PayPOS = () => {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <Input
-                    placeholder="Pesquisar produto..."
-                    value={productSearch}
-                    onChange={(e) => setProductSearch(e.target.value)}
-                    className="mb-3"
-                  />
+                  <Input ref={productSearchRef} placeholder="Pesquisar produto..." value={productSearch} onChange={(e) => setProductSearch(e.target.value)} className="mb-3" />
                   {!farmer.patec ? (
                     <div className="flex items-center gap-2 p-4 bg-destructive/10 rounded-lg">
                       <AlertTriangle className="h-5 w-5 text-destructive" />
-                      <p className="text-sm text-destructive font-medium">Este produtor não tem PATEC atribuído. Não pode comprar produtos.</p>
+                      <p className="text-sm text-destructive font-medium">Este produtor não tem PATEC atribuído.</p>
                     </div>
                   ) : (
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
@@ -590,30 +906,18 @@ const Mosap3PayPOS = () => {
                         const remaining = getRemainingLimit(p);
                         const inCart = cart.find((c) => c.product.id === p.id);
                         return (
-                          <div
-                            key={p.id}
-                            className={`p-3 rounded-lg border cursor-pointer transition-colors ${inCart ? "border-primary bg-primary/5" : "hover:border-primary/50"} ${remaining <= 0 ? "opacity-50 cursor-not-allowed" : ""}`}
-                            onClick={() => remaining > 0 && addToCart(p)}
-                          >
+                          <div key={p.id} className={`p-3 rounded-lg border cursor-pointer transition-colors ${inCart ? "border-primary bg-primary/5" : "hover:border-primary/50"} ${remaining <= 0 ? "opacity-50 cursor-not-allowed" : ""}`} onClick={() => remaining > 0 && addToCart(p)}>
                             <p className="font-medium text-sm truncate">{p.name}</p>
                             <p className="text-xs text-muted-foreground">{Number(p.price).toLocaleString("pt-AO")} Kz/{p.unit}</p>
                             <div className="flex items-center justify-between mt-1">
                               <Badge variant="outline" className="text-[9px]">{p.category}</Badge>
-                              {p.max_per_farmer_per_season && (
-                                <span className={`text-[10px] font-medium ${remaining <= 0 ? "text-destructive" : "text-muted-foreground"}`}>
-                                  Resta: {Math.max(0, remaining)}
-                                </span>
-                              )}
+                              {p.max_per_farmer_per_season && <span className={`text-[10px] font-medium ${remaining <= 0 ? "text-destructive" : "text-muted-foreground"}`}>Resta: {Math.max(0, remaining)}</span>}
                             </div>
-                            {inCart && (
-                              <div className="mt-1 text-[10px] text-primary font-bold">No carrinho: {inCart.quantity}</div>
-                            )}
+                            {inCart && <div className="mt-1 text-[10px] text-primary font-bold">No carrinho: {inCart.quantity}</div>}
                           </div>
                         );
                       })}
-                      {getAvailableProducts().length === 0 && (
-                        <p className="col-span-full text-center text-muted-foreground py-4 text-sm">Nenhum produto disponível para este PATEC</p>
-                      )}
+                      {getAvailableProducts().length === 0 && <p className="col-span-full text-center text-muted-foreground py-4 text-sm">Nenhum produto disponível</p>}
                     </div>
                   )}
                 </CardContent>
@@ -642,29 +946,20 @@ const Mosap3PayPOS = () => {
                           <p className="text-[10px] text-muted-foreground">{Number(c.product.price).toLocaleString("pt-AO")} Kz × {c.quantity}</p>
                         </div>
                         <div className="flex items-center gap-1">
-                          <Button variant="outline" size="sm" className="h-6 w-6 p-0" onClick={() => updateQuantity(c.product.id, -1)}>
-                            <Minus className="h-3 w-3" />
-                          </Button>
+                          <Button variant="outline" size="sm" className="h-6 w-6 p-0" onClick={() => updateQuantity(c.product.id, -1)}><Minus className="h-3 w-3" /></Button>
                           <span className="text-xs font-bold w-6 text-center">{c.quantity}</span>
-                          <Button variant="outline" size="sm" className="h-6 w-6 p-0" onClick={() => updateQuantity(c.product.id, 1)}>
-                            <Plus className="h-3 w-3" />
-                          </Button>
-                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-destructive" onClick={() => removeFromCart(c.product.id)}>
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
+                          <Button variant="outline" size="sm" className="h-6 w-6 p-0" onClick={() => updateQuantity(c.product.id, 1)}><Plus className="h-3 w-3" /></Button>
+                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-destructive" onClick={() => removeFromCart(c.product.id)}><Trash2 className="h-3 w-3" /></Button>
                         </div>
                       </div>
                     ))}
-
                     <Separator className="my-2" />
-
                     <div className="space-y-1 text-xs">
                       <div className="flex justify-between"><span>Subtotal</span><span>{cartSubtotal.toLocaleString("pt-AO")} Kz</span></div>
                       <div className="flex justify-between text-muted-foreground"><span>IVA</span><span>{cartIva.toLocaleString("pt-AO")} Kz</span></div>
                       <Separator />
                       <div className="flex justify-between font-bold text-base"><span>Total</span><span>{cartTotal.toLocaleString("pt-AO")} Kz</span></div>
                     </div>
-
                     <Button className="w-full mt-3" onClick={() => setConfirmOpen(true)} disabled={!farmer}>
                       <CreditCard className="h-4 w-4 mr-2" /> Processar Pagamento
                     </Button>
@@ -694,17 +989,11 @@ const Mosap3PayPOS = () => {
               ))}
             </div>
             <Separator />
-            <div className="flex justify-between font-bold text-lg">
-              <span>Total</span>
-              <span>{cartTotal.toLocaleString("pt-AO")} Kz</span>
-            </div>
-            <p className="text-xs text-muted-foreground">Pagamento via Unitel Money • Telefone: {farmer?.phone || "sem telefone"}</p>
+            <div className="flex justify-between font-bold text-lg"><span>Total</span><span>{cartTotal.toLocaleString("pt-AO")} Kz</span></div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setConfirmOpen(false)}>Cancelar</Button>
-            <Button onClick={processSale} disabled={processing}>
-              {processing ? "Processando..." : "Confirmar e Pagar"}
-            </Button>
+            <Button onClick={processSale} disabled={processing}>{processing ? "Processando..." : "Confirmar e Pagar"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -728,16 +1017,9 @@ const Mosap3PayPOS = () => {
               {paymentStatus === "polling" ? "Aguardando Pagamento..." : paymentStatus === "paid" ? "Pagamento Confirmado!" : paymentStatus === "failed" ? "Pagamento Falhou" : "Venda Registada!"}
             </h2>
             <p className="text-sm text-muted-foreground">Código: <span className="font-mono font-bold">{lastSaleCode}</span></p>
-            <p className="text-xs text-muted-foreground">
-              {paymentStatus === "polling" ? "O produtor receberá um pedido de pagamento no telefone..." : paymentStatus === "paid" ? "Pagamento recebido via Unitel Money" : paymentStatus === "failed" ? "O pagamento não foi processado. Tente novamente." : "Pagamento pendente via Unitel Money"}
-            </p>
             <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setShowInvoice(true)} disabled={!invoiceData}>
-                <Printer className="h-4 w-4 mr-1" /> Ver Factura
-              </Button>
-              <Button onClick={() => { setReceiptOpen(false); setFarmer(null); setFarmerSearch(""); setPaymentStatus("idle"); setInvoiceData(null); }} className="flex-1">
-                Nova Venda
-              </Button>
+              <Button variant="outline" onClick={() => setShowInvoice(true)} disabled={!invoiceData}><Printer className="h-4 w-4 mr-1" /> Ver Factura</Button>
+              <Button onClick={() => { setReceiptOpen(false); setFarmer(null); setFarmerSearch(""); setPaymentStatus("idle"); setInvoiceData(null); }} className="flex-1">Nova Venda</Button>
             </div>
           </div>
         </DialogContent>
@@ -747,9 +1029,7 @@ const Mosap3PayPOS = () => {
       <Dialog open={showInvoice} onOpenChange={setShowInvoice}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Factura / Recibo</DialogTitle></DialogHeader>
-          {invoiceData && (
-            <InvoicePDF data={invoiceData} hash={invoiceHash} qrContent={invoiceQR} />
-          )}
+          {invoiceData && <InvoicePDF data={invoiceData} hash={invoiceHash} qrContent={invoiceQR} />}
         </DialogContent>
       </Dialog>
     </div>
