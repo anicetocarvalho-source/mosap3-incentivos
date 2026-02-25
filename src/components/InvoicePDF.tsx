@@ -15,6 +15,7 @@ interface InvoiceItem {
 
 interface InvoiceData {
   sale_code: string;
+  invoice_number?: string;
   created_at: string;
   farmer_name: string;
   farmer_code: string;
@@ -55,8 +56,8 @@ function buildQRContent(data: InvoiceData, hash: string): string {
     `D:FT`,
     `E:N`,
     `F:${new Date(data.created_at).toISOString().slice(0, 10)}`,
-    `G:FT ${data.sale_code}`,
-    `H:${data.sale_code}`,
+    `G:${data.invoice_number || `FT ${data.sale_code}`}`,
+    `H:${data.invoice_number || data.sale_code}`,
     `I1:AO`,
     `I7:${data.subtotal.toFixed(2)}`,
     `I8:${data.iva_total.toFixed(2)}`,
@@ -166,7 +167,7 @@ export const InvoicePDF = ({
             </div>
             <div style={{ textAlign: "right" }}>
               <div style={{ fontSize: 14, fontWeight: 700, color: "#1a6b3c" }}>FACTURA / RECIBO</div>
-              <div style={{ fontSize: 11, fontFamily: "monospace", marginTop: 2 }}>Nº {data.sale_code}</div>
+              <div style={{ fontSize: 13, fontFamily: "monospace", marginTop: 2, fontWeight: 700 }}>{data.invoice_number || `Nº ${data.sale_code}`}</div>
               <div style={{ fontSize: 10, color: "#666", marginTop: 2 }}>{dateFormatted} às {timeFormatted}</div>
             </div>
           </div>
@@ -252,7 +253,7 @@ export const InvoicePDF = ({
             </div>
             <div style={{ textAlign: "right", fontSize: 9, color: "#888" }}>
               <p>Documento processado por programa certificado</p>
-              <p>MOSAP3Pay — Nº {data.sale_code}</p>
+              <p>MOSAP3Pay — {data.invoice_number || data.sale_code}</p>
               <p>AGT — Administração Geral Tributária</p>
             </div>
           </div>

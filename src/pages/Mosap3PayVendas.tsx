@@ -14,6 +14,7 @@ import { InvoicePDF, generateFiscalHash, buildQRContent, type InvoiceData } from
 interface Sale {
   id: string;
   sale_code: string;
+  invoice_number: string | null;
   supplier_id: string;
   farmer_code: string;
   farmer_name: string;
@@ -74,6 +75,7 @@ const Mosap3PayVendas = () => {
 
     const inv: InvoiceData = {
       sale_code: sale.sale_code,
+      invoice_number: sale.invoice_number || undefined,
       created_at: sale.created_at,
       farmer_name: sale.farmer_name,
       farmer_code: sale.farmer_code,
@@ -160,12 +162,14 @@ const Mosap3PayVendas = () => {
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>
+                <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>
               ) : filtered.length === 0 ? (
-                <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Nenhuma venda encontrada</TableCell></TableRow>
+                <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Nenhuma venda encontrada</TableCell></TableRow>
               ) : filtered.map((s) => (
                 <TableRow key={s.id}>
                   <TableCell className="font-mono text-xs">{s.sale_code}</TableCell>
+                  <TableCell className="font-mono text-xs font-semibold text-primary">{s.invoice_number || "—"}</TableCell>
+                  <TableCell className="font-mono text-xs font-semibold text-primary">{s.invoice_number || "—"}</TableCell>
                   <TableCell>
                     <p className="font-medium text-sm">{s.farmer_name}</p>
                     <p className="text-[10px] text-muted-foreground">{s.farmer_code}</p>
