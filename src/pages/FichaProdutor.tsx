@@ -1,5 +1,5 @@
 import { useParams, Link } from "react-router-dom";
-import { ArrowLeft, Printer, User, MapPin, Phone, CreditCard, Wheat, Calendar, Users, FileText, Camera, Fingerprint } from "lucide-react";
+import { ArrowLeft, Printer, User, MapPin, Phone, CreditCard, Wheat, Calendar, Users, FileText, Camera, Fingerprint, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useFarmerFromDb } from "@/hooks/useFarmerFromDb";
@@ -33,6 +33,36 @@ const FichaProdutor = () => {
   const valorRecebido = farmerRaw?.valor_recebido || "0,00";
   const totalGasto = farmerRaw?.total_gasto || "0,00";
   const saldoFinal = farmerRaw?.saldo_final || "0,00";
+  const patecValue = farmerRaw?.patec;
+
+  const patecData: Record<number, { title: string; items: { category: string; items: string[] }[] }> = {
+    1: {
+      title: "PATEC 1 — Milho",
+      items: [
+        { category: "Insumos Agrícolas", items: ["Sementes de milho (10 kg)", "Sementes de feijão (5 kg)", "Adubo NPK 12-24-12 (50 kg)", "Ureia (25 kg)", "Herbicida pré-emergente (2 L)", "Enxada melhorada", "Lima para afiar"] },
+        { category: "Pecuária e Materiais", items: ["2 cabritos (1M + 1F)", "Ração complementar (25 kg)", "Arame farpado (1 rolo)", "Pregos e estacas"] },
+        { category: "Serviços Incluídos", items: ["Mecanização (lavoura 1 ha)", "Transporte de insumos"] },
+      ],
+    },
+    2: {
+      title: "PATEC 2 — Massango",
+      items: [
+        { category: "Insumos Agrícolas", items: ["Sementes de massango (5 kg)", "Sementes de feijão (5 kg)", "Adubo NPK 12-24-12 (50 kg)", "Herbicida pré-emergente (2 L)", "Enxada melhorada", "Lima para afiar"] },
+        { category: "Pecuária e Materiais", items: ["2 cabritos (1M + 1F)", "Ração complementar (25 kg)", "Arame farpado (1 rolo)", "Pregos e estacas"] },
+        { category: "Serviços Incluídos", items: ["Mecanização (lavoura 1 ha)", "Transporte de insumos"] },
+      ],
+    },
+    3: {
+      title: "PATEC 3 — Massambala",
+      items: [
+        { category: "Insumos Agrícolas", items: ["Sementes de massambala (5 kg)", "Sementes de feijão (5 kg)", "Adubo NPK 12-24-12 (50 kg)", "Herbicida pré-emergente (2 L)", "Enxada melhorada", "Lima para afiar"] },
+        { category: "Pecuária e Materiais", items: ["2 cabritos (1M + 1F)", "Ração complementar (25 kg)", "Arame farpado (1 rolo)", "Pregos e estacas"] },
+        { category: "Serviços Incluídos", items: ["Mecanização (lavoura 1 ha)", "Transporte de insumos"] },
+      ],
+    },
+  };
+
+  const currentPatec = patecValue ? patecData[patecValue] : null;
 
   const handlePrint = () => window.print();
 
@@ -291,6 +321,30 @@ const FichaProdutor = () => {
             </tbody>
           </table>
         </div>
+
+        {/* Section 7: PATEC */}
+        {currentPatec && (
+          <div>
+            <h2 className="font-heading font-semibold text-base border-b border-border pb-1 mb-3 flex items-center gap-2">
+              <Package className="h-4 w-4 text-primary" />7. Pacote Tecnológico — {currentPatec.title}
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {currentPatec.items.map((group) => (
+                <div key={group.category} className="border border-border rounded p-3">
+                  <p className="text-xs font-semibold mb-2">{group.category}</p>
+                  <ul className="text-xs space-y-1">
+                    {group.items.map((item, i) => (
+                      <li key={i} className="flex items-start gap-1.5">
+                        <span className="text-primary mt-0.5">•</span>
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Footer */}
         <div className="border-t border-border pt-4 mt-6">
