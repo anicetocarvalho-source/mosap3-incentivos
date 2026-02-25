@@ -61,6 +61,8 @@ const Mosap3PayPOS = () => {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [receiptOpen, setReceiptOpen] = useState(false);
   const [lastSaleCode, setLastSaleCode] = useState("");
+  const [paymentStatus, setPaymentStatus] = useState<"idle" | "processing" | "polling" | "paid" | "failed">("idle");
+  const [lastSaleId, setLastSaleId] = useState("");
 
   // Purchased quantities this season (per farmer)
   const [seasonPurchases, setSeasonPurchases] = useState<Record<string, number>>({});
@@ -200,6 +202,7 @@ const Mosap3PayPOS = () => {
   const processSale = async () => {
     if (!farmer || cart.length === 0 || !selectedSupplierId) return;
     setProcessing(true);
+    setPaymentStatus("processing");
 
     const saleCode = generateSaleCode();
     const { data: { user } } = await supabase.auth.getUser();
@@ -222,6 +225,7 @@ const Mosap3PayPOS = () => {
     if (saleError || !sale) {
       toast.error("Erro ao registar venda");
       setProcessing(false);
+      setPaymentStatus("idle");
       return;
     }
 
@@ -245,11 +249,81 @@ const Mosap3PayPOS = () => {
     }
 
     setLastSaleCode(saleCode);
+    setLastSaleId(sale.id);
+
+    // Try Unitel Money payment
+    if (farmer.phone) {
+      try {
+        const { data: payRes, error: payErr } = await supabase.functions.invoke("unitel-money-payment", {
+          body: {
+            action: "pay",
+            sale_id: sale.id,
+            sale_code: saleCode,
+            amount: cartTotal,
+            phone_number: farmer.phone,
+          },
+        });
+
+        if (payErr || !payRes?.success) {
+          console.warn("Unitel Money payment initiation failed:", payErr || payRes?.error);
+          toast.warning("Venda registada. Pagamento Unitel Money não iniciado — verifique credenciais.");
+          setPaymentStatus("idle");
+        } else {
+          toast.info("Pagamento Unitel Money iniciado. Aguardando confirmação...");
+          setPaymentStatus("polling");
+          // Start polling for payment status
+          pollPaymentStatus(sale.id, payRes.conversation_id);
+        }
+      } catch (e) {
+        console.warn("Unitel Money error:", e);
+        toast.warning("Venda registada. Integração Unitel Money indisponível.");
+        setPaymentStatus("idle");
+      }
+    } else {
+      toast.warning("Produtor sem telefone — pagamento manual necessário.");
+      setPaymentStatus("idle");
+    }
+
     setProcessing(false);
     setConfirmOpen(false);
     setReceiptOpen(true);
     setCart([]);
-    toast.success(`Venda ${saleCode} registada com sucesso!`);
+  };
+
+  const pollPaymentStatus = async (saleId: string, conversationId: string) => {
+    let attempts = 0;
+    const maxAttempts = 12; // ~60 seconds (5s intervals)
+
+    const poll = async () => {
+      attempts++;
+      try {
+        const { data, error } = await supabase.functions.invoke("unitel-money-payment", {
+          body: { action: "query", sale_id: saleId, conversation_id: conversationId },
+        });
+
+        if (!error && data?.payment_status === "pago") {
+          setPaymentStatus("paid");
+          toast.success("Pagamento confirmado via Unitel Money!");
+          return;
+        }
+        if (!error && data?.payment_status === "falhado") {
+          setPaymentStatus("failed");
+          toast.error("Pagamento Unitel Money falhou: " + (data.result_description || ""));
+          return;
+        }
+      } catch (e) {
+        console.warn("Poll error:", e);
+      }
+
+      if (attempts < maxAttempts) {
+        setTimeout(poll, 5000);
+      } else {
+        setPaymentStatus("idle");
+        toast.info("Tempo de espera do pagamento esgotado. Verifique o estado manualmente.");
+      }
+    };
+
+    setTimeout(poll, 5000);
   };
 
   return (
@@ -481,12 +555,12 @@ const Mosap3PayPOS = () => {
               <span>Total</span>
               <span>{cartTotal.toLocaleString("pt-AO")} Kz</span>
             </div>
-            <p className="text-xs text-muted-foreground">Pagamento via Unitel Money (aguardar integração)</p>
+            <p className="text-xs text-muted-foreground">Pagamento via Unitel Money • Telefone: {farmer?.phone || "sem telefone"}</p>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setConfirmOpen(false)}>Cancelar</Button>
             <Button onClick={processSale} disabled={processing}>
-              {processing ? "Processando..." : "Confirmar Venda"}
+              {processing ? "Processando..." : "Confirmar e Pagar"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -496,13 +570,25 @@ const Mosap3PayPOS = () => {
       <Dialog open={receiptOpen} onOpenChange={setReceiptOpen}>
         <DialogContent>
           <div className="text-center space-y-3">
-            <div className="h-16 w-16 rounded-full bg-emerald-100 flex items-center justify-center mx-auto">
-              <Check className="h-8 w-8 text-emerald-600" />
+            <div className={`h-16 w-16 rounded-full flex items-center justify-center mx-auto ${paymentStatus === "paid" ? "bg-primary/10" : paymentStatus === "failed" ? "bg-destructive/10" : "bg-muted"}`}>
+              {paymentStatus === "polling" ? (
+                <div className="h-8 w-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+              ) : paymentStatus === "paid" ? (
+                <Check className="h-8 w-8 text-primary" />
+              ) : paymentStatus === "failed" ? (
+                <AlertTriangle className="h-8 w-8 text-destructive" />
+              ) : (
+                <Check className="h-8 w-8 text-primary" />
+              )}
             </div>
-            <h2 className="text-lg font-bold">Venda Registada!</h2>
+            <h2 className="text-lg font-bold">
+              {paymentStatus === "polling" ? "Aguardando Pagamento..." : paymentStatus === "paid" ? "Pagamento Confirmado!" : paymentStatus === "failed" ? "Pagamento Falhou" : "Venda Registada!"}
+            </h2>
             <p className="text-sm text-muted-foreground">Código: <span className="font-mono font-bold">{lastSaleCode}</span></p>
-            <p className="text-xs text-muted-foreground">Pagamento pendente via Unitel Money</p>
-            <Button onClick={() => { setReceiptOpen(false); setFarmer(null); setFarmerSearch(""); }} className="w-full">
+            <p className="text-xs text-muted-foreground">
+              {paymentStatus === "polling" ? "O produtor receberá um pedido de pagamento no telefone..." : paymentStatus === "paid" ? "Pagamento recebido via Unitel Money" : paymentStatus === "failed" ? "O pagamento não foi processado. Tente novamente." : "Pagamento pendente via Unitel Money"}
+            </p>
+            <Button onClick={() => { setReceiptOpen(false); setFarmer(null); setFarmerSearch(""); setPaymentStatus("idle"); }} className="w-full">
               Nova Venda
             </Button>
           </div>
