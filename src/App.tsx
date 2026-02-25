@@ -43,6 +43,7 @@ import FornecedorDashboard from "@/pages/fornecedor/FornecedorDashboard";
 import FornecedorProdutos from "@/pages/fornecedor/FornecedorProdutos";
 import FornecedorPOS from "@/pages/fornecedor/FornecedorPOS";
 import FornecedorVendas from "@/pages/fornecedor/FornecedorVendas";
+import FornecedorStock from "@/pages/fornecedor/FornecedorStock";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -104,6 +105,7 @@ const App = () => (
           <Route path="/fornecedor" element={<FornecedorLayout />}>
             <Route index element={<FornecedorDashboard />} />
             <Route path="produtos" element={<FornecedorProdutos />} />
+            <Route path="stock" element={<FornecedorStock />} />
             <Route path="pos" element={<FornecedorPOS />} />
             <Route path="vendas" element={<FornecedorVendas />} />
           </Route>
