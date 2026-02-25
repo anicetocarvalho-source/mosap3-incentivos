@@ -38,6 +38,7 @@ const Agricultores = () => {
       province: farmer.province || "",
       municipality: farmer.municipality || "",
       school: farmer.school || "",
+      patec: farmer.patec || null,
     });
     setDialogOpen(true);
   };

@@ -307,6 +307,7 @@ export type Database = {
           gender: string | null
           id: string
           municipality: string | null
+          patec: number | null
           phone: string | null
           photo_frontal_url: string | null
           photo_profile_left_url: string | null
@@ -333,6 +334,7 @@ export type Database = {
           gender?: string | null
           id?: string
           municipality?: string | null
+          patec?: number | null
           phone?: string | null
           photo_frontal_url?: string | null
           photo_profile_left_url?: string | null
@@ -359,6 +361,7 @@ export type Database = {
           gender?: string | null
           id?: string
           municipality?: string | null
+          patec?: number | null
           phone?: string | null
           photo_frontal_url?: string | null
           photo_profile_left_url?: string | null

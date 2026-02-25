@@ -52,6 +52,7 @@ type EditData = {
   province: string;
   municipality: string;
   school: string;
+  patec?: number | null;
 } | null;
 
 type Props = {
@@ -68,7 +69,7 @@ const FarmerRegistrationForm = ({ open, onOpenChange, editData }: Props) => {
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
     nome: "", bi: "", dataNascimento: "", genero: "",
-    telefone: "", provincia: "", municipio: "", escolaCampo: "",
+    telefone: "", provincia: "", municipio: "", escolaCampo: "", patec: "",
   });
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [activeUpload, setActiveUpload] = useState<string | null>(null);
@@ -87,6 +88,7 @@ const FarmerRegistrationForm = ({ open, onOpenChange, editData }: Props) => {
         provincia: editData.province.toLowerCase(),
         municipio: editData.municipality,
         escolaCampo: "",
+        patec: editData.patec?.toString() || "",
       });
       setStep(1);
     }
@@ -153,6 +155,7 @@ const FarmerRegistrationForm = ({ open, onOpenChange, editData }: Props) => {
           province: formData.provincia || null,
           municipality: formData.municipio || null,
           school: formData.escolaCampo || null,
+          patec: formData.patec ? parseInt(formData.patec) : null,
           photo_frontal_url: photoUrls.frontal || null,
           photo_profile_left_url: photoUrls.perfilEsq || null,
           photo_profile_right_url: photoUrls.perfilDir || null,
@@ -201,7 +204,7 @@ const FarmerRegistrationForm = ({ open, onOpenChange, editData }: Props) => {
       setStep(1);
       setPhotos({});
       setBiometrics({});
-      setFormData({ nome: "", bi: "", dataNascimento: "", genero: "", telefone: "", provincia: "", municipio: "", escolaCampo: "" });
+      setFormData({ nome: "", bi: "", dataNascimento: "", genero: "", telefone: "", provincia: "", municipio: "", escolaCampo: "", patec: "" });
     } catch (err: any) {
       toast({ title: "Erro", description: err?.message || "Não foi possível guardar o registo.", variant: "destructive" });
     } finally {
@@ -316,6 +319,19 @@ const FarmerRegistrationForm = ({ open, onOpenChange, editData }: Props) => {
                     <SelectItem value="ec1">EC Caimbambo</SelectItem>
                     <SelectItem value="ec2">EC Longonjo</SelectItem>
                     <SelectItem value="ec3">EC Cuemba</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>PATEC <span className="text-destructive">*</span></Label>
+                <Select value={formData.patec} onValueChange={(v) => updateField("patec", v)}>
+                  <SelectTrigger><SelectValue placeholder="Selecionar PATEC" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1">PATEC 1 — Milho + Feijão + Galinha/Cabra/Ovelha/Boi</SelectItem>
+                    <SelectItem value="2">PATEC 2 — Massango + Feijão + Galinha/Cabra/Ovelha/Boi</SelectItem>
+                    <SelectItem value="3">PATEC 3 — Massambala + Feijão + Galinha/Cabra/Ovelha/Boi</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
