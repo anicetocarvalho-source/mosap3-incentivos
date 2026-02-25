@@ -64,6 +64,7 @@ const Mosap3PayPOS = () => {
 
   // Purchased quantities this season (per farmer)
   const [seasonPurchases, setSeasonPurchases] = useState<Record<string, number>>({});
+  const [patecItems, setPatecItems] = useState<{ id: string; name: string; category: string; patec_number: number }[]>([]);
 
   useEffect(() => {
     supabase.from("suppliers").select("id, name").eq("status", "Ativo").order("name")
@@ -89,6 +90,13 @@ const Mosap3PayPOS = () => {
     
     if (data) {
       setFarmer(data as Farmer);
+      // Fetch PATEC items for this farmer's patec
+      if (data.patec) {
+        supabase.from("patec_items").select("*").eq("patec_number", data.patec)
+          .then(({ data: items }) => setPatecItems(items || []));
+      } else {
+        setPatecItems([]);
+      }
       // Fetch season purchases for this farmer
       const { data: sales } = await supabase
         .from("pos_sales")
@@ -311,6 +319,34 @@ const Mosap3PayPOS = () => {
             </Card>
 
             {/* Products grid */}
+             {farmer && patecItems.length > 0 && (
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Package className="h-4 w-4" /> Itens do {farmer.patec ? patecLabels[farmer.patec] : "PATEC"}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    {["Insumos", "Pecuária", "Serviços"].map((cat) => {
+                      const items = patecItems.filter((i) => i.category === cat);
+                      if (items.length === 0) return null;
+                      return (
+                        <div key={cat} className="space-y-1">
+                          <p className="text-xs font-semibold text-muted-foreground uppercase">{cat}</p>
+                          {items.map((item) => (
+                            <div key={item.id} className="flex items-center gap-1.5 text-xs">
+                              <Check className="h-3 w-3 text-primary" />
+                              <span>{item.name}</span>
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
             {farmer && (
               <Card>
                 <CardHeader className="pb-2">
