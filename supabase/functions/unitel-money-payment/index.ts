@@ -6,12 +6,6 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-// Unitel Money API V4.7 endpoints
-const UNITEL_TOKEN_URL = "https://apigateway.unitel.co.ao:9443/oauth2/token";
-const UNITEL_BUYGOODS_ASYNC_URL = "https://apigateway.unitel.co.ao:8343/v2/partners/1.0.0/buyGoods_async";
-const UNITEL_BUYGOODS_SYNC_URL = "https://apigateway.unitel.co.ao:8343/v2/partners/1.0.0/buyGoods_sync";
-const UNITEL_QUERY_URL = "https://apigateway.unitel.co.ao:8343/v2/partners/1.0.0/queryTransactionStatus_sync";
-
 /** Generate timestamp in yyyyMMddHHmmss format */
 function generateTimestamp(): string {
   const now = new Date();
@@ -24,18 +18,58 @@ function generateTimestamp(): string {
   return `${y}${m}${d}${h}${mi}${s}`;
 }
 
-/** Get OAuth2 Bearer token from Unitel Money (client_credentials grant) */
-async function getUnitelToken(): Promise<string> {
-  const consumerKey = Deno.env.get("UNITEL_CONSUMER_KEY");
-  const consumerSecret = Deno.env.get("UNITEL_CONSUMER_SECRET");
+/** Load Unitel Money credentials from system_settings table */
+async function loadUnitelConfig(supabase: any) {
+  const keys = [
+    "unitel_api_endpoint",
+    "unitel_consumer_key",
+    "unitel_consumer_secret",
+    "unitel_initiator",
+    "unitel_shortcode",
+    "unitel_security_credential",
+    "unitel_payment_enabled",
+  ];
+  const { data, error } = await supabase
+    .from("system_settings")
+    .select("key, value")
+    .in("key", keys);
 
-  if (!consumerKey || !consumerSecret) {
-    throw new Error("UNITEL_CONSUMER_KEY ou UNITEL_CONSUMER_SECRET não configurados");
+  if (error) throw new Error("Erro ao carregar configurações: " + error.message);
+
+  const config: Record<string, string> = {};
+  (data || []).forEach((row: { key: string; value: string }) => {
+    config[row.key] = row.value;
+  });
+
+  if (config.unitel_payment_enabled !== "true") {
+    throw new Error("Pagamentos Unitel Money não estão activados. Active nas Configurações do MOSAP3Pay.");
   }
 
-  const credentials = btoa(`${consumerKey}:${consumerSecret}`);
+  const endpoint = config.unitel_api_endpoint || "https://api.unitel.ao/v2/partners/1.0.0";
+  const consumerKey = config.unitel_consumer_key;
+  const consumerSecret = config.unitel_consumer_secret;
+  const initiator = config.unitel_initiator;
+  const shortcode = config.unitel_shortcode;
+  const securityCredential = config.unitel_security_credential;
 
-  const res = await fetch(UNITEL_TOKEN_URL, {
+  if (!consumerKey || !consumerSecret) {
+    throw new Error("Consumer Key ou Consumer Secret não configurados");
+  }
+  if (!initiator || !shortcode || !securityCredential) {
+    throw new Error("Credenciais do comerciante incompletas (Initiator, ShortCode ou Security Credential)");
+  }
+
+  return { endpoint, consumerKey, consumerSecret, initiator, shortcode, securityCredential };
+}
+
+/** Get OAuth2 Bearer token from Unitel Money */
+async function getUnitelToken(endpoint: string, consumerKey: string, consumerSecret: string): Promise<string> {
+  // Token URL uses the gateway host from the endpoint
+  const url = new URL(endpoint);
+  const tokenUrl = `${url.protocol}//${url.host}/oauth2/token`;
+
+  const credentials = btoa(`${consumerKey}:${consumerSecret}`);
+  const res = await fetch(tokenUrl, {
     method: "POST",
     headers: {
       Authorization: `Basic ${credentials}`,
@@ -53,17 +87,11 @@ async function getUnitelToken(): Promise<string> {
   return data.access_token;
 }
 
-/**
- * Initiate BuyGoods async payment (API V4.7)
- * Payload structure based on official documentation:
- * - BuyGoodRec > IdentityRec > Initiator (IdentifierType=12, Identifier, SecurityCredential, ShortCode)
- * - BuyGoodRec > IdentityRec > PrimaryParty (IdentifierType=1, Identifier=customer phone)
- * - BuyGoodRec > IdentityRec > ReceiverParty (IdentifierType=4, Identifier=shortcode)
- * - BuyGoodRec > TransactionRequest > Parameters (Amount, Currency=AOA)
- * - BuyGoodRec > TransactionRequest > ReferenceData > ReferenceItem (POSDeviceID, Callback)
- */
+/** Initiate BuyGoods async payment (API V4.7) */
 async function initiateBuyGoods(
   token: string,
+  endpoint: string,
+  config: { initiator: string; shortcode: string; securityCredential: string },
   params: {
     amount: number;
     phoneNumber: string;
@@ -72,19 +100,9 @@ async function initiateBuyGoods(
     callbackUrl?: string;
   }
 ) {
-  const shortcode = Deno.env.get("UNITEL_SHORTCODE");
-  const initiator = Deno.env.get("UNITEL_INITIATOR");
-  const securityCredential = Deno.env.get("UNITEL_SECURITY_CREDENTIAL");
-
-  if (!shortcode || !initiator || !securityCredential) {
-    throw new Error("Credenciais Unitel Money incompletas (SHORTCODE, INITIATOR ou SECURITY_CREDENTIAL em falta)");
-  }
-
   const referenceItems: Array<{ Key: string; Value: string }> = [
     { Key: "POSDeviceID", Value: params.posCode || "MOSAP3POS" },
   ];
-
-  // Add callback URL if provided (required for async mode)
   if (params.callbackUrl) {
     referenceItems.push({ Key: "Callback", Value: params.callbackUrl });
   }
@@ -96,32 +114,21 @@ async function initiateBuyGoods(
       IdentityRec: {
         Initiator: {
           IdentifierType: 12,
-          Identifier: initiator,
-          SecurityCredential: securityCredential,
-          ShortCode: shortcode,
+          Identifier: config.initiator,
+          SecurityCredential: config.securityCredential,
+          ShortCode: config.shortcode,
         },
-        PrimaryParty: {
-          IdentifierType: 1,
-          Identifier: params.phoneNumber,
-        },
-        ReceiverParty: {
-          IdentifierType: 4,
-          Identifier: shortcode,
-        },
+        PrimaryParty: { IdentifierType: 1, Identifier: params.phoneNumber },
+        ReceiverParty: { IdentifierType: 4, Identifier: config.shortcode },
       },
       TransactionRequest: {
-        Parameters: {
-          Amount: String(params.amount),
-          Currency: "AOA",
-        },
-        ReferenceData: {
-          ReferenceItem: referenceItems,
-        },
+        Parameters: { Amount: String(params.amount), Currency: "AOA" },
+        ReferenceData: { ReferenceItem: referenceItems },
       },
     },
   };
 
-  const res = await fetch(UNITEL_BUYGOODS_ASYNC_URL, {
+  const res = await fetch(`${endpoint}/buyGoods_async`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,
@@ -135,24 +142,16 @@ async function initiateBuyGoods(
   if (!res.ok) {
     throw new Error(`BuyGoods error [${res.status}]: ${JSON.stringify(body)}`);
   }
-
-  // Response structure: { Response: { OriginatorConversationID, ConversationID, ResponseCode, ResponseDesc, ServiceStatus } }
   return body.Response || body;
 }
 
-/**
- * Query Transaction Status (API V4.7 - sync)
- * Payload: QueryTransactionStatus > IdentityRec > Initiator + QueryTransactionStatusRequest > OriginalConversationID
- */
-async function queryTransaction(token: string, originalConversationId: string) {
-  const shortcode = Deno.env.get("UNITEL_SHORTCODE");
-  const initiator = Deno.env.get("UNITEL_INITIATOR");
-  const securityCredential = Deno.env.get("UNITEL_SECURITY_CREDENTIAL");
-
-  if (!shortcode || !initiator || !securityCredential) {
-    throw new Error("Credenciais Unitel Money incompletas");
-  }
-
+/** Query Transaction Status (API V4.7 - sync) */
+async function queryTransaction(
+  token: string,
+  endpoint: string,
+  config: { initiator: string; shortcode: string; securityCredential: string },
+  originalConversationId: string
+) {
   const payload = {
     QueryTransactionStatus: {
       Timestamp: generateTimestamp(),
@@ -160,9 +159,9 @@ async function queryTransaction(token: string, originalConversationId: string) {
       IdentityRec: {
         Initiator: {
           IdentifierType: 12,
-          Identifier: initiator,
-          SecurityCredential: securityCredential,
-          ShortCode: shortcode,
+          Identifier: config.initiator,
+          SecurityCredential: config.securityCredential,
+          ShortCode: config.shortcode,
         },
       },
       QueryTransactionStatusRequest: {
@@ -172,7 +171,7 @@ async function queryTransaction(token: string, originalConversationId: string) {
     },
   };
 
-  const res = await fetch(UNITEL_QUERY_URL, {
+  const res = await fetch(`${endpoint}/queryTransactionStatus_sync`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,
@@ -186,8 +185,6 @@ async function queryTransaction(token: string, originalConversationId: string) {
   if (!res.ok) {
     throw new Error(`QueryTransaction error [${res.status}]: ${JSON.stringify(body)}`);
   }
-
-  // Response: { QueryTransStatusRs: { ResultType, ResultCode, ResultDesc, Transaction: { TransactionStatus, ReceiptNumber } } }
   return body.QueryTransStatusRs || body.QueryTransactionStatusResult || body;
 }
 
@@ -196,7 +193,6 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  // Validate auth
   const authHeader = req.headers.get("Authorization");
   if (!authHeader?.startsWith("Bearer ")) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -206,13 +202,18 @@ Deno.serve(async (req) => {
   }
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+  // Use service role to read system_settings (bypasses RLS)
+  const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
+
+  // Validate user auth
   const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-  const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  const supabaseUser = createClient(supabaseUrl, supabaseAnonKey, {
     global: { headers: { Authorization: authHeader } },
   });
-
   const jwtToken = authHeader.replace("Bearer ", "");
-  const { data: { user }, error: userError } = await supabase.auth.getUser(jwtToken);
+  const { data: { user }, error: userError } = await supabaseUser.auth.getUser(jwtToken);
   if (userError || !user) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,
@@ -223,12 +224,31 @@ Deno.serve(async (req) => {
   try {
     const { action, sale_id, sale_code, amount, phone_number, conversation_id, pos_code, callback_url } = await req.json();
 
-    if (action === "pay") {
-      // Step 1: Get Unitel OAuth2 token (client_credentials)
-      const unitelToken = await getUnitelToken();
+    // Test connection action
+    if (action === "test_connection") {
+      try {
+        const cfg = await loadUnitelConfig(supabaseAdmin);
+        const token = await getUnitelToken(cfg.endpoint, cfg.consumerKey, cfg.consumerSecret);
+        return new Response(
+          JSON.stringify({ success: true, message: "Token obtido com sucesso", token_preview: token.substring(0, 10) + "..." }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : "Erro desconhecido";
+        return new Response(
+          JSON.stringify({ success: false, error: msg }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
 
-      // Step 2: Initiate BuyGoods async
-      const result = await initiateBuyGoods(unitelToken, {
+    // Load config from DB
+    const cfg = await loadUnitelConfig(supabaseAdmin);
+    const merchantConfig = { initiator: cfg.initiator, shortcode: cfg.shortcode, securityCredential: cfg.securityCredential };
+
+    if (action === "pay") {
+      const unitelToken = await getUnitelToken(cfg.endpoint, cfg.consumerKey, cfg.consumerSecret);
+      const result = await initiateBuyGoods(unitelToken, cfg.endpoint, merchantConfig, {
         amount,
         phoneNumber: phone_number,
         saleCode: sale_code,
@@ -236,10 +256,8 @@ Deno.serve(async (req) => {
         callbackUrl: callback_url,
       });
 
-      // Step 3: Update sale with transaction reference
       const conversationId = result.ConversationID || result.OriginatorConversationID || sale_code;
-
-      await supabase
+      await supabaseAdmin
         .from("pos_sales")
         .update({
           payment_status: "processando",
@@ -261,31 +279,21 @@ Deno.serve(async (req) => {
     }
 
     if (action === "query") {
-      const unitelToken = await getUnitelToken();
-      const result = await queryTransaction(unitelToken, conversation_id);
+      const unitelToken = await getUnitelToken(cfg.endpoint, cfg.consumerKey, cfg.consumerSecret);
+      const result = await queryTransaction(unitelToken, cfg.endpoint, merchantConfig, conversation_id);
 
-      // Map Unitel status to our payment status
       let paymentStatus = "processando";
       const resultCode = result.ResultCode ?? result.ResponseCode;
-
       if (resultCode === 0 || resultCode === "0") {
-        // Check TransactionStatus from query response
-        const txStatus = result.Transaction?.TransactionStatus;
-        if (txStatus === "Completed") {
-          paymentStatus = "pago";
-        } else {
-          paymentStatus = "pago"; // ResultCode 0 = success
-        }
+        paymentStatus = "pago";
       } else if (resultCode === 3011) {
-        // Transaction not found / still processing
         paymentStatus = "processando";
       } else if (resultCode) {
         paymentStatus = "falhado";
       }
 
-      // Update sale status
       if (sale_id && paymentStatus !== "processando") {
-        await supabase
+        await supabaseAdmin
           .from("pos_sales")
           .update({ payment_status: paymentStatus })
           .eq("id", sale_id);
@@ -304,7 +312,6 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Handle callback acknowledgment (for async BuyGoods callback responses)
     if (action === "callback_ack") {
       return new Response(
         JSON.stringify({
@@ -317,7 +324,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    return new Response(JSON.stringify({ error: "Ação inválida. Use 'pay', 'query' ou 'callback_ack'." }), {
+    return new Response(JSON.stringify({ error: "Ação inválida. Use 'pay', 'query', 'test_connection' ou 'callback_ack'." }), {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
