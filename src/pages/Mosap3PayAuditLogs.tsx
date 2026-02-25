@@ -148,7 +148,7 @@ const Mosap3PayAuditLogs = () => {
           <Input placeholder="Pesquisar por utilizador, entidade..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
         </div>
         <Select value={filterAction} onValueChange={setFilterAction}>
-          <SelectTrigger className="w-[160px]"><Filter className="h-4 w-4 mr-1" /><SelectValue /></SelectTrigger>
+          <SelectTrigger className="w-[160px]"><span className="flex items-center gap-1"><Filter className="h-4 w-4" /><SelectValue /></span></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todas Acções</SelectItem>
             {uniqueActions.map(a => <SelectItem key={a} value={a}>{ACTION_LABELS[a] || a}</SelectItem>)}
