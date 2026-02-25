@@ -111,6 +111,7 @@ export const navItems: NavItem[] = [
       { label: "Stock", path: "/mosap3pay/stock", icon: Package },
       { label: "Relatórios", path: "/mosap3pay/relatorios", icon: BarChart3 },
       { label: "Auditoria", path: "/mosap3pay/auditoria", icon: Shield },
+      { label: "Configurações", path: "/mosap3pay/configuracoes", icon: Settings },
     ],
   },
   {
