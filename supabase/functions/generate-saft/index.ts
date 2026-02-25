@@ -110,8 +110,9 @@ Deno.serve(async (req) => {
     const companyName = escapeXml(supplier.name);
 
     // Totals
+    // TotalCredit = sum of all CreditAmounts (net amounts, without IVA)
+    const totalCredit = allItems.reduce((s, item) => s + (Number(item.unit_price) * Number(item.quantity)), 0);
     const totalDebit = 0;
-    const totalCredit = allSales.reduce((s, sale) => s + Number(sale.total), 0);
     const numberOfEntries = allSales.length;
 
     // Tax table entries (collect unique IVA rates)
