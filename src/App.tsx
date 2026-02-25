@@ -33,6 +33,12 @@ import Mosap3Pay from "@/pages/Mosap3Pay";
 import Mosap3PayFornecedores from "@/pages/Mosap3PayFornecedores";
 import Mosap3PayPOS from "@/pages/Mosap3PayPOS";
 import Mosap3PayVendas from "@/pages/Mosap3PayVendas";
+import FornecedorAuth from "@/pages/fornecedor/FornecedorAuth";
+import FornecedorLayout from "@/components/fornecedor/FornecedorLayout";
+import FornecedorDashboard from "@/pages/fornecedor/FornecedorDashboard";
+import FornecedorProdutos from "@/pages/fornecedor/FornecedorProdutos";
+import FornecedorPOS from "@/pages/fornecedor/FornecedorPOS";
+import FornecedorVendas from "@/pages/fornecedor/FornecedorVendas";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -84,6 +90,16 @@ const App = () => (
               <Route path="/provincias" element={<RoleGuard allowedRoles={["admin"]}><GestaoProvincias /></RoleGuard>} />
             </Route>
           </Route>
+
+          {/* Supplier Portal (isolated) */}
+          <Route path="/fornecedor/login" element={<FornecedorAuth />} />
+          <Route path="/fornecedor" element={<FornecedorLayout />}>
+            <Route index element={<FornecedorDashboard />} />
+            <Route path="produtos" element={<FornecedorProdutos />} />
+            <Route path="pos" element={<FornecedorPOS />} />
+            <Route path="vendas" element={<FornecedorVendas />} />
+          </Route>
+
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
