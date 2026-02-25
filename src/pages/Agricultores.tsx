@@ -112,6 +112,7 @@ const Agricultores = () => {
                   <th className="text-left px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Telefone</th>
                   <th className="text-left px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Província</th>
                   <th className="text-left px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Escola</th>
+                  <th className="text-left px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">PATEC</th>
                   <th className="text-left px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Estado</th>
                   <th className="text-right px-6 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Ações</th>
                 </tr>
@@ -144,6 +145,9 @@ const Agricultores = () => {
                     <td className="px-4 py-3 text-muted-foreground">{f.phone || "—"}</td>
                     <td className="px-4 py-3">{f.province || "—"}</td>
                     <td className="px-4 py-3 text-muted-foreground">{f.school || "—"}</td>
+                    <td className="px-4 py-3">
+                      {f.patec ? <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary">PATEC {f.patec}</span> : "—"}
+                    </td>
                     <td className="px-4 py-3">
                       <span className={
                         f.status === "Ativo" ? "badge-active" :
