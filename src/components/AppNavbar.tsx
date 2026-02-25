@@ -22,6 +22,7 @@ import {
   Menu,
   X,
   FileText,
+  BarChart3,
   Package,
   CreditCard,
   Store,
@@ -105,6 +106,7 @@ export const navItems: NavItem[] = [
       { label: "Fornecedores", path: "/mosap3pay/fornecedores", icon: Store },
       { label: "Terminal POS", path: "/mosap3pay/pos", icon: Monitor },
       { label: "Vendas", path: "/mosap3pay/vendas", icon: ShoppingCart },
+      { label: "Relatórios", path: "/mosap3pay/relatorios", icon: BarChart3 },
     ],
   },
   {
