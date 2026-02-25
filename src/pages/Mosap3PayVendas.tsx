@@ -1,13 +1,15 @@
 import { useState, useEffect } from "react";
-import { ShoppingCart, Search, Filter, Eye, Printer } from "lucide-react";
+import { ShoppingCart, Search, Filter, Eye, Printer, FileDown, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
+import { Label } from "@/components/ui/label";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { InvoicePDF, generateFiscalHash, buildQRContent, type InvoiceData } from "@/components/InvoicePDF";
 
@@ -47,6 +49,18 @@ const Mosap3PayVendas = () => {
   const [invoiceData, setInvoiceData] = useState<InvoiceData | null>(null);
   const [invoiceHash, setInvoiceHash] = useState("");
   const [invoiceQR, setInvoiceQR] = useState("");
+
+  // SAF-T export state
+  const [saftOpen, setSaftOpen] = useState(false);
+  const [saftSupplierId, setSaftSupplierId] = useState("");
+  const [saftStartDate, setSaftStartDate] = useState(() => {
+    const d = new Date(); d.setDate(1); return d.toISOString().slice(0, 10);
+  });
+  const [saftEndDate, setSaftEndDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [saftExporting, setSaftExporting] = useState(false);
+  const [saftSuppliers, setSaftSuppliers] = useState<{ id: string; name: string }[]>([]);
+
+
   useEffect(() => {
     const fetchSales = async () => {
       setLoading(true);
@@ -57,8 +71,41 @@ const Mosap3PayVendas = () => {
       setSales((data as Sale[]) || []);
       setLoading(false);
     };
+    const fetchSuppliers = async () => {
+      const { data } = await supabase.from("suppliers").select("id, name").order("name");
+      setSaftSuppliers(data || []);
+    };
     fetchSales();
+    fetchSuppliers();
   }, []);
+
+  const exportSaft = async () => {
+    if (!saftSupplierId) { toast.error("Seleccione um fornecedor"); return; }
+    setSaftExporting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-saft", {
+        body: { supplier_id: saftSupplierId, start_date: saftStartDate, end_date: saftEndDate },
+      });
+      if (error) throw error;
+
+      // data is the XML string
+      const xmlText = typeof data === "string" ? data : await new Response(data).text();
+      const blob = new Blob([xmlText], { type: "application/xml" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `SAFT-AO_${saftStartDate}_${saftEndDate}.xml`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success("Ficheiro SAF-T exportado com sucesso");
+      setSaftOpen(false);
+    } catch (e: any) {
+      console.error("SAF-T export error:", e);
+      toast.error("Erro ao exportar SAF-T: " + (e.message || "Erro desconhecido"));
+    } finally {
+      setSaftExporting(false);
+    }
+  };
 
   const openDetail = async (sale: Sale) => {
     setSelectedSale(sale);
@@ -115,11 +162,16 @@ const Mosap3PayVendas = () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-heading font-bold flex items-center gap-2">
-          <ShoppingCart className="h-5 w-5 text-primary" /> Histórico de Vendas
-        </h1>
-        <p className="text-muted-foreground text-sm">Todas as transações MOSAP3Pay</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-heading font-bold flex items-center gap-2">
+            <ShoppingCart className="h-5 w-5 text-primary" /> Histórico de Vendas
+          </h1>
+          <p className="text-muted-foreground text-sm">Todas as transações MOSAP3Pay</p>
+        </div>
+        <Button variant="outline" className="gap-2" onClick={() => setSaftOpen(true)}>
+          <FileDown className="h-4 w-4" /> Exportar SAF-T
+        </Button>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -251,6 +303,51 @@ const Mosap3PayVendas = () => {
           {invoiceData && (
             <InvoicePDF data={invoiceData} hash={invoiceHash} qrContent={invoiceQR} />
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* SAF-T Export Dialog */}
+      <Dialog open={saftOpen} onOpenChange={setSaftOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileDown className="h-5 w-5 text-primary" />
+              Exportar SAF-T (AO)
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Gere o ficheiro SAF-T conforme as normas da AGT Angola para o período e fornecedor seleccionados.
+          </p>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Fornecedor</Label>
+              <Select value={saftSupplierId} onValueChange={setSaftSupplierId}>
+                <SelectTrigger><SelectValue placeholder="Seleccionar fornecedor..." /></SelectTrigger>
+                <SelectContent>
+                  {saftSuppliers.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Data Início</Label>
+                <Input type="date" value={saftStartDate} onChange={(e) => setSaftStartDate(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>Data Fim</Label>
+                <Input type="date" value={saftEndDate} onChange={(e) => setSaftEndDate(e.target.value)} />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSaftOpen(false)}>Cancelar</Button>
+            <Button onClick={exportSaft} disabled={saftExporting} className="gap-2">
+              {saftExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
+              {saftExporting ? "A gerar..." : "Exportar XML"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
