@@ -157,6 +157,7 @@ const FarmerProfile = () => {
               <div><p className="text-[10px] md:text-xs text-muted-foreground font-medium">Província / Município</p><p className="text-xs md:text-sm font-semibold mt-0.5 truncate">{farmer.province}, {farmer.municipality}</p></div>
               <div><p className="text-[10px] md:text-xs text-muted-foreground font-medium">Aldeia</p><p className="text-xs md:text-sm font-semibold mt-0.5">—</p></div>
               <div><p className="text-[10px] md:text-xs text-muted-foreground font-medium">Escola de Campo</p><p className="text-xs md:text-sm font-semibold mt-0.5 truncate">{farmer.school}</p></div>
+              <div><p className="text-[10px] md:text-xs text-muted-foreground font-medium">Pacote Tecnológico</p><p className="text-xs md:text-sm font-semibold mt-0.5">{farmerRaw?.patec ? `PATEC ${farmerRaw.patec}` : "—"}</p></div>
             </div>
           </div>
 
