@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Monitor, Search, ShoppingCart, Plus, Minus, Trash2, CreditCard, User, Package, AlertTriangle, Check } from "lucide-react";
+import { Monitor, Search, ShoppingCart, Plus, Minus, Trash2, CreditCard, User, Package, AlertTriangle, Check, Printer } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { InvoicePDF, generateFiscalHash, buildQRContent, type InvoiceData } from "@/components/InvoicePDF";
 
 interface Farmer {
   code: string;
@@ -63,6 +64,10 @@ const Mosap3PayPOS = () => {
   const [lastSaleCode, setLastSaleCode] = useState("");
   const [paymentStatus, setPaymentStatus] = useState<"idle" | "processing" | "polling" | "paid" | "failed">("idle");
   const [lastSaleId, setLastSaleId] = useState("");
+  const [invoiceData, setInvoiceData] = useState<InvoiceData | null>(null);
+  const [invoiceHash, setInvoiceHash] = useState("");
+  const [invoiceQR, setInvoiceQR] = useState("");
+  const [showInvoice, setShowInvoice] = useState(false);
 
   // Purchased quantities this season (per farmer)
   const [seasonPurchases, setSeasonPurchases] = useState<Record<string, number>>({});
@@ -250,6 +255,35 @@ const Mosap3PayPOS = () => {
 
     setLastSaleCode(saleCode);
     setLastSaleId(sale.id);
+
+    // Build invoice data
+    const supplierData = suppliers.find((s) => s.id === selectedSupplierId);
+    const invoiceInfo: InvoiceData = {
+      sale_code: saleCode,
+      created_at: new Date().toISOString(),
+      farmer_name: farmer.full_name,
+      farmer_code: farmer.code,
+      farmer_phone: farmer.phone,
+      patec_number: farmer.patec,
+      supplier_name: supplierData?.name,
+      subtotal: cartSubtotal,
+      iva_total: cartIva,
+      total: cartTotal,
+      payment_method: "unitel_money",
+      payment_status: "pendente",
+      items: cart.map((c) => ({
+        product_name: c.product.name,
+        quantity: c.quantity,
+        unit_price: c.product.price,
+        iva_rate: c.product.iva_rate,
+        iva_amount: c.product.price * c.quantity * c.product.iva_rate / 100,
+        line_total: c.product.price * c.quantity * (1 + c.product.iva_rate / 100),
+      })),
+    };
+    setInvoiceData(invoiceInfo);
+    const hash = await generateFiscalHash(invoiceInfo);
+    setInvoiceHash(hash);
+    setInvoiceQR(buildQRContent(invoiceInfo, hash));
 
     // Try Unitel Money payment
     if (farmer.phone) {
@@ -588,10 +622,25 @@ const Mosap3PayPOS = () => {
             <p className="text-xs text-muted-foreground">
               {paymentStatus === "polling" ? "O produtor receberá um pedido de pagamento no telefone..." : paymentStatus === "paid" ? "Pagamento recebido via Unitel Money" : paymentStatus === "failed" ? "O pagamento não foi processado. Tente novamente." : "Pagamento pendente via Unitel Money"}
             </p>
-            <Button onClick={() => { setReceiptOpen(false); setFarmer(null); setFarmerSearch(""); setPaymentStatus("idle"); }} className="w-full">
-              Nova Venda
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setShowInvoice(true)} disabled={!invoiceData}>
+                <Printer className="h-4 w-4 mr-1" /> Ver Factura
+              </Button>
+              <Button onClick={() => { setReceiptOpen(false); setFarmer(null); setFarmerSearch(""); setPaymentStatus("idle"); setInvoiceData(null); }} className="flex-1">
+                Nova Venda
+              </Button>
+            </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Invoice Dialog */}
+      <Dialog open={showInvoice} onOpenChange={setShowInvoice}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>Factura / Recibo</DialogTitle></DialogHeader>
+          {invoiceData && (
+            <InvoicePDF data={invoiceData} hash={invoiceHash} qrContent={invoiceQR} />
+          )}
         </DialogContent>
       </Dialog>
     </div>
