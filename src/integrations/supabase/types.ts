@@ -608,6 +608,144 @@ export type Database = {
         }
         Relationships: []
       }
+      pos_sale_items: {
+        Row: {
+          created_at: string
+          id: string
+          iva_amount: number
+          iva_rate: number
+          line_total: number
+          product_id: string
+          product_name: string
+          quantity: number
+          sale_id: string
+          unit_price: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          iva_amount?: number
+          iva_rate?: number
+          line_total?: number
+          product_id: string
+          product_name: string
+          quantity?: number
+          sale_id: string
+          unit_price: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          iva_amount?: number
+          iva_rate?: number
+          line_total?: number
+          product_id?: string
+          product_name?: string
+          quantity?: number
+          sale_id?: string
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pos_sale_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "supplier_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pos_sale_items_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "pos_sales"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pos_sales: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          farmer_code: string
+          farmer_name: string
+          farmer_phone: string | null
+          id: string
+          iva_total: number
+          notes: string | null
+          patec_number: number | null
+          payment_method: string
+          payment_reference: string | null
+          payment_status: string
+          pos_id: string | null
+          sale_code: string
+          season: string | null
+          subtotal: number
+          supplier_id: string
+          total: number
+          unitel_transaction_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          farmer_code: string
+          farmer_name: string
+          farmer_phone?: string | null
+          id?: string
+          iva_total?: number
+          notes?: string | null
+          patec_number?: number | null
+          payment_method?: string
+          payment_reference?: string | null
+          payment_status?: string
+          pos_id?: string | null
+          sale_code: string
+          season?: string | null
+          subtotal?: number
+          supplier_id: string
+          total?: number
+          unitel_transaction_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          farmer_code?: string
+          farmer_name?: string
+          farmer_phone?: string | null
+          id?: string
+          iva_total?: number
+          notes?: string | null
+          patec_number?: number | null
+          payment_method?: string
+          payment_reference?: string | null
+          payment_status?: string
+          pos_id?: string | null
+          sale_code?: string
+          season?: string | null
+          subtotal?: number
+          supplier_id?: string
+          total?: number
+          unitel_transaction_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pos_sales_pos_id_fkey"
+            columns: ["pos_id"]
+            isOneToOne: false
+            referencedRelation: "supplier_pos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pos_sales_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
@@ -748,6 +886,202 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      season_limits: {
+        Row: {
+          active: boolean
+          created_at: string
+          end_date: string
+          id: string
+          max_items: number | null
+          max_total_value: number | null
+          patec_number: number
+          product_category: string
+          season_name: string
+          start_date: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          end_date: string
+          id?: string
+          max_items?: number | null
+          max_total_value?: number | null
+          patec_number: number
+          product_category?: string
+          season_name: string
+          start_date: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          end_date?: string
+          id?: string
+          max_items?: number | null
+          max_total_value?: number | null
+          patec_number?: number
+          product_category?: string
+          season_name?: string
+          start_date?: string
+        }
+        Relationships: []
+      }
+      supplier_pos: {
+        Row: {
+          created_at: string
+          id: string
+          label: string | null
+          location: string | null
+          operator_name: string | null
+          operator_phone: string | null
+          pos_code: string
+          status: string
+          supplier_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          label?: string | null
+          location?: string | null
+          operator_name?: string | null
+          operator_phone?: string | null
+          pos_code: string
+          status?: string
+          supplier_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          label?: string | null
+          location?: string | null
+          operator_name?: string | null
+          operator_phone?: string | null
+          pos_code?: string
+          status?: string
+          supplier_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_pos_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      supplier_products: {
+        Row: {
+          category: string
+          created_at: string
+          description: string | null
+          id: string
+          iva_rate: number
+          max_per_farmer_per_season: number | null
+          name: string
+          patec_category: string | null
+          patec_number: number | null
+          price: number
+          status: string
+          stock: number
+          supplier_id: string
+          unit: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          iva_rate?: number
+          max_per_farmer_per_season?: number | null
+          name: string
+          patec_category?: string | null
+          patec_number?: number | null
+          price?: number
+          status?: string
+          stock?: number
+          supplier_id: string
+          unit?: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          iva_rate?: number
+          max_per_farmer_per_season?: number | null
+          name?: string
+          patec_category?: string | null
+          patec_number?: number | null
+          price?: number
+          status?: string
+          stock?: number
+          supplier_id?: string
+          unit?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_products_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      suppliers: {
+        Row: {
+          address: string | null
+          created_at: string
+          email: string | null
+          id: string
+          logo_url: string | null
+          municipality: string | null
+          name: string
+          nif: string | null
+          phone: string | null
+          province: string | null
+          shortcode: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          address?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          logo_url?: string | null
+          municipality?: string | null
+          name: string
+          nif?: string | null
+          phone?: string | null
+          province?: string | null
+          shortcode?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          address?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          logo_url?: string | null
+          municipality?: string | null
+          name?: string
+          nif?: string | null
+          phone?: string | null
+          province?: string | null
+          shortcode?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       system_settings: {
         Row: {
