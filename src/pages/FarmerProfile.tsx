@@ -1,7 +1,7 @@
 import { useParams, Link } from "react-router-dom";
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, User, MapPin, Phone, CreditCard, Wheat, ShoppingCart, Gift, Calendar, FileText, Users, Sprout, Sun, Droplets, CheckCircle2, Camera, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Clock, Printer, Beef, Plus, Fingerprint } from "lucide-react";
+import { ArrowLeft, User, MapPin, Phone, CreditCard, Wheat, ShoppingCart, Gift, Calendar, FileText, Users, Sprout, Sun, Droplets, CheckCircle2, Camera, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Clock, Printer, Beef, Plus, Fingerprint, Package } from "lucide-react";
 import { useFarmerFromDb } from "@/hooks/useFarmerFromDb";
 import { useFarmerEnrichedData } from "@/hooks/useFarmerEnrichedData";
 import { Button } from "@/components/ui/button";
@@ -246,6 +246,9 @@ const FarmerProfile = () => {
             </TabsTrigger>
             <TabsTrigger value="dependentes" className="gap-1.5 text-xs md:text-sm data-[state=active]:bg-card whitespace-nowrap">
               <Users className="h-3.5 w-3.5 md:h-4 md:w-4" /> <span className="hidden sm:inline">Dependentes</span> ({dependents.length})
+            </TabsTrigger>
+            <TabsTrigger value="patec" className="gap-1.5 text-xs md:text-sm data-[state=active]:bg-card whitespace-nowrap">
+              <Package className="h-3.5 w-3.5 md:h-4 md:w-4" /> <span className="hidden sm:inline">PATEC</span>
             </TabsTrigger>
           </TabsList>
 
@@ -685,6 +688,114 @@ const FarmerProfile = () => {
                 ))}
               </div>
             </Card>
+          </TabsContent>
+
+          {/* PATEC Tab */}
+          <TabsContent value="patec" className="mt-4 space-y-4">
+            {(() => {
+              const patecNum = farmerRaw?.patec;
+              const patecData: Record<number, { title: string; cultura: string; insumos: string[]; servicos: string[]; animal: string[]; qtd: string }> = {
+                1: {
+                  title: "PATEC 1 — Milho + Feijão + Gado",
+                  cultura: "Milho",
+                  insumos: ["Semente de milho", "Semente de feijão", "Adubo composto", "Adubo simples", "Inseticida", "Fungicida", "Enxada", "Catana", "Lima", "Ancinho", "Machado", "Carro de mão"],
+                  animal: ["Cabra", "Ovelha", "Galinha", "Boi", "Ração animal", "Vitaminas", "Antibióticos", "Brincos", "Rede galinheiro", "Pregos", "Chapas"],
+                  servicos: ["Preparação de terra mecanizada", "Amanhos culturais", "Transporte para escoamento da produção"],
+                  qtd: "10.800 produtores",
+                },
+                2: {
+                  title: "PATEC 2 — Massango + Feijão + Gado",
+                  cultura: "Massango",
+                  insumos: ["Semente de massango", "Semente de feijão", "Adubo composto", "Adubo simples", "Inseticida", "Fungicida", "Enxada", "Catana", "Lima", "Ancinho", "Machado", "Carro de mão"],
+                  animal: ["Cabra", "Ovelha", "Galinha", "Boi", "Ração animal", "Vitaminas", "Antibióticos", "Brincos", "Rede galinheiro", "Pregos", "Chapas"],
+                  servicos: ["Preparação de terra mecanizada", "Amanhos culturais", "Transporte para escoamento da produção"],
+                  qtd: "3.600 produtores",
+                },
+                3: {
+                  title: "PATEC 3 — Massambala + Feijão + Gado",
+                  cultura: "Massambala",
+                  insumos: ["Semente de massambala", "Semente de feijão", "Adubo composto", "Adubo simples", "Inseticida", "Fungicida", "Enxada", "Catana", "Lima", "Ancinho", "Machado", "Carro de mão"],
+                  animal: ["Cabra", "Ovelha", "Galinha", "Boi", "Ração animal", "Vitaminas", "Antibióticos", "Brincos", "Rede galinheiro", "Pregos", "Chapas"],
+                  servicos: ["Preparação de terra mecanizada", "Amanhos culturais", "Transporte para escoamento da produção"],
+                  qtd: "3.600 produtores",
+                },
+              };
+
+              if (!patecNum || !patecData[patecNum]) {
+                return (
+                  <Card className="p-12 text-center">
+                    <Package className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+                    <p className="text-muted-foreground">Nenhum pacote tecnológico atribuído a este produtor</p>
+                  </Card>
+                );
+              }
+
+              const p = patecData[patecNum];
+
+              return (
+                <>
+                  <Card className="p-4 md:p-6">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                        <Package className="h-6 w-6 text-primary" />
+                      </div>
+                      <div>
+                        <h3 className="font-heading font-semibold text-base md:text-lg">{p.title}</h3>
+                        <p className="text-xs text-muted-foreground">Ano de Arranque — MOSAP III · {p.qtd}</p>
+                      </div>
+                      <Badge className="ml-auto text-xs">PATEC {patecNum}</Badge>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
+                      {/* Insumos Agrícolas */}
+                      <div className="space-y-2">
+                        <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                          <Sprout className="h-3.5 w-3.5" /> Insumos Agrícolas
+                        </h4>
+                        <ul className="space-y-1">
+                          {p.insumos.map((item) => (
+                            <li key={item} className="text-sm flex items-center gap-2">
+                              <CheckCircle2 className="h-3.5 w-3.5 text-primary flex-shrink-0" />
+                              {item}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+
+                      {/* Pecuária e Materiais */}
+                      <div className="space-y-2">
+                        <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                          <Beef className="h-3.5 w-3.5" /> Pecuária e Materiais
+                        </h4>
+                        <ul className="space-y-1">
+                          {p.animal.map((item) => (
+                            <li key={item} className="text-sm flex items-center gap-2">
+                              <CheckCircle2 className="h-3.5 w-3.5 text-primary flex-shrink-0" />
+                              {item}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+
+                      {/* Serviços */}
+                      <div className="space-y-2">
+                        <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                          <Gift className="h-3.5 w-3.5" /> Serviços Incluídos
+                        </h4>
+                        <ul className="space-y-1">
+                          {p.servicos.map((item) => (
+                            <li key={item} className="text-sm flex items-center gap-2">
+                              <CheckCircle2 className="h-3.5 w-3.5 text-primary flex-shrink-0" />
+                              {item}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                  </Card>
+                </>
+              );
+            })()}
           </TabsContent>
         </Tabs>
       </motion.div>
