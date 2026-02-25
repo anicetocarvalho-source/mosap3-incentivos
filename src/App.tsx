@@ -29,6 +29,10 @@ import Relatorios from "@/pages/Relatorios";
 import Configuracoes from "@/pages/Configuracoes";
 import GestaoProvincias from "@/pages/GestaoProvincias";
 import Patec from "@/pages/Patec";
+import Mosap3Pay from "@/pages/Mosap3Pay";
+import Mosap3PayFornecedores from "@/pages/Mosap3PayFornecedores";
+import Mosap3PayPOS from "@/pages/Mosap3PayPOS";
+import Mosap3PayVendas from "@/pages/Mosap3PayVendas";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -57,6 +61,10 @@ const App = () => (
               <Route path="/producao" element={<Producao />} />
               <Route path="/instalar" element={<Instalar />} />
               <Route path="/patec" element={<Patec />} />
+              <Route path="/mosap3pay" element={<Mosap3Pay />} />
+              <Route path="/mosap3pay/fornecedores" element={<Mosap3PayFornecedores />} />
+              <Route path="/mosap3pay/pos" element={<Mosap3PayPOS />} />
+              <Route path="/mosap3pay/vendas" element={<Mosap3PayVendas />} />
 
               {/* Incentivos & Transações: admin, gestor_incentivos */}
               <Route path="/incentivos" element={<RoleGuard allowedRoles={["admin", "gestor_incentivos"]}><Incentivos /></RoleGuard>} />

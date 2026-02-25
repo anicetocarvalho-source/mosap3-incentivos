@@ -23,6 +23,9 @@ import {
   X,
   FileText,
   Package,
+  CreditCard,
+  Store,
+  Monitor,
 } from "lucide-react";
 import mosapLogo from "@/assets/mosap3-logo.png";
 import { useAuth } from "@/hooks/useAuth";
@@ -92,6 +95,18 @@ export const navItems: NavItem[] = [
     allowedRoles: ["admin", "gestor_incentivos", "senior_agronegocio", "junior_agronegocio"],
   },
   { icon: Wheat, label: "Produção", path: "/producao" },
+  {
+    icon: CreditCard,
+    label: "MOSAP3Pay",
+    sidebar: true,
+    allowedRoles: ["admin", "gestor_incentivos"],
+    children: [
+      { label: "Dashboard", path: "/mosap3pay", icon: CreditCard },
+      { label: "Fornecedores", path: "/mosap3pay/fornecedores", icon: Store },
+      { label: "Terminal POS", path: "/mosap3pay/pos", icon: Monitor },
+      { label: "Vendas", path: "/mosap3pay/vendas", icon: ShoppingCart },
+    ],
+  },
   {
     icon: FileText,
     label: "Relatórios",
