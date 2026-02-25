@@ -28,6 +28,7 @@ import Instalar from "@/pages/Instalar";
 import Relatorios from "@/pages/Relatorios";
 import Configuracoes from "@/pages/Configuracoes";
 import GestaoProvincias from "@/pages/GestaoProvincias";
+import Patec from "@/pages/Patec";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -55,6 +56,7 @@ const App = () => (
               <Route path="/parcelas" element={<Parcelas />} />
               <Route path="/producao" element={<Producao />} />
               <Route path="/instalar" element={<Instalar />} />
+              <Route path="/patec" element={<Patec />} />
 
               {/* Incentivos & Transações: admin, gestor_incentivos */}
               <Route path="/incentivos" element={<RoleGuard allowedRoles={["admin", "gestor_incentivos"]}><Incentivos /></RoleGuard>} />

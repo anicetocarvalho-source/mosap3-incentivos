@@ -19,6 +19,7 @@ import {
   MapPin,
   Smartphone,
   FileText,
+  Package,
 } from "lucide-react";
 import mosapLogo from "@/assets/mosap3-logo.png";
 import { useAuth } from "@/hooks/useAuth";
@@ -89,6 +90,12 @@ const navItems: NavItem[] = [
     icon: Wheat,
     label: "Produção",
     path: "/producao",
+    compact: true,
+  },
+  {
+    icon: Package,
+    label: "PATEC",
+    path: "/patec",
     compact: true,
   },
   {
