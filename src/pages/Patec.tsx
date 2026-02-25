@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Package, Search, Filter, Edit2, Eye } from "lucide-react";
+import { Package, Search, Filter, Edit2, Eye, CheckSquare, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 
 interface FarmerPatec {
@@ -86,6 +87,11 @@ const Patec = () => {
   const [saving, setSaving] = useState(false);
   const [viewPatec, setViewPatec] = useState<number | null>(null);
 
+  // Bulk selection state
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
+  const [bulkPatec, setBulkPatec] = useState<string>("");
+
   const fetchFarmers = async () => {
     setLoading(true);
     const { data } = await supabase
@@ -134,6 +140,58 @@ const Patec = () => {
       fetchFarmers();
     }
   };
+
+  // Bulk selection helpers
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === filtered.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filtered.map((f) => f.id)));
+    }
+  };
+
+  const clearSelection = () => setSelectedIds(new Set());
+
+  const handleBulkSave = async () => {
+    if (!bulkPatec || selectedIds.size === 0) return;
+    setSaving(true);
+    const newPatec = parseInt(bulkPatec);
+    const ids = Array.from(selectedIds);
+
+    // Update in batches of 50
+    let errorCount = 0;
+    for (let i = 0; i < ids.length; i += 50) {
+      const batch = ids.slice(i, i + 50);
+      const { error } = await supabase
+        .from("farmers")
+        .update({ patec: newPatec })
+        .in("id", batch);
+      if (error) errorCount++;
+    }
+
+    setSaving(false);
+    setBulkDialogOpen(false);
+    setBulkPatec("");
+
+    if (errorCount > 0) {
+      toast.error(`Erro ao atribuir PATEC a alguns produtores`);
+    } else {
+      toast.success(`PATEC ${newPatec} atribuído a ${ids.length} produtor(es)`);
+    }
+    setSelectedIds(new Set());
+    fetchFarmers();
+  };
+
+  const isAllSelected = filtered.length > 0 && selectedIds.size === filtered.length;
+  const isSomeSelected = selectedIds.size > 0;
 
   return (
     <div className="space-y-6">
@@ -204,25 +262,44 @@ const Patec = () => {
         ))}
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Pesquisar por nome ou código..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+      {/* Filters + Bulk action bar */}
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input placeholder="Pesquisar por nome ou código..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+          </div>
+          <Select value={filterPatec} onValueChange={setFilterPatec}>
+            <SelectTrigger className="w-[180px]">
+              <Filter className="h-4 w-4 mr-2" />
+              <SelectValue placeholder="Filtrar PATEC" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos</SelectItem>
+              <SelectItem value="1">PATEC 1 — Milho</SelectItem>
+              <SelectItem value="2">PATEC 2 — Massango</SelectItem>
+              <SelectItem value="3">PATEC 3 — Massambala</SelectItem>
+              <SelectItem value="none">Sem PATEC</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
-        <Select value={filterPatec} onValueChange={setFilterPatec}>
-          <SelectTrigger className="w-[180px]">
-            <Filter className="h-4 w-4 mr-2" />
-            <SelectValue placeholder="Filtrar PATEC" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos</SelectItem>
-            <SelectItem value="1">PATEC 1 — Milho</SelectItem>
-            <SelectItem value="2">PATEC 2 — Massango</SelectItem>
-            <SelectItem value="3">PATEC 3 — Massambala</SelectItem>
-            <SelectItem value="none">Sem PATEC</SelectItem>
-          </SelectContent>
-        </Select>
+
+        {/* Bulk action bar - visible when items selected */}
+        {isSomeSelected && (
+          <div className="flex items-center gap-3 bg-primary/5 border border-primary/20 rounded-lg px-4 py-2.5 animate-in fade-in slide-in-from-top-2">
+            <CheckSquare className="h-4 w-4 text-primary" />
+            <span className="text-sm font-medium">
+              {selectedIds.size} produtor{selectedIds.size > 1 ? "es" : ""} seleccionado{selectedIds.size > 1 ? "s" : ""}
+            </span>
+            <div className="flex-1" />
+            <Button variant="outline" size="sm" className="h-8 text-xs" onClick={clearSelection}>
+              <X className="h-3 w-3 mr-1" /> Limpar
+            </Button>
+            <Button size="sm" className="h-8 text-xs" onClick={() => { setBulkDialogOpen(true); setBulkPatec(""); }}>
+              <Package className="h-3 w-3 mr-1" /> Atribuir PATEC em lote
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Table */}
@@ -231,6 +308,13 @@ const Patec = () => {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-10">
+                  <Checkbox
+                    checked={isAllSelected}
+                    onCheckedChange={toggleSelectAll}
+                    aria-label="Seleccionar todos"
+                  />
+                </TableHead>
                 <TableHead>Código</TableHead>
                 <TableHead>Nome</TableHead>
                 <TableHead>Província</TableHead>
@@ -242,11 +326,18 @@ const Patec = () => {
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>
+                <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>
               ) : filtered.length === 0 ? (
-                <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Nenhum produtor encontrado</TableCell></TableRow>
+                <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Nenhum produtor encontrado</TableCell></TableRow>
               ) : filtered.map((f) => (
-                <TableRow key={f.id}>
+                <TableRow key={f.id} className={selectedIds.has(f.id) ? "bg-primary/5" : ""}>
+                  <TableCell>
+                    <Checkbox
+                      checked={selectedIds.has(f.id)}
+                      onCheckedChange={() => toggleSelect(f.id)}
+                      aria-label={`Seleccionar ${f.full_name}`}
+                    />
+                  </TableCell>
                   <TableCell className="font-mono text-xs">{f.code}</TableCell>
                   <TableCell className="font-medium">
                     <Link to={`/agricultores/${f.code}`} className="text-primary hover:underline">{f.full_name}</Link>
@@ -277,7 +368,7 @@ const Patec = () => {
         </CardContent>
       </Card>
 
-      {/* Edit Dialog */}
+      {/* Edit Dialog (single) */}
       <Dialog open={!!editFarmer} onOpenChange={(o) => !o && setEditFarmer(null)}>
         <DialogContent>
           <DialogHeader>
@@ -320,6 +411,50 @@ const Patec = () => {
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditFarmer(null)}>Cancelar</Button>
             <Button onClick={handleSavePatec} disabled={saving}>{saving ? "Guardando..." : "Guardar"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk assign Dialog */}
+      <Dialog open={bulkDialogOpen} onOpenChange={(o) => !o && setBulkDialogOpen(false)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Atribuir PATEC em Lote</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <p className="text-sm text-muted-foreground">
+              Vai atribuir o mesmo PATEC a <span className="font-bold text-foreground">{selectedIds.size}</span> produtor{selectedIds.size > 1 ? "es" : ""} seleccionado{selectedIds.size > 1 ? "s" : ""}:
+            </p>
+            <div className="max-h-32 overflow-y-auto border rounded-lg p-2 text-xs space-y-1 bg-muted/20">
+              {filtered.filter((f) => selectedIds.has(f.id)).map((f) => (
+                <div key={f.id} className="flex items-center justify-between">
+                  <span><span className="font-mono text-muted-foreground">{f.code}</span> — {f.full_name}</span>
+                  {f.patec && <Badge variant="outline" className={`text-[9px] ${patecInfo[f.patec]?.color || ""}`}>PATEC {f.patec}</Badge>}
+                </div>
+              ))}
+            </div>
+            <Select value={bulkPatec} onValueChange={setBulkPatec}>
+              <SelectTrigger>
+                <SelectValue placeholder="Seleccionar PATEC para todos" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="1">PATEC 1 — Milho + Feijão + Gado</SelectItem>
+                <SelectItem value="2">PATEC 2 — Massango + Feijão + Gado</SelectItem>
+                <SelectItem value="3">PATEC 3 — Massambala + Feijão + Gado</SelectItem>
+              </SelectContent>
+            </Select>
+            {bulkPatec && patecInfo[parseInt(bulkPatec)] && (
+              <div className="border rounded-lg p-3 text-xs space-y-1 bg-muted/30">
+                <p className="font-semibold">{patecInfo[parseInt(bulkPatec)].title}</p>
+                <p className="text-muted-foreground">{patecInfo[parseInt(bulkPatec)].cultures} — {patecInfo[parseInt(bulkPatec)].servicos.join(", ")}</p>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBulkDialogOpen(false)}>Cancelar</Button>
+            <Button onClick={handleBulkSave} disabled={saving || !bulkPatec}>
+              {saving ? "Guardando..." : `Atribuir a ${selectedIds.size} produtor${selectedIds.size > 1 ? "es" : ""}`}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
