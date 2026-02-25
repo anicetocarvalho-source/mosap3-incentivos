@@ -49,8 +49,8 @@ interface Supplier {
 const MOVEMENT_LABELS: Record<string, { label: string; color: string; icon: any }> = {
   entrada: { label: "Entrada", color: "text-primary", icon: ArrowUpCircle },
   saida: { label: "Saída", color: "text-destructive", icon: ArrowDownCircle },
-  ajuste: { label: "Ajuste", color: "text-amber-600", icon: RotateCcw },
-  venda: { label: "Venda", color: "text-blue-600", icon: ArrowDownCircle },
+  ajuste: { label: "Ajuste", color: "text-warning", icon: RotateCcw },
+  venda: { label: "Venda", color: "text-info", icon: ArrowDownCircle },
   devolucao: { label: "Devolução", color: "text-primary", icon: ArrowUpCircle },
 };
 
@@ -248,9 +248,9 @@ const Mosap3PayStock = () => {
 
       {/* Alerts */}
       {(lowStockProducts.length > 0 || outOfStock.length > 0) && (
-        <Card className="border-amber-500/30 bg-amber-500/5">
+        <Card className="border-warning/30 bg-warning/5">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold flex items-center gap-2 text-amber-600">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2 text-warning">
               <AlertTriangle className="h-4 w-4" /> Alertas de Stock ({lowStockProducts.length + outOfStock.length} produtos)
             </CardTitle>
           </CardHeader>
@@ -262,7 +262,7 @@ const Mosap3PayStock = () => {
                 </Badge>
               ))}
               {lowStockProducts.map(p => (
-                <Badge key={p.id} variant="outline" className="border-amber-500/30 text-amber-700 gap-1 cursor-pointer" onClick={() => openMovement(p, "entrada")}>
+                <Badge key={p.id} variant="outline" className="border-warning/30 text-warning gap-1 cursor-pointer" onClick={() => openMovement(p, "entrada")}>
                   🟡 {p.name}: {p.stock}/{p.min_stock} {p.unit} <span className="text-[10px] text-muted-foreground ml-1">({getSupplierName(p.supplier_id)})</span>
                 </Badge>
               ))}
@@ -357,7 +357,7 @@ const Mosap3PayStock = () => {
                     const isOut = p.stock === 0;
                     const stockPercent = p.min_stock > 0 ? Math.min(100, Math.round((p.stock / (p.min_stock * 3)) * 100)) : 100;
                     return (
-                      <TableRow key={p.id} className={isOut ? "bg-destructive/5" : isLow ? "bg-amber-500/5" : ""}>
+                      <TableRow key={p.id} className={isOut ? "bg-destructive/5" : isLow ? "bg-warning/5" : ""}>
                         <TableCell>
                           <p className="font-medium text-sm">{p.name}</p>
                           <p className="text-[10px] text-muted-foreground">{p.category} • {Number(p.price).toLocaleString("pt-AO")} Kz/{p.unit}</p>
@@ -365,7 +365,7 @@ const Mosap3PayStock = () => {
                         <TableCell className="text-sm">{getSupplierName(p.supplier_id)}</TableCell>
                         <TableCell className="text-center">
                           <div className="flex flex-col items-center gap-1">
-                            <span className={`font-bold text-lg ${isOut ? "text-destructive" : isLow ? "text-amber-600" : ""}`}>
+                            <span className={`font-bold text-lg ${isOut ? "text-destructive" : isLow ? "text-warning" : ""}`}>
                               {p.stock}
                             </span>
                             <Progress value={stockPercent} className="h-1 w-16" />
@@ -381,7 +381,7 @@ const Mosap3PayStock = () => {
                         </TableCell>
                         <TableCell>
                           {isOut ? <Badge variant="destructive" className="text-[10px]">Esgotado</Badge>
-                            : isLow ? <Badge variant="secondary" className="text-[10px] border-amber-500/30">Baixo</Badge>
+                            : isLow ? <Badge variant="secondary" className="text-[10px] border-warning/30">Baixo</Badge>
                             : <Badge variant="outline" className="text-[10px]">OK</Badge>}
                         </TableCell>
                         <TableCell className="text-right">
@@ -526,7 +526,7 @@ const Mosap3PayStock = () => {
                         <p className="text-sm font-medium">{sup.name}</p>
                         <p className="text-[10px] text-muted-foreground">
                           {supProducts.length} produtos • {totalQty} un.
-                          {lowCount > 0 && <span className="text-amber-600 ml-1">• {lowCount} em alerta</span>}
+                          {lowCount > 0 && <span className="text-warning ml-1">• {lowCount} em alerta</span>}
                         </p>
                       </div>
                       <p className="font-bold text-sm">{totalVal.toLocaleString("pt-AO")} Kz</p>
@@ -570,7 +570,7 @@ const Mosap3PayStock = () => {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               {moveType === "entrada" ? <ArrowUpCircle className="h-5 w-5 text-primary" />
-                : moveType === "ajuste" ? <RotateCcw className="h-5 w-5 text-amber-600" />
+                : moveType === "ajuste" ? <RotateCcw className="h-5 w-5 text-warning" />
                 : <ArrowDownCircle className="h-5 w-5 text-destructive" />}
               {moveType === "entrada" ? "Entrada de Stock" : moveType === "ajuste" ? "Ajuste de Inventário" : "Saída de Stock"}
             </DialogTitle>

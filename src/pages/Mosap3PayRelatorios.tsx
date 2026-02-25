@@ -60,9 +60,9 @@ interface Supplier {
 }
 
 const COLORS = [
-  "hsl(142, 70%, 45%)", "hsl(45, 90%, 50%)", "hsl(200, 80%, 50%)",
-  "hsl(350, 70%, 55%)", "hsl(270, 60%, 55%)", "hsl(30, 80%, 55%)",
-  "hsl(170, 60%, 45%)", "hsl(320, 60%, 55%)",
+  "hsl(var(--primary))", "hsl(var(--secondary))", "hsl(var(--info))",
+  "hsl(var(--destructive))", "hsl(var(--accent-foreground))", "hsl(var(--warning))",
+  "hsl(var(--success))", "hsl(var(--muted-foreground))",
 ];
 
 const MONTHS_PT = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
@@ -492,9 +492,9 @@ const Mosap3PayRelatorios = () => {
                       contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px" }}
                     />
                     <Legend formatter={v => v === "receita" ? "Receita" : v === "nc" ? "NC" : v === "liquido" ? "Líquido" : "IVA"} />
-                    <Bar dataKey="receita" fill="hsl(142, 70%, 45%)" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="nc" fill="hsl(350, 70%, 55%)" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="iva" fill="hsl(45, 90%, 50%)" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="receita" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="nc" fill="hsl(var(--destructive))" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="iva" fill="hsl(var(--secondary))" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </CardContent>
@@ -539,7 +539,7 @@ const Mosap3PayRelatorios = () => {
                     <YAxis tick={{ fontSize: 11 }} tickFormatter={v => `${(v / 1000).toFixed(0)}k`} />
                     <Tooltip formatter={(value: number) => [fmtKz(value), "Líquido"]}
                       contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px" }} />
-                    <Area type="monotone" dataKey="liquido" stroke="hsl(142, 70%, 45%)" fill="hsl(142, 70%, 45%)" fillOpacity={0.15} strokeWidth={2} />
+                    <Area type="monotone" dataKey="liquido" stroke="hsl(var(--primary))" fill="hsl(var(--primary))" fillOpacity={0.15} strokeWidth={2} />
                   </AreaChart>
                 </ResponsiveContainer>
               </CardContent>
@@ -584,7 +584,7 @@ const Mosap3PayRelatorios = () => {
                     <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={140} />
                     <Tooltip formatter={(value: number) => [fmtKz(value), "Receita"]}
                       contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px" }} />
-                    <Bar dataKey="revenue" fill="hsl(142, 70%, 45%)" radius={[0, 4, 4, 0]} />
+                    <Bar dataKey="revenue" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </CardContent>
