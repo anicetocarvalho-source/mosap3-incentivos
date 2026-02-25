@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import mosapLogo from "@/assets/mosap3-logo.png";
 import { useAuth } from "@/hooks/useAuth";
+import { usePatecPendingCount } from "@/hooks/usePatecPendingCount";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -137,6 +138,7 @@ const AppNavbar = () => {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const { user, profile, roles, isAdmin } = useAuth();
+  const { data: patecPending = 0 } = usePatecPendingCount();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const dropdownTimeout = useRef<NodeJS.Timeout | null>(null);
@@ -253,6 +255,11 @@ const AppNavbar = () => {
                 >
                   <item.icon className="h-4 w-4" />
                   <span>{item.label}</span>
+                  {item.label === "PATEC" && patecPending > 0 && (
+                    <span className="ml-1 inline-flex items-center justify-center h-5 min-w-[20px] px-1 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold">
+                      {patecPending}
+                    </span>
+                  )}
                 </Link>
               );
             })}
@@ -345,6 +352,11 @@ const AppNavbar = () => {
               >
                 <item.icon className="h-4 w-4" />
                 <span>{item.label}</span>
+                {item.label === "PATEC" && patecPending > 0 && (
+                  <span className="ml-auto inline-flex items-center justify-center h-5 min-w-[20px] px-1 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold">
+                    {patecPending}
+                  </span>
+                )}
               </Link>
             );
           })}
