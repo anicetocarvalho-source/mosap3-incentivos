@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { ShoppingCart, Search, Filter, Eye, Download } from "lucide-react";
+import { ShoppingCart, Search, Filter, Eye, Printer } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
+import { InvoicePDF, generateFiscalHash, buildQRContent, type InvoiceData } from "@/components/InvoicePDF";
 
 interface Sale {
   id: string;
@@ -41,7 +42,10 @@ const Mosap3PayVendas = () => {
   const [filterStatus, setFilterStatus] = useState("all");
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [saleItems, setSaleItems] = useState<SaleItem[]>([]);
-
+  const [invoiceOpen, setInvoiceOpen] = useState(false);
+  const [invoiceData, setInvoiceData] = useState<InvoiceData | null>(null);
+  const [invoiceHash, setInvoiceHash] = useState("");
+  const [invoiceQR, setInvoiceQR] = useState("");
   useEffect(() => {
     const fetchSales = async () => {
       setLoading(true);
@@ -62,6 +66,38 @@ const Mosap3PayVendas = () => {
       .select("*")
       .eq("sale_id", sale.id);
     setSaleItems((data as SaleItem[]) || []);
+  };
+
+  const openInvoice = async (sale: Sale) => {
+    const { data: items } = await supabase.from("pos_sale_items").select("*").eq("sale_id", sale.id);
+    const { data: supplier } = await supabase.from("suppliers").select("name, nif").eq("id", sale.supplier_id).maybeSingle();
+
+    const inv: InvoiceData = {
+      sale_code: sale.sale_code,
+      created_at: sale.created_at,
+      farmer_name: sale.farmer_name,
+      farmer_code: sale.farmer_code,
+      patec_number: sale.patec_number,
+      supplier_name: supplier?.name,
+      supplier_nif: supplier?.nif,
+      subtotal: Number(sale.subtotal),
+      iva_total: Number(sale.iva_total),
+      total: Number(sale.total),
+      payment_method: sale.payment_method,
+      payment_status: sale.payment_status,
+      items: (items || []).map((i: any) => ({
+        product_name: i.product_name,
+        quantity: i.quantity,
+        unit_price: i.unit_price,
+        iva_amount: i.iva_amount,
+        line_total: i.line_total,
+      })),
+    };
+    setInvoiceData(inv);
+    const hash = await generateFiscalHash(inv);
+    setInvoiceHash(hash);
+    setInvoiceQR(buildQRContent(inv, hash));
+    setInvoiceOpen(true);
   };
 
   const filtered = sales.filter((s) => {
@@ -143,9 +179,12 @@ const Mosap3PayVendas = () => {
                     </Badge>
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">{new Date(s.created_at).toLocaleDateString("pt-AO")}</TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="text-right space-x-1">
                     <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => openDetail(s)}>
                       <Eye className="h-3 w-3 mr-1" /> Ver
+                    </Button>
+                    <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => openInvoice(s)}>
+                      <Printer className="h-3 w-3 mr-1" /> Factura
                     </Button>
                   </TableCell>
                 </TableRow>
@@ -197,6 +236,16 @@ const Mosap3PayVendas = () => {
                 <span className="text-xs text-muted-foreground">{selectedSale.payment_method === "unitel_money" ? "Unitel Money" : selectedSale.payment_method}</span>
               </div>
             </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Invoice Dialog */}
+      <Dialog open={invoiceOpen} onOpenChange={setInvoiceOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>Factura / Recibo</DialogTitle></DialogHeader>
+          {invoiceData && (
+            <InvoicePDF data={invoiceData} hash={invoiceHash} qrContent={invoiceQR} />
           )}
         </DialogContent>
       </Dialog>
