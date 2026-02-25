@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Outlet, useNavigate, Link, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { LayoutDashboard, Package, Monitor, ShoppingCart, LogOut, Menu, X } from "lucide-react";
+import { LayoutDashboard, Package, Monitor, ShoppingCart, LogOut, Menu, X, Warehouse } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import mosapLogo from "@/assets/mosap3-logo.png";
 import { toast } from "sonner";
@@ -15,6 +15,7 @@ interface Supplier {
 const navItems = [
   { to: "/fornecedor", icon: LayoutDashboard, label: "Dashboard" },
   { to: "/fornecedor/produtos", icon: Package, label: "Produtos" },
+  { to: "/fornecedor/stock", icon: Warehouse, label: "Stock" },
   { to: "/fornecedor/pos", icon: Monitor, label: "Terminais POS" },
   { to: "/fornecedor/vendas", icon: ShoppingCart, label: "Vendas" },
 ];
