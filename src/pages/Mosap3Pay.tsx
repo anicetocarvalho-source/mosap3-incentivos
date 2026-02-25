@@ -54,10 +54,10 @@ const Mosap3Pay = () => {
   }, []);
 
   const statCards = [
-    { icon: Store, label: "Fornecedores", value: stats.suppliers, color: "text-blue-600", link: "/mosap3pay/fornecedores" },
-    { icon: Package, label: "Produtos", value: stats.products, color: "text-emerald-600", link: "/mosap3pay/fornecedores" },
-    { icon: Monitor, label: "Terminais POS", value: stats.posTerminals, color: "text-violet-600", link: "/mosap3pay/fornecedores" },
-    { icon: ShoppingCart, label: "Vendas Totais", value: stats.totalSales, color: "text-amber-600", link: "/mosap3pay/vendas" },
+    { icon: Store, label: "Fornecedores", value: stats.suppliers, color: "text-info", link: "/mosap3pay/fornecedores" },
+    { icon: Package, label: "Produtos", value: stats.products, color: "text-success", link: "/mosap3pay/fornecedores" },
+    { icon: Monitor, label: "Terminais POS", value: stats.posTerminals, color: "text-accent-foreground", link: "/mosap3pay/fornecedores" },
+    { icon: ShoppingCart, label: "Vendas Totais", value: stats.totalSales, color: "text-warning", link: "/mosap3pay/vendas" },
     { icon: TrendingUp, label: "Receita Total", value: `${stats.totalRevenue.toLocaleString("pt-AO")} Kz`, color: "text-primary", link: "/mosap3pay/vendas" },
     { icon: AlertTriangle, label: "Pagamentos Pendentes", value: stats.pendingPayments, color: "text-destructive", link: "/mosap3pay/vendas" },
   ];
@@ -108,7 +108,7 @@ const Mosap3Pay = () => {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm flex items-center gap-2">
-              <Store className="h-4 w-4 text-blue-600" /> Gestão de Fornecedores
+              <Store className="h-4 w-4 text-info" /> Gestão de Fornecedores
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
@@ -122,7 +122,7 @@ const Mosap3Pay = () => {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm flex items-center gap-2">
-              <Monitor className="h-4 w-4 text-violet-600" /> Terminal POS
+              <Monitor className="h-4 w-4 text-accent-foreground" /> Terminal POS
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
@@ -136,7 +136,7 @@ const Mosap3Pay = () => {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm flex items-center gap-2">
-              <TrendingUp className="h-4 w-4 text-emerald-600" /> Histórico de Vendas
+              <TrendingUp className="h-4 w-4 text-success" /> Histórico de Vendas
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
