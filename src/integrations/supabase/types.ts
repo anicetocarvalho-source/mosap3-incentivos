@@ -1270,6 +1270,42 @@ export type Database = {
           },
         ]
       }
+      supplier_provinces: {
+        Row: {
+          created_at: string
+          id: string
+          province_id: string
+          supplier_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          province_id: string
+          supplier_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          province_id?: string
+          supplier_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_provinces_province_id_fkey"
+            columns: ["province_id"]
+            isOneToOne: false
+            referencedRelation: "provinces"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_provinces_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       suppliers: {
         Row: {
           address: string | null

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Store, Plus, Search, Edit2, Package, Monitor, Trash2, Eye } from "lucide-react";
+import { Store, Plus, Search, Edit2, Package, Monitor, Trash2, Eye, MapPin, X } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,9 +9,15 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
+
+interface Province {
+  id: string;
+  name: string;
+}
 
 interface Supplier {
   id: string;
@@ -22,6 +28,7 @@ interface Supplier {
   province: string | null;
   status: string;
   user_id: string;
+  zones?: Province[];
 }
 
 interface Product {
@@ -57,6 +64,10 @@ const Mosap3PayFornecedores = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editSupplier, setEditSupplier] = useState<Supplier | null>(null);
 
+  // Province list
+  const [allProvinces, setAllProvinces] = useState<Province[]>([]);
+  const [selectedZones, setSelectedZones] = useState<string[]>([]);
+
   // Detail view
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
@@ -75,9 +86,24 @@ const Mosap3PayFornecedores = () => {
 
   const fetchSuppliers = async () => {
     setLoading(true);
-    const { data } = await supabase.from("suppliers").select("*").order("name");
-    setSuppliers((data as Supplier[]) || []);
+    const [suppRes, zonesRes] = await Promise.all([
+      supabase.from("suppliers").select("*").order("name"),
+      supabase.from("supplier_provinces").select("supplier_id, province_id, provinces(id, name)"),
+    ]);
+    const rawSuppliers = (suppRes.data || []) as Supplier[];
+    const zonesMap = new Map<string, Province[]>();
+    for (const row of (zonesRes.data || []) as any[]) {
+      const sid = row.supplier_id;
+      if (!zonesMap.has(sid)) zonesMap.set(sid, []);
+      if (row.provinces) zonesMap.get(sid)!.push({ id: row.provinces.id, name: row.provinces.name });
+    }
+    setSuppliers(rawSuppliers.map(s => ({ ...s, zones: zonesMap.get(s.id) || [] })));
     setLoading(false);
+  };
+
+  const fetchProvinces = async () => {
+    const { data } = await supabase.from("provinces").select("id, name").order("name");
+    setAllProvinces((data as Province[]) || []);
   };
 
   const fetchSupplierDetails = async (supplierId: string) => {
@@ -89,7 +115,7 @@ const Mosap3PayFornecedores = () => {
     setPosTerminals((posRes.data as PosTerminal[]) || []);
   };
 
-  useEffect(() => { fetchSuppliers(); }, []);
+  useEffect(() => { fetchSuppliers(); fetchProvinces(); }, []);
 
   useEffect(() => {
     if (selectedSupplier) fetchSupplierDetails(selectedSupplier.id);
@@ -98,24 +124,35 @@ const Mosap3PayFornecedores = () => {
   const handleSaveSupplier = async () => {
     if (!form.name.trim()) { toast.error("Nome é obrigatório"); return; }
 
+    let supplierId: string;
+
     if (editSupplier) {
       const { error } = await supabase.from("suppliers").update({
         name: form.name, nif: form.nif || null, phone: form.phone || null,
         email: form.email || null, province: form.province || null,
       }).eq("id", editSupplier.id);
       if (error) { toast.error("Erro ao atualizar"); return; }
-      toast.success("Fornecedor atualizado");
+      supplierId = editSupplier.id;
     } else {
-      // Create a placeholder user_id (admin creates supplier, links later)
       const { data: { user } } = await supabase.auth.getUser();
-      const { error } = await supabase.from("suppliers").insert({
+      const { data, error } = await supabase.from("suppliers").insert({
         name: form.name, nif: form.nif || null, phone: form.phone || null,
         email: form.email || null, province: form.province || null,
         user_id: user?.id || "",
-      });
-      if (error) { toast.error("Erro ao criar fornecedor"); return; }
-      toast.success("Fornecedor criado");
+      }).select("id").single();
+      if (error || !data) { toast.error("Erro ao criar fornecedor"); return; }
+      supplierId = data.id;
     }
+
+    // Sync zones
+    await supabase.from("supplier_provinces").delete().eq("supplier_id", supplierId);
+    if (selectedZones.length > 0) {
+      await supabase.from("supplier_provinces").insert(
+        selectedZones.map(pid => ({ supplier_id: supplierId, province_id: pid }))
+      );
+    }
+
+    toast.success(editSupplier ? "Fornecedor atualizado" : "Fornecedor criado");
     setDialogOpen(false);
     setEditSupplier(null);
     fetchSuppliers();
@@ -124,12 +161,14 @@ const Mosap3PayFornecedores = () => {
   const openEditDialog = (s: Supplier) => {
     setEditSupplier(s);
     setForm({ name: s.name, nif: s.nif || "", phone: s.phone || "", email: s.email || "", province: s.province || "" });
+    setSelectedZones(s.zones?.map(z => z.id) || []);
     setDialogOpen(true);
   };
 
   const openNewDialog = () => {
     setEditSupplier(null);
     setForm({ name: "", nif: "", phone: "", email: "", province: "" });
+    setSelectedZones([]);
     setDialogOpen(true);
   };
 
@@ -403,7 +442,15 @@ const Mosap3PayFornecedores = () => {
               <div className="text-xs text-muted-foreground space-y-0.5">
                 <p>NIF: {s.nif || "—"}</p>
                 <p>Telefone: {s.phone || "—"}</p>
-                <p>Província: {s.province || "—"}</p>
+                <p>Província (sede): {s.province || "—"}</p>
+                {s.zones && s.zones.length > 0 && (
+                  <div className="flex items-center gap-1 flex-wrap mt-1">
+                    <MapPin className="h-3 w-3 text-primary flex-shrink-0" />
+                    {s.zones.map(z => (
+                      <Badge key={z.id} variant="outline" className="text-[9px] px-1 py-0">{z.name}</Badge>
+                    ))}
+                  </div>
+                )}
               </div>
               <div className="flex gap-2 mt-3">
                 <Button variant="outline" size="sm" className="h-7 text-xs flex-1" onClick={(e) => { e.stopPropagation(); setSelectedSupplier(s); }}>
@@ -431,7 +478,40 @@ const Mosap3PayFornecedores = () => {
               <div><Label>Telefone</Label><Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></div>
             </div>
             <div><Label>Email</Label><Input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
-            <div><Label>Província</Label><Input value={form.province} onChange={(e) => setForm({ ...form, province: e.target.value })} /></div>
+            <div><Label>Província (sede)</Label><Input value={form.province} onChange={(e) => setForm({ ...form, province: e.target.value })} /></div>
+            <div>
+              <Label className="flex items-center gap-1 mb-2"><MapPin className="h-3.5 w-3.5" /> Zona de Actuação</Label>
+              <div className="border rounded-md p-3 max-h-48 overflow-y-auto space-y-2 bg-background">
+                {allProvinces.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">Carregando províncias...</p>
+                ) : allProvinces.map(p => (
+                  <label key={p.id} className="flex items-center gap-2 cursor-pointer text-sm hover:bg-accent/50 rounded px-1 py-0.5">
+                    <Checkbox
+                      checked={selectedZones.includes(p.id)}
+                      onCheckedChange={(checked) => {
+                        setSelectedZones(prev =>
+                          checked ? [...prev, p.id] : prev.filter(id => id !== p.id)
+                        );
+                      }}
+                    />
+                    {p.name}
+                  </label>
+                ))}
+              </div>
+              {selectedZones.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {selectedZones.map(zid => {
+                    const prov = allProvinces.find(p => p.id === zid);
+                    return prov ? (
+                      <Badge key={zid} variant="secondary" className="text-[10px] gap-1">
+                        {prov.name}
+                        <X className="h-3 w-3 cursor-pointer" onClick={() => setSelectedZones(prev => prev.filter(id => id !== zid))} />
+                      </Badge>
+                    ) : null;
+                  })}
+                </div>
+              )}
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
