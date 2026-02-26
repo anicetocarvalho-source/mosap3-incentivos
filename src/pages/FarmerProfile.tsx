@@ -1,7 +1,7 @@
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, User, MapPin, Phone, CreditCard, Wheat, ShoppingCart, Gift, Calendar, FileText, Users, Sprout, Sun, Droplets, CheckCircle2, Camera, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Clock, Printer, Beef, Plus, Fingerprint, Package, FolderOpen, Trash2 } from "lucide-react";
+import { ArrowLeft, User, MapPin, Phone, CreditCard, Wheat, ShoppingCart, Gift, Calendar, FileText, Users, Sprout, Sun, Droplets, CheckCircle2, Camera, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Clock, Printer, Beef, Plus, Fingerprint, Package, FolderOpen, Trash2, RotateCcw } from "lucide-react";
 import { useFarmerFromDb } from "@/hooks/useFarmerFromDb";
 import { useFarmerEnrichedData } from "@/hooks/useFarmerEnrichedData";
 import { Button } from "@/components/ui/button";
@@ -138,9 +138,18 @@ const FarmerProfile = () => {
           <Button variant="outline" size="sm" className="gap-1.5 hidden sm:flex"><Printer className="h-4 w-4" />Ficha</Button>
           <Button variant="outline" size="icon" className="h-8 w-8 sm:hidden"><Printer className="h-4 w-4" /></Button>
         </Link>
-        <Button variant="outline" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => setDeleteDialogOpen(true)} title="Remover agricultor">
-          <Trash2 className="h-4 w-4" />
-        </Button>
+        {farmer.status === "Removido" ? (
+          <Button variant="outline" size="icon" className="h-8 w-8 text-green-600 hover:text-green-700" onClick={async () => {
+            const { error } = await supabase.from("farmers").update({ status: "Ativo" }).eq("code", farmer.id);
+            if (error) { toast.error("Erro ao restaurar"); } else { toast.success(`${farmer.name} restaurado como Ativo`); window.location.reload(); }
+          }} title="Restaurar agricultor">
+            <RotateCcw className="h-4 w-4" />
+          </Button>
+        ) : (
+          <Button variant="outline" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => setDeleteDialogOpen(true)} title="Remover agricultor">
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        )}
         <span className={`text-[10px] md:text-xs ${
           farmer.status === "Ativo" ? "badge-active" :
           farmer.status === "Pendente" || farmer.status === "Validado" ? "badge-pending" : "badge-suspended"

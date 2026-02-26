@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Plus, Search, Download, Eye, Edit, Package, ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
+import { Plus, Search, Download, Eye, Edit, Package, ChevronLeft, ChevronRight, Trash2, RotateCcw } from "lucide-react";
 import FarmerAvatar from "@/components/FarmerAvatar";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -108,6 +108,19 @@ const Agricultores = () => {
       queryClient.invalidateQueries({ queryKey: ["farmers_list"] });
     }
     setDeleteTarget(null);
+  };
+
+  const handleRestore = async (farmer: any) => {
+    const { error } = await supabase
+      .from("farmers")
+      .update({ status: "Ativo" })
+      .eq("code", farmer.code);
+    if (error) {
+      toast.error("Erro ao restaurar agricultor");
+    } else {
+      toast.success(`${farmer.full_name} restaurado como Ativo`);
+      queryClient.invalidateQueries({ queryKey: ["farmers_list"] });
+    }
   };
 
   return (
@@ -234,7 +247,11 @@ const Agricultores = () => {
                           <Button variant="ghost" size="icon" className="h-8 w-8"><Eye className="h-4 w-4" /></Button>
                         </Link>
                         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(f)}><Edit className="h-4 w-4" /></Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => setDeleteTarget(f)}><Trash2 className="h-4 w-4" /></Button>
+                        {f.status === "Removido" ? (
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-green-600 hover:text-green-700" onClick={() => handleRestore(f)} title="Restaurar"><RotateCcw className="h-4 w-4" /></Button>
+                        ) : (
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => setDeleteTarget(f)}><Trash2 className="h-4 w-4" /></Button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -276,7 +293,11 @@ const Agricultores = () => {
                     <Button variant="ghost" size="icon" className="h-8 w-8"><Eye className="h-4 w-4" /></Button>
                   </Link>
                   <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(f)}><Edit className="h-4 w-4" /></Button>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => setDeleteTarget(f)}><Trash2 className="h-4 w-4" /></Button>
+                  {f.status === "Removido" ? (
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-green-600 hover:text-green-700" onClick={() => handleRestore(f)} title="Restaurar"><RotateCcw className="h-4 w-4" /></Button>
+                  ) : (
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => setDeleteTarget(f)}><Trash2 className="h-4 w-4" /></Button>
+                  )}
                 </div>
               </div>
             ))}
