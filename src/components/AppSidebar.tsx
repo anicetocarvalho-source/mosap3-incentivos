@@ -3,7 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import {
   LayoutDashboard,
   Users,
-  Building2,
+  
   ArrowLeftRight,
   UserCog,
   Settings,
@@ -75,13 +75,6 @@ const navItems: NavItem[] = [
     icon: MapPin,
     label: "Parcelas",
     path: "/parcelas",
-    compact: true,
-  },
-  {
-    icon: Building2,
-    label: "Empresas",
-    path: "/empresas",
-    allowedRoles: ["admin", "gestor_incentivos", "senior_agronegocio", "junior_agronegocio"],
     compact: true,
   },
   {
