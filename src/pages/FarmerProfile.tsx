@@ -1,7 +1,7 @@
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, User, MapPin, Phone, CreditCard, Wheat, ShoppingCart, Gift, Calendar, FileText, Users, Sprout, Sun, Droplets, CheckCircle2, Camera, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Clock, Printer, Beef, Plus, Fingerprint, Package, FolderOpen } from "lucide-react";
+import { ArrowLeft, User, MapPin, Phone, CreditCard, Wheat, ShoppingCart, Gift, Calendar, FileText, Users, Sprout, Sun, Droplets, CheckCircle2, Camera, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Clock, Printer, Beef, Plus, Fingerprint, Package, FolderOpen, Trash2 } from "lucide-react";
 import { useFarmerFromDb } from "@/hooks/useFarmerFromDb";
 import { useFarmerEnrichedData } from "@/hooks/useFarmerEnrichedData";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import LivestockRegistrationForm from "@/components/LivestockRegistrationForm";
 import ParcelRegistrationForm from "@/components/ParcelRegistrationForm";
@@ -40,7 +44,9 @@ const phaseColors: Record<string, string> = {
 
 const FarmerProfile = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
   const { farmerInfo, farmer: farmerRaw, loading: dbLoading } = useFarmerFromDb(id);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [expandedProduction, setExpandedProduction] = useState<string | null>(null);
   const [zoomedImageIndex, setZoomedImageIndex] = useState<number | null>(null);
   const [parcelDialogOpen, setParcelDialogOpen] = useState(false);
@@ -132,6 +138,9 @@ const FarmerProfile = () => {
           <Button variant="outline" size="sm" className="gap-1.5 hidden sm:flex"><Printer className="h-4 w-4" />Ficha</Button>
           <Button variant="outline" size="icon" className="h-8 w-8 sm:hidden"><Printer className="h-4 w-4" /></Button>
         </Link>
+        <Button variant="outline" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => setDeleteDialogOpen(true)} title="Remover agricultor">
+          <Trash2 className="h-4 w-4" />
+        </Button>
         <span className={`text-[10px] md:text-xs ${
           farmer.status === "Ativo" ? "badge-active" :
           farmer.status === "Pendente" || farmer.status === "Validado" ? "badge-pending" : "badge-suspended"
@@ -840,6 +849,38 @@ const FarmerProfile = () => {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Delete confirmation */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remover agricultor?</AlertDialogTitle>
+            <AlertDialogDescription>
+              O produtor <strong>{farmer.name}</strong> ({farmer.id}) será marcado como <strong>Removido</strong>. Os dados associados serão mantidos. Esta ação pode ser revertida alterando o estado.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={async () => {
+                const { error } = await supabase
+                  .from("farmers")
+                  .update({ status: "Removido" })
+                  .eq("code", farmer.id);
+                if (error) {
+                  toast.error("Erro ao remover agricultor");
+                } else {
+                  toast.success(`${farmer.name} marcado como Removido`);
+                  navigate("/agricultores");
+                }
+              }}
+            >
+              Remover
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
