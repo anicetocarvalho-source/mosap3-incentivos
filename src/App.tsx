@@ -18,7 +18,7 @@ import Transacoes from "@/pages/Transacoes";
 import Utilizadores from "@/pages/Utilizadores";
 import Perfis from "@/pages/Perfis";
 import Incentivos from "@/pages/Incentivos";
-import Compras from "@/pages/Compras";
+
 import Parcelas from "@/pages/Parcelas";
 import Producao from "@/pages/Producao";
 import FarmerProfile from "@/pages/FarmerProfile";
@@ -88,8 +88,7 @@ const App = () => (
               <Route path="/incentivos" element={<RoleGuard allowedRoles={["admin", "gestor_incentivos"]}><Incentivos /></RoleGuard>} />
               <Route path="/transacoes" element={<RoleGuard allowedRoles={["admin", "gestor_incentivos"]}><Transacoes /></RoleGuard>} />
 
-              {/* Compras & Empresas: admin, gestor_incentivos, senior/junior agronegócio */}
-              <Route path="/compras" element={<RoleGuard allowedRoles={["admin", "gestor_incentivos", "senior_agronegocio", "junior_agronegocio"]}><Compras /></RoleGuard>} />
+              {/* Empresas: admin, gestor_incentivos, senior/junior agronegócio */}
               <Route path="/empresas" element={<RoleGuard allowedRoles={["admin", "gestor_incentivos", "senior_agronegocio", "junior_agronegocio"]}><Empresas /></RoleGuard>} />
 
               {/* Relatórios: todos excepto junior_agronegocio e tecnico_extensionista */}

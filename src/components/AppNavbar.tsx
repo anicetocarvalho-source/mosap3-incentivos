@@ -81,13 +81,6 @@ export const navItems: NavItem[] = [
       { label: "Transações", path: "/transacoes", icon: ArrowLeftRight },
     ],
   },
-  {
-    icon: ShoppingCart,
-    label: "Compras",
-    path: "/compras",
-    sidebar: true,
-    allowedRoles: ["admin", "gestor_incentivos", "senior_agronegocio", "junior_agronegocio"],
-  },
   { icon: MapPin, label: "Parcelas", path: "/parcelas" },
   {
     icon: Building2,
