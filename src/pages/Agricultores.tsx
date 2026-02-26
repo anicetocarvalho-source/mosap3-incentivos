@@ -24,6 +24,7 @@ const PAGE_SIZE = 15;
 
 const Agricultores = () => {
   const [search, setSearch] = useState("");
+  const [showSearchSuggestions, setShowSearchSuggestions] = useState(false);
   const [filterPatec, setFilterPatec] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterProvince, setFilterProvince] = useState("all");
@@ -142,8 +143,40 @@ const Agricultores = () => {
       <Card className="p-3 md:p-4">
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 md:gap-3">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="Pesquisar nome, ID, província..." className="pl-10 text-sm" value={search} onChange={(e) => setSearch(e.target.value)} />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10" />
+            <Input
+              placeholder="Pesquisar nome, ID, província..."
+              className="pl-10 text-sm"
+              value={search}
+              onChange={(e) => { setSearch(e.target.value); setShowSearchSuggestions(e.target.value.length >= 2); }}
+              onFocus={() => search.length >= 2 && setShowSearchSuggestions(true)}
+              onBlur={() => setTimeout(() => setShowSearchSuggestions(false), 200)}
+            />
+            {showSearchSuggestions && (() => {
+              const suggestions = farmers.filter((f) =>
+                f.full_name.toLowerCase().includes(search.toLowerCase()) ||
+                f.code.toLowerCase().includes(search.toLowerCase()) ||
+                (f.phone && f.phone.includes(search))
+              ).slice(0, 8);
+              if (suggestions.length === 0) return null;
+              return (
+                <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-popover border border-border rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                  {suggestions.map((s) => (
+                    <Link
+                      key={s.id}
+                      to={`/agricultores/${s.code}`}
+                      className="flex items-center gap-2 px-3 py-2 hover:bg-accent text-sm border-b border-border last:border-0"
+                    >
+                      <FarmerAvatar photoUrl={s.photo_frontal_url} name={s.full_name} size="sm" />
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium truncate">{s.full_name}</p>
+                        <p className="text-xs text-muted-foreground">{s.code} • {s.province || "—"} • {s.phone || "—"}</p>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              );
+            })()}
           </div>
           <div className="flex items-center gap-2">
             <Select value={filterProvince} onValueChange={setFilterProvince}>
