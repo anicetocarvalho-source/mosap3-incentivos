@@ -53,11 +53,6 @@ const navItems: NavItem[] = [
     ],
   },
   {
-    icon: Package,
-    label: "PATEC",
-    path: "/patec",
-  },
-  {
     icon: School,
     label: "Escolas de Campo",
     path: "/escolas",
@@ -67,6 +62,7 @@ const navItems: NavItem[] = [
     label: "Incentivos",
     allowedRoles: ["admin", "gestor_incentivos"],
     children: [
+      { label: "PATEC", path: "/patec", icon: Package },
       { label: "Incentivos", path: "/incentivos", icon: Gift },
       { label: "Transações", path: "/transacoes", icon: ArrowLeftRight },
     ],

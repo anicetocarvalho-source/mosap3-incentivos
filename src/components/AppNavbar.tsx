@@ -69,7 +69,6 @@ export const navItems: NavItem[] = [
       { label: "Registo do Pequeno Produtor", path: "/agricultores", icon: UserPlus },
     ],
   },
-  { icon: Package, label: "PATEC", path: "/patec", sidebar: true },
   { icon: School, label: "Escolas", path: "/escolas" },
   {
     icon: Gift,
@@ -77,6 +76,7 @@ export const navItems: NavItem[] = [
     sidebar: true,
     allowedRoles: ["admin", "gestor_incentivos"],
     children: [
+      { label: "PATEC", path: "/patec", icon: Package },
       { label: "Incentivos", path: "/incentivos", icon: Gift },
       { label: "Transações", path: "/transacoes", icon: ArrowLeftRight },
     ],
