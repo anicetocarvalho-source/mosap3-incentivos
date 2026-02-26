@@ -1,5 +1,18 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+
+async function signUrl(path: string | null): Promise<string | null> {
+  if (!path) return null;
+  // Extract storage path from old full URLs
+  const marker = "/object/public/farmer-media/";
+  const idx = path.indexOf(marker);
+  const cleanPath = idx !== -1 ? path.substring(idx + marker.length) : path;
+  const { data, error } = await supabase.storage
+    .from("farmer-media")
+    .createSignedUrl(cleanPath, 3600);
+  if (error || !data) return null;
+  return data.signedUrl;
+}
 
 export interface FarmerDbRecord {
   id: string;
@@ -61,12 +74,38 @@ export function useFarmerFromDb(code: string | undefined) {
     return () => { cancelled = true; };
   }, [code]);
 
-  // Build photos object from DB data
-  const dbPhotos = farmer ? {
-    ...(farmer.photo_frontal_url && { frontal: farmer.photo_frontal_url }),
-    ...(farmer.photo_profile_left_url && { perfilEsq: farmer.photo_profile_left_url }),
-    ...(farmer.photo_profile_right_url && { perfilDir: farmer.photo_profile_right_url }),
-  } : null;
+  // Sign photo URLs
+  const [signedPhotos, setSignedPhotos] = useState<Record<string, string> | null>(null);
+
+  useEffect(() => {
+    if (!farmer) {
+      setSignedPhotos(null);
+      return;
+    }
+
+    let cancelled = false;
+    const photoMap: Record<string, string | null> = {
+      frontal: farmer.photo_frontal_url,
+      perfilEsq: farmer.photo_profile_left_url,
+      perfilDir: farmer.photo_profile_right_url,
+    };
+
+    Promise.all(
+      Object.entries(photoMap).map(async ([key, path]) => {
+        const url = await signUrl(path);
+        return [key, url] as const;
+      })
+    ).then((results) => {
+      if (cancelled) return;
+      const signed: Record<string, string> = {};
+      for (const [key, url] of results) {
+        if (url) signed[key] = url;
+      }
+      setSignedPhotos(Object.keys(signed).length > 0 ? signed : null);
+    });
+
+    return () => { cancelled = true; };
+  }, [farmer]);
 
   // Build biometrics status object (true/false for each)
   const dbBiometrics = farmer ? {
@@ -97,8 +136,15 @@ export function useFarmerFromDb(code: string | undefined) {
     school: farmer.school || "",
     status: farmer.status,
     registeredAt: formatDate(farmer.created_at),
-    photos: dbPhotos && Object.keys(dbPhotos).length > 0 ? dbPhotos : undefined,
+    photos: signedPhotos || undefined,
     biometrics: dbBiometrics,
+  } : null;
+
+  // Raw paths for reference
+  const dbPhotos = farmer ? {
+    ...(farmer.photo_frontal_url && { frontal: farmer.photo_frontal_url }),
+    ...(farmer.photo_profile_left_url && { perfilEsq: farmer.photo_profile_left_url }),
+    ...(farmer.photo_profile_right_url && { perfilDir: farmer.photo_profile_right_url }),
   } : null;
 
   return { farmer, loading, dbPhotos, dbBiometrics, farmerInfo };
