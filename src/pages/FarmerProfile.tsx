@@ -1,7 +1,7 @@
 import { useParams, Link } from "react-router-dom";
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, User, MapPin, Phone, CreditCard, Wheat, ShoppingCart, Gift, Calendar, FileText, Users, Sprout, Sun, Droplets, CheckCircle2, Camera, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Clock, Printer, Beef, Plus, Fingerprint, Package } from "lucide-react";
+import { ArrowLeft, User, MapPin, Phone, CreditCard, Wheat, ShoppingCart, Gift, Calendar, FileText, Users, Sprout, Sun, Droplets, CheckCircle2, Camera, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Clock, Printer, Beef, Plus, Fingerprint, Package, FolderOpen } from "lucide-react";
 import { useFarmerFromDb } from "@/hooks/useFarmerFromDb";
 import { useFarmerEnrichedData } from "@/hooks/useFarmerEnrichedData";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,7 @@ import LivestockRegistrationForm from "@/components/LivestockRegistrationForm";
 import ParcelRegistrationForm from "@/components/ParcelRegistrationForm";
 import DependentRegistrationForm from "@/components/DependentRegistrationForm";
 import TransactionRegistrationForm from "@/components/TransactionRegistrationForm";
+import FarmerDocuments from "@/components/FarmerDocuments";
 import { supabase } from "@/integrations/supabase/client";
 
 const allPhases = ["Preparação", "Sementeira", "Crescimento", "Floração", "Colheita", "Pós-Colheita"];
@@ -246,6 +247,9 @@ const FarmerProfile = () => {
             </TabsTrigger>
             <TabsTrigger value="dependentes" className="gap-1.5 text-xs md:text-sm data-[state=active]:bg-card whitespace-nowrap">
               <Users className="h-3.5 w-3.5 md:h-4 md:w-4" /> <span className="hidden sm:inline">Dependentes</span> ({dependents.length})
+            </TabsTrigger>
+            <TabsTrigger value="documentos" className="gap-1.5 text-xs md:text-sm data-[state=active]:bg-card whitespace-nowrap">
+              <FolderOpen className="h-3.5 w-3.5 md:h-4 md:w-4" /> <span className="hidden sm:inline">Documentos</span>
             </TabsTrigger>
             <TabsTrigger value="patec" className="gap-1.5 text-xs md:text-sm data-[state=active]:bg-card whitespace-nowrap">
               <Package className="h-3.5 w-3.5 md:h-4 md:w-4" /> <span className="hidden sm:inline">PATEC</span>
@@ -688,6 +692,11 @@ const FarmerProfile = () => {
                 ))}
               </div>
             </Card>
+          </TabsContent>
+
+          {/* Documentos Tab */}
+          <TabsContent value="documentos" className="mt-4 space-y-4">
+            <FarmerDocuments farmerCode={farmer.id} />
           </TabsContent>
 
           {/* PATEC Tab */}
