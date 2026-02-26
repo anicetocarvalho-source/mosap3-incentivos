@@ -1,28 +1,52 @@
 import { motion } from "framer-motion";
-import { ArrowRightLeft, Search, Filter } from "lucide-react";
+import { Search, Filter, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 
-const transacoes = [
-  { id: "TXN-001", farmer: "João Mateus", farmerId: "PP-14819", amount: "45.000,00", province: "Benguela", type: "Compra Subsidiada", status: "Concluída", date: "12/02/2026", empresa: "AgroSul Lda" },
-  { id: "TXN-002", farmer: "Maria Silva", farmerId: "PP-14818", amount: "30.000,00", province: "Huila", type: "Incentivo", status: "Concluída", date: "11/02/2026", empresa: "Fazenda Verde" },
-  { id: "TXN-003", farmer: "Pedro Neto", farmerId: "PP-14817", amount: "120.000,00", province: "Benguela", type: "Compra Subsidiada", status: "Pendente", date: "10/02/2026", empresa: "SemPro Angola" },
-  { id: "TXN-004", farmer: "Ana Luísa", farmerId: "PP-14816", amount: "25.000,00", province: "Namibe", type: "Incentivo", status: "Concluída", date: "09/02/2026", empresa: "FertiPlus" },
-  { id: "TXN-005", farmer: "Carlos Manuel", farmerId: "PP-14815", amount: "85.000,00", province: "Cuando Cubango", type: "Compra Subsidiada", status: "Rejeitada", date: "08/02/2026", empresa: "Agro Cuando" },
-  { id: "TXN-006", farmer: "Teresa João", farmerId: "PP-14814", amount: "60.000,00", province: "Huila", type: "Incentivo", status: "Concluída", date: "07/02/2026", empresa: "Fazenda Verde" },
-  { id: "TXN-007", farmer: "Manuel Costa", farmerId: "PP-14813", amount: "95.000,00", province: "Benguela", type: "Compra Subsidiada", status: "Pendente", date: "06/02/2026", empresa: "MecAgro SA" },
-  { id: "TXN-008", farmer: "Isabel Santos", farmerId: "PP-14812", amount: "40.000,00", province: "Cunene", type: "Incentivo", status: "Concluída", date: "05/02/2026", empresa: "AgroSul Lda" },
-];
+const PAGE_SIZE = 10;
 
 const Transacoes = () => {
   const [search, setSearch] = useState("");
-  const filtered = transacoes.filter((t) =>
-    t.farmer.toLowerCase().includes(search.toLowerCase()) ||
-    t.id.toLowerCase().includes(search.toLowerCase()) ||
-    t.empresa.toLowerCase().includes(search.toLowerCase())
-  );
+  const [empresaFilter, setEmpresaFilter] = useState("all");
+  const [page, setPage] = useState(1);
+
+  const { data: transactions = [], isLoading } = useQuery({
+    queryKey: ["farmer_transactions"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("farmer_transactions")
+        .select("*, farmers!farmer_transactions_farmer_code_fkey(full_name, province)")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  useEffect(() => { setPage(1); }, [search, empresaFilter]);
+
+  const empresas = [...new Set(transactions.map((t: any) => t.empresa))].sort();
+
+  const filtered = transactions.filter((t: any) => {
+    const name = t.farmers?.full_name || "";
+    const matchesSearch =
+      name.toLowerCase().includes(search.toLowerCase()) ||
+      t.farmer_code.toLowerCase().includes(search.toLowerCase()) ||
+      t.empresa.toLowerCase().includes(search.toLowerCase()) ||
+      t.product.toLowerCase().includes(search.toLowerCase());
+    const matchesEmpresa = empresaFilter === "all" || t.empresa === empresaFilter;
+    return matchesSearch && matchesEmpresa;
+  });
+
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   return (
     <div className="space-y-6">
@@ -33,7 +57,7 @@ const Transacoes = () => {
         </div>
       </div>
 
-      <div className="flex gap-3">
+      <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative max-w-sm flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -43,10 +67,17 @@ const Transacoes = () => {
             className="pl-10"
           />
         </div>
-        <Button variant="outline" className="gap-2">
-          <Filter className="h-4 w-4" />
-          Filtros
-        </Button>
+        <Select value={empresaFilter} onValueChange={setEmpresaFilter}>
+          <SelectTrigger className="w-full sm:w-48">
+            <SelectValue placeholder="Empresa" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todas as empresas</SelectItem>
+            {empresas.map((e: string) => (
+              <SelectItem key={e} value={e}>{e}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
@@ -55,45 +86,67 @@ const Transacoes = () => {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border bg-muted/50">
-                  <th className="text-left px-6 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">ID</th>
+                  <th className="text-left px-6 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Código</th>
                   <th className="text-left px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Produtor</th>
                   <th className="text-left px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Empresa</th>
-                  <th className="text-left px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Tipo</th>
+                  <th className="text-left px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Produto</th>
                   <th className="text-right px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Valor (AOA)</th>
-                  <th className="text-left px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Estado</th>
                   <th className="text-left px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Data</th>
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((t, i) => (
+                {isLoading ? (
+                  Array.from({ length: 5 }).map((_, i) => (
+                    <tr key={i} className="border-b border-border">
+                      <td className="px-6 py-3"><Skeleton className="h-4 w-20" /></td>
+                      <td className="px-4 py-3"><Skeleton className="h-4 w-32" /></td>
+                      <td className="px-4 py-3"><Skeleton className="h-4 w-24" /></td>
+                      <td className="px-4 py-3"><Skeleton className="h-4 w-24" /></td>
+                      <td className="px-4 py-3"><Skeleton className="h-4 w-20" /></td>
+                      <td className="px-4 py-3"><Skeleton className="h-4 w-20" /></td>
+                    </tr>
+                  ))
+                ) : paginated.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-12 text-center text-muted-foreground">
+                      Nenhuma transação encontrada
+                    </td>
+                  </tr>
+                ) : paginated.map((t: any) => (
                   <tr key={t.id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
-                    <td className="px-6 py-3 font-mono text-xs text-muted-foreground">{t.id}</td>
+                    <td className="px-6 py-3 font-mono text-xs text-muted-foreground">{t.farmer_code}</td>
                     <td className="px-4 py-3">
                       <div>
-                        <p className="font-medium">{t.farmer}</p>
-                        <p className="text-xs text-muted-foreground">{t.farmerId} · {t.province}</p>
+                        <p className="font-medium">{t.farmers?.full_name || "—"}</p>
+                        <p className="text-xs text-muted-foreground">{t.farmers?.province || "—"}</p>
                       </div>
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">{t.empresa}</td>
                     <td className="px-4 py-3">
                       <span className="text-xs font-medium px-2 py-1 rounded bg-accent text-accent-foreground">
-                        {t.type}
+                        {t.product}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-right font-semibold">{t.amount}</td>
-                    <td className="px-4 py-3">
-                      <span className={
-                        t.status === "Concluída" ? "badge-active" :
-                        t.status === "Pendente" ? "badge-pending" : "badge-suspended"
-                      }>
-                        {t.status}
-                      </span>
+                    <td className="px-4 py-3 text-right font-semibold">{t.valor}</td>
+                    <td className="px-4 py-3 text-muted-foreground text-xs">
+                      {t.transaction_date || new Date(t.created_at).toLocaleDateString("pt-AO")}
                     </td>
-                    <td className="px-4 py-3 text-muted-foreground text-xs">{t.date}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
+          </div>
+          <div className="px-6 py-3 border-t border-border flex items-center justify-between text-sm text-muted-foreground">
+            <span>A mostrar {Math.min((page - 1) * PAGE_SIZE + 1, filtered.length)}–{Math.min(page * PAGE_SIZE, filtered.length)} de {filtered.length} transações</span>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <span className="text-sm font-medium">{page} / {totalPages || 1}</span>
+              <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage(page + 1)}>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </Card>
       </motion.div>

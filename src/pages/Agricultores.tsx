@@ -1,29 +1,41 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Plus, Search, Download, Eye, Edit, User, Package } from "lucide-react";
+import { Plus, Search, Download, Eye, Edit, Package, ChevronLeft, ChevronRight } from "lucide-react";
 import FarmerAvatar from "@/components/FarmerAvatar";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import FarmerRegistrationForm from "@/components/FarmerRegistrationForm";
 import { useFarmersList } from "@/hooks/useFarmersList";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+
+const PAGE_SIZE = 15;
 
 const Agricultores = () => {
   const [search, setSearch] = useState("");
   const [filterPatec, setFilterPatec] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
+  const [filterProvince, setFilterProvince] = useState("all");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingFarmer, setEditingFarmer] = useState<any>(null);
+  const [page, setPage] = useState(1);
   const { farmers, loading } = useFarmersList();
+
+  const { data: provinces = [] } = useQuery({
+    queryKey: ["provinces_list"],
+    queryFn: async () => {
+      const { data } = await supabase.from("provinces").select("id, name").order("name");
+      return data || [];
+    },
+  });
+
+  useEffect(() => { setPage(1); }, [search, filterPatec, filterStatus, filterProvince]);
 
   const filtered = farmers.filter((f) => {
     const matchesSearch =
@@ -37,8 +49,14 @@ const Agricultores = () => {
     const matchesStatus =
       filterStatus === "all" ||
       f.status.toLowerCase() === filterStatus.toLowerCase();
-    return matchesSearch && matchesPatec && matchesStatus;
+    const matchesProvince =
+      filterProvince === "all" ||
+      (f.province || "").toLowerCase() === filterProvince.toLowerCase();
+    return matchesSearch && matchesPatec && matchesStatus && matchesProvince;
   });
+
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const handleEdit = (farmer: any) => {
     setEditingFarmer({
@@ -57,6 +75,17 @@ const Agricultores = () => {
   const handleCloseDialog = (open: boolean) => {
     setDialogOpen(open);
     if (!open) setEditingFarmer(null);
+  };
+
+  const handleExportCSV = () => {
+    const headers = ["Código", "Nome", "BI", "Telefone", "Província", "Município", "Escola", "PATEC", "Estado"];
+    const rows = filtered.map(f => [f.code, f.full_name, f.bi || "", f.phone || "", f.province || "", f.municipality || "", f.school || "", f.patec || "", f.status]);
+    const csv = [headers, ...rows].map(r => r.map(c => `"${c}"`).join(",")).join("\n");
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `agricultores_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click(); URL.revokeObjectURL(url);
   };
 
   return (
@@ -79,21 +108,16 @@ const Agricultores = () => {
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 md:gap-3">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Pesquisar nome, ID, província..."
-              className="pl-10 text-sm"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
+            <Input placeholder="Pesquisar nome, ID, província..." className="pl-10 text-sm" value={search} onChange={(e) => setSearch(e.target.value)} />
           </div>
           <div className="flex items-center gap-2">
-            <Select>
+            <Select value={filterProvince} onValueChange={setFilterProvince}>
               <SelectTrigger className="w-full sm:w-36 text-xs md:text-sm"><SelectValue placeholder="Província" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todas</SelectItem>
-                <SelectItem value="benguela">Benguela</SelectItem>
-                <SelectItem value="huambo">Huambo</SelectItem>
-                <SelectItem value="bie">Bié</SelectItem>
+                {provinces.map((p: any) => (
+                  <SelectItem key={p.id} value={p.name.toLowerCase()}>{p.name}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
             <Select value={filterStatus} onValueChange={setFilterStatus}>
@@ -118,7 +142,9 @@ const Agricultores = () => {
                 <SelectItem value="none">Sem PATEC</SelectItem>
               </SelectContent>
             </Select>
-            <Button variant="outline" size="icon" className="flex-shrink-0"><Download className="h-4 w-4" /></Button>
+            <Button variant="outline" size="icon" className="flex-shrink-0" onClick={handleExportCSV} title="Exportar CSV">
+              <Download className="h-4 w-4" />
+            </Button>
           </div>
         </div>
       </Card>
@@ -151,10 +177,11 @@ const Agricultores = () => {
                       <td className="px-4 py-3"><Skeleton className="h-4 w-20" /></td>
                       <td className="px-4 py-3"><Skeleton className="h-4 w-24" /></td>
                       <td className="px-4 py-3"><Skeleton className="h-4 w-16" /></td>
+                      <td className="px-4 py-3"><Skeleton className="h-4 w-16" /></td>
                       <td className="px-6 py-3"><Skeleton className="h-4 w-16 ml-auto" /></td>
                     </tr>
                   ))
-                ) : filtered.map((f) => (
+                ) : paginated.map((f) => (
                   <tr key={f.id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
                     <td className="px-6 py-3">
                       <div className="flex items-center gap-3">
@@ -201,7 +228,9 @@ const Agricultores = () => {
                   <Skeleton className="h-4 w-1/2" />
                 </div>
               ))
-            ) : filtered.map((f) => (
+            ) : paginated.length === 0 ? (
+              <div className="p-8 text-center text-muted-foreground">Nenhum agricultor encontrado</div>
+            ) : paginated.map((f) => (
               <div key={f.id} className="p-3 flex items-center gap-3">
                 <FarmerAvatar photoUrl={f.photo_frontal_url} name={f.full_name} size="h-10 w-10" />
                 <div className="flex-1 min-w-0">
@@ -229,7 +258,12 @@ const Agricultores = () => {
           </div>
 
           <div className="px-4 md:px-6 py-3 border-t border-border flex items-center justify-between text-xs md:text-sm text-muted-foreground">
-            <span>{filtered.length} de {farmers.length} agricultores</span>
+            <span>{filtered.length > 0 ? (page - 1) * PAGE_SIZE + 1 : 0}–{Math.min(page * PAGE_SIZE, filtered.length)} de {filtered.length} agricultores</span>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)}><ChevronLeft className="h-4 w-4" /></Button>
+              <span className="text-sm font-medium">{page} / {totalPages || 1}</span>
+              <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage(page + 1)}><ChevronRight className="h-4 w-4" /></Button>
+            </div>
           </div>
         </Card>
       </motion.div>
