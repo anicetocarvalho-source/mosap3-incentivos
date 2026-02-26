@@ -10,6 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useProvinceMunicipalities } from "@/hooks/useProvinceMunicipalities";
 import {
   Dialog,
   DialogContent,
@@ -77,22 +78,30 @@ const FarmerRegistrationForm = ({ open, onOpenChange, editData }: Props) => {
   const isOnline = useOnlineStatus();
   const { toast } = useToast();
 
+  // Cascading province → municipality
+  const selectedProvinceId = formData.provincia || undefined;
+  const { provinces: provinceOptions, municipalities: municipalityOptions } = useProvinceMunicipalities(selectedProvinceId);
+
   useEffect(() => {
     if (editData && open) {
+      // Match province name to ID
+      const matchedProvince = provinceOptions.find(
+        p => p.name.toLowerCase() === editData.province?.toLowerCase() || p.slug === editData.province?.toLowerCase()
+      );
       setFormData({
         nome: editData.name,
         bi: editData.bi,
         dataNascimento: "",
         genero: "",
         telefone: editData.phone,
-        provincia: editData.province.toLowerCase(),
+        provincia: matchedProvince?.id || "",
         municipio: editData.municipality,
         escolaCampo: "",
         patec: editData.patec?.toString() || "",
       });
       setStep(1);
     }
-  }, [editData, open]);
+  }, [editData, open, provinceOptions]);
 
   const handlePhotoUpload = (key: string) => {
     setActiveUpload(key);
@@ -152,7 +161,7 @@ const FarmerRegistrationForm = ({ open, onOpenChange, editData }: Props) => {
           birth_date: formData.dataNascimento || null,
           gender: formData.genero || null,
           phone: formData.telefone || null,
-          province: formData.provincia || null,
+          province: provinceOptions.find(p => p.id === formData.provincia)?.name || formData.provincia || null,
           municipality: formData.municipio || null,
           school: formData.escolaCampo || null,
           patec: formData.patec ? parseInt(formData.patec) : null,
@@ -294,14 +303,12 @@ const FarmerRegistrationForm = ({ open, onOpenChange, editData }: Props) => {
               </div>
               <div className="space-y-2">
                 <Label>Província</Label>
-                <Select value={formData.provincia} onValueChange={(v) => updateField("provincia", v)}>
+                <Select value={formData.provincia} onValueChange={(v) => { updateField("provincia", v); updateField("municipio", ""); }}>
                   <SelectTrigger><SelectValue placeholder="Selecionar" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="benguela">Benguela</SelectItem>
-                    <SelectItem value="huambo">Huambo</SelectItem>
-                    <SelectItem value="bie">Bié</SelectItem>
-                    <SelectItem value="huila">Huíla</SelectItem>
-                    <SelectItem value="malanje">Malanje</SelectItem>
+                    {provinceOptions.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -309,7 +316,14 @@ const FarmerRegistrationForm = ({ open, onOpenChange, editData }: Props) => {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Município</Label>
-                <Input placeholder="Município" value={formData.municipio} onChange={(e) => updateField("municipio", e.target.value)} />
+                <Select value={formData.municipio} onValueChange={(v) => updateField("municipio", v)} disabled={!formData.provincia}>
+                  <SelectTrigger><SelectValue placeholder={formData.provincia ? "Selecionar município" : "Selecione a província primeiro"} /></SelectTrigger>
+                  <SelectContent>
+                    {municipalityOptions.map((m) => (
+                      <SelectItem key={m.id} value={m.name}>{m.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
                 <Label>Escola de Campo</Label>
