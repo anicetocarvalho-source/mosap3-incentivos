@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Package, Search, Filter, Edit2, Eye, CheckSquare, X, Plus, Trash2, Pencil, Check, ChevronLeft, ChevronRight } from "lucide-react";
+import { Package, Search, Filter, Edit2, Eye, CheckSquare, X, Plus, Trash2, Pencil, Check, ChevronLeft, ChevronRight, Wheat, Loader2, Users, AlertCircle, Sprout, Leaf, TreeDeciduous } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -31,10 +31,10 @@ interface PatecItem {
   name: string;
 }
 
-const patecMeta: Record<number, { title: string; color: string; cultures: string }> = {
-  1: { title: "PATEC 1 — Milho + Feijão + Gado", color: "bg-amber-100 text-amber-800 border-amber-300", cultures: "Milho + Feijão" },
-  2: { title: "PATEC 2 — Massango + Feijão + Gado", color: "bg-emerald-100 text-emerald-800 border-emerald-300", cultures: "Massango + Feijão" },
-  3: { title: "PATEC 3 — Massambala + Feijão + Gado", color: "bg-violet-100 text-violet-800 border-violet-300", cultures: "Massambala + Feijão" },
+const patecMeta: Record<number, { title: string; color: string; cultures: string; icon: any; gradient: string; bgAccent: string }> = {
+  1: { title: "PATEC 1 — Milho + Feijão + Gado", color: "bg-amber-100 text-amber-800 border-amber-300", cultures: "Milho + Feijão", icon: Wheat, gradient: "from-amber-500 to-orange-500", bgAccent: "bg-amber-50 dark:bg-amber-950/30" },
+  2: { title: "PATEC 2 — Massango + Feijão + Gado", color: "bg-emerald-100 text-emerald-800 border-emerald-300", cultures: "Massango + Feijão", icon: Sprout, gradient: "from-emerald-500 to-teal-500", bgAccent: "bg-emerald-50 dark:bg-emerald-950/30" },
+  3: { title: "PATEC 3 — Massambala + Feijão + Gado", color: "bg-violet-100 text-violet-800 border-violet-300", cultures: "Massambala + Feijão", icon: Leaf, gradient: "from-violet-500 to-purple-500", bgAccent: "bg-violet-50 dark:bg-violet-950/30" },
 };
 
 const categoryLabels: Record<string, string> = {
@@ -44,9 +44,15 @@ const categoryLabels: Record<string, string> = {
 };
 
 const categoryColors: Record<string, string> = {
-  insumos: "text-amber-700",
-  pecuaria: "text-emerald-700",
-  servicos: "text-blue-700",
+  insumos: "text-amber-700 dark:text-amber-400",
+  pecuaria: "text-emerald-700 dark:text-emerald-400",
+  servicos: "text-blue-700 dark:text-blue-400",
+};
+
+const categoryIcons: Record<string, string> = {
+  insumos: "🌾",
+  pecuaria: "🐄",
+  servicos: "🔧",
 };
 
 const PAGE_SIZE = 15;
@@ -238,7 +244,9 @@ const Patec = () => {
     return (
       <div key={category} className="space-y-1.5">
         <div className="flex items-center justify-between">
-          <p className={`font-semibold text-xs ${categoryColors[category]}`}>{categoryLabels[category]}</p>
+          <p className={`font-semibold text-xs flex items-center gap-1.5 ${categoryColors[category]}`}>
+            <span>{categoryIcons[category]}</span> {categoryLabels[category]}
+          </p>
           {isAdmin && (
             <Button
               variant="ghost"
@@ -327,81 +335,136 @@ const Patec = () => {
   };
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-heading font-bold flex items-center gap-2">
-          <Package className="h-6 w-6 text-primary" />
-          Pacotes Tecnológicos (PATEC)
-        </h1>
-        <p className="text-muted-foreground text-sm mt-1">
-          Gestão e atribuição dos pacotes tecnológicos aos produtores — Ano de Arranque MOSAP III
-        </p>
+    <div className="space-y-8">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-heading font-bold flex items-center gap-2">
+            <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center">
+              <Package className="h-5 w-5 text-primary-foreground" />
+            </div>
+            Pacotes Tecnológicos
+          </h1>
+          <p className="text-muted-foreground text-sm mt-1">
+            Gestão e atribuição dos pacotes tecnológicos aos produtores — Ano de Arranque MOSAP III
+          </p>
+        </div>
+        <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 rounded-lg px-3 py-2">
+          <Users className="h-3.5 w-3.5" />
+          <span><strong className="text-foreground">{stats.total}</strong> produtores registados</span>
+          {stats.semPatec > 0 && (
+            <>
+              <span className="text-border">|</span>
+              <AlertCircle className="h-3.5 w-3.5 text-destructive" />
+              <span className="text-destructive font-medium">{stats.semPatec} sem PATEC</span>
+            </>
+          )}
+        </div>
       </div>
 
-      {/* Stats cards */}
+      {/* Stats cards — visual upgrade */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        <Card className="cursor-pointer hover:border-primary/50 transition-colors" onClick={() => setFilterPatec("all")}>
+        <Card className={`cursor-pointer transition-all hover:shadow-md ${filterPatec === "all" ? "ring-2 ring-primary/30 border-primary/50" : "hover:border-primary/30"}`} onClick={() => setFilterPatec("all")}>
           <CardContent className="p-4 text-center">
+            <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center mx-auto mb-2">
+              <Users className="h-4 w-4 text-primary" />
+            </div>
             <p className="text-2xl font-bold">{stats.total}</p>
             <p className="text-xs text-muted-foreground">Total Produtores</p>
           </CardContent>
         </Card>
-        {[1, 2, 3].map((p) => (
-          <Card key={p} className="cursor-pointer hover:border-primary/50 transition-colors" onClick={() => setFilterPatec(String(p))}>
-            <CardContent className="p-4 text-center">
-              <p className="text-2xl font-bold">{p === 1 ? stats.patec1 : p === 2 ? stats.patec2 : stats.patec3}</p>
-              <p className="text-xs text-muted-foreground">PATEC {p}</p>
-              <Badge variant="outline" className={`mt-1 text-[10px] ${patecMeta[p].color}`}>
-                {patecMeta[p].cultures}
-              </Badge>
-            </CardContent>
-          </Card>
-        ))}
-        <Card className="cursor-pointer hover:border-destructive/50 transition-colors" onClick={() => setFilterPatec("none")}>
+        {[1, 2, 3].map((p) => {
+          const meta = patecMeta[p];
+          const Icon = meta.icon;
+          const count = p === 1 ? stats.patec1 : p === 2 ? stats.patec2 : stats.patec3;
+          const pct = stats.total > 0 ? Math.round((count / stats.total) * 100) : 0;
+          return (
+            <Card key={p} className={`cursor-pointer transition-all hover:shadow-md ${filterPatec === String(p) ? "ring-2 ring-primary/30 border-primary/50" : "hover:border-primary/30"}`} onClick={() => setFilterPatec(String(p))}>
+              <CardContent className="p-4 text-center">
+                <div className={`h-8 w-8 rounded-lg bg-gradient-to-br ${meta.gradient} flex items-center justify-center mx-auto mb-2`}>
+                  <Icon className="h-4 w-4 text-white" />
+                </div>
+                <p className="text-2xl font-bold">{count}</p>
+                <p className="text-xs text-muted-foreground">PATEC {p}</p>
+                <div className="mt-2 space-y-1">
+                  <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                    <div className={`h-full rounded-full bg-gradient-to-r ${meta.gradient}`} style={{ width: `${pct}%` }} />
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">{pct}% • {meta.cultures}</p>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
+        <Card className={`cursor-pointer transition-all hover:shadow-md ${filterPatec === "none" ? "ring-2 ring-destructive/30 border-destructive/50" : "hover:border-destructive/30"}`} onClick={() => setFilterPatec("none")}>
           <CardContent className="p-4 text-center">
+            <div className="h-8 w-8 rounded-lg bg-destructive/10 flex items-center justify-center mx-auto mb-2">
+              <AlertCircle className="h-4 w-4 text-destructive" />
+            </div>
             <p className="text-2xl font-bold text-destructive">{stats.semPatec}</p>
             <p className="text-xs text-muted-foreground">Sem PATEC</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Composition cards - editable */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {[1, 2, 3].map((p) => (
-          <Card key={p} className="border-l-4" style={{ borderLeftColor: p === 1 ? "hsl(var(--chart-1))" : p === 2 ? "hsl(var(--chart-2))" : "hsl(var(--chart-3))" }}>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm flex items-center justify-between">
-                {patecMeta[p].title}
-                <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setViewPatec(p)}>
-                  <Eye className="h-3 w-3 mr-1" /> Detalhes
-                </Button>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="text-xs space-y-3">
-              {["insumos", "pecuaria", "servicos"].map((cat) => renderItemList(p, cat))}
-            </CardContent>
-          </Card>
-        ))}
+      {/* Composition cards - improved */}
+      <div>
+        <h2 className="text-sm font-semibold flex items-center gap-2 mb-3">
+          <TreeDeciduous className="h-4 w-4 text-primary" />
+          Composição dos Pacotes
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {[1, 2, 3].map((p) => {
+            const meta = patecMeta[p];
+            const Icon = meta.icon;
+            return (
+              <Card key={p} className={`overflow-hidden ${meta.bgAccent}`}>
+                <CardHeader className="pb-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className={`h-7 w-7 rounded-lg bg-gradient-to-br ${meta.gradient} flex items-center justify-center`}>
+                        <Icon className="h-3.5 w-3.5 text-white" />
+                      </div>
+                      <CardTitle className="text-sm">PATEC {p}</CardTitle>
+                    </div>
+                    <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setViewPatec(p)}>
+                      <Eye className="h-3 w-3 mr-1" /> Detalhes
+                    </Button>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-1">{meta.cultures} + Gado</p>
+                </CardHeader>
+                <CardContent className="text-xs space-y-3 pt-0">
+                  {["insumos", "pecuaria", "servicos"].map((cat) => renderItemList(p, cat))}
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
       </div>
 
       {/* Filters + Bulk action bar */}
       <div className="flex flex-col gap-3">
+        <div className="flex items-center gap-2 text-sm font-semibold">
+          <Users className="h-4 w-4 text-primary" />
+          Lista de Produtores
+          <Badge variant="outline" className="text-[10px] font-normal ml-1">{filtered.length} resultado{filtered.length !== 1 ? "s" : ""}</Badge>
+        </div>
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input placeholder="Pesquisar por nome ou código..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
           </div>
           <Select value={filterPatec} onValueChange={setFilterPatec}>
-            <SelectTrigger className="w-[180px]">
+            <SelectTrigger className="w-[200px]">
               <Filter className="h-4 w-4 mr-2" />
               <SelectValue placeholder="Filtrar PATEC" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Todos</SelectItem>
-              <SelectItem value="1">PATEC 1 — Milho</SelectItem>
-              <SelectItem value="2">PATEC 2 — Massango</SelectItem>
-              <SelectItem value="3">PATEC 3 — Massambala</SelectItem>
-              <SelectItem value="none">Sem PATEC</SelectItem>
+              <SelectItem value="all">Todos os Produtores</SelectItem>
+              <SelectItem value="1">🌾 PATEC 1 — Milho</SelectItem>
+              <SelectItem value="2">🌱 PATEC 2 — Massango</SelectItem>
+              <SelectItem value="3">🍃 PATEC 3 — Massambala</SelectItem>
+              <SelectItem value="none">⚠️ Sem PATEC</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -445,7 +508,7 @@ const Patec = () => {
               </TableHeader>
               <TableBody>
                 {loading ? (
-                  <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin inline mr-2" />Carregando produtores...</TableCell></TableRow>
                 ) : paginated.length === 0 ? (
                   <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Nenhum produtor encontrado</TableCell></TableRow>
                 ) : paginated.map((f) => (
