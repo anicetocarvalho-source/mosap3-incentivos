@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from "react";
-import { Upload, FileText, Trash2, Download, Loader2, File, Image as ImageIcon } from "lucide-react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { Upload, FileText, Trash2, Download, Loader2, File, Image as ImageIcon, Eye, EyeOff, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -24,9 +24,18 @@ const FILE_TYPE_OPTIONS = [
 
 const fileTypeLabel = (t: string) => FILE_TYPE_OPTIONS.find((o) => o.value === t)?.label || t;
 
-const fileIcon = (name: string) => {
+const isImage = (name: string) => {
   const ext = name.split(".").pop()?.toLowerCase();
-  if (["jpg", "jpeg", "png", "webp", "gif"].includes(ext || "")) return ImageIcon;
+  return ["jpg", "jpeg", "png", "webp", "gif"].includes(ext || "");
+};
+
+const isPdf = (name: string) => {
+  return name.split(".").pop()?.toLowerCase() === "pdf";
+};
+
+const fileIcon = (name: string) => {
+  if (isImage(name)) return ImageIcon;
+  if (isPdf(name)) return FileText;
   return File;
 };
 
@@ -42,6 +51,9 @@ export default function FarmerDocuments({ farmerCode }: { farmerCode: string }) 
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [fileType, setFileType] = useState("outro");
+  const [previewUrls, setPreviewUrls] = useState<Record<string, string>>({});
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const fetchDocs = async () => {
@@ -50,11 +62,53 @@ export default function FarmerDocuments({ farmerCode }: { farmerCode: string }) 
       .select("*")
       .eq("farmer_code", farmerCode)
       .order("created_at", { ascending: false });
-    setDocs((data as FarmerDocument[]) || []);
+    const fetched = (data as FarmerDocument[]) || [];
+    setDocs(fetched);
     setLoading(false);
+
+    // Pre-load signed URLs for images (thumbnails)
+    const imageDocs = fetched.filter((d) => isImage(d.file_name));
+    if (imageDocs.length > 0) {
+      const urls: Record<string, string> = {};
+      await Promise.all(
+        imageDocs.map(async (d) => {
+          const { data: signed } = await supabase.storage
+            .from("farmer-media")
+            .createSignedUrl(d.file_path, 3600);
+          if (signed?.signedUrl) urls[d.id] = signed.signedUrl;
+        })
+      );
+      setPreviewUrls((prev) => ({ ...prev, ...urls }));
+    }
   };
 
   useEffect(() => { fetchDocs(); }, [farmerCode]);
+
+  const getPreviewUrl = useCallback(async (doc: FarmerDocument) => {
+    if (previewUrls[doc.id]) return previewUrls[doc.id];
+    const { data } = await supabase.storage
+      .from("farmer-media")
+      .createSignedUrl(doc.file_path, 3600);
+    if (data?.signedUrl) {
+      setPreviewUrls((prev) => ({ ...prev, [doc.id]: data.signedUrl }));
+      return data.signedUrl;
+    }
+    return null;
+  }, [previewUrls]);
+
+  const togglePreview = async (doc: FarmerDocument) => {
+    if (expandedId === doc.id) {
+      setExpandedId(null);
+      return;
+    }
+    await getPreviewUrl(doc);
+    setExpandedId(doc.id);
+  };
+
+  const openLightbox = async (doc: FarmerDocument) => {
+    const url = await getPreviewUrl(doc);
+    if (url) setLightboxUrl(url);
+  };
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -186,32 +240,94 @@ export default function FarmerDocuments({ farmerCode }: { farmerCode: string }) 
         <div className="space-y-2">
           {docs.map((doc) => {
             const Icon = fileIcon(doc.file_name);
+            const canPreview = isImage(doc.file_name) || isPdf(doc.file_name);
+            const isExpanded = expandedId === doc.id;
+            const url = previewUrls[doc.id];
+
             return (
-              <Card key={doc.id} className="p-3 flex items-center gap-3 hover:bg-muted/30 transition-colors">
-                <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-                  <Icon className="h-5 w-5 text-primary" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{doc.file_name}</p>
-                  <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
-                    <span className="px-1.5 py-0.5 rounded bg-accent text-accent-foreground font-medium">
-                      {fileTypeLabel(doc.file_type)}
-                    </span>
-                    <span>{formatSize(doc.file_size)}</span>
-                    <span>{new Date(doc.created_at).toLocaleDateString("pt")}</span>
+              <Card key={doc.id} className="overflow-hidden hover:bg-muted/30 transition-colors">
+                <div className="p-3 flex items-center gap-3">
+                  {/* Thumbnail for images */}
+                  {isImage(doc.file_name) && url ? (
+                    <img
+                      src={url}
+                      alt={doc.file_name}
+                      className="h-10 w-10 rounded-lg object-cover flex-shrink-0 border border-border cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all"
+                      onClick={() => openLightbox(doc)}
+                    />
+                  ) : (
+                    <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                      <Icon className="h-5 w-5 text-primary" />
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{doc.file_name}</p>
+                    <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                      <span className="px-1.5 py-0.5 rounded bg-accent text-accent-foreground font-medium">
+                        {fileTypeLabel(doc.file_type)}
+                      </span>
+                      <span>{formatSize(doc.file_size)}</span>
+                      <span>{new Date(doc.created_at).toLocaleDateString("pt")}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    {canPreview && (
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => togglePreview(doc)} title="Pré-visualizar">
+                        {isExpanded ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </Button>
+                    )}
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDownload(doc)}>
+                      <Download className="h-4 w-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleDelete(doc)}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
                 </div>
-                <div className="flex items-center gap-1">
-                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDownload(doc)}>
-                    <Download className="h-4 w-4" />
-                  </Button>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleDelete(doc)}>
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
+
+                {/* Inline preview */}
+                {isExpanded && url && (
+                  <div className="border-t border-border bg-muted/20 p-3">
+                    {isImage(doc.file_name) ? (
+                      <img
+                        src={url}
+                        alt={doc.file_name}
+                        className="max-h-[400px] mx-auto rounded-lg object-contain cursor-pointer hover:opacity-90 transition-opacity"
+                        onClick={() => setLightboxUrl(url)}
+                      />
+                    ) : isPdf(doc.file_name) ? (
+                      <iframe
+                        src={url}
+                        className="w-full h-[500px] rounded-lg border border-border"
+                        title={doc.file_name}
+                      />
+                    ) : null}
+                  </div>
+                )}
               </Card>
             );
           })}
+        </div>
+      )}
+
+      {/* Lightbox */}
+      {lightboxUrl && (
+        <div
+          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
+          onClick={() => setLightboxUrl(null)}
+        >
+          <button
+            className="absolute top-4 right-4 h-10 w-10 rounded-full bg-background/80 backdrop-blur-sm border border-border flex items-center justify-center hover:bg-background transition-colors"
+            onClick={() => setLightboxUrl(null)}
+          >
+            <X className="h-5 w-5" />
+          </button>
+          <img
+            src={lightboxUrl}
+            alt="Preview"
+            className="max-w-full max-h-[90vh] object-contain rounded-lg"
+            onClick={(e) => e.stopPropagation()}
+          />
         </div>
       )}
     </div>
