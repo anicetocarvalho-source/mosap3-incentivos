@@ -56,6 +56,8 @@ const Mosap3PayPOS = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [farmer, setFarmer] = useState<Farmer | null>(null);
   const [farmerSearch, setFarmerSearch] = useState("");
+  const [farmerSuggestions, setFarmerSuggestions] = useState<Farmer[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [productSearch, setProductSearch] = useState("");
   const [processing, setProcessing] = useState(false);
@@ -153,13 +155,55 @@ const Mosap3PayPOS = () => {
     }
   }, [selectedSupplierId]);
 
+  // Autocomplete suggestions as user types
+  useEffect(() => {
+    const q = farmerSearch.trim();
+    if (q.length < 2) { setFarmerSuggestions([]); setShowSuggestions(false); return; }
+    const timeout = setTimeout(async () => {
+      const { data } = await supabase
+        .from("farmers")
+        .select("code, full_name, phone, patec, photo_frontal_url, saldo_final")
+        .or(`full_name.ilike.%${q}%,code.ilike.%${q}%,phone.ilike.%${q}%,bi.ilike.%${q}%`)
+        .limit(8);
+      setFarmerSuggestions((data as Farmer[]) || []);
+      setShowSuggestions(!!data && data.length > 0);
+    }, 300);
+    return () => clearTimeout(timeout);
+  }, [farmerSearch]);
+
+  const selectFarmerFromSuggestion = async (f: Farmer) => {
+    setFarmer(f);
+    setFarmerSearch(f.code);
+    setShowSuggestions(false);
+    setFarmerSuggestions([]);
+    if (f.patec) {
+      supabase.from("patec_items").select("*").eq("patec_number", f.patec)
+        .then(({ data: items }) => setPatecItems(items || []));
+    } else {
+      setPatecItems([]);
+    }
+    const { data: sales } = await supabase.from("pos_sales").select("id").eq("farmer_code", f.code);
+    if (sales && sales.length > 0) {
+      const saleIds = sales.map((s) => s.id);
+      const { data: items } = await supabase.from("pos_sale_items").select("product_id, quantity").in("sale_id", saleIds);
+      const purchases: Record<string, number> = {};
+      items?.forEach((item) => { purchases[item.product_id] = (purchases[item.product_id] || 0) + item.quantity; });
+      setSeasonPurchases(purchases);
+    } else {
+      setSeasonPurchases({});
+    }
+    setCart([]);
+    toast.success(`Produtor identificado: ${f.full_name}`);
+  };
+
   const searchFarmer = async () => {
     if (!farmerSearch.trim()) return;
     const query = farmerSearch.trim();
+    setShowSuggestions(false);
     const { data } = await supabase
       .from("farmers")
       .select("code, full_name, phone, patec, photo_frontal_url, saldo_final")
-      .or(`code.eq.${query},phone.eq.${query},bi.eq.${query}`)
+      .or(`code.eq.${query},phone.eq.${query},bi.eq.${query},full_name.ilike.%${query}%`)
       .limit(1)
       .single();
     
@@ -599,19 +643,36 @@ const Mosap3PayPOS = () => {
                 </button>
               </div>
             ) : (
-              <div className="flex gap-2">
-                <input
-                  ref={farmerSearchRef}
-                  type="text"
-                  placeholder="Código / telefone / BI..."
-                  value={farmerSearch}
-                  onChange={(e) => setFarmerSearch(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && searchFarmer()}
-                  className="flex-1 px-3 py-2 rounded-lg bg-[hsl(220,15%,15%)] border border-[hsl(220,15%,22%)] text-xs text-[hsl(0,0%,85%)] placeholder:text-[hsl(220,10%,35%)] focus:outline-none focus:border-[hsl(45,90%,50%)]"
-                />
-                <button onClick={searchFarmer} className="px-3 rounded-lg bg-[hsl(220,15%,18%)] border border-[hsl(220,15%,22%)] hover:bg-[hsl(220,15%,22%)] transition-colors">
-                  <Users className="h-4 w-4" />
-                </button>
+              <div className="relative">
+                <div className="flex gap-2">
+                  <input
+                    ref={farmerSearchRef}
+                    type="text"
+                    placeholder="Nome / código / telefone / BI..."
+                    value={farmerSearch}
+                    onChange={(e) => setFarmerSearch(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && searchFarmer()}
+                    onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                    onFocus={() => farmerSuggestions.length > 0 && setShowSuggestions(true)}
+                    className="flex-1 px-3 py-2 rounded-lg bg-[hsl(220,15%,15%)] border border-[hsl(220,15%,22%)] text-xs text-[hsl(0,0%,85%)] placeholder:text-[hsl(220,10%,35%)] focus:outline-none focus:border-[hsl(45,90%,50%)]"
+                  />
+                  <button onClick={searchFarmer} className="px-3 rounded-lg bg-[hsl(220,15%,18%)] border border-[hsl(220,15%,22%)] hover:bg-[hsl(220,15%,22%)] transition-colors">
+                    <Users className="h-4 w-4" />
+                  </button>
+                </div>
+                {showSuggestions && farmerSuggestions.length > 0 && (
+                  <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-[hsl(220,15%,12%)] border border-[hsl(220,15%,22%)] rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                    {farmerSuggestions.map((s) => (
+                      <button key={s.code} onClick={() => selectFarmerFromSuggestion(s)} className="w-full text-left px-3 py-2 hover:bg-[hsl(220,15%,18%)] flex items-center gap-2 text-xs border-b border-[hsl(220,15%,18%)] last:border-0">
+                        <User className="h-3 w-3 text-[hsl(220,10%,45%)] flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium truncate text-[hsl(0,0%,85%)]">{s.full_name}</p>
+                          <p className="text-[10px] text-[hsl(220,10%,45%)]">{s.code} • {s.phone || "—"}</p>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -841,9 +902,25 @@ const Mosap3PayPOS = () => {
                 <CardTitle className="text-sm flex items-center gap-2"><User className="h-4 w-4" /> Identificar Produtor</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="flex gap-2">
-                  <Input ref={farmerSearchRef} placeholder="Código, telefone ou BI do produtor..." value={farmerSearch} onChange={(e) => setFarmerSearch(e.target.value)} onKeyDown={(e) => e.key === "Enter" && searchFarmer()} className="flex-1" />
-                  <Button onClick={searchFarmer}><Search className="h-4 w-4 mr-1" /> Pesquisar</Button>
+                <div className="relative">
+                  <div className="flex gap-2">
+                    <Input ref={farmerSearchRef} placeholder="Nome, código, telefone ou BI do produtor..." value={farmerSearch} onChange={(e) => setFarmerSearch(e.target.value)} onKeyDown={(e) => e.key === "Enter" && searchFarmer()} onBlur={() => setTimeout(() => setShowSuggestions(false), 200)} onFocus={() => farmerSuggestions.length > 0 && setShowSuggestions(true)} className="flex-1" />
+                    <Button onClick={searchFarmer}><Search className="h-4 w-4 mr-1" /> Pesquisar</Button>
+                  </div>
+                  {showSuggestions && farmerSuggestions.length > 0 && (
+                    <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-popover border border-border rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                      {farmerSuggestions.map((s) => (
+                        <button key={s.code} onClick={() => selectFarmerFromSuggestion(s)} className="w-full text-left px-3 py-2 hover:bg-accent flex items-center gap-2 text-sm border-b border-border last:border-0">
+                          <User className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium truncate">{s.full_name}</p>
+                            <p className="text-xs text-muted-foreground">{s.code} • {s.phone || "—"}</p>
+                          </div>
+                          {s.patec ? <Badge variant="secondary" className="text-[10px]">{patecLabels[s.patec]}</Badge> : null}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 {farmer && (
                   <div className="mt-3 p-3 rounded-lg bg-muted/50 flex items-center gap-3">
