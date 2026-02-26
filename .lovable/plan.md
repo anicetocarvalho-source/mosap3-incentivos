@@ -1,20 +1,32 @@
 
 
-## Plano: Remover página Empresas redundante
+## Plano: Melhorar layout da página Fornecedores
 
-A página `/empresas` lê da mesma tabela `suppliers` que o MOSAP3Pay → Fornecedores, sem funcionalidade adicional. Deve ser removida.
+### 1. KPI cards no topo
+Adicionar 4 stat cards antes da listagem:
+- Total Fornecedores
+- Ativos / Inativos
+- Total Produtos (soma de `supplier_products` count)
+- Total Terminais POS (soma de `supplier_pos` count)
 
-### Alterações
+Buscar contagens via queries adicionais no `useEffect` inicial.
 
-1. **Eliminar `src/pages/Empresas.tsx`**
+### 2. Vista tabela + cards (toggle)
+- Adicionar um toggle (ícone grid/list) ao lado da barra de pesquisa para alternar entre vista cards (actual) e vista tabela
+- Vista tabela: colunas Nome, NIF, Telefone, Província, Zonas, Status, Acções
 
-2. **`src/App.tsx`** — remover import (linha 16) e rota (linhas 91-92)
+### 3. Filtros avançados
+- Filtro por status: Select com "Todos", "Ativo", "Inativo"
+- Filtro por província (sede): Select com a lista de províncias
+- Filtro por zona de actuação: Select com províncias
+- Colocar filtros numa linha horizontal entre KPIs e listagem
 
-3. **`src/components/AppSidebar.tsx`** — remover item "Empresas" (linhas 80-85) e import `Building2` se não for usado noutro lugar
+### 4. Design mais polido
+- Cards: usar `stat-card` CSS class existente para KPIs, melhorar espaçamento e hierarquia tipográfica nos cards de fornecedores
+- Ícones de cor nos KPIs (Store, CheckCircle, Package, Monitor)
+- Badge de status com cores semânticas (verde ativo, cinza inativo)
+- Melhorar a vista de detalhe do fornecedor com um header card mais rico
 
-4. **`src/components/AppNavbar.tsx`** — remover item "Empresas" (linhas 85-90) e import `Building2` se não for usado noutro lugar
-
-### Impacto
-- Zero perda de dados ou funcionalidade
-- Utilizadores acedem à gestão de fornecedores via MOSAP3Pay → Fornecedores
+### Ficheiros alterados
+- `src/pages/Mosap3PayFornecedores.tsx` — todas as alterações concentradas neste ficheiro
 
