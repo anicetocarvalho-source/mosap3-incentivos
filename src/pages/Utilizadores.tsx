@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Plus, Search, User, Shield, MapPin, Trash2, Loader2, School } from "lucide-react";
+import { Plus, Search, User, Shield, MapPin, Trash2, Loader2, School, ChevronLeft, ChevronRight } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -45,6 +45,8 @@ interface UserRow {
   ecas: string[];
 }
 
+const PAGE_SIZE = 10;
+
 const Utilizadores = () => {
   const [search, setSearch] = useState("");
   const [users, setUsers] = useState<UserRow[]>([]);
@@ -57,6 +59,7 @@ const Utilizadores = () => {
   const [newProvince, setNewProvince] = useState("");
   const [newEca, setNewEca] = useState("");
   const [saving, setSaving] = useState(false);
+  const [page, setPage] = useState(1);
 
   const fetchUsers = useCallback(async () => {
     setLoading(true);
@@ -108,6 +111,9 @@ const Utilizadores = () => {
       u.full_name.toLowerCase().includes(search.toLowerCase()) ||
       (u.phone || "").includes(search)
   );
+
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const addRole = async () => {
     if (!selectedUser || !newRole) return;
@@ -234,11 +240,13 @@ const Utilizadores = () => {
         </div>
       </div>
 
-      <div className="max-w-sm">
+      <div className="relative max-w-sm">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
           placeholder="Pesquisar utilizadores..."
+          className="pl-10"
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => { setSearch(e.target.value); setPage(1); }}
         />
       </div>
 
@@ -253,7 +261,7 @@ const Utilizadores = () => {
       ) : (
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
           <div className="grid gap-4">
-            {filtered.map((u) => (
+            {paginated.map((u) => (
               <Card key={u.id} className="p-5">
                 <div className="flex flex-col md:flex-row md:items-start gap-4">
                   {/* User info */}
@@ -451,6 +459,18 @@ const Utilizadores = () => {
                 </div>
               </Card>
             ))}
+          </div>
+          <div className="flex items-center justify-between text-sm text-muted-foreground mt-4">
+            <span>{filtered.length > 0 ? (page - 1) * PAGE_SIZE + 1 : 0}–{Math.min(page * PAGE_SIZE, filtered.length)} de {filtered.length} utilizadores</span>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <span className="text-sm font-medium">{page} / {totalPages || 1}</span>
+              <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage(page + 1)}>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </motion.div>
       )}
