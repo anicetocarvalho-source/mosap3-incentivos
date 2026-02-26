@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { Store, Plus, Search, Edit2, Package, Monitor, Trash2, Eye, MapPin, X, CheckCircle, LayoutGrid, List, Filter } from "lucide-react";
+import { Store, Plus, Search, Edit2, Package, Monitor, Trash2, Eye, MapPin, X, CheckCircle, LayoutGrid, List, Filter, ChevronLeft, ChevronRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -96,6 +96,8 @@ const Mosap3PayFornecedores = () => {
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterProvince, setFilterProvince] = useState("all");
   const [filterZone, setFilterZone] = useState("all");
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 12;
 
   const fetchSuppliers = async () => {
     setLoading(true);
@@ -153,6 +155,15 @@ const Mosap3PayFornecedores = () => {
       return matchSearch && matchStatus && matchProvince && matchZone;
     });
   }, [suppliers, search, filterStatus, filterProvince, filterZone]);
+
+  // Reset page when filters change
+  useEffect(() => { setPage(1); }, [search, filterStatus, filterProvince, filterZone]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const paginated = useMemo(() => {
+    const start = (page - 1) * PAGE_SIZE;
+    return filtered.slice(start, start + PAGE_SIZE);
+  }, [filtered, page]);
 
   const uniqueProvinceNames = useMemo(() => {
     const set = new Set(suppliers.map(s => s.province).filter(Boolean) as string[]);
@@ -573,7 +584,7 @@ const Mosap3PayFornecedores = () => {
       ) : viewMode === "grid" ? (
         /* ===== GRID VIEW ===== */
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtered.map((s, i) => (
+          {paginated.map((s, i) => (
             <motion.div
               key={s.id}
               initial={{ opacity: 0, y: 12 }}
@@ -655,7 +666,7 @@ const Mosap3PayFornecedores = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map((s) => (
+                {paginated.map((s) => (
                   <TableRow key={s.id} className="cursor-pointer" onClick={() => setSelectedSupplier(s)}>
                     <TableCell className="font-medium">
                       <div className="flex items-center gap-2">
@@ -704,6 +715,45 @@ const Mosap3PayFornecedores = () => {
             </Table>
           </CardContent>
         </Card>
+      )}
+
+      {/* Pagination */}
+      {filtered.length > PAGE_SIZE && (
+        <div className="flex items-center justify-between pt-2">
+          <p className="text-xs text-muted-foreground">
+            {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filtered.length)} de {filtered.length} fornecedores
+          </p>
+          <div className="flex items-center gap-1">
+            <Button variant="outline" size="sm" className="h-8 w-8 p-0" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1)
+              .filter(p => p === 1 || p === totalPages || Math.abs(p - page) <= 1)
+              .reduce<(number | string)[]>((acc, p, idx, arr) => {
+                if (idx > 0 && p - (arr[idx - 1] as number) > 1) acc.push("...");
+                acc.push(p);
+                return acc;
+              }, [])
+              .map((p, idx) =>
+                typeof p === "string" ? (
+                  <span key={`ellipsis-${idx}`} className="px-1 text-xs text-muted-foreground">…</span>
+                ) : (
+                  <Button
+                    key={p}
+                    variant={p === page ? "default" : "outline"}
+                    size="sm"
+                    className="h-8 w-8 p-0 text-xs"
+                    onClick={() => setPage(p)}
+                  >
+                    {p}
+                  </Button>
+                )
+              )}
+            <Button variant="outline" size="sm" className="h-8 w-8 p-0" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
       )}
 
       {/* Supplier Dialog */}
