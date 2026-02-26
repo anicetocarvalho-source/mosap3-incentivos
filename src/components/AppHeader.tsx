@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Search, User, LogOut, Menu } from "lucide-react";
+import { Search, User, LogOut, Menu, School } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
@@ -28,20 +28,31 @@ const AppHeader = ({ onMenuClick }: AppHeaderProps) => {
   const { user, profile, roles, isOfflineSession, offlineLogout } = useAuth();
   const navigate = useNavigate();
   const [globalSearch, setGlobalSearch] = useState("");
-  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [farmerSuggestions, setFarmerSuggestions] = useState<any[]>([]);
+  const [schoolSuggestions, setSchoolSuggestions] = useState<any[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
 
   useEffect(() => {
     const q = globalSearch.trim();
-    if (q.length < 2) { setSuggestions([]); setShowSuggestions(false); return; }
+    if (q.length < 2) { setFarmerSuggestions([]); setSchoolSuggestions([]); setShowSuggestions(false); return; }
     const timeout = setTimeout(async () => {
-      const { data } = await supabase
-        .from("farmers")
-        .select("code, full_name, phone, province, photo_frontal_url")
-        .or(`full_name.ilike.%${q}%,code.ilike.%${q}%,phone.ilike.%${q}%,bi.ilike.%${q}%`)
-        .limit(8);
-      setSuggestions(data || []);
-      setShowSuggestions(!!data && data.length > 0);
+      const [farmersRes, schoolsRes] = await Promise.all([
+        supabase
+          .from("farmers")
+          .select("code, full_name, phone, province, photo_frontal_url")
+          .or(`full_name.ilike.%${q}%,code.ilike.%${q}%,phone.ilike.%${q}%,bi.ilike.%${q}%`)
+          .limit(5),
+        supabase
+          .from("schools")
+          .select("id, name, village, status, total_farmers, province_id")
+          .ilike("name", `%${q}%`)
+          .limit(5),
+      ]);
+      const farmers = farmersRes.data || [];
+      const schools = schoolsRes.data || [];
+      setFarmerSuggestions(farmers);
+      setSchoolSuggestions(schools);
+      setShowSuggestions(farmers.length > 0 || schools.length > 0);
     }, 300);
     return () => clearTimeout(timeout);
   }, [globalSearch]);
@@ -78,22 +89,48 @@ const AppHeader = ({ onMenuClick }: AppHeaderProps) => {
             onFocus={() => globalSearch.length >= 2 && setShowSuggestions(true)}
             onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
           />
-          {showSuggestions && suggestions.length > 0 && (
-            <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-popover border border-border rounded-lg shadow-lg max-h-72 overflow-y-auto">
-              {suggestions.map((s) => (
-                <Link
-                  key={s.code}
-                  to={`/agricultores/${s.code}`}
-                  onClick={() => { setGlobalSearch(""); setShowSuggestions(false); }}
-                  className="flex items-center gap-2 px-3 py-2 hover:bg-accent text-sm border-b border-border last:border-0"
-                >
-                  <FarmerAvatar photoUrl={s.photo_frontal_url} name={s.full_name} size="h-8 w-8" />
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium truncate">{s.full_name}</p>
-                    <p className="text-xs text-muted-foreground">{s.code} • {s.province || "—"} • {s.phone || "—"}</p>
-                  </div>
-                </Link>
-              ))}
+          {showSuggestions && (farmerSuggestions.length > 0 || schoolSuggestions.length > 0) && (
+            <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-popover border border-border rounded-lg shadow-lg max-h-80 overflow-y-auto">
+              {farmerSuggestions.length > 0 && (
+                <>
+                  <p className="px-3 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider bg-muted/50">Produtores</p>
+                  {farmerSuggestions.map((s) => (
+                    <Link
+                      key={s.code}
+                      to={`/agricultores/${s.code}`}
+                      onClick={() => { setGlobalSearch(""); setShowSuggestions(false); }}
+                      className="flex items-center gap-2 px-3 py-2 hover:bg-accent text-sm border-b border-border last:border-0"
+                    >
+                      <FarmerAvatar photoUrl={s.photo_frontal_url} name={s.full_name} size="h-8 w-8" />
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium truncate">{s.full_name}</p>
+                        <p className="text-xs text-muted-foreground">{s.code} • {s.province || "—"} • {s.phone || "—"}</p>
+                      </div>
+                    </Link>
+                  ))}
+                </>
+              )}
+              {schoolSuggestions.length > 0 && (
+                <>
+                  <p className="px-3 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider bg-muted/50">Escolas de Campo</p>
+                  {schoolSuggestions.map((s) => (
+                    <Link
+                      key={s.id}
+                      to={`/escolas/${s.id}`}
+                      onClick={() => { setGlobalSearch(""); setShowSuggestions(false); }}
+                      className="flex items-center gap-2 px-3 py-2 hover:bg-accent text-sm border-b border-border last:border-0"
+                    >
+                      <div className="h-8 w-8 rounded-full bg-accent flex items-center justify-center flex-shrink-0">
+                        <School className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium truncate">{s.name}</p>
+                        <p className="text-xs text-muted-foreground">{s.village || "—"} • {s.total_farmers} produtores • {s.status}</p>
+                      </div>
+                    </Link>
+                  ))}
+                </>
+              )}
             </div>
           )}
         </div>
