@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Plus, Search, Download, Eye, Edit, Package, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, Search, Download, Eye, Edit, Package, ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
 import FarmerAvatar from "@/components/FarmerAvatar";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -10,10 +10,15 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import FarmerRegistrationForm from "@/components/FarmerRegistrationForm";
 import { useFarmersList } from "@/hooks/useFarmersList";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 const PAGE_SIZE = 15;
 
@@ -25,7 +30,9 @@ const Agricultores = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingFarmer, setEditingFarmer] = useState<any>(null);
   const [page, setPage] = useState(1);
+  const [deleteTarget, setDeleteTarget] = useState<any>(null);
   const { farmers, loading } = useFarmersList();
+  const queryClient = useQueryClient();
 
   const { data: provinces = [] } = useQuery({
     queryKey: ["provinces_list"],
@@ -86,6 +93,21 @@ const Agricultores = () => {
     const a = document.createElement("a");
     a.href = url; a.download = `agricultores_${new Date().toISOString().slice(0, 10)}.csv`;
     a.click(); URL.revokeObjectURL(url);
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    const { error } = await supabase
+      .from("farmers")
+      .update({ status: "Removido" })
+      .eq("code", deleteTarget.code);
+    if (error) {
+      toast.error("Erro ao remover agricultor");
+    } else {
+      toast.success(`${deleteTarget.full_name} marcado como Removido`);
+      queryClient.invalidateQueries({ queryKey: ["farmers_list"] });
+    }
+    setDeleteTarget(null);
   };
 
   return (
@@ -211,6 +233,7 @@ const Agricultores = () => {
                           <Button variant="ghost" size="icon" className="h-8 w-8"><Eye className="h-4 w-4" /></Button>
                         </Link>
                         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(f)}><Edit className="h-4 w-4" /></Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => setDeleteTarget(f)}><Trash2 className="h-4 w-4" /></Button>
                       </div>
                     </td>
                   </tr>
@@ -252,6 +275,7 @@ const Agricultores = () => {
                     <Button variant="ghost" size="icon" className="h-8 w-8"><Eye className="h-4 w-4" /></Button>
                   </Link>
                   <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(f)}><Edit className="h-4 w-4" /></Button>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => setDeleteTarget(f)}><Trash2 className="h-4 w-4" /></Button>
                 </div>
               </div>
             ))}
@@ -267,6 +291,24 @@ const Agricultores = () => {
           </div>
         </Card>
       </motion.div>
+
+      {/* Delete confirmation */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remover agricultor?</AlertDialogTitle>
+            <AlertDialogDescription>
+              O produtor <strong>{deleteTarget?.full_name}</strong> ({deleteTarget?.code}) será marcado como <strong>Removido</strong>. Os dados associados (parcelas, produção, documentos) serão mantidos. Esta ação pode ser revertida alterando o estado.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Remover
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
