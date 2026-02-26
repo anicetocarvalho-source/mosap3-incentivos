@@ -1,14 +1,49 @@
 import { useParams, Link } from "react-router-dom";
-import { ArrowLeft, Printer, User, MapPin, Phone, CreditCard, Wheat, Calendar, Users, FileText, Camera, Fingerprint, Package } from "lucide-react";
+import { useState, useEffect } from "react";
+import { ArrowLeft, Printer, User, MapPin, Phone, CreditCard, Wheat, Calendar, Users, FileText, Camera, Fingerprint, Package, FolderOpen, File, Image as ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useFarmerFromDb } from "@/hooks/useFarmerFromDb";
 import { useFarmerEnrichedData } from "@/hooks/useFarmerEnrichedData";
+import { supabase } from "@/integrations/supabase/client";
 
 const FichaProdutor = () => {
   const { id } = useParams();
   const { farmerInfo, farmer: farmerRaw, loading } = useFarmerFromDb(id);
   const { parcels, production, transactions, dependents, loading: enrichedLoading } = useFarmerEnrichedData(id);
+
+  // Fetch documents
+  const [documents, setDocuments] = useState<any[]>([]);
+  const [docsLoading, setDocsLoading] = useState(true);
+  const [docUrls, setDocUrls] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (!id) return;
+    supabase
+      .from("farmer_documents")
+      .select("*")
+      .eq("farmer_code", id)
+      .order("created_at", { ascending: false })
+      .then(async ({ data }) => {
+        const docs = data || [];
+        setDocuments(docs);
+        // Load signed URLs for image docs
+        const imgDocs = docs.filter((d: any) => /\.(jpg|jpeg|png|webp|gif)$/i.test(d.file_name));
+        if (imgDocs.length > 0) {
+          const urls: Record<string, string> = {};
+          await Promise.all(
+            imgDocs.map(async (d: any) => {
+              const { data: signed } = await supabase.storage
+                .from("farmer-media")
+                .createSignedUrl(d.file_path, 3600);
+              if (signed?.signedUrl) urls[d.id] = signed.signedUrl;
+            })
+          );
+          setDocUrls(urls);
+        }
+        setDocsLoading(false);
+      });
+  }, [id]);
 
   const farmer = farmerInfo;
 
@@ -322,11 +357,44 @@ const FichaProdutor = () => {
           </table>
         </div>
 
-        {/* Section 7: PATEC */}
+        {/* Section 7: Documents */}
+        {documents.length > 0 && (
+          <div>
+            <h2 className="font-heading font-semibold text-base border-b border-border pb-1 mb-3 flex items-center gap-2">
+              <FolderOpen className="h-4 w-4 text-primary" />7. Documentos Anexos ({documents.length})
+            </h2>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {documents.map((doc: any) => {
+                const isImg = /\.(jpg|jpeg|png|webp|gif)$/i.test(doc.file_name);
+                const url = docUrls[doc.id];
+                const typeLabels: Record<string, string> = { bi: "BI", contrato: "Contrato", certificado: "Certificado", outro: "Outro" };
+                return (
+                  <div key={doc.id} className="border border-border rounded p-2 text-center">
+                    {isImg && url ? (
+                      <img src={url} alt={doc.file_name} className="h-20 w-full object-contain rounded mb-1 print:h-16" />
+                    ) : (
+                      <div className="h-20 flex items-center justify-center print:h-16">
+                        {doc.file_name.endsWith(".pdf") ? (
+                          <FileText className="h-8 w-8 text-muted-foreground/40" />
+                        ) : (
+                          <File className="h-8 w-8 text-muted-foreground/40" />
+                        )}
+                      </div>
+                    )}
+                    <p className="text-[10px] font-medium truncate">{doc.file_name}</p>
+                    <p className="text-[9px] text-muted-foreground">{typeLabels[doc.file_type] || doc.file_type}</p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Section 8: PATEC */}
         {currentPatec && (
           <div>
             <h2 className="font-heading font-semibold text-base border-b border-border pb-1 mb-3 flex items-center gap-2">
-              <Package className="h-4 w-4 text-primary" />7. Pacote Tecnológico — {currentPatec.title}
+              <Package className="h-4 w-4 text-primary" />{documents.length > 0 ? "8" : "7"}. Pacote Tecnológico — {currentPatec.title}
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {currentPatec.items.map((group) => (
