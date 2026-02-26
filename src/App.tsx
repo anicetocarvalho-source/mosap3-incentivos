@@ -13,7 +13,7 @@ import RoleGuard from "@/components/RoleGuard";
 import Auth from "@/pages/Auth";
 import Dashboard from "@/pages/Dashboard";
 import Agricultores from "@/pages/Agricultores";
-import Empresas from "@/pages/Empresas";
+
 import Transacoes from "@/pages/Transacoes";
 import Utilizadores from "@/pages/Utilizadores";
 import Perfis from "@/pages/Perfis";
@@ -88,8 +88,6 @@ const App = () => (
               <Route path="/incentivos" element={<RoleGuard allowedRoles={["admin", "gestor_incentivos"]}><Incentivos /></RoleGuard>} />
               <Route path="/transacoes" element={<RoleGuard allowedRoles={["admin", "gestor_incentivos"]}><Transacoes /></RoleGuard>} />
 
-              {/* Empresas: admin, gestor_incentivos, senior/junior agronegócio */}
-              <Route path="/empresas" element={<RoleGuard allowedRoles={["admin", "gestor_incentivos", "senior_agronegocio", "junior_agronegocio"]}><Empresas /></RoleGuard>} />
 
               {/* Relatórios: todos excepto junior_agronegocio e tecnico_extensionista */}
               <Route path="/relatorios" element={<RoleGuard allowedRoles={["admin", "gestor_incentivos", "senior_agricultura", "senior_monitoria", "junior_monitoria", "junior_agricultura", "senior_agronegocio"]}><Relatorios /></RoleGuard>} />
