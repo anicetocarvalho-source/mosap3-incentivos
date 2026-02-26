@@ -767,7 +767,18 @@ const Mosap3PayFornecedores = () => {
               <div><Label>Telefone</Label><Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></div>
             </div>
             <div><Label>Email</Label><Input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
-            <div><Label>Província (sede)</Label><Input value={form.province} onChange={(e) => setForm({ ...form, province: e.target.value })} /></div>
+            <div>
+              <Label>Província (sede)</Label>
+              <Select value={form.province || "none"} onValueChange={(v) => setForm({ ...form, province: v === "none" ? "" : v })}>
+                <SelectTrigger><SelectValue placeholder="Selecionar província" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">— Nenhuma —</SelectItem>
+                  {allProvinces.map(p => (
+                    <SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div>
               <Label className="flex items-center gap-1 mb-2"><MapPin className="h-3.5 w-3.5" /> Zona de Actuação</Label>
               <div className="border rounded-md p-3 max-h-48 overflow-y-auto space-y-2 bg-background">
