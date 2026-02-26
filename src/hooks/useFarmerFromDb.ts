@@ -78,12 +78,13 @@ export function useFarmerFromDb(code: string | undefined) {
   const [signedPhotos, setSignedPhotos] = useState<Record<string, string> | null>(null);
 
   useEffect(() => {
+    let photoCancelled = false;
+
     if (!farmer) {
       setSignedPhotos(null);
-      return;
+      return () => { photoCancelled = true; };
     }
 
-    let cancelled = false;
     const photoMap: Record<string, string | null> = {
       frontal: farmer.photo_frontal_url,
       perfilEsq: farmer.photo_profile_left_url,
@@ -96,7 +97,7 @@ export function useFarmerFromDb(code: string | undefined) {
         return [key, url] as const;
       })
     ).then((results) => {
-      if (cancelled) return;
+      if (photoCancelled) return;
       const signed: Record<string, string> = {};
       for (const [key, url] of results) {
         if (url) signed[key] = url;
@@ -104,7 +105,7 @@ export function useFarmerFromDb(code: string | undefined) {
       setSignedPhotos(Object.keys(signed).length > 0 ? signed : null);
     });
 
-    return () => { cancelled = true; };
+    return () => { photoCancelled = true; };
   }, [farmer]);
 
   // Build biometrics status object (true/false for each)
