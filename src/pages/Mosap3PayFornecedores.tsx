@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { Store, Plus, Search, Edit2, Package, Monitor, Trash2, Eye, MapPin, X } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { Store, Plus, Search, Edit2, Package, Monitor, Trash2, Eye, MapPin, X, CheckCircle, LayoutGrid, List, Filter } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,9 +10,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
+import StatCard from "@/components/StatCard";
+import { motion } from "framer-motion";
 
 interface Province {
   id: string;
@@ -84,11 +87,23 @@ const Mosap3PayFornecedores = () => {
   // Supplier form
   const [form, setForm] = useState({ name: "", nif: "", phone: "", email: "", province: "" });
 
+  // KPI counts
+  const [totalProducts, setTotalProducts] = useState(0);
+  const [totalPos, setTotalPos] = useState(0);
+
+  // View toggle & filters
+  const [viewMode, setViewMode] = useState<string>("grid");
+  const [filterStatus, setFilterStatus] = useState("all");
+  const [filterProvince, setFilterProvince] = useState("all");
+  const [filterZone, setFilterZone] = useState("all");
+
   const fetchSuppliers = async () => {
     setLoading(true);
-    const [suppRes, zonesRes] = await Promise.all([
+    const [suppRes, zonesRes, prodCountRes, posCountRes] = await Promise.all([
       supabase.from("suppliers").select("*").order("name"),
       supabase.from("supplier_provinces").select("supplier_id, province_id, provinces(id, name)"),
+      supabase.from("supplier_products").select("id", { count: "exact", head: true }),
+      supabase.from("supplier_pos").select("id", { count: "exact", head: true }),
     ]);
     const rawSuppliers = (suppRes.data || []) as Supplier[];
     const zonesMap = new Map<string, Province[]>();
@@ -98,6 +113,8 @@ const Mosap3PayFornecedores = () => {
       if (row.provinces) zonesMap.get(sid)!.push({ id: row.provinces.id, name: row.provinces.name });
     }
     setSuppliers(rawSuppliers.map(s => ({ ...s, zones: zonesMap.get(s.id) || [] })));
+    setTotalProducts(prodCountRes.count || 0);
+    setTotalPos(posCountRes.count || 0);
     setLoading(false);
   };
 
@@ -121,11 +138,31 @@ const Mosap3PayFornecedores = () => {
     if (selectedSupplier) fetchSupplierDetails(selectedSupplier.id);
   }, [selectedSupplier]);
 
+  // --- KPI derived values ---
+  const activeCount = useMemo(() => suppliers.filter(s => s.status === "Ativo").length, [suppliers]);
+  const inactiveCount = useMemo(() => suppliers.filter(s => s.status !== "Ativo").length, [suppliers]);
+
+  // --- Filtering ---
+  const filtered = useMemo(() => {
+    return suppliers.filter((s) => {
+      const matchSearch = s.name.toLowerCase().includes(search.toLowerCase()) ||
+        (s.nif?.toLowerCase().includes(search.toLowerCase()) ?? false);
+      const matchStatus = filterStatus === "all" || s.status === filterStatus;
+      const matchProvince = filterProvince === "all" || s.province === filterProvince;
+      const matchZone = filterZone === "all" || s.zones?.some(z => z.id === filterZone);
+      return matchSearch && matchStatus && matchProvince && matchZone;
+    });
+  }, [suppliers, search, filterStatus, filterProvince, filterZone]);
+
+  const uniqueProvinceNames = useMemo(() => {
+    const set = new Set(suppliers.map(s => s.province).filter(Boolean) as string[]);
+    return Array.from(set).sort();
+  }, [suppliers]);
+
+  // --- CRUD handlers (unchanged) ---
   const handleSaveSupplier = async () => {
     if (!form.name.trim()) { toast.error("Nome é obrigatório"); return; }
-
     let supplierId: string;
-
     if (editSupplier) {
       const { error } = await supabase.from("suppliers").update({
         name: form.name, nif: form.nif || null, phone: form.phone || null,
@@ -143,15 +180,12 @@ const Mosap3PayFornecedores = () => {
       if (error || !data) { toast.error("Erro ao criar fornecedor"); return; }
       supplierId = data.id;
     }
-
-    // Sync zones
     await supabase.from("supplier_provinces").delete().eq("supplier_id", supplierId);
     if (selectedZones.length > 0) {
       await supabase.from("supplier_provinces").insert(
         selectedZones.map(pid => ({ supplier_id: supplierId, province_id: pid }))
       );
     }
-
     toast.success(editSupplier ? "Fornecedor atualizado" : "Fornecedor criado");
     setDialogOpen(false);
     setEditSupplier(null);
@@ -172,20 +206,14 @@ const Mosap3PayFornecedores = () => {
     setDialogOpen(true);
   };
 
-  // Product CRUD
   const handleSaveProduct = async () => {
     if (!selectedSupplier || !editProduct.name) return;
     const payload = {
-      supplier_id: selectedSupplier.id,
-      name: editProduct.name,
-      category: editProduct.category || "insumos",
-      unit: editProduct.unit || "un",
-      price: editProduct.price || 0,
-      stock: editProduct.stock || 0,
-      patec_number: editProduct.patec_number || null,
-      patec_category: editProduct.patec_category || null,
-      iva_rate: editProduct.iva_rate || 14,
-      max_per_farmer_per_season: editProduct.max_per_farmer_per_season || null,
+      supplier_id: selectedSupplier.id, name: editProduct.name,
+      category: editProduct.category || "insumos", unit: editProduct.unit || "un",
+      price: editProduct.price || 0, stock: editProduct.stock || 0,
+      patec_number: editProduct.patec_number || null, patec_category: editProduct.patec_category || null,
+      iva_rate: editProduct.iva_rate || 14, max_per_farmer_per_season: editProduct.max_per_farmer_per_season || null,
     };
     if (editProduct.id) {
       await supabase.from("supplier_products").update(payload).eq("id", editProduct.id);
@@ -204,14 +232,11 @@ const Mosap3PayFornecedores = () => {
     if (selectedSupplier) fetchSupplierDetails(selectedSupplier.id);
   };
 
-  // POS CRUD
   const handleSavePos = async () => {
     if (!selectedSupplier || !editPos.pos_code) return;
     const payload = {
-      supplier_id: selectedSupplier.id,
-      pos_code: editPos.pos_code,
-      label: editPos.label || null,
-      location: editPos.location || null,
+      supplier_id: selectedSupplier.id, pos_code: editPos.pos_code,
+      label: editPos.label || null, location: editPos.location || null,
       operator_name: editPos.operator_name || null,
     };
     if (editPos.id) {
@@ -225,24 +250,49 @@ const Mosap3PayFornecedores = () => {
     fetchSupplierDetails(selectedSupplier.id);
   };
 
-  const filtered = suppliers.filter((s) =>
-    s.name.toLowerCase().includes(search.toLowerCase()) ||
-    s.nif?.toLowerCase().includes(search.toLowerCase()) || false
-  );
-
+  // ===================== DETAIL VIEW =====================
   if (selectedSupplier) {
     return (
       <div className="space-y-6">
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" onClick={() => setSelectedSupplier(null)}>← Voltar</Button>
-          <div>
-            <h1 className="text-xl font-heading font-bold flex items-center gap-2">
-              <Store className="h-5 w-5 text-primary" /> {selectedSupplier.name}
-            </h1>
-            <p className="text-xs text-muted-foreground">NIF: {selectedSupplier.nif || "—"} • {selectedSupplier.phone || "—"} • {selectedSupplier.province || "—"}</p>
-          </div>
-          <Badge variant={selectedSupplier.status === "Ativo" ? "default" : "secondary"}>{selectedSupplier.status}</Badge>
-        </div>
+        {/* Enhanced detail header */}
+        <Card className="border-none shadow-md bg-gradient-to-r from-primary/5 to-transparent">
+          <CardContent className="p-5">
+            <div className="flex items-start justify-between">
+              <div className="flex items-center gap-4">
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setSelectedSupplier(null)}>
+                  ←
+                </Button>
+                <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                  <Store className="h-6 w-6 text-primary" />
+                </div>
+                <div>
+                  <h1 className="text-lg md:text-xl font-heading font-bold">{selectedSupplier.name}</h1>
+                  <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
+                    <span>NIF: {selectedSupplier.nif || "—"}</span>
+                    <span>•</span>
+                    <span>{selectedSupplier.phone || "—"}</span>
+                    <span>•</span>
+                    <span>{selectedSupplier.province || "—"}</span>
+                  </div>
+                  {selectedSupplier.zones && selectedSupplier.zones.length > 0 && (
+                    <div className="flex items-center gap-1 flex-wrap mt-1.5">
+                      <MapPin className="h-3 w-3 text-primary flex-shrink-0" />
+                      {selectedSupplier.zones.map(z => (
+                        <Badge key={z.id} variant="outline" className="text-[9px] px-1.5 py-0">{z.name}</Badge>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+              <Badge
+                className={`text-xs px-3 py-1 ${selectedSupplier.status === "Ativo" ? "bg-emerald-500/15 text-emerald-700 border-emerald-200 dark:text-emerald-400 dark:border-emerald-800" : "bg-muted text-muted-foreground"}`}
+                variant="outline"
+              >
+                {selectedSupplier.status}
+              </Badge>
+            </div>
+          </CardContent>
+        </Card>
 
         <Tabs defaultValue="produtos">
           <TabsList>
@@ -324,7 +374,14 @@ const Mosap3PayFornecedores = () => {
                         <TableCell>{t.label || "—"}</TableCell>
                         <TableCell className="text-muted-foreground text-sm">{t.location || "—"}</TableCell>
                         <TableCell className="text-sm">{t.operator_name || "—"}</TableCell>
-                        <TableCell><Badge variant={t.status === "Ativo" ? "default" : "secondary"} className="text-[10px]">{t.status}</Badge></TableCell>
+                        <TableCell>
+                          <Badge
+                            variant="outline"
+                            className={`text-[10px] ${t.status === "Ativo" ? "bg-emerald-500/15 text-emerald-700 border-emerald-200 dark:text-emerald-400" : "bg-muted text-muted-foreground"}`}
+                          >
+                            {t.status}
+                          </Badge>
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -406,11 +463,13 @@ const Mosap3PayFornecedores = () => {
     );
   }
 
+  // ===================== LIST VIEW =====================
   return (
     <div className="space-y-6">
+      {/* Page header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-heading font-bold flex items-center gap-2">
+          <h1 className="page-title flex items-center gap-2">
             <Store className="h-5 w-5 text-primary" /> Fornecedores
           </h1>
           <p className="text-muted-foreground text-sm">Gestão de fornecedores, catálogo e terminais POS</p>
@@ -422,50 +481,230 @@ const Mosap3PayFornecedores = () => {
         )}
       </div>
 
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input placeholder="Pesquisar por nome ou NIF..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+      {/* KPI Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+        <StatCard
+          title="Total Fornecedores"
+          value={String(suppliers.length)}
+          icon={Store}
+          iconBg="hsl(var(--primary))"
+        />
+        <StatCard
+          title="Ativos"
+          value={String(activeCount)}
+          change={inactiveCount > 0 ? `${inactiveCount} inativos` : "Todos ativos"}
+          changeType={inactiveCount > 0 ? "neutral" : "positive"}
+          icon={CheckCircle}
+          iconBg="hsl(142 71% 45%)"
+        />
+        <StatCard
+          title="Total Produtos"
+          value={String(totalProducts)}
+          icon={Package}
+          iconBg="hsl(262 83% 58%)"
+        />
+        <StatCard
+          title="Terminais POS"
+          value={String(totalPos)}
+          icon={Monitor}
+          iconBg="hsl(25 95% 53%)"
+        />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {loading ? (
-          <p className="col-span-full text-center text-muted-foreground py-8">Carregando...</p>
-        ) : filtered.length === 0 ? (
-          <p className="col-span-full text-center text-muted-foreground py-8">Nenhum fornecedor encontrado</p>
-        ) : filtered.map((s) => (
-          <Card key={s.id} className="hover:border-primary/50 transition-colors cursor-pointer" onClick={() => setSelectedSupplier(s)}>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="font-semibold text-sm">{s.name}</h3>
-                <Badge variant={s.status === "Ativo" ? "default" : "secondary"} className="text-[10px]">{s.status}</Badge>
-              </div>
-              <div className="text-xs text-muted-foreground space-y-0.5">
-                <p>NIF: {s.nif || "—"}</p>
-                <p>Telefone: {s.phone || "—"}</p>
-                <p>Província (sede): {s.province || "—"}</p>
-                {s.zones && s.zones.length > 0 && (
-                  <div className="flex items-center gap-1 flex-wrap mt-1">
-                    <MapPin className="h-3 w-3 text-primary flex-shrink-0" />
-                    {s.zones.map(z => (
-                      <Badge key={z.id} variant="outline" className="text-[9px] px-1 py-0">{z.name}</Badge>
-                    ))}
-                  </div>
-                )}
-              </div>
-              <div className="flex gap-2 mt-3">
-                <Button variant="outline" size="sm" className="h-7 text-xs flex-1" onClick={(e) => { e.stopPropagation(); setSelectedSupplier(s); }}>
-                  <Eye className="h-3 w-3 mr-1" /> Detalhes
-                </Button>
-                {isAdmin && (
-                  <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={(e) => { e.stopPropagation(); openEditDialog(s); }}>
-                    <Edit2 className="h-3 w-3" />
-                  </Button>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+      {/* Search + Filters + View toggle */}
+      <div className="flex flex-col md:flex-row gap-3">
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input placeholder="Pesquisar por nome ou NIF..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+        </div>
+
+        <div className="flex items-center gap-2 flex-wrap">
+          <Select value={filterStatus} onValueChange={setFilterStatus}>
+            <SelectTrigger className="w-[130px] h-9 text-xs">
+              <SelectValue placeholder="Estado" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos</SelectItem>
+              <SelectItem value="Ativo">Ativo</SelectItem>
+              <SelectItem value="Inativo">Inativo</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select value={filterProvince} onValueChange={setFilterProvince}>
+            <SelectTrigger className="w-[150px] h-9 text-xs">
+              <SelectValue placeholder="Província (sede)" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas províncias</SelectItem>
+              {uniqueProvinceNames.map(p => (
+                <SelectItem key={p} value={p}>{p}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select value={filterZone} onValueChange={setFilterZone}>
+            <SelectTrigger className="w-[150px] h-9 text-xs">
+              <SelectValue placeholder="Zona actuação" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas zonas</SelectItem>
+              {allProvinces.map(p => (
+                <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <ToggleGroup type="single" value={viewMode} onValueChange={(v) => v && setViewMode(v)} className="border rounded-md">
+            <ToggleGroupItem value="grid" size="sm" className="h-9 w-9 p-0">
+              <LayoutGrid className="h-4 w-4" />
+            </ToggleGroupItem>
+            <ToggleGroupItem value="table" size="sm" className="h-9 w-9 p-0">
+              <List className="h-4 w-4" />
+            </ToggleGroupItem>
+          </ToggleGroup>
+        </div>
       </div>
+
+      {/* Content */}
+      {loading ? (
+        <p className="text-center text-muted-foreground py-8">Carregando...</p>
+      ) : filtered.length === 0 ? (
+        <p className="text-center text-muted-foreground py-8">Nenhum fornecedor encontrado</p>
+      ) : viewMode === "grid" ? (
+        /* ===== GRID VIEW ===== */
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filtered.map((s, i) => (
+            <motion.div
+              key={s.id}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.03 }}
+            >
+              <Card className="hover:border-primary/50 transition-all hover:shadow-md cursor-pointer group" onClick={() => setSelectedSupplier(s)}>
+                <CardContent className="p-5">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-center gap-3">
+                      <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                        <Store className="h-4 w-4 text-primary" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-sm leading-tight">{s.name}</h3>
+                        <p className="text-[11px] text-muted-foreground">{s.province || "Sem província"}</p>
+                      </div>
+                    </div>
+                    <Badge
+                      variant="outline"
+                      className={`text-[10px] ${s.status === "Ativo" ? "bg-emerald-500/15 text-emerald-700 border-emerald-200 dark:text-emerald-400 dark:border-emerald-800" : "bg-muted text-muted-foreground"}`}
+                    >
+                      {s.status}
+                    </Badge>
+                  </div>
+
+                  <div className="text-xs text-muted-foreground space-y-1 mb-3">
+                    <div className="flex justify-between">
+                      <span>NIF</span>
+                      <span className="font-medium text-foreground">{s.nif || "—"}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Telefone</span>
+                      <span className="font-medium text-foreground">{s.phone || "—"}</span>
+                    </div>
+                  </div>
+
+                  {s.zones && s.zones.length > 0 && (
+                    <div className="flex items-center gap-1 flex-wrap mb-3">
+                      <MapPin className="h-3 w-3 text-primary flex-shrink-0" />
+                      {s.zones.slice(0, 3).map(z => (
+                        <Badge key={z.id} variant="outline" className="text-[9px] px-1.5 py-0">{z.name}</Badge>
+                      ))}
+                      {s.zones.length > 3 && (
+                        <Badge variant="secondary" className="text-[9px] px-1.5 py-0">+{s.zones.length - 3}</Badge>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="flex gap-2 pt-2 border-t border-border/50">
+                    <Button variant="outline" size="sm" className="h-7 text-xs flex-1" onClick={(e) => { e.stopPropagation(); setSelectedSupplier(s); }}>
+                      <Eye className="h-3 w-3 mr-1" /> Detalhes
+                    </Button>
+                    {isAdmin && (
+                      <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={(e) => { e.stopPropagation(); openEditDialog(s); }}>
+                        <Edit2 className="h-3 w-3" />
+                      </Button>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          ))}
+        </div>
+      ) : (
+        /* ===== TABLE VIEW ===== */
+        <Card>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nome</TableHead>
+                  <TableHead>NIF</TableHead>
+                  <TableHead className="hidden md:table-cell">Telefone</TableHead>
+                  <TableHead className="hidden md:table-cell">Província</TableHead>
+                  <TableHead className="hidden lg:table-cell">Zonas</TableHead>
+                  <TableHead>Estado</TableHead>
+                  <TableHead className="text-right">Acções</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filtered.map((s) => (
+                  <TableRow key={s.id} className="cursor-pointer" onClick={() => setSelectedSupplier(s)}>
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-2">
+                        <div className="h-7 w-7 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">
+                          <Store className="h-3.5 w-3.5 text-primary" />
+                        </div>
+                        {s.name}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground text-xs">{s.nif || "—"}</TableCell>
+                    <TableCell className="hidden md:table-cell text-muted-foreground text-xs">{s.phone || "—"}</TableCell>
+                    <TableCell className="hidden md:table-cell text-xs">{s.province || "—"}</TableCell>
+                    <TableCell className="hidden lg:table-cell">
+                      <div className="flex gap-1 flex-wrap">
+                        {s.zones?.slice(0, 2).map(z => (
+                          <Badge key={z.id} variant="outline" className="text-[9px] px-1.5 py-0">{z.name}</Badge>
+                        ))}
+                        {(s.zones?.length || 0) > 2 && (
+                          <Badge variant="secondary" className="text-[9px] px-1.5 py-0">+{(s.zones?.length || 0) - 2}</Badge>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant="outline"
+                        className={`text-[10px] ${s.status === "Ativo" ? "bg-emerald-500/15 text-emerald-700 border-emerald-200 dark:text-emerald-400 dark:border-emerald-800" : "bg-muted text-muted-foreground"}`}
+                      >
+                        {s.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-1">
+                        <Button variant="ghost" size="sm" className="h-7" onClick={(e) => { e.stopPropagation(); setSelectedSupplier(s); }}>
+                          <Eye className="h-3 w-3" />
+                        </Button>
+                        {isAdmin && (
+                          <Button variant="ghost" size="sm" className="h-7" onClick={(e) => { e.stopPropagation(); openEditDialog(s); }}>
+                            <Edit2 className="h-3 w-3" />
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Supplier Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
