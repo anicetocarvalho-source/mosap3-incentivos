@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Settings, Globe, Bell, Shield, Database, Save, Loader2 } from "lucide-react";
+import { Constants } from "@/integrations/supabase/types";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -31,6 +32,9 @@ const Configuracoes = () => {
   const [settings, setSettings] = useState<SettingsMap>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [userCount, setUserCount] = useState<number | null>(null);
+  const [provinceCount, setProvinceCount] = useState<number | null>(null);
+  const roleCount = Constants.public.Enums.app_role.length;
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -45,7 +49,16 @@ const Configuracoes = () => {
       }
       setLoading(false);
     };
+    const fetchCounts = async () => {
+      const [profilesRes, provincesRes] = await Promise.all([
+        supabase.from("profiles").select("*", { count: "exact", head: true }),
+        supabase.from("provinces").select("*", { count: "exact", head: true }),
+      ]);
+      setUserCount(profilesRes.count ?? 0);
+      setProvinceCount(provincesRes.count ?? 0);
+    };
     fetchSettings();
+    fetchCounts();
   }, []);
 
   const update = (key: string, value: string) => {
@@ -227,15 +240,15 @@ const Configuracoes = () => {
           <Separator />
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="border border-border rounded-lg p-4 text-center">
-              <p className="text-2xl font-bold text-primary">3</p>
+              <p className="text-2xl font-bold text-primary">{userCount ?? "..."}</p>
               <p className="text-xs text-muted-foreground mt-1">Utilizadores Activos</p>
             </div>
             <div className="border border-border rounded-lg p-4 text-center">
-              <p className="text-2xl font-bold text-primary">9</p>
+              <p className="text-2xl font-bold text-primary">{roleCount}</p>
               <p className="text-xs text-muted-foreground mt-1">Perfis de Acesso</p>
             </div>
             <div className="border border-border rounded-lg p-4 text-center">
-              <p className="text-2xl font-bold text-primary">18</p>
+              <p className="text-2xl font-bold text-primary">{provinceCount ?? "..."}</p>
               <p className="text-xs text-muted-foreground mt-1">Províncias Configuradas</p>
             </div>
           </div>

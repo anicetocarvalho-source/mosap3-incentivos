@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Package, Search, Filter, Edit2, Eye, CheckSquare, X, Plus, Trash2, Pencil, Check } from "lucide-react";
+import { Package, Search, Filter, Edit2, Eye, CheckSquare, X, Plus, Trash2, Pencil, Check, ChevronLeft, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -49,6 +49,8 @@ const categoryColors: Record<string, string> = {
   servicos: "text-blue-700",
 };
 
+const PAGE_SIZE = 15;
+
 const Patec = () => {
   const { isAdmin } = useAuth();
   const [farmers, setFarmers] = useState<FarmerPatec[]>([]);
@@ -56,6 +58,7 @@ const Patec = () => {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filterPatec, setFilterPatec] = useState<string>("all");
+  const [page, setPage] = useState(1);
   const [editFarmer, setEditFarmer] = useState<FarmerPatec | null>(null);
   const [editPatec, setEditPatec] = useState<string>("");
   const [saving, setSaving] = useState(false);
@@ -222,6 +225,10 @@ const Patec = () => {
 
   const isAllSelected = filtered.length > 0 && selectedIds.size === filtered.length;
   const isSomeSelected = selectedIds.size > 0;
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  useEffect(() => { setPage(1); }, [search, filterPatec]);
 
   // Render editable item list for a category
   const renderItemList = (patecNum: number, category: string) => {
@@ -419,58 +426,105 @@ const Patec = () => {
       {/* Table */}
       <Card>
         <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-10">
-                  <Checkbox checked={isAllSelected} onCheckedChange={toggleSelectAll} aria-label="Seleccionar todos" />
-                </TableHead>
-                <TableHead>Código</TableHead>
-                <TableHead>Nome</TableHead>
-                <TableHead>Província</TableHead>
-                <TableHead>Escola</TableHead>
-                <TableHead>Estado</TableHead>
-                <TableHead>PATEC</TableHead>
-                <TableHead className="text-right">Acções</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loading ? (
-                <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>
-              ) : filtered.length === 0 ? (
-                <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Nenhum produtor encontrado</TableCell></TableRow>
-              ) : filtered.map((f) => (
-                <TableRow key={f.id} className={selectedIds.has(f.id) ? "bg-primary/5" : ""}>
-                  <TableCell>
-                    <Checkbox checked={selectedIds.has(f.id)} onCheckedChange={() => toggleSelect(f.id)} aria-label={`Seleccionar ${f.full_name}`} />
-                  </TableCell>
-                  <TableCell className="font-mono text-xs">{f.code}</TableCell>
-                  <TableCell className="font-medium">
-                    <Link to={`/agricultores/${f.code}`} className="text-primary hover:underline">{f.full_name}</Link>
-                  </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">{f.province || "—"}</TableCell>
-                  <TableCell className="text-sm text-muted-foreground">{f.school || "—"}</TableCell>
-                  <TableCell>
-                    <Badge variant={f.status === "Ativo" ? "default" : "secondary"} className="text-[10px]">{f.status}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    {f.patec ? (
-                      <Badge variant="outline" className={`text-[10px] ${patecMeta[f.patec]?.color || ""}`}>
-                        PATEC {f.patec}
-                      </Badge>
-                    ) : (
-                      <span className="text-xs text-destructive font-medium">Não atribuído</span>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => { setEditFarmer(f); setEditPatec(f.patec ? String(f.patec) : ""); }}>
-                      <Edit2 className="h-3 w-3 mr-1" /> Atribuir
-                    </Button>
-                  </TableCell>
+          {/* Desktop table */}
+          <div className="hidden md:block">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-10">
+                    <Checkbox checked={isAllSelected} onCheckedChange={toggleSelectAll} aria-label="Seleccionar todos" />
+                  </TableHead>
+                  <TableHead>Código</TableHead>
+                  <TableHead>Nome</TableHead>
+                  <TableHead>Província</TableHead>
+                  <TableHead>Escola</TableHead>
+                  <TableHead>Estado</TableHead>
+                  <TableHead>PATEC</TableHead>
+                  <TableHead className="text-right">Acções</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>
+                ) : paginated.length === 0 ? (
+                  <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Nenhum produtor encontrado</TableCell></TableRow>
+                ) : paginated.map((f) => (
+                  <TableRow key={f.id} className={selectedIds.has(f.id) ? "bg-primary/5" : ""}>
+                    <TableCell>
+                      <Checkbox checked={selectedIds.has(f.id)} onCheckedChange={() => toggleSelect(f.id)} aria-label={`Seleccionar ${f.full_name}`} />
+                    </TableCell>
+                    <TableCell className="font-mono text-xs">{f.code}</TableCell>
+                    <TableCell className="font-medium">
+                      <Link to={`/agricultores/${f.code}`} className="text-primary hover:underline">{f.full_name}</Link>
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{f.province || "—"}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{f.school || "—"}</TableCell>
+                    <TableCell>
+                      <Badge variant={f.status === "Ativo" ? "default" : "secondary"} className="text-[10px]">{f.status}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      {f.patec ? (
+                        <Badge variant="outline" className={`text-[10px] ${patecMeta[f.patec]?.color || ""}`}>
+                          PATEC {f.patec}
+                        </Badge>
+                      ) : (
+                        <span className="text-xs text-destructive font-medium">Não atribuído</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => { setEditFarmer(f); setEditPatec(f.patec ? String(f.patec) : ""); }}>
+                        <Edit2 className="h-3 w-3 mr-1" /> Atribuir
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+
+          {/* Mobile cards */}
+          <div className="md:hidden divide-y divide-border">
+            {loading ? (
+              <p className="text-center py-8 text-muted-foreground text-sm">Carregando...</p>
+            ) : paginated.length === 0 ? (
+              <p className="text-center py-8 text-muted-foreground text-sm">Nenhum produtor encontrado</p>
+            ) : paginated.map((f) => (
+              <div key={f.id} className={`p-3 space-y-1.5 ${selectedIds.has(f.id) ? "bg-primary/5" : ""}`}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Checkbox checked={selectedIds.has(f.id)} onCheckedChange={() => toggleSelect(f.id)} />
+                    <Link to={`/agricultores/${f.code}`} className="text-sm font-medium text-primary hover:underline">{f.full_name}</Link>
+                  </div>
+                  {f.patec ? (
+                    <Badge variant="outline" className={`text-[10px] ${patecMeta[f.patec]?.color || ""}`}>PATEC {f.patec}</Badge>
+                  ) : (
+                    <span className="text-[10px] text-destructive font-medium">Sem PATEC</span>
+                  )}
+                </div>
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span className="font-mono">{f.code}</span>
+                  <span>{f.province || "—"} • {f.school || "—"}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <Badge variant={f.status === "Ativo" ? "default" : "secondary"} className="text-[10px]">{f.status}</Badge>
+                  <Button variant="ghost" size="sm" className="h-6 text-[10px] px-2" onClick={() => { setEditFarmer(f); setEditPatec(f.patec ? String(f.patec) : ""); }}>
+                    <Edit2 className="h-3 w-3 mr-1" /> Atribuir
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between px-4 py-3 border-t">
+              <p className="text-xs text-muted-foreground">{filtered.length} produtores • Página {page}/{totalPages}</p>
+              <div className="flex gap-1">
+                <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(p => p - 1)}><ChevronLeft className="h-4 w-4" /></Button>
+                <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}><ChevronRight className="h-4 w-4" /></Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Shield, Search, Filter, Download, Clock, User, FileText } from "lucide-react";
+import { Shield, Search, Filter, Download, Clock, User, FileText, ChevronLeft, ChevronRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+
+const PAGE_SIZE = 15;
 
 interface AuditLog {
   id: string;
@@ -52,6 +54,7 @@ const Mosap3PayAuditLogs = () => {
   const [filterAction, setFilterAction] = useState("all");
   const [filterEntity, setFilterEntity] = useState("all");
   const [detailLog, setDetailLog] = useState<AuditLog | null>(null);
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
     fetchLogs();
@@ -81,6 +84,12 @@ const Mosap3PayAuditLogs = () => {
     return true;
   });
 
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  // Reset page on filter change
+  useEffect(() => { setPage(1); }, [search, filterAction, filterEntity]);
+
   const exportCSV = () => {
     const headers = ["Data", "Utilizador", "Acção", "Entidade", "ID", "Detalhes"];
     const rows = filtered.map(l => [
@@ -104,6 +113,16 @@ const Mosap3PayAuditLogs = () => {
 
   const uniqueActions = [...new Set(logs.map(l => l.action))];
   const uniqueEntities = [...new Set(logs.map(l => l.entity_type))];
+
+  const PaginationControls = () => totalPages > 1 ? (
+    <div className="flex items-center justify-between px-4 py-3 border-t">
+      <p className="text-xs text-muted-foreground">{filtered.length} registos • Página {page}/{totalPages}</p>
+      <div className="flex gap-1">
+        <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(p => p - 1)}><ChevronLeft className="h-4 w-4" /></Button>
+        <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}><ChevronRight className="h-4 w-4" /></Button>
+      </div>
+    </div>
+  ) : null;
 
   return (
     <div className="space-y-6">
@@ -165,55 +184,79 @@ const Mosap3PayAuditLogs = () => {
 
       <Card>
         <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Data/Hora</TableHead>
-                <TableHead>Utilizador</TableHead>
-                <TableHead>Acção</TableHead>
-                <TableHead>Entidade</TableHead>
-                <TableHead>ID</TableHead>
-                <TableHead className="text-right">Detalhes</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loading ? (
-                <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>
-              ) : filtered.length === 0 ? (
-                <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Nenhum registo</TableCell></TableRow>
-              ) : filtered.slice(0, 100).map(log => (
-                <TableRow key={log.id}>
-                  <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
-                    <div className="flex items-center gap-1">
-                      <Clock className="h-3 w-3" />
-                      {new Date(log.created_at).toLocaleString("pt-AO")}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-sm">
-                    <div className="flex items-center gap-1">
-                      <User className="h-3 w-3 text-muted-foreground" />
-                      {log.user_name || "Sistema"}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className={`text-[10px] ${ACTION_COLORS[log.action] || ""}`}>
-                      {ACTION_LABELS[log.action] || log.action}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-sm">{ENTITY_LABELS[log.entity_type] || log.entity_type}</TableCell>
-                  <TableCell className="font-mono text-xs max-w-[120px] truncate">{log.entity_id || "—"}</TableCell>
-                  <TableCell className="text-right">
-                    <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setDetailLog(log)}>
-                      <FileText className="h-3 w-3 mr-1" /> Ver
-                    </Button>
-                  </TableCell>
+          {/* Desktop table */}
+          <div className="hidden md:block">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Data/Hora</TableHead>
+                  <TableHead>Utilizador</TableHead>
+                  <TableHead>Acção</TableHead>
+                  <TableHead>Entidade</TableHead>
+                  <TableHead>ID</TableHead>
+                  <TableHead className="text-right">Detalhes</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-          {filtered.length > 100 && (
-            <p className="text-center text-xs text-muted-foreground py-2">A mostrar 100 de {filtered.length} registos</p>
-          )}
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>
+                ) : paginated.length === 0 ? (
+                  <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Nenhum registo</TableCell></TableRow>
+                ) : paginated.map(log => (
+                  <TableRow key={log.id}>
+                    <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                      <div className="flex items-center gap-1">
+                        <Clock className="h-3 w-3" />
+                        {new Date(log.created_at).toLocaleString("pt-AO")}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      <div className="flex items-center gap-1">
+                        <User className="h-3 w-3 text-muted-foreground" />
+                        {log.user_name || "Sistema"}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className={`text-[10px] ${ACTION_COLORS[log.action] || ""}`}>
+                        {ACTION_LABELS[log.action] || log.action}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-sm">{ENTITY_LABELS[log.entity_type] || log.entity_type}</TableCell>
+                    <TableCell className="font-mono text-xs max-w-[120px] truncate">{log.entity_id || "—"}</TableCell>
+                    <TableCell className="text-right">
+                      <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setDetailLog(log)}>
+                        <FileText className="h-3 w-3 mr-1" /> Ver
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+
+          {/* Mobile cards */}
+          <div className="md:hidden divide-y divide-border">
+            {loading ? (
+              <p className="text-center py-8 text-muted-foreground text-sm">Carregando...</p>
+            ) : paginated.length === 0 ? (
+              <p className="text-center py-8 text-muted-foreground text-sm">Nenhum registo</p>
+            ) : paginated.map(log => (
+              <div key={log.id} className="p-3 space-y-1.5" onClick={() => setDetailLog(log)}>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">{log.user_name || "Sistema"}</span>
+                  <Badge variant="outline" className={`text-[10px] ${ACTION_COLORS[log.action] || ""}`}>
+                    {ACTION_LABELS[log.action] || log.action}
+                  </Badge>
+                </div>
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span>{ENTITY_LABELS[log.entity_type] || log.entity_type}</span>
+                  <span>{new Date(log.created_at).toLocaleString("pt-AO")}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <PaginationControls />
         </CardContent>
       </Card>
 

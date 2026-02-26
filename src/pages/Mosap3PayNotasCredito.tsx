@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { FileText, Search, Plus, Eye, Loader2, AlertTriangle } from "lucide-react";
+import { FileText, Search, Plus, Eye, Loader2, AlertTriangle, ChevronLeft, ChevronRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +13,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
+
+const PAGE_SIZE = 15;
 
 interface CreditNote {
   id: string;
@@ -59,6 +61,7 @@ const Mosap3PayNotasCredito = () => {
   const [search, setSearch] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
   const [detailNote, setDetailNote] = useState<CreditNote | null>(null);
+  const [page, setPage] = useState(1);
 
   // Create form state
   const [suppliers, setSuppliers] = useState<{ id: string; name: string }[]>([]);
@@ -122,7 +125,6 @@ const Mosap3PayNotasCredito = () => {
 
     setSubmitting(true);
     try {
-      // Calculate totals
       let subtotal = 0;
       let ivaTotal = 0;
       const cnItems = itemsToCredit.map(item => {
@@ -143,14 +145,12 @@ const Mosap3PayNotasCredito = () => {
 
       const total = Math.round((subtotal + ivaTotal) * 100) / 100;
 
-      // Get NC number
       const year = new Date().getFullYear();
       const { data: ncNumber } = await supabase.rpc("next_credit_note_number", {
         _supplier_id: selectedSale.supplier_id,
         _year: year,
       });
 
-      // Insert credit note
       const { data: cn, error } = await supabase.from("credit_notes").insert({
         credit_note_number: ncNumber || `NC ${year}/00001`,
         supplier_id: selectedSale.supplier_id,
@@ -166,12 +166,10 @@ const Mosap3PayNotasCredito = () => {
 
       if (error) throw error;
 
-      // Insert items
       await supabase.from("credit_note_items").insert(
         cnItems.map(item => ({ ...item, credit_note_id: cn.id }))
       );
 
-      // Adjust farmer balance (credit back total to saldo_final, reduce total_gasto)
       const { data: farmerData } = await supabase
         .from("farmers")
         .select("saldo_final, total_gasto")
@@ -191,7 +189,6 @@ const Mosap3PayNotasCredito = () => {
         }).eq("code", selectedSale.farmer_code);
       }
 
-      // Log audit
       await supabase.from("audit_logs").insert({
         user_id: user?.id,
         user_name: user?.email,
@@ -227,6 +224,20 @@ const Mosap3PayNotasCredito = () => {
   );
 
   const totalCredited = filtered.reduce((s, cn) => s + Number(cn.total), 0);
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  useEffect(() => { setPage(1); }, [search]);
+
+  const PaginationControls = () => totalPages > 1 ? (
+    <div className="flex items-center justify-between px-4 py-3 border-t">
+      <p className="text-xs text-muted-foreground">{filtered.length} registos • Página {page}/{totalPages}</p>
+      <div className="flex gap-1">
+        <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(p => p - 1)}><ChevronLeft className="h-4 w-4" /></Button>
+        <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}><ChevronRight className="h-4 w-4" /></Button>
+      </div>
+    </div>
+  ) : null;
 
   return (
     <div className="space-y-6">
@@ -264,45 +275,72 @@ const Mosap3PayNotasCredito = () => {
 
       <Card>
         <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nº NC</TableHead>
-                <TableHead>Produtor</TableHead>
-                <TableHead>Motivo</TableHead>
-                <TableHead>Total</TableHead>
-                <TableHead>Estado</TableHead>
-                <TableHead>Data</TableHead>
-                <TableHead className="text-right">Acções</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loading ? (
-                <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>
-              ) : filtered.length === 0 ? (
-                <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Nenhuma nota de crédito</TableCell></TableRow>
-              ) : filtered.map(cn => (
-                <TableRow key={cn.id}>
-                  <TableCell className="font-mono text-xs font-semibold text-primary">{cn.credit_note_number}</TableCell>
-                  <TableCell>
-                    <p className="font-medium text-sm">{cn.farmer_name}</p>
-                    <p className="text-[10px] text-muted-foreground">{cn.farmer_code}</p>
-                  </TableCell>
-                  <TableCell className="text-sm max-w-[200px] truncate">{cn.reason}</TableCell>
-                  <TableCell className="font-bold">{Number(cn.total).toLocaleString("pt-AO")} Kz</TableCell>
-                  <TableCell>
-                    <Badge variant={cn.status === "emitida" ? "default" : "secondary"} className="text-[10px]">{cn.status}</Badge>
-                  </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">{new Date(cn.created_at).toLocaleDateString("pt-AO")}</TableCell>
-                  <TableCell className="text-right">
-                    <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setDetailNote(cn)}>
-                      <Eye className="h-3 w-3 mr-1" /> Ver
-                    </Button>
-                  </TableCell>
+          {/* Desktop table */}
+          <div className="hidden md:block">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nº NC</TableHead>
+                  <TableHead>Produtor</TableHead>
+                  <TableHead>Motivo</TableHead>
+                  <TableHead>Total</TableHead>
+                  <TableHead>Estado</TableHead>
+                  <TableHead>Data</TableHead>
+                  <TableHead className="text-right">Acções</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>
+                ) : paginated.length === 0 ? (
+                  <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Nenhuma nota de crédito</TableCell></TableRow>
+                ) : paginated.map(cn => (
+                  <TableRow key={cn.id}>
+                    <TableCell className="font-mono text-xs font-semibold text-primary">{cn.credit_note_number}</TableCell>
+                    <TableCell>
+                      <p className="font-medium text-sm">{cn.farmer_name}</p>
+                      <p className="text-[10px] text-muted-foreground">{cn.farmer_code}</p>
+                    </TableCell>
+                    <TableCell className="text-sm max-w-[200px] truncate">{cn.reason}</TableCell>
+                    <TableCell className="font-bold">{Number(cn.total).toLocaleString("pt-AO")} Kz</TableCell>
+                    <TableCell>
+                      <Badge variant={cn.status === "emitida" ? "default" : "secondary"} className="text-[10px]">{cn.status}</Badge>
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">{new Date(cn.created_at).toLocaleDateString("pt-AO")}</TableCell>
+                    <TableCell className="text-right">
+                      <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setDetailNote(cn)}>
+                        <Eye className="h-3 w-3 mr-1" /> Ver
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+
+          {/* Mobile cards */}
+          <div className="md:hidden divide-y divide-border">
+            {loading ? (
+              <p className="text-center py-8 text-muted-foreground text-sm">Carregando...</p>
+            ) : paginated.length === 0 ? (
+              <p className="text-center py-8 text-muted-foreground text-sm">Nenhuma nota de crédito</p>
+            ) : paginated.map(cn => (
+              <div key={cn.id} className="p-3 space-y-1.5" onClick={() => setDetailNote(cn)}>
+                <div className="flex items-center justify-between">
+                  <span className="font-mono text-xs font-semibold text-primary">{cn.credit_note_number}</span>
+                  <Badge variant={cn.status === "emitida" ? "default" : "secondary"} className="text-[10px]">{cn.status}</Badge>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">{cn.farmer_name}</span>
+                  <span className="font-bold text-sm">{Number(cn.total).toLocaleString("pt-AO")} Kz</span>
+                </div>
+                <p className="text-xs text-muted-foreground truncate">{cn.reason}</p>
+                <p className="text-xs text-muted-foreground">{new Date(cn.created_at).toLocaleDateString("pt-AO")}</p>
+              </div>
+            ))}
+          </div>
+
+          <PaginationControls />
         </CardContent>
       </Card>
 
@@ -385,7 +423,6 @@ const Mosap3PayNotasCredito = () => {
                   />
                 </div>
 
-                {/* Preview totals */}
                 {(() => {
                   const items = saleItems.filter(i => (selectedItems[i.id] || 0) > 0);
                   const sub = items.reduce((s, i) => s + i.unit_price * (selectedItems[i.id] || 0), 0);

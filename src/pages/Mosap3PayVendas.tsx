@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { ShoppingCart, Search, Filter, Eye, Printer, FileDown, Loader2, ShieldCheck, CheckCircle2, AlertTriangle, XCircle, Info } from "lucide-react";
+import { ShoppingCart, Search, Filter, Eye, Printer, FileDown, Loader2, ShieldCheck, CheckCircle2, AlertTriangle, XCircle, Info, ChevronLeft, ChevronRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,11 +39,14 @@ interface SaleItem {
   line_total: number;
 }
 
+const PAGE_SIZE = 15;
+
 const Mosap3PayVendas = () => {
   const [sales, setSales] = useState<Sale[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
+  const [page, setPage] = useState(1);
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [saleItems, setSaleItems] = useState<SaleItem[]>([]);
   const [invoiceOpen, setInvoiceOpen] = useState(false);
@@ -184,6 +187,20 @@ const Mosap3PayVendas = () => {
 
   const totalRevenue = filtered.reduce((sum, s) => sum + Number(s.total), 0);
   const totalPending = filtered.filter((s) => s.payment_status === "pendente").reduce((sum, s) => sum + Number(s.total), 0);
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  useEffect(() => { setPage(1); }, [search, filterStatus]);
+
+  const PaginationControls = () => totalPages > 1 ? (
+    <div className="flex items-center justify-between px-4 py-3 border-t">
+      <p className="text-xs text-muted-foreground">{filtered.length} vendas • Página {page}/{totalPages}</p>
+      <div className="flex gap-1">
+        <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(p => p - 1)}><ChevronLeft className="h-4 w-4" /></Button>
+        <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}><ChevronRight className="h-4 w-4" /></Button>
+      </div>
+    </div>
+  ) : null;
 
   return (
     <div className="space-y-6">
@@ -224,52 +241,89 @@ const Mosap3PayVendas = () => {
 
       <Card>
         <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Código</TableHead>
-                <TableHead>Produtor</TableHead>
-                <TableHead>PATEC</TableHead>
-                <TableHead>Total</TableHead>
-                <TableHead>Pagamento</TableHead>
-                <TableHead>Estado</TableHead>
-                <TableHead>Data</TableHead>
-                <TableHead className="text-right">Acções</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loading ? (
-                <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>
-              ) : filtered.length === 0 ? (
-                <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Nenhuma venda encontrada</TableCell></TableRow>
-              ) : filtered.map((s) => (
-                <TableRow key={s.id}>
-                  <TableCell className="font-mono text-xs">{s.sale_code}</TableCell>
-                  <TableCell>
-                    <p className="font-medium text-sm">{s.farmer_name}</p>
-                    <p className="text-[10px] text-muted-foreground">{s.farmer_code}</p>
-                  </TableCell>
-                  <TableCell>{s.patec_number ? <Badge variant="outline" className="text-[10px]">PATEC {s.patec_number}</Badge> : "—"}</TableCell>
-                  <TableCell className="font-bold">{Number(s.total).toLocaleString("pt-AO")} Kz</TableCell>
-                  <TableCell className="text-xs">{s.payment_method === "unitel_money" ? "Unitel Money" : s.payment_method}</TableCell>
-                  <TableCell>
-                    <Badge variant={s.payment_status === "pago" ? "default" : s.payment_status === "pendente" ? "secondary" : "destructive"} className="text-[10px]">
-                      {s.payment_status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">{new Date(s.created_at).toLocaleDateString("pt-AO")}</TableCell>
-                  <TableCell className="text-right space-x-1">
-                    <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => openDetail(s)}>
-                      <Eye className="h-3 w-3 mr-1" /> Ver
-                    </Button>
-                    <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => openInvoice(s)}>
-                      <Printer className="h-3 w-3 mr-1" /> Factura
-                    </Button>
-                  </TableCell>
+          {/* Desktop table */}
+          <div className="hidden md:block">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Código</TableHead>
+                  <TableHead>Produtor</TableHead>
+                  <TableHead>PATEC</TableHead>
+                  <TableHead>Total</TableHead>
+                  <TableHead>Pagamento</TableHead>
+                  <TableHead>Estado</TableHead>
+                  <TableHead>Data</TableHead>
+                  <TableHead className="text-right">Acções</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>
+                ) : paginated.length === 0 ? (
+                  <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Nenhuma venda encontrada</TableCell></TableRow>
+                ) : paginated.map((s) => (
+                  <TableRow key={s.id}>
+                    <TableCell className="font-mono text-xs">{s.sale_code}</TableCell>
+                    <TableCell>
+                      <p className="font-medium text-sm">{s.farmer_name}</p>
+                      <p className="text-[10px] text-muted-foreground">{s.farmer_code}</p>
+                    </TableCell>
+                    <TableCell>{s.patec_number ? <Badge variant="outline" className="text-[10px]">PATEC {s.patec_number}</Badge> : "—"}</TableCell>
+                    <TableCell className="font-bold">{Number(s.total).toLocaleString("pt-AO")} Kz</TableCell>
+                    <TableCell className="text-xs">{s.payment_method === "unitel_money" ? "Unitel Money" : s.payment_method}</TableCell>
+                    <TableCell>
+                      <Badge variant={s.payment_status === "pago" ? "default" : s.payment_status === "pendente" ? "secondary" : "destructive"} className="text-[10px]">
+                        {s.payment_status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">{new Date(s.created_at).toLocaleDateString("pt-AO")}</TableCell>
+                    <TableCell className="text-right space-x-1">
+                      <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => openDetail(s)}>
+                        <Eye className="h-3 w-3 mr-1" /> Ver
+                      </Button>
+                      <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => openInvoice(s)}>
+                        <Printer className="h-3 w-3 mr-1" /> Factura
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+
+          {/* Mobile cards */}
+          <div className="md:hidden divide-y divide-border">
+            {loading ? (
+              <p className="text-center py-8 text-muted-foreground text-sm">Carregando...</p>
+            ) : paginated.length === 0 ? (
+              <p className="text-center py-8 text-muted-foreground text-sm">Nenhuma venda encontrada</p>
+            ) : paginated.map((s) => (
+              <div key={s.id} className="p-3 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="font-mono text-xs">{s.sale_code}</span>
+                  <Badge variant={s.payment_status === "pago" ? "default" : s.payment_status === "pendente" ? "secondary" : "destructive"} className="text-[10px]">
+                    {s.payment_status}
+                  </Badge>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium">{s.farmer_name}</p>
+                    <p className="text-[10px] text-muted-foreground">{s.farmer_code}</p>
+                  </div>
+                  <span className="font-bold text-sm">{Number(s.total).toLocaleString("pt-AO")} Kz</span>
+                </div>
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span>{new Date(s.created_at).toLocaleDateString("pt-AO")}</span>
+                  <div className="flex gap-1">
+                    <Button variant="ghost" size="sm" className="h-6 text-[10px] px-2" onClick={() => openDetail(s)}>Ver</Button>
+                    <Button variant="ghost" size="sm" className="h-6 text-[10px] px-2" onClick={() => openInvoice(s)}>Factura</Button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <PaginationControls />
         </CardContent>
       </Card>
 

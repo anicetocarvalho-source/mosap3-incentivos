@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { Settings, Eye, EyeOff, Save, CheckCircle, AlertTriangle, Wifi, Shield } from "lucide-react";
+import { Settings, Eye, EyeOff, Save, CheckCircle, AlertTriangle, Wifi, Shield, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 const SETTINGS_KEYS = [
@@ -107,7 +107,7 @@ const Mosap3PayConfiguracoes = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <p className="text-muted-foreground">Carregando configurações...</p>
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     );
   }

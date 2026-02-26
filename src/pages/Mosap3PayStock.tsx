@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Package, AlertTriangle, ArrowUpCircle, ArrowDownCircle, RotateCcw, Search, History, Edit2, TrendingDown, TrendingUp, BarChart3, Loader2 } from "lucide-react";
+import { Package, AlertTriangle, ArrowUpCircle, ArrowDownCircle, RotateCcw, Search, History, Edit2, TrendingDown, TrendingUp, BarChart3, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -54,6 +54,8 @@ const MOVEMENT_LABELS: Record<string, { label: string; color: string; icon: any 
   devolucao: { label: "Devolução", color: "text-primary", icon: ArrowUpCircle },
 };
 
+const PAGE_SIZE = 15;
+
 const Mosap3PayStock = () => {
   const { user } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
@@ -83,6 +85,10 @@ const Mosap3PayStock = () => {
   const [editMinOpen, setEditMinOpen] = useState(false);
   const [editMinProduct, setEditMinProduct] = useState<Product | null>(null);
   const [editMinValue, setEditMinValue] = useState(0);
+
+  // Pagination
+  const [prodPage, setProdPage] = useState(1);
+  const [movPage, setMovPage] = useState(1);
 
   useEffect(() => {
     fetchData();
@@ -235,6 +241,24 @@ const Mosap3PayStock = () => {
     ? Math.round(((activeProducts.length - lowStockProducts.length - outOfStock.length) / activeProducts.length) * 100)
     : 100;
 
+  const prodTotalPages = Math.ceil(filtered.length / PAGE_SIZE);
+  const paginatedProducts = filtered.slice((prodPage - 1) * PAGE_SIZE, prodPage * PAGE_SIZE);
+  const movTotalPages = Math.ceil(filteredMovements.length / PAGE_SIZE);
+  const paginatedMovements = filteredMovements.slice((movPage - 1) * PAGE_SIZE, movPage * PAGE_SIZE);
+
+  useEffect(() => { setProdPage(1); }, [search, filterSupplier, filterStatus]);
+  useEffect(() => { setMovPage(1); }, [movSearch, movFilterType]);
+
+  const PaginationBlock = ({ current, total, onChange }: { current: number; total: number; onChange: (p: number) => void }) => total > 1 ? (
+    <div className="flex items-center justify-between px-4 py-3 border-t">
+      <p className="text-xs text-muted-foreground">Página {current}/{total}</p>
+      <div className="flex gap-1">
+        <Button variant="outline" size="sm" disabled={current <= 1} onClick={() => onChange(current - 1)}><ChevronLeft className="h-4 w-4" /></Button>
+        <Button variant="outline" size="sm" disabled={current >= total} onClick={() => onChange(current + 1)}><ChevronRight className="h-4 w-4" /></Button>
+      </div>
+    </div>
+  ) : null;
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
@@ -335,76 +359,111 @@ const Mosap3PayStock = () => {
 
           <Card>
             <CardContent className="p-0">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Produto</TableHead>
-                    <TableHead>Fornecedor</TableHead>
-                    <TableHead className="text-center">Stock</TableHead>
-                    <TableHead className="text-center">Mín.</TableHead>
-                    <TableHead className="text-center">Valor</TableHead>
-                    <TableHead>Estado</TableHead>
-                    <TableHead className="text-right">Acções</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {loading ? (
-                    <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin inline mr-2" />Carregando...</TableCell></TableRow>
-                  ) : filtered.length === 0 ? (
-                    <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Sem produtos</TableCell></TableRow>
-                  ) : filtered.map(p => {
-                    const isLow = p.stock <= p.min_stock && p.stock > 0;
-                    const isOut = p.stock === 0;
-                    const stockPercent = p.min_stock > 0 ? Math.min(100, Math.round((p.stock / (p.min_stock * 3)) * 100)) : 100;
-                    return (
-                      <TableRow key={p.id} className={isOut ? "bg-destructive/5" : isLow ? "bg-warning/5" : ""}>
-                        <TableCell>
-                          <p className="font-medium text-sm">{p.name}</p>
-                          <p className="text-[10px] text-muted-foreground">{p.category} • {Number(p.price).toLocaleString("pt-AO")} Kz/{p.unit}</p>
-                        </TableCell>
-                        <TableCell className="text-sm">{getSupplierName(p.supplier_id)}</TableCell>
-                        <TableCell className="text-center">
-                          <div className="flex flex-col items-center gap-1">
-                            <span className={`font-bold text-lg ${isOut ? "text-destructive" : isLow ? "text-warning" : ""}`}>
-                              {p.stock}
-                            </span>
-                            <Progress value={stockPercent} className="h-1 w-16" />
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <button className="text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1 mx-auto" onClick={() => openEditMin(p)}>
-                            {p.min_stock} <Edit2 className="h-2.5 w-2.5" />
-                          </button>
-                        </TableCell>
-                        <TableCell className="text-center text-sm font-medium">
-                          {(p.stock * Number(p.price)).toLocaleString("pt-AO")} Kz
-                        </TableCell>
-                        <TableCell>
-                          {isOut ? <Badge variant="destructive" className="text-[10px]">Esgotado</Badge>
-                            : isLow ? <Badge variant="secondary" className="text-[10px] border-warning/30">Baixo</Badge>
-                            : <Badge variant="outline" className="text-[10px]">OK</Badge>}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-1">
-                            <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => openMovement(p, "entrada")}>
-                              <ArrowUpCircle className="h-3 w-3 mr-1 text-primary" /> Entrada
-                            </Button>
-                            <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => openMovement(p, "saida")}>
-                              <ArrowDownCircle className="h-3 w-3 mr-1 text-destructive" /> Saída
-                            </Button>
-                            <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => openMovement(p, "ajuste")}>
-                              <RotateCcw className="h-3 w-3 mr-1" />
-                            </Button>
-                            <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => openHistory(p)}>
-                              <History className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
+              {/* Desktop table */}
+              <div className="hidden md:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Produto</TableHead>
+                      <TableHead>Fornecedor</TableHead>
+                      <TableHead className="text-center">Stock</TableHead>
+                      <TableHead className="text-center">Mín.</TableHead>
+                      <TableHead className="text-center">Valor</TableHead>
+                      <TableHead>Estado</TableHead>
+                      <TableHead className="text-right">Acções</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {loading ? (
+                      <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin inline mr-2" />Carregando...</TableCell></TableRow>
+                    ) : paginatedProducts.length === 0 ? (
+                      <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Sem produtos</TableCell></TableRow>
+                    ) : paginatedProducts.map(p => {
+                      const isLow = p.stock <= p.min_stock && p.stock > 0;
+                      const isOut = p.stock === 0;
+                      const stockPercent = p.min_stock > 0 ? Math.min(100, Math.round((p.stock / (p.min_stock * 3)) * 100)) : 100;
+                      return (
+                        <TableRow key={p.id} className={isOut ? "bg-destructive/5" : isLow ? "bg-warning/5" : ""}>
+                          <TableCell>
+                            <p className="font-medium text-sm">{p.name}</p>
+                            <p className="text-[10px] text-muted-foreground">{p.category} • {Number(p.price).toLocaleString("pt-AO")} Kz/{p.unit}</p>
+                          </TableCell>
+                          <TableCell className="text-sm">{getSupplierName(p.supplier_id)}</TableCell>
+                          <TableCell className="text-center">
+                            <div className="flex flex-col items-center gap-1">
+                              <span className={`font-bold text-lg ${isOut ? "text-destructive" : isLow ? "text-warning" : ""}`}>{p.stock}</span>
+                              <Progress value={stockPercent} className="h-1 w-16" />
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <button className="text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1 mx-auto" onClick={() => openEditMin(p)}>
+                              {p.min_stock} <Edit2 className="h-2.5 w-2.5" />
+                            </button>
+                          </TableCell>
+                          <TableCell className="text-center text-sm font-medium">{(p.stock * Number(p.price)).toLocaleString("pt-AO")} Kz</TableCell>
+                          <TableCell>
+                            {isOut ? <Badge variant="destructive" className="text-[10px]">Esgotado</Badge>
+                              : isLow ? <Badge variant="secondary" className="text-[10px] border-warning/30">Baixo</Badge>
+                              : <Badge variant="outline" className="text-[10px]">OK</Badge>}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => openMovement(p, "entrada")}>
+                                <ArrowUpCircle className="h-3 w-3 mr-1 text-primary" /> Entrada
+                              </Button>
+                              <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => openMovement(p, "saida")}>
+                                <ArrowDownCircle className="h-3 w-3 mr-1 text-destructive" /> Saída
+                              </Button>
+                              <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => openMovement(p, "ajuste")}>
+                                <RotateCcw className="h-3 w-3 mr-1" />
+                              </Button>
+                              <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => openHistory(p)}>
+                                <History className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Mobile cards */}
+              <div className="md:hidden divide-y divide-border">
+                {loading ? (
+                  <p className="text-center py-8 text-muted-foreground text-sm">Carregando...</p>
+                ) : paginatedProducts.length === 0 ? (
+                  <p className="text-center py-8 text-muted-foreground text-sm">Sem produtos</p>
+                ) : paginatedProducts.map(p => {
+                  const isLow = p.stock <= p.min_stock && p.stock > 0;
+                  const isOut = p.stock === 0;
+                  return (
+                    <div key={p.id} className={`p-3 space-y-1.5 ${isOut ? "bg-destructive/5" : isLow ? "bg-warning/5" : ""}`}>
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-medium">{p.name}</p>
+                        {isOut ? <Badge variant="destructive" className="text-[10px]">Esgotado</Badge>
+                          : isLow ? <Badge variant="secondary" className="text-[10px] border-warning/30">Baixo</Badge>
+                          : <Badge variant="outline" className="text-[10px]">OK</Badge>}
+                      </div>
+                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+                        <span>{getSupplierName(p.supplier_id)}</span>
+                        <span className="font-bold text-foreground">{p.stock} {p.unit} (mín: {p.min_stock})</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-muted-foreground">{(p.stock * Number(p.price)).toLocaleString("pt-AO")} Kz</span>
+                        <div className="flex gap-1">
+                          <Button variant="ghost" size="sm" className="h-6 text-[10px] px-1.5" onClick={() => openMovement(p, "entrada")}>+Entrada</Button>
+                          <Button variant="ghost" size="sm" className="h-6 text-[10px] px-1.5" onClick={() => openMovement(p, "saida")}>-Saída</Button>
+                          <Button variant="ghost" size="sm" className="h-6 text-[10px] px-1.5" onClick={() => openHistory(p)}>Hist.</Button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <PaginationBlock current={prodPage} total={prodTotalPages} onChange={setProdPage} />
             </CardContent>
           </Card>
         </TabsContent>
@@ -429,52 +488,84 @@ const Mosap3PayStock = () => {
 
           <Card>
             <CardContent className="p-0">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Data</TableHead>
-                    <TableHead>Tipo</TableHead>
-                    <TableHead>Produto</TableHead>
-                    <TableHead>Fornecedor</TableHead>
-                    <TableHead className="text-center">Qtd</TableHead>
-                    <TableHead className="text-center">Stock</TableHead>
-                    <TableHead>Motivo</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredMovements.length === 0 ? (
-                    <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Sem movimentos</TableCell></TableRow>
-                  ) : filteredMovements.slice(0, 100).map(m => {
-                    const meta = MOVEMENT_LABELS[m.movement_type] || MOVEMENT_LABELS.ajuste;
-                    const Icon = meta.icon;
-                    const isOut = m.movement_type === "saida" || m.movement_type === "venda";
-                    return (
-                      <TableRow key={m.id}>
-                        <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
-                          {new Date(m.created_at).toLocaleString("pt-AO")}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1">
-                            <Icon className={`h-3.5 w-3.5 ${meta.color}`} />
-                            <Badge variant="outline" className="text-[10px]">{meta.label}</Badge>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-sm font-medium">{getProductName(m.product_id)}</TableCell>
-                        <TableCell className="text-sm text-muted-foreground">{getSupplierName(m.supplier_id)}</TableCell>
-                        <TableCell className="text-center">
-                          <span className={`font-bold ${isOut ? "text-destructive" : "text-primary"}`}>
-                            {isOut ? "-" : "+"}{m.quantity}
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-center text-xs text-muted-foreground">
-                          {m.previous_stock} → <span className="font-semibold text-foreground">{m.new_stock}</span>
-                        </TableCell>
-                        <TableCell className="text-xs text-muted-foreground max-w-[200px] truncate">{m.reason || "—"}</TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
+              {/* Desktop table */}
+              <div className="hidden md:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Data</TableHead>
+                      <TableHead>Tipo</TableHead>
+                      <TableHead>Produto</TableHead>
+                      <TableHead>Fornecedor</TableHead>
+                      <TableHead className="text-center">Qtd</TableHead>
+                      <TableHead className="text-center">Stock</TableHead>
+                      <TableHead>Motivo</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {paginatedMovements.length === 0 ? (
+                      <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Sem movimentos</TableCell></TableRow>
+                    ) : paginatedMovements.map(m => {
+                      const meta = MOVEMENT_LABELS[m.movement_type] || MOVEMENT_LABELS.ajuste;
+                      const Icon = meta.icon;
+                      const isOut = m.movement_type === "saida" || m.movement_type === "venda";
+                      return (
+                        <TableRow key={m.id}>
+                          <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                            {new Date(m.created_at).toLocaleString("pt-AO")}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1">
+                              <Icon className={`h-3.5 w-3.5 ${meta.color}`} />
+                              <Badge variant="outline" className="text-[10px]">{meta.label}</Badge>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-sm font-medium">{getProductName(m.product_id)}</TableCell>
+                          <TableCell className="text-sm text-muted-foreground">{getSupplierName(m.supplier_id)}</TableCell>
+                          <TableCell className="text-center">
+                            <span className={`font-bold ${isOut ? "text-destructive" : "text-primary"}`}>
+                              {isOut ? "-" : "+"}{m.quantity}
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-center text-xs text-muted-foreground">
+                            {m.previous_stock} → <span className="font-semibold text-foreground">{m.new_stock}</span>
+                          </TableCell>
+                          <TableCell className="text-xs text-muted-foreground max-w-[200px] truncate">{m.reason || "—"}</TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Mobile cards */}
+              <div className="md:hidden divide-y divide-border">
+                {paginatedMovements.length === 0 ? (
+                  <p className="text-center py-8 text-muted-foreground text-sm">Sem movimentos</p>
+                ) : paginatedMovements.map(m => {
+                  const meta = MOVEMENT_LABELS[m.movement_type] || MOVEMENT_LABELS.ajuste;
+                  const Icon = meta.icon;
+                  const isOut = m.movement_type === "saida" || m.movement_type === "venda";
+                  return (
+                    <div key={m.id} className="p-3 space-y-1">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5">
+                          <Icon className={`h-3.5 w-3.5 ${meta.color}`} />
+                          <Badge variant="outline" className="text-[10px]">{meta.label}</Badge>
+                        </div>
+                        <span className={`font-bold ${isOut ? "text-destructive" : "text-primary"}`}>{isOut ? "-" : "+"}{m.quantity}</span>
+                      </div>
+                      <p className="text-sm font-medium">{getProductName(m.product_id)}</p>
+                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+                        <span>{m.previous_stock} → {m.new_stock}</span>
+                        <span>{new Date(m.created_at).toLocaleDateString("pt-AO")}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <PaginationBlock current={movPage} total={movTotalPages} onChange={setMovPage} />
             </CardContent>
           </Card>
         </TabsContent>
