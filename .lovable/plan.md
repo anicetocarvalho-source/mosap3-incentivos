@@ -1,94 +1,68 @@
 
 
-## Auditoria Completa do Sistema MOSAP3 — Pontos de Melhoria
+## Análise de Layout e Apresentação — Páginas do MOSAP3
 
-### A. DADOS ESTÁTICOS (PROBLEMA CRITICO)
+Após revisão completa de todas as páginas do sistema, identifico os seguintes pontos de melhoria organizados por prioridade:
 
-Vários módulos usam **dados hardcoded** em vez de dados reais da base de dados:
+### 1. Páginas sem layout mobile (cards) — Problema Crítico
 
-| Pagina | Problema |
-|--------|----------|
-| **Transacoes.tsx** | Array estático `transacoes[]` com 8 registos fictícios. Nunca consulta a tabela `farmer_transactions` |
-| **Incentivos.tsx** | Array estático `incentivesData[]` com 15 registos fictícios. Nunca consulta `farmer_incentives` |
-| **Parcelas.tsx** | Array estático `parcelasData[]` com 9 registos fictícios. Nunca consulta `farmer_parcels` |
-| **Producao.tsx** | Array estático `producaoData[]` com 8 registos fictícios. Nunca consulta `farmer_production` |
-| **Relatorios.tsx** | Listas hardcoded de províncias, municípios e escolas |
-| **Agricultores.tsx** | Filtro de províncias hardcoded (Benguela, Huambo, Bié) em vez de carregar da tabela `provinces` |
-
-**Impacto**: Estes módulos são essencialmente demos visuais sem funcionalidade real.
-
----
-
-### B. FORMULARIOS SEM FUNCIONALIDADE
+Estas páginas usam apenas tabelas desktop, sem vista de cards para mobile:
 
 | Pagina | Problema |
 |--------|----------|
-| **Parcelas.tsx** | Diálogo "Nova Parcela" fecha sem gravar. `onClick={() => setDialogOpen(false)}` |
-| **Producao.tsx** | Diálogo "Nova Produção" fecha sem gravar |
-| **Incentivos.tsx** | Diálogo "Novo Incentivo" fecha sem gravar |
-| **Transacoes.tsx** | Botão "Filtros" não faz nada |
+| **Patec.tsx** | Tabela de produtores sem vista mobile card |
+| **Utilizadores.tsx** | Já usa cards — OK |
+| **Mosap3PayVendas.tsx** | Tabela de vendas sem vista mobile |
+| **Mosap3PayStock.tsx** | Tabelas de produtos e movimentos sem vista mobile |
+| **Mosap3PayNotasCredito.tsx** | Tabela de notas de crédito sem vista mobile |
+| **Mosap3PayAuditLogs.tsx** | Tabela de logs sem vista mobile |
+
+### 2. Páginas sem paginação
+
+| Pagina | Estado |
+|--------|--------|
+| **Mosap3PayVendas.tsx** | Mostra TODAS as vendas sem paginação |
+| **Mosap3PayNotasCredito.tsx** | Sem paginação |
+| **Mosap3PayAuditLogs.tsx** | Corta a 100 mas sem controlos de paginação |
+| **Mosap3PayStock.tsx** | Sem paginação nos produtos |
+| **Patec.tsx** | Sem paginação (pode ter centenas de produtores) |
+
+### 3. Configurações — contagens hardcoded
+
+`Configuracoes.tsx` linhas 230-239: mostra "3 Utilizadores Activos", "9 Perfis", "18 Províncias" como valores estáticos em vez de contar da base de dados.
+
+### 4. Relatórios — filtros com dados hardcoded
+
+`Relatorios.tsx` linhas 29-38: listas de províncias, municípios e escolas são arrays estáticos em vez de virem da base de dados.
+
+### 5. Consistência visual
+
+- **Mosap3Pay.tsx** (dashboard): KPI cards com layout `grid-cols-6` ficam apertados em tablet; sem loading skeleton
+- **Mosap3PayConfiguracoes.tsx**: Loading state é texto simples em vez de spinner
+- **EscolasCampo.tsx**: Já está bem — OK
 
 ---
 
-### C. UI/UX — INCONSISTENCIAS DE LAYOUT
+## Plano de Implementação
 
-1. **Falta de paginação**: Agricultores, Parcelas, Producao e Transacoes mostram todos os registos sem paginação
-2. **Vista mobile incompleta**: Parcelas, Producao, Transacoes e Incentivos não têm layout mobile adaptado (tabela cortada em ecrãs pequenos)
-3. **Barra de pesquisa inconsistente**: Utilizadores não tem ícone de pesquisa; Agricultores tem; formato varia entre páginas
-4. **Filtros Select não funcionais**: Em Agricultores, o Select de "Província" não tem `value` nem `onValueChange` — é decorativo. O mesmo acontece nos filtros de Parcelas e Producao
-5. **Loading states ausentes**: Transacoes e Incentivos não mostram loading spinner enquanto (supostamente) carregam dados
-6. **Confirmação de eliminação ausente**: Em Fornecedores, produtos e terminais POS são eliminados sem dialog de confirmação
+### Passo 1 — Mobile cards + paginação nas 5 páginas MOSAP3Pay e Patec
+Adicionar o padrão `hidden md:block` / `md:hidden` com cards `divide-y` e paginação (PAGE_SIZE=15) em:
+- `Patec.tsx`
+- `Mosap3PayVendas.tsx`
+- `Mosap3PayStock.tsx` (tab produtos + tab movimentos)
+- `Mosap3PayNotasCredito.tsx`
+- `Mosap3PayAuditLogs.tsx`
 
----
+### Passo 2 — Configurações com contagens reais
+Em `Configuracoes.tsx`, substituir os 3 valores hardcoded por queries ao Supabase:
+- Utilizadores activos → `profiles` count
+- Perfis → constante `Object.keys(ROLE_LABELS).length` (são fixos do enum)
+- Províncias → `provinces` count
 
-### D. FLUXOS E PROCESSOS
+### Passo 3 — Relatórios com filtros dinâmicos
+Em `Relatorios.tsx`, substituir os arrays `provincias`, `municipios`, `escolas` por dados carregados das tabelas `provinces`, `municipalities`, `schools`.
 
-1. **Transacoes desligadas do MOSAP3Pay**: A página Transacoes mostra dados fictícios quando as transacções reais estão em `pos_sales`. Deveria mostrar dados reais ou ser unificada com MOSAP3Pay Vendas
-2. **Incentivos desligados**: A página Incentivos usa dados fictícios quando existe uma tabela `farmer_incentives` na base de dados
-3. **Agricultores sem exportação real**: O botão Download na página Agricultores não faz nada
-4. **Configurações — valores estáticos na secção Segurança**: Mostra "3 Utilizadores Activos", "9 Perfis" e "18 Províncias" hardcoded em vez de contagens reais
-5. **Relatorios com dados estáticos**: Os filtros de províncias/municípios/escolas são hardcoded em vez de virem da base de dados
-
----
-
-### E. FUNCIONALIDADES EM FALTA
-
-1. **Eliminar fornecedor**: Não existe botão/acção para desativar ou eliminar um fornecedor
-2. **Paginação**: Ausente em Agricultores, Parcelas, Producao, Transacoes, Utilizadores
-3. **Exportação de dados**: Botões de export (CSV/PDF) são decorativos ou inexistentes
-4. **Breadcrumbs**: Não existem em páginas de detalhe (FarmerProfile, EscolaDetalhe, Fornecedor detalhe)
-5. **Empty states**: Algumas tabelas não têm mensagem quando não há dados (Agricultores mobile, Transacoes)
-6. **Pesquisa global**: O campo de pesquisa no header (`AppHeader.tsx`) é decorativo — não pesquisa nada
-
----
-
-### F. PRIORIDADES SUGERIDAS
-
-```text
-PRIORIDADE 1 (Critica — dados reais):
-  - Ligar Transacoes.tsx a farmer_transactions
-  - Ligar Incentivos.tsx a farmer_incentives
-  - Ligar Parcelas.tsx a farmer_parcels
-  - Ligar Producao.tsx a farmer_production
-
-PRIORIDADE 2 (Funcionalidade):
-  - Formulários que gravam (Parcelas, Producao, Incentivos)
-  - Filtros funcionais em todas as páginas
-  - Paginação em listagens grandes
-  - Confirmação antes de eliminar
-
-PRIORIDADE 3 (UI/UX polish):
-  - Layout mobile para tabelas
-  - Consistência visual entre páginas
-  - Loading states uniformes
-  - Exportação real (CSV)
-  - Breadcrumbs em páginas de detalhe
-```
-
-### G. Por onde quer começar?
-
-Posso atacar qualquer uma destas áreas. As opções mais impactantes seriam:
-- Ligar as 4 páginas com dados fictícios à base de dados real
-- Tornar todos os formulários funcionais
-- Adicionar paginação e filtros reais em todas as listagens
+### Passo 4 — Pequenas melhorias de consistência
+- `Mosap3PayConfiguracoes.tsx`: trocar loading text por `Loader2` spinner
+- `Mosap3Pay.tsx`: melhorar grid responsivo dos KPIs (2 cols mobile, 3 tablet, 6 desktop)
 
