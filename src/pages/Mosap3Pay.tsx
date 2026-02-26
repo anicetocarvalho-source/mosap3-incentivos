@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { CreditCard, Store, Monitor, ShoppingCart, TrendingUp, Package, Users, AlertTriangle } from "lucide-react";
+import { CreditCard, Store, Monitor, ShoppingCart, TrendingUp, Package, Users, AlertTriangle, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -89,7 +89,7 @@ const Mosap3Pay = () => {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
         {statCards.map((s) => (
           <Link key={s.label} to={s.link}>
             <Card className="hover:border-primary/50 transition-colors cursor-pointer">
@@ -155,7 +155,10 @@ const Mosap3Pay = () => {
         </CardHeader>
         <CardContent>
           {loading ? (
-            <p className="text-sm text-muted-foreground text-center py-4">Carregando...</p>
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground mr-2" />
+              <span className="text-sm text-muted-foreground">Carregando...</span>
+            </div>
           ) : recentSales.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-4">Nenhuma venda registada</p>
           ) : (

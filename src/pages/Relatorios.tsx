@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
 import { FileText, Printer, Filter, Calendar, MapPin, School, Users, ShoppingCart, Gift, Wheat, BarChart3, Beef } from "lucide-react";
 import { format } from "date-fns";
@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import ReportPreview from "@/components/reports/ReportPreview";
+import { supabase } from "@/integrations/supabase/client";
 
 const reportTypes = [
   { id: "producao_provincia", label: "Produção por Província", icon: Wheat, description: "Cruzar dados de produção com províncias e escolas de campo" },
@@ -26,15 +27,6 @@ const reportTypes = [
   { id: "compras_transacoes", label: "Compras e Transações", icon: ShoppingCart, description: "Resumo de compras e transações por empresa e período" },
 ];
 
-const provincias = ["Benguela", "Huambo", "Bié", "Huíla", "Malanje"];
-const municipios: Record<string, string[]> = {
-  Benguela: ["Caimbambo", "Lobito", "Ganda", "Benguela"],
-  Huambo: ["Longonjo", "Bailundo", "Huambo"],
-  Bié: ["Cuemba", "Kuíto"],
-  Huíla: ["Lubango", "Matala"],
-  Malanje: ["Cacuso", "Malanje"],
-};
-const escolas = ["EC Caimbambo", "EC Longonjo", "EC Cuemba", "EC Lobito", "EC Bailundo", "EC Lubango", "EC Cacuso", "EC Ganda"];
 const estados = ["Ativo", "Pendente", "Suspenso", "Validado"];
 
 const Relatorios = () => {
@@ -47,6 +39,35 @@ const Relatorios = () => {
   const [dateTo, setDateTo] = useState<Date | undefined>();
   const [showPreview, setShowPreview] = useState(false);
   const printRef = useRef<HTMLDivElement>(null);
+
+  // Dynamic filter data
+  const [provincias, setProvincias] = useState<{ id: string; name: string }[]>([]);
+  const [municipios, setMunicipios] = useState<{ id: string; name: string; province_id: string }[]>([]);
+  const [escolas, setEscolas] = useState<{ id: string; name: string; province_id: string; municipality_id: string }[]>([]);
+
+  useEffect(() => {
+    const fetchFilterData = async () => {
+      const [provRes, munRes, schRes] = await Promise.all([
+        supabase.from("provinces").select("id, name").order("name"),
+        supabase.from("municipalities").select("id, name, province_id").order("name"),
+        supabase.from("schools").select("id, name, province_id, municipality_id").order("name"),
+      ]);
+      setProvincias(provRes.data || []);
+      setMunicipios(munRes.data || []);
+      setEscolas(schRes.data || []);
+    };
+    fetchFilterData();
+  }, []);
+
+  // Get the selected province id for filtering
+  const selectedProvId = provincias.find(p => p.name === provincia)?.id;
+  const filteredMunicipios = selectedProvId ? municipios.filter(m => m.province_id === selectedProvId) : municipios;
+  const selectedMunId = municipios.find(m => m.name === municipio)?.id;
+  const filteredEscolas = selectedMunId
+    ? escolas.filter(e => e.municipality_id === selectedMunId)
+    : selectedProvId
+      ? escolas.filter(e => e.province_id === selectedProvId)
+      : escolas;
 
   const handleGenerate = () => {
     if (!selectedReport) return;
@@ -173,14 +194,14 @@ const Relatorios = () => {
             {/* Provincia */}
             <div className="space-y-2">
               <Label className="text-xs">Província</Label>
-              <Select value={provincia} onValueChange={(v) => { setProvincia(v); setMunicipio(""); }}>
+              <Select value={provincia} onValueChange={(v) => { setProvincia(v); setMunicipio(""); setEscola(""); }}>
                 <SelectTrigger className="h-9 text-xs">
                   <SelectValue placeholder="Todas as províncias" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todas</SelectItem>
                   {provincias.map((p) => (
-                    <SelectItem key={p} value={p}>{p}</SelectItem>
+                    <SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -190,14 +211,14 @@ const Relatorios = () => {
             {provincia && provincia !== "all" && (
               <div className="space-y-2">
                 <Label className="text-xs">Município</Label>
-                <Select value={municipio} onValueChange={setMunicipio}>
+                <Select value={municipio} onValueChange={(v) => { setMunicipio(v); setEscola(""); }}>
                   <SelectTrigger className="h-9 text-xs">
                     <SelectValue placeholder="Todos os municípios" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todos</SelectItem>
-                    {(municipios[provincia] || []).map((m) => (
-                      <SelectItem key={m} value={m}>{m}</SelectItem>
+                    {filteredMunicipios.map((m) => (
+                      <SelectItem key={m.id} value={m.name}>{m.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -213,8 +234,8 @@ const Relatorios = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todas</SelectItem>
-                  {escolas.map((e) => (
-                    <SelectItem key={e} value={e}>{e}</SelectItem>
+                  {filteredEscolas.map((e) => (
+                    <SelectItem key={e.id} value={e.name}>{e.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
