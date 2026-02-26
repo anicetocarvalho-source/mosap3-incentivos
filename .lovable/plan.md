@@ -1,21 +1,20 @@
 
 
-## Plano: Remover página Compras redundante
+## Plano: Remover página Empresas redundante
 
-A página `/compras` contém dados mock hardcoded e não está ligada à base de dados. Toda a funcionalidade de compras/vendas subsidiadas é agora gerida pelo Terminal POS do fornecedor (`pos_sales`). A página deve ser removida para evitar confusão.
+A página `/empresas` lê da mesma tabela `suppliers` que o MOSAP3Pay → Fornecedores, sem funcionalidade adicional. Deve ser removida.
 
 ### Alterações
 
-1. **Eliminar ficheiro `src/pages/Compras.tsx`**
+1. **Eliminar `src/pages/Empresas.tsx`**
 
-2. **Remover rota `/compras` de `src/App.tsx`** (linha ~86) e o respectivo import
+2. **`src/App.tsx`** — remover import (linha 16) e rota (linhas 91-92)
 
-3. **Remover entrada "Compras" da navegação em `src/components/AppSidebar.tsx`** (linhas ~79-83, o item com `icon: ShoppingCart, label: "Compras"`)
+3. **`src/components/AppSidebar.tsx`** — remover item "Empresas" (linhas 80-85) e import `Building2` se não for usado noutro lugar
 
-4. **Remover entrada "Compras" da navegação em `src/components/AppNavbar.tsx`** (procurar item com path `/compras` no array `navItems`)
+4. **`src/components/AppNavbar.tsx`** — remover item "Empresas" (linhas 85-90) e import `Building2` se não for usado noutro lugar
 
 ### Impacto
-- Nenhuma perda de dados (a página usava dados fictícios)
-- Os utilizadores com perfil `gestor_incentivos` ou `senior/junior_agronegocio` deixam de ver o item no menu
-- Toda a gestão de compras subsidiadas continua disponível via MOSAP3Pay → Vendas e Terminal POS
+- Zero perda de dados ou funcionalidade
+- Utilizadores acedem à gestão de fornecedores via MOSAP3Pay → Fornecedores
 
