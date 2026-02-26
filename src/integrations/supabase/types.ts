@@ -204,6 +204,47 @@ export type Database = {
           },
         ]
       }
+      farmer_documents: {
+        Row: {
+          created_at: string
+          farmer_code: string
+          file_name: string
+          file_path: string
+          file_size: number | null
+          file_type: string
+          id: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          farmer_code: string
+          file_name: string
+          file_path: string
+          file_size?: number | null
+          file_type?: string
+          id?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          farmer_code?: string
+          file_name?: string
+          file_path?: string
+          file_size?: number | null
+          file_type?: string
+          id?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "farmer_documents_farmer_code_fkey"
+            columns: ["farmer_code"]
+            isOneToOne: false
+            referencedRelation: "farmers"
+            referencedColumns: ["code"]
+          },
+        ]
+      }
       farmer_incentives: {
         Row: {
           amount: string
