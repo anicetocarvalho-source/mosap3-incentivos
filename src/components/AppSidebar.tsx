@@ -15,7 +15,7 @@ import {
   School,
   Wheat,
   Gift,
-  ShoppingCart,
+  
   MapPin,
   Smartphone,
   FileText,
@@ -70,13 +70,6 @@ const navItems: NavItem[] = [
       { label: "Incentivos", path: "/incentivos", icon: Gift },
       { label: "Transações", path: "/transacoes", icon: ArrowLeftRight },
     ],
-  },
-  {
-    icon: ShoppingCart,
-    label: "Compras",
-    path: "/compras",
-    allowedRoles: ["admin", "gestor_incentivos", "senior_agronegocio", "junior_agronegocio"],
-    compact: true,
   },
   {
     icon: MapPin,
