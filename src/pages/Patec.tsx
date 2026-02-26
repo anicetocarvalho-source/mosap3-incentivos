@@ -12,6 +12,16 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface FarmerPatec {
   id: string;
@@ -74,6 +84,7 @@ const Patec = () => {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
   const [bulkPatec, setBulkPatec] = useState<string>("");
+  const [bulkConfirmOpen, setBulkConfirmOpen] = useState(false);
 
   // Add item state
   const [addingCategory, setAddingCategory] = useState<{ patec: number; category: string } | null>(null);
@@ -661,12 +672,45 @@ const Patec = () => {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setBulkDialogOpen(false)}>Cancelar</Button>
-            <Button onClick={handleBulkSave} disabled={saving || !bulkPatec}>
-              {saving ? "Guardando..." : `Atribuir a ${selectedIds.size} produtor${selectedIds.size > 1 ? "es" : ""}`}
+            <Button onClick={() => setBulkConfirmOpen(true)} disabled={saving || !bulkPatec}>
+              {`Atribuir a ${selectedIds.size} produtor${selectedIds.size > 1 ? "es" : ""}`}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Bulk confirm AlertDialog */}
+      <AlertDialog open={bulkConfirmOpen} onOpenChange={setBulkConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar atribuição em lote</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2 text-sm text-muted-foreground">
+                <p>
+                  Tem a certeza que deseja atribuir <strong className="text-foreground">PATEC {bulkPatec}{bulkPatec && patecMeta[parseInt(bulkPatec)] ? ` — ${patecMeta[parseInt(bulkPatec)].cultures}` : ""}</strong> a <strong className="text-foreground">{selectedIds.size}</strong> produtor(es)?
+                </p>
+                {(() => {
+                  const selected = farmers.filter((f) => selectedIds.has(f.id));
+                  const comPatec = selected.filter((f) => f.patec !== null && f.patec !== undefined);
+                  const semPatec = selected.filter((f) => f.patec === null || f.patec === undefined);
+                  return (
+                    <ul className="list-disc list-inside space-y-0.5">
+                      {semPatec.length > 0 && <li><strong>{semPatec.length}</strong> sem PATEC atribuído (nova atribuição)</li>}
+                      {comPatec.length > 0 && <li><strong>{comPatec.length}</strong> já com PATEC atribuído (será alterado)</li>}
+                    </ul>
+                  );
+                })()}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { setBulkConfirmOpen(false); handleBulkSave(); }} disabled={saving}>
+              {saving ? "Guardando..." : "Confirmar Atribuição"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* View PATEC detail Dialog */}
       <Dialog open={viewPatec !== null} onOpenChange={(o) => !o && setViewPatec(null)}>
