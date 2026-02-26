@@ -6,9 +6,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 import { Camera, Save, Building2, MapPin, Phone, Mail, FileText, Loader2 } from "lucide-react";
 import { compressImage } from "@/lib/imageCompression";
+import { useProvinceMunicipalities } from "@/hooks/useProvinceMunicipalities";
 
 interface Supplier {
   id: string;
@@ -48,6 +56,9 @@ const FornecedorPerfil = () => {
     municipality: "",
     shortcode: "",
   });
+
+  // Cascading province → municipality
+  const { provinces: provinceOptions, municipalities: municipalityOptions } = useProvinceMunicipalities(form.province || undefined);
 
   useEffect(() => {
     const load = async () => {
@@ -275,19 +286,25 @@ const FornecedorPerfil = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Província</Label>
-              <Input
-                value={form.province}
-                onChange={(e) => setForm({ ...form, province: e.target.value })}
-                placeholder="Província"
-              />
+              <Select value={form.province} onValueChange={(v) => setForm({ ...form, province: v, municipality: "" })}>
+                <SelectTrigger><SelectValue placeholder="Selecionar província" /></SelectTrigger>
+                <SelectContent>
+                  {provinceOptions.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label>Município</Label>
-              <Input
-                value={form.municipality}
-                onChange={(e) => setForm({ ...form, municipality: e.target.value })}
-                placeholder="Município"
-              />
+              <Select value={form.municipality} onValueChange={(v) => setForm({ ...form, municipality: v })} disabled={!form.province}>
+                <SelectTrigger><SelectValue placeholder={form.province ? "Selecionar município" : "Selecione a província primeiro"} /></SelectTrigger>
+                <SelectContent>
+                  {municipalityOptions.map((m) => (
+                    <SelectItem key={m.id} value={m.name}>{m.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
           <div className="space-y-2">
