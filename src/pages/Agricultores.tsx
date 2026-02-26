@@ -149,6 +149,7 @@ const Agricultores = () => {
                 <SelectItem value="ativo">Ativo</SelectItem>
                 <SelectItem value="pendente">Pendente</SelectItem>
                 <SelectItem value="suspenso">Suspenso</SelectItem>
+                <SelectItem value="removido">Removido</SelectItem>
               </SelectContent>
             </Select>
             <Select value={filterPatec} onValueChange={setFilterPatec}>
