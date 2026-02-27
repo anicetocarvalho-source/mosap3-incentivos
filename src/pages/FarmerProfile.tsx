@@ -1,7 +1,8 @@
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, User, MapPin, Phone, CreditCard, Wheat, ShoppingCart, Gift, Calendar, FileText, Users, Sprout, Sun, Droplets, CheckCircle2, Camera, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Clock, Printer, Beef, Plus, Fingerprint, Package, FolderOpen, Trash2, RotateCcw } from "lucide-react";
+import { ArrowLeft, User, MapPin, Phone, CreditCard, Wheat, ShoppingCart, Gift, Calendar, FileText, Users, Sprout, Sun, Droplets, CheckCircle2, Camera, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Clock, Printer, Beef, Plus, Fingerprint, Package, FolderOpen, Trash2, RotateCcw, Edit } from "lucide-react";
+import FarmerRegistrationForm from "@/components/FarmerRegistrationForm";
 import { useFarmerFromDb } from "@/hooks/useFarmerFromDb";
 import { useFarmerEnrichedData } from "@/hooks/useFarmerEnrichedData";
 import { Button } from "@/components/ui/button";
@@ -47,6 +48,7 @@ const FarmerProfile = () => {
   const navigate = useNavigate();
   const { farmerInfo, farmer: farmerRaw, loading: dbLoading } = useFarmerFromDb(id);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [expandedProduction, setExpandedProduction] = useState<string | null>(null);
   const [zoomedImageIndex, setZoomedImageIndex] = useState<number | null>(null);
   const [parcelDialogOpen, setParcelDialogOpen] = useState(false);
@@ -138,6 +140,26 @@ const FarmerProfile = () => {
           <Button variant="outline" size="sm" className="gap-1.5 hidden sm:flex"><Printer className="h-4 w-4" />Ficha</Button>
           <Button variant="outline" size="icon" className="h-8 w-8 sm:hidden"><Printer className="h-4 w-4" /></Button>
         </Link>
+        <Button variant="outline" size="sm" className="gap-1.5 hidden sm:flex" onClick={() => setEditDialogOpen(true)}>
+          <Edit className="h-4 w-4" />Editar
+        </Button>
+        <Button variant="outline" size="icon" className="h-8 w-8 sm:hidden" onClick={() => setEditDialogOpen(true)}>
+          <Edit className="h-4 w-4" />
+        </Button>
+        <FarmerRegistrationForm
+          open={editDialogOpen}
+          onOpenChange={(open) => { setEditDialogOpen(open); if (!open) window.location.reload(); }}
+          editData={{
+            id: farmer.id,
+            name: farmer.name,
+            bi: farmerRaw?.bi || "",
+            phone: farmerRaw?.phone || "",
+            province: farmerRaw?.province || "",
+            municipality: farmerRaw?.municipality || "",
+            school: farmerRaw?.school || "",
+            patec: farmerRaw?.patec || null,
+          }}
+        />
         {farmer.status === "Removido" ? (
           <Button variant="outline" size="icon" className="h-8 w-8 text-green-600 hover:text-green-700" onClick={async () => {
             const { error } = await supabase.from("farmers").update({ status: "Ativo" }).eq("code", farmer.id);
