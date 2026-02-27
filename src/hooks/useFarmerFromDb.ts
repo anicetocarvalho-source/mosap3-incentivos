@@ -47,6 +47,9 @@ export interface FarmerDbRecord {
 export function useFarmerFromDb(code: string | undefined) {
   const [farmer, setFarmer] = useState<FarmerDbRecord | null>(null);
   const [loading, setLoading] = useState(true);
+  const [fetchKey, setFetchKey] = useState(0);
+
+  const refetch = useCallback(() => setFetchKey((k) => k + 1), []);
 
   useEffect(() => {
     if (!code) {
@@ -72,7 +75,7 @@ export function useFarmerFromDb(code: string | undefined) {
 
     fetch();
     return () => { cancelled = true; };
-  }, [code]);
+  }, [code, fetchKey]);
 
   // Sign photo URLs
   const [signedPhotos, setSignedPhotos] = useState<Record<string, string> | null>(null);
@@ -148,5 +151,5 @@ export function useFarmerFromDb(code: string | undefined) {
     ...(farmer.photo_profile_right_url && { perfilDir: farmer.photo_profile_right_url }),
   } : null;
 
-  return { farmer, loading, dbPhotos, dbBiometrics, farmerInfo };
+  return { farmer, loading, dbPhotos, dbBiometrics, farmerInfo, refetch };
 }

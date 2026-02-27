@@ -48,7 +48,7 @@ const phaseColors: Record<string, string> = {
 const FarmerProfile = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { farmerInfo, farmer: farmerRaw, loading: dbLoading } = useFarmerFromDb(id);
+  const { farmerInfo, farmer: farmerRaw, loading: dbLoading, refetch: refetchFarmer } = useFarmerFromDb(id);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [expandedProduction, setExpandedProduction] = useState<string | null>(null);
@@ -130,7 +130,7 @@ const FarmerProfile = () => {
     const { error } = await supabase.from("farmers").update({ [field]: value || null }).eq("code", farmer.id);
     if (error) { toast.error("Erro ao guardar"); throw error; }
     toast.success("Campo atualizado");
-    window.location.reload();
+    refetchFarmer();
   };
 
   const provinceOptions = allProvinces.map((p) => ({ value: p.name, label: p.name }));
@@ -168,7 +168,7 @@ const FarmerProfile = () => {
         </Button>
         <FarmerRegistrationForm
           open={editDialogOpen}
-          onOpenChange={(open) => { setEditDialogOpen(open); if (!open) window.location.reload(); }}
+          onOpenChange={(open) => { setEditDialogOpen(open); if (!open) refetchFarmer(); }}
           editData={{
             id: farmer.id,
             name: farmer.name,
@@ -183,7 +183,7 @@ const FarmerProfile = () => {
         {farmer.status === "Removido" ? (
           <Button variant="outline" size="icon" className="h-8 w-8 text-green-600 hover:text-green-700" onClick={async () => {
             const { error } = await supabase.from("farmers").update({ status: "Ativo" }).eq("code", farmer.id);
-            if (error) { toast.error("Erro ao restaurar"); } else { toast.success(`${farmer.name} restaurado como Ativo`); window.location.reload(); }
+            if (error) { toast.error("Erro ao restaurar"); } else { toast.success(`${farmer.name} restaurado como Ativo`); refetchFarmer(); }
           }} title="Restaurar agricultor">
             <RotateCcw className="h-4 w-4" />
           </Button>
