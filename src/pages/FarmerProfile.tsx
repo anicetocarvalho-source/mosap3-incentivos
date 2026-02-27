@@ -3,6 +3,8 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { ArrowLeft, User, MapPin, Phone, CreditCard, Wheat, ShoppingCart, Gift, Calendar, FileText, Users, Sprout, Sun, Droplets, CheckCircle2, Camera, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Clock, Printer, Beef, Plus, Fingerprint, Package, FolderOpen, Trash2, RotateCcw, Edit } from "lucide-react";
 import FarmerRegistrationForm from "@/components/FarmerRegistrationForm";
+import InlineEditableField from "@/components/InlineEditableField";
+import { useProvinceMunicipalities } from "@/hooks/useProvinceMunicipalities";
 import { useFarmerFromDb } from "@/hooks/useFarmerFromDb";
 import { useFarmerEnrichedData } from "@/hooks/useFarmerEnrichedData";
 import { Button } from "@/components/ui/button";
@@ -56,6 +58,9 @@ const FarmerProfile = () => {
   const [transactionDialogOpen, setTransactionDialogOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const { parcels, production, incentives, transactions, dependents, loading: enrichedLoading } = useFarmerEnrichedData(id, refreshKey);
+
+  // Province/municipality options for inline editing
+  const { provinces: allProvinces } = useProvinceMunicipalities(undefined);
 
   // Fetch livestock from DB
   const [livestock, setLivestock] = useState<any[]>([]);
@@ -120,6 +125,21 @@ const FarmerProfile = () => {
       </div>
     );
   }
+
+  const updateFarmerField = async (field: string, value: string) => {
+    const { error } = await supabase.from("farmers").update({ [field]: value || null }).eq("code", farmer.id);
+    if (error) { toast.error("Erro ao guardar"); throw error; }
+    toast.success("Campo atualizado");
+    window.location.reload();
+  };
+
+  const provinceOptions = allProvinces.map((p) => ({ value: p.name, label: p.name }));
+  const genderOptions = [{ value: "M", label: "Masculino" }, { value: "F", label: "Feminino" }];
+  const patecOptions = [
+    { value: "1", label: "PATEC 1" },
+    { value: "2", label: "PATEC 2" },
+    { value: "3", label: "PATEC 3" },
+  ];
 
   const valorRecebido = farmerRaw?.valor_recebido || "0,00";
   const totalGasto = farmerRaw?.total_gasto || "0,00";
@@ -190,15 +210,15 @@ const FarmerProfile = () => {
               </div>
             )}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4 md:gap-x-8 gap-y-3 md:gap-y-4 flex-1 w-full">
-              <div><p className="text-[10px] md:text-xs text-muted-foreground font-medium">Nome Completo</p><p className="text-xs md:text-sm font-semibold mt-0.5 truncate">{farmer.name}</p></div>
-              <div><p className="text-[10px] md:text-xs text-muted-foreground font-medium">Nº BI</p><p className="text-xs md:text-sm font-semibold mt-0.5 font-mono truncate">{farmer.bi}</p></div>
-              <div><p className="text-[10px] md:text-xs text-muted-foreground font-medium">Telefone</p><p className="text-xs md:text-sm font-semibold mt-0.5">{farmer.phone}</p></div>
-              <div><p className="text-[10px] md:text-xs text-muted-foreground font-medium">Género</p><p className="text-xs md:text-sm font-semibold mt-0.5">{farmer.gender}</p></div>
-              <div><p className="text-[10px] md:text-xs text-muted-foreground font-medium">Data Nascimento</p><p className="text-xs md:text-sm font-semibold mt-0.5">{farmer.birthDate}</p></div>
-              <div><p className="text-[10px] md:text-xs text-muted-foreground font-medium">Província / Município</p><p className="text-xs md:text-sm font-semibold mt-0.5 truncate">{farmer.province}, {farmer.municipality}</p></div>
-              <div><p className="text-[10px] md:text-xs text-muted-foreground font-medium">Aldeia</p><p className="text-xs md:text-sm font-semibold mt-0.5">—</p></div>
-              <div><p className="text-[10px] md:text-xs text-muted-foreground font-medium">Escola de Campo</p><p className="text-xs md:text-sm font-semibold mt-0.5 truncate">{farmer.school}</p></div>
-              <div><p className="text-[10px] md:text-xs text-muted-foreground font-medium">Pacote Tecnológico</p><p className="text-xs md:text-sm font-semibold mt-0.5">{farmerRaw?.patec ? `PATEC ${farmerRaw.patec}` : "—"}</p></div>
+              <InlineEditableField label="Nome Completo" value={farmer.name} onSave={(v) => updateFarmerField("full_name", v)} />
+              <InlineEditableField label="Nº BI" value={farmerRaw?.bi || ""} onSave={(v) => updateFarmerField("bi", v)} mono />
+              <InlineEditableField label="Telefone" value={farmerRaw?.phone || ""} onSave={(v) => updateFarmerField("phone", v)} />
+              <InlineEditableField label="Género" value={farmerRaw?.gender || ""} onSave={(v) => updateFarmerField("gender", v)} type="select" options={genderOptions} />
+              <InlineEditableField label="Data Nascimento" value={farmerRaw?.birth_date || ""} onSave={(v) => updateFarmerField("birth_date", v)} type="date" />
+              <InlineEditableField label="Província" value={farmerRaw?.province || ""} onSave={(v) => updateFarmerField("province", v)} type="select" options={provinceOptions} />
+              <InlineEditableField label="Município" value={farmerRaw?.municipality || ""} onSave={(v) => updateFarmerField("municipality", v)} />
+              <InlineEditableField label="Escola de Campo" value={farmerRaw?.school || ""} onSave={(v) => updateFarmerField("school", v)} />
+              <InlineEditableField label="Pacote Tecnológico" value={farmerRaw?.patec?.toString() || ""} onSave={(v) => updateFarmerField("patec", v)} type="select" options={patecOptions} />
             </div>
           </div>
 
