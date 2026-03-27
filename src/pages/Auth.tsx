@@ -121,8 +121,7 @@ const Auth = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (isLogin) handleLogin();
-    else handleRegister();
+    handleLogin();
   };
 
   return (
