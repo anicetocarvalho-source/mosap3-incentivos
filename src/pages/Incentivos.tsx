@@ -41,7 +41,7 @@ const Incentivos = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("farmer_incentives")
-        .select("*, farmers(full_name, phone, province, school)")
+        .select("*, farmers!farmer_incentives_farmer_code_fkey(full_name, phone, province, school)")
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data || [];
