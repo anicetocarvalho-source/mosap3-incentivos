@@ -160,26 +160,6 @@ const Auth = () => {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            <AnimatePresence mode="wait">
-              {!isLogin && (
-                <motion.div
-                  key="name"
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="space-y-1.5"
-                >
-                  <Label htmlFor="fullName">Nome completo</Label>
-                  <Input
-                    id="fullName"
-                    placeholder="Ex: João Manuel Silva"
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    maxLength={100}
-                  />
-                </motion.div>
-              )}
-            </AnimatePresence>
 
             <div className="space-y-1.5">
               <Label htmlFor="email">Email</Label>
