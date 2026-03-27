@@ -153,29 +153,10 @@ const Auth = () => {
         )}
 
         <Card className="p-6 shadow-xl">
-          {/* Tabs */}
-          <div className="flex rounded-lg bg-muted p-1 mb-6">
-            <button
-              type="button"
-              onClick={() => setIsLogin(true)}
-              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-md text-sm font-medium transition-all ${
-                isLogin ? "bg-card shadow-sm text-foreground" : "text-muted-foreground"
-              }`}
-            >
-              <LogIn className="h-4 w-4" />
-              Entrar
-            </button>
-            <button
-              type="button"
-              onClick={() => setIsLogin(false)}
-              disabled={!isOnline}
-              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-md text-sm font-medium transition-all ${
-                !isLogin ? "bg-card shadow-sm text-foreground" : "text-muted-foreground"
-              } ${!isOnline ? "opacity-50 cursor-not-allowed" : ""}`}
-            >
-              <UserPlus className="h-4 w-4" />
-              Registar
-            </button>
+          {/* Header */}
+          <div className="flex items-center gap-2 mb-6">
+            <LogIn className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm font-medium text-muted-foreground">Iniciar sessão</span>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
