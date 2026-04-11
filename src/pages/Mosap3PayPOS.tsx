@@ -289,10 +289,25 @@ const Mosap3PayPOS = () => {
     return product.max_per_farmer_per_season - purchased - inCart;
   };
 
+  const notifyNoBalance = async (farmerName: string, farmerCode: string, balance: number) => {
+    try {
+      await supabase.rpc("notify_all_users", {
+        _title: "Tentativa de Compra Sem Saldo",
+        _body: `O produtor ${farmerName} (${farmerCode}) tentou comprar mas tem saldo de ${balance.toLocaleString("pt-AO")} Kz.`,
+        _category: "incentivos",
+        _entity_type: "farmer",
+        _entity_id: farmerCode,
+      });
+    } catch (e) {
+      console.warn("Failed to notify:", e);
+    }
+  };
+
   const addToCart = (product: Product) => {
     // Check farmer balance
     if (farmerBalance <= 0) {
       toast.error("Compra bloqueada — este produtor não tem saldo de incentivo disponível.");
+      if (farmer) notifyNoBalance(farmer.full_name, farmer.code, farmerBalance);
       return;
     }
     const currentCartTotal = cart.reduce((sum, c) => sum + c.product.price * c.quantity * (1 + c.product.iva_rate / 100), 0);
