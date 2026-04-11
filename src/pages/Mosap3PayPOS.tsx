@@ -352,6 +352,17 @@ const Mosap3PayPOS = () => {
 
   const processSale = async () => {
     if (!farmer || cart.length === 0 || !selectedSupplierId) return;
+    
+    // Final balance check before processing
+    if (farmerBalance <= 0) {
+      toast.error("Compra bloqueada — produtor sem saldo de incentivo.");
+      return;
+    }
+    if (cartTotal > farmerBalance) {
+      toast.error(`Saldo insuficiente. Saldo: ${farmerBalance.toLocaleString("pt-AO")} Kz, Total: ${cartTotal.toLocaleString("pt-AO")} Kz.`);
+      return;
+    }
+    
     setProcessing(true);
     setPaymentStatus("processing");
 
