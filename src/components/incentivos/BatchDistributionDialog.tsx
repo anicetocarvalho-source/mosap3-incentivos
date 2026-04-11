@@ -15,7 +15,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { useProvincesData } from "@/hooks/useProvincesData";
 import { useProvinceMunicipalities } from "@/hooks/useProvinceMunicipalities";
 
 type Scope = "eca" | "provincia" | "municipio";
@@ -29,20 +28,24 @@ const SCOPE_OPTIONS: { value: Scope; label: string; icon: typeof TreePine }[] = 
 const BatchDistributionDialog = () => {
   const [open, setOpen] = useState(false);
   const [scope, setScope] = useState<Scope | "">("");
-  const [selectedProvince, setSelectedProvince] = useState("");
-  const [selectedMunicipality, setSelectedMunicipality] = useState("");
+  const [selectedProvinceId, setSelectedProvinceId] = useState("");
+  const [selectedMunicipalityName, setSelectedMunicipalityName] = useState("");
   const [selectedEca, setSelectedEca] = useState("");
   const [formType, setFormType] = useState("");
   const [formAmount, setFormAmount] = useState("");
-  const [formMethod, setFormMethod] = useState("Unitel Money");
   const [submitting, setSubmitting] = useState(false);
   const [excludedFarmers, setExcludedFarmers] = useState<Set<string>>(new Set());
 
   const queryClient = useQueryClient();
-  const { provinces } = useProvincesData();
-  const { municipalities } = useProvinceMunicipalities(selectedProvince);
+  const { provinces, municipalities } = useProvinceMunicipalities(selectedProvinceId);
 
-  // Get all farmers for filtering
+  // Resolve selected province name for farmer filtering
+  const selectedProvinceName = useMemo(
+    () => provinces.find((p) => p.id === selectedProvinceId)?.name || "",
+    [provinces, selectedProvinceId]
+  );
+
+  // Get all approved farmers
   const { data: allFarmers = [] } = useQuery({
     queryKey: ["farmers_batch_distribution"],
     queryFn: async () => {
@@ -63,34 +66,34 @@ const BatchDistributionDialog = () => {
     return Array.from(set).sort();
   }, [allFarmers]);
 
-  // Unique provinces from provinces table
-  const provinceList = useMemo(() =>
-    provinces.map((p: any) => p.name).sort(),
-  [provinces]);
-
   // Filter farmers based on scope selection
   const matchingFarmers = useMemo(() => {
     if (!scope) return [];
     return allFarmers.filter((f) => {
       if (scope === "eca") return f.school === selectedEca;
-      if (scope === "provincia") return f.province === selectedProvince;
-      if (scope === "municipio") return f.province === selectedProvince && f.municipality === selectedMunicipality;
+      if (scope === "provincia") return f.province === selectedProvinceName;
+      if (scope === "municipio") return f.province === selectedProvinceName && f.municipality === selectedMunicipalityName;
       return false;
     });
-  }, [scope, selectedEca, selectedProvince, selectedMunicipality, allFarmers]);
+  }, [scope, selectedEca, selectedProvinceName, selectedMunicipalityName, allFarmers]);
 
   const selectedFarmers = matchingFarmers.filter((f) => !excludedFarmers.has(f.code));
 
-  const scopeLabel = scope === "eca" ? selectedEca :
-    scope === "provincia" ? selectedProvince :
-    scope === "municipio" ? `${selectedMunicipality}, ${selectedProvince}` : "";
+  const scopeReady =
+    (scope === "eca" && selectedEca) ||
+    (scope === "provincia" && selectedProvinceName) ||
+    (scope === "municipio" && selectedProvinceName && selectedMunicipalityName);
 
-  const canSubmit = selectedFarmers.length > 0 && formType && formAmount && scopeLabel;
+  const scopeLabel = scope === "eca" ? selectedEca :
+    scope === "provincia" ? selectedProvinceName :
+    scope === "municipio" ? `${selectedMunicipalityName}, ${selectedProvinceName}` : "";
+
+  const canSubmit = selectedFarmers.length > 0 && formType && formAmount && scopeReady;
 
   const resetForm = () => {
     setScope("");
-    setSelectedProvince("");
-    setSelectedMunicipality("");
+    setSelectedProvinceId("");
+    setSelectedMunicipalityName("");
     setSelectedEca("");
     setFormType("");
     setFormAmount("");
@@ -102,12 +105,13 @@ const BatchDistributionDialog = () => {
     setSubmitting(true);
     try {
       const now = new Date().toLocaleDateString("pt-AO");
-      const rows = selectedFarmers.map((f) => ({
-        incentive_code: `INC-${Date.now().toString(36).toUpperCase()}-${f.code}`,
+      const base = Date.now().toString(36).toUpperCase();
+      const rows = selectedFarmers.map((f, i) => ({
+        incentive_code: `INC-${base}-${String(i + 1).padStart(3, "0")}`,
         farmer_code: f.code,
         type: formType,
         amount: formAmount,
-        method: formMethod,
+        method: "Unitel Money",
         incentive_date: now,
       }));
 
@@ -140,6 +144,8 @@ const BatchDistributionDialog = () => {
     });
   };
 
+  const parsedAmount = parseFloat((formAmount || "0").replace(/\./g, "").replace(",", ".")) || 0;
+
   return (
     <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) resetForm(); }}>
       <DialogTrigger asChild>
@@ -155,14 +161,14 @@ const BatchDistributionDialog = () => {
           </DialogTitle>
         </DialogHeader>
 
-        <div className="grid gap-4 py-2 flex-1 overflow-y-auto">
+        <div className="grid gap-4 py-2 flex-1 overflow-y-auto pr-1">
           {/* Scope selection */}
           <div className="space-y-2">
             <Label>Âmbito da distribuição</Label>
             <Select value={scope} onValueChange={(v: Scope) => {
               setScope(v);
-              setSelectedProvince("");
-              setSelectedMunicipality("");
+              setSelectedProvinceId("");
+              setSelectedMunicipalityName("");
               setSelectedEca("");
               setExcludedFarmers(new Set());
             }}>
@@ -197,28 +203,28 @@ const BatchDistributionDialog = () => {
           {(scope === "provincia" || scope === "municipio") && (
             <div className="space-y-2">
               <Label>Província</Label>
-              <Select value={selectedProvince} onValueChange={(v) => {
-                setSelectedProvince(v);
-                setSelectedMunicipality("");
+              <Select value={selectedProvinceId} onValueChange={(v) => {
+                setSelectedProvinceId(v);
+                setSelectedMunicipalityName("");
                 setExcludedFarmers(new Set());
               }}>
                 <SelectTrigger><SelectValue placeholder="Selecionar província..." /></SelectTrigger>
                 <SelectContent>
-                  {provinceList.map((p: string) => (
-                    <SelectItem key={p} value={p}>{p}</SelectItem>
+                  {provinces.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
           )}
 
-          {scope === "municipio" && selectedProvince && (
+          {scope === "municipio" && selectedProvinceId && (
             <div className="space-y-2">
               <Label>Município</Label>
-              <Select value={selectedMunicipality} onValueChange={(v) => { setSelectedMunicipality(v); setExcludedFarmers(new Set()); }}>
+              <Select value={selectedMunicipalityName} onValueChange={(v) => { setSelectedMunicipalityName(v); setExcludedFarmers(new Set()); }}>
                 <SelectTrigger><SelectValue placeholder="Selecionar município..." /></SelectTrigger>
                 <SelectContent>
-                  {municipalities.map((m: any) => (
+                  {municipalities.map((m) => (
                     <SelectItem key={m.id} value={m.name}>{m.name}</SelectItem>
                   ))}
                 </SelectContent>
@@ -227,7 +233,7 @@ const BatchDistributionDialog = () => {
           )}
 
           {/* Incentive details */}
-          {matchingFarmers.length > 0 && (
+          {scopeReady && matchingFarmers.length > 0 && (
             <>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -267,7 +273,7 @@ const BatchDistributionDialog = () => {
                           onCheckedChange={() => toggleFarmer(f.code)}
                         />
                         <span className="font-medium truncate">{f.full_name}</span>
-                        <span className="text-xs text-muted-foreground ml-auto">{f.code}</span>
+                        <span className="text-xs text-muted-foreground ml-auto flex-shrink-0">{f.code}</span>
                       </label>
                     ))}
                   </div>
@@ -275,7 +281,7 @@ const BatchDistributionDialog = () => {
               </div>
 
               {/* Summary */}
-              {formAmount && selectedFarmers.length > 0 && (
+              {parsedAmount > 0 && selectedFarmers.length > 0 && (
                 <div className="rounded-lg bg-primary/5 border border-primary/20 p-3 flex items-center justify-between">
                   <div className="text-sm">
                     <p className="font-medium">Resumo da distribuição</p>
@@ -284,14 +290,14 @@ const BatchDistributionDialog = () => {
                     </p>
                   </div>
                   <Badge variant="secondary" className="text-base px-3">
-                    {(selectedFarmers.length * (parseFloat(formAmount.replace(/\./g, "").replace(",", ".")) || 0)).toLocaleString("pt-AO")} Kz
+                    {(selectedFarmers.length * parsedAmount).toLocaleString("pt-AO")} Kz
                   </Badge>
                 </div>
               )}
             </>
           )}
 
-          {scope && matchingFarmers.length === 0 && scopeLabel && (
+          {scopeReady && matchingFarmers.length === 0 && (
             <div className="text-center py-6 text-muted-foreground text-sm">
               Nenhum agricultor aprovado encontrado para esta seleção.
             </div>
