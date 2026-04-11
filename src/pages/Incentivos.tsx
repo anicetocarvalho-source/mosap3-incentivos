@@ -33,7 +33,7 @@ const Incentivos = () => {
 
   // Form state
   const [formFarmer, setFormFarmer] = useState("");
-  const [formType, setFormType] = useState("");
+  
   const [formAmount, setFormAmount] = useState("");
   const [formMethod, setFormMethod] = useState("Unitel Money");
 
