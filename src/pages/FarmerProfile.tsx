@@ -74,6 +74,10 @@ const FarmerProfile = () => {
       setLivestock(data || []);
       setLivestockLoaded(true);
     });
+    supabase.from("pos_sales").select("*, pos_sale_items(*)").eq("farmer_code", id).order("created_at", { ascending: false }).then(({ data }) => {
+      setPosSales(data || []);
+      setPosSalesLoaded(true);
+    });
   });
 
   const farmer = farmerInfo;
