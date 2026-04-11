@@ -103,8 +103,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // The callback must NOT be async to avoid deadlocks (Supabase docs)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        // Skip INITIAL_SESSION — we handle that via getSession() below
-        if (event === "INITIAL_SESSION") return;
+        // Skip events that don't require React state updates:
+        // - INITIAL_SESSION: handled via getSession() below
+        // - TOKEN_REFRESHED: token changed but user didn't; letting this
+        //   through triggers fetchUserData → DB queries → the Supabase client
+        //   auto-refreshes again → TOKEN_REFRESHED → infinite loop → 429 → logout
+        if (event === "INITIAL_SESSION" || event === "TOKEN_REFRESHED") return;
 
         const currentUser = session?.user ?? null;
         setUser(currentUser);
