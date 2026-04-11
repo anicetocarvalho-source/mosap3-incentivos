@@ -22,11 +22,11 @@ interface FarmerWithStatus {
 }
 
 const estadoColors: Record<FarmerStatus, string> = {
-  "Em produção": "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
-  "Abandono": "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200",
-  "Doente": "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
-  "Falecido": "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
-  "Substituído": "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
+  "Em produção": "bg-success/10 text-success",
+  "Abandono": "bg-warning/10 text-warning",
+  "Doente": "bg-secondary/20 text-secondary-foreground",
+  "Falecido": "bg-destructive/10 text-destructive",
+  "Substituído": "bg-info/10 text-info",
 };
 
 const estadoIcons: Record<FarmerStatus, any> = {
@@ -204,7 +204,7 @@ const FichaEscola = () => {
               {farmersWithStatus.map((farmer, i) => {
                 const EstadoIcon = estadoIcons[farmer.estadoProdutor];
                 return (
-                  <tr key={farmer.id} className={`border-b border-border last:border-0 ${farmer.estadoProdutor === "Falecido" ? "bg-red-50/50 dark:bg-red-950/20" : farmer.estadoProdutor === "Abandono" ? "bg-orange-50/50 dark:bg-orange-950/20" : ""}`}>
+                  <tr key={farmer.id} className={`border-b border-border last:border-0 ${farmer.estadoProdutor === "Falecido" ? "bg-destructive/5" : farmer.estadoProdutor === "Abandono" ? "bg-warning/5" : ""}`}>
                     <td className="px-2 py-2 text-muted-foreground">{i + 1}</td>
                     <td className="px-2 py-2 font-mono">{farmer.id}</td>
                     <td className="px-2 py-2 font-medium">{farmer.name}</td>

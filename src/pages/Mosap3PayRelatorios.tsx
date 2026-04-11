@@ -613,7 +613,7 @@ const Mosap3PayRelatorios = () => {
                       <TableRow key={p.name}>
                         <TableCell className="text-sm">
                           <span className="inline-flex items-center gap-2">
-                            <span className="h-5 w-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white" style={{ background: COLORS[i % COLORS.length] }}>{i + 1}</span>
+                            <span className="h-5 w-5 rounded-full flex items-center justify-center text-[10px] font-bold text-primary-foreground" style={{ background: COLORS[i % COLORS.length] }}>{i + 1}</span>
                             {p.name}
                           </span>
                         </TableCell>
