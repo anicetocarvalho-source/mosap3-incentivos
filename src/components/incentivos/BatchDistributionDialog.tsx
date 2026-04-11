@@ -95,7 +95,7 @@ const BatchDistributionDialog = () => {
       const { data } = await supabase
         .from("farmers")
         .select("code, full_name, province, municipality, school, phone, status")
-        .eq("status", "Aprovado")
+        .in("status", ["Aprovado", "Ativo", "Validado"])
         .order("full_name");
       return data || [];
     },
