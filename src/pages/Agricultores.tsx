@@ -15,6 +15,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import FarmerRegistrationForm from "@/components/FarmerRegistrationForm";
+import BulkImportDialog from "@/components/agricultores/BulkImportDialog";
 import { useFarmersList } from "@/hooks/useFarmersList";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
