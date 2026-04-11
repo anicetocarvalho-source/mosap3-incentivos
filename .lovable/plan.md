@@ -1,103 +1,53 @@
 
 
-## Revisão Completa da Plataforma MOSAP3 — Preparação para Produção
+## Plano: Vincular itens PATEC aos produtos do fornecedor no POS
 
-Após análise detalhada do código, base de dados, autenticação, fluxos e configurações, segue o relatório organizado por área.
+### Problema actual
+- Os `patec_items` (composição do pacote) e os `supplier_products` (catálogo do fornecedor) são geridos de forma independente.
+- No POS, os itens do pacote aparecem como checklist estática, sem indicar quais já têm produto correspondente no catálogo do fornecedor.
+- Não existe forma de gerar automaticamente os produtos a partir do template PATEC.
 
----
+### Alterações previstas
 
-### 1. PROBLEMAS A CORRIGIR (Prioritários)
+#### 1. Botão "Importar itens PATEC" nos formulários de produtos
+**Ficheiros**: `src/pages/Mosap3PayFornecedores.tsx`, `src/pages/fornecedor/FornecedorProdutos.tsx`
 
-#### 1.1 Página 404 em inglês
-- `NotFound.tsx` mostra "Oops! Page not found" em vez de português. Deve dizer "Página não encontrada" com link "Voltar ao Início".
+- Adicionar botão "Importar do PATEC" junto ao "Adicionar Produto".
+- Ao clicar, abre diálogo com selector de PATEC (1, 2 ou 3).
+- Carrega `patec_items` desse PATEC e mostra lista com checkbox.
+- Itens que já existam no catálogo (match por nome + patec_number) aparecem marcados e desactivados.
+- Ao confirmar, insere os itens seleccionados como `supplier_products` com:
+  - `name` = nome do patec_item
+  - `patec_number` = número do PATEC
+  - `patec_category` = categoria do patec_item
+  - `category` = mapeamento (Insumos→insumos, Pecuária→pecuaria, Serviços→servicos)
+  - `price` = 0 (a preencher pelo fornecedor)
+  - `stock` = 0
+- Toast de sucesso com contagem de itens importados.
 
-#### 1.2 Incentivos — join com FK inexistente
-- `Incentivos.tsx` usa `farmers!farmer_incentives_farmer_code_fkey(...)` mas a tabela `farmer_incentives` **não tem foreign keys**. Isto pode causar erros. Deve ser um join manual ou criar a FK na base de dados.
+#### 2. Checklist enriquecida no POS
+**Ficheiro**: `src/pages/Mosap3PayPOS.tsx`
 
-#### 1.3 Falta de `ErrorBoundary` global
-- Não existe um ErrorBoundary React. Se qualquer componente falhar, a app inteira fica em branco. Adicionar um ErrorBoundary com UI de fallback em português.
+- Quando o produtor é identificado e os `patec_items` são carregados, cruzar com os `products` do fornecedor seleccionado.
+- Para cada item do pacote, mostrar:
+  - ✅ verde se existe produto correspondente no catálogo (match por `patec_number` + `patec_category` + nome similar)
+  - ⚠️ amarelo/cinza se não existe produto correspondente
+- Isto dá visibilidade imediata ao operador sobre quais itens do pacote estão disponíveis para venda.
 
-#### 1.4 Registo público de utilizadores aberto
-- A página `/auth` permite registo (`signUp`) sem restrições. Em produção, qualquer pessoa pode criar conta. Considerar desactivar o registo público ou exigir aprovação de admin.
+#### 3. Campo `patec_category` visível nos formulários
+**Ficheiros**: `src/pages/fornecedor/FornecedorProdutos.tsx`, `src/pages/Mosap3PayFornecedores.tsx`
 
-#### 1.5 Formulário de Incentivos sem código sequencial automático
-- O `incentive_code` é gerado manualmente como `INC-XXXX` com random. Em produção, deveria ser sequencial para rastreabilidade.
+- Quando um produto tem `patec_number` definido, mostrar selector de `patec_category` (Insumos, Pecuária, Serviços) para permitir o mapeamento manual.
+- Este campo já existe na tabela `supplier_products` mas não está exposto nos formulários do portal do fornecedor.
 
-#### 1.6 PWA sem ícones reais
-- `vite.config.ts` referencia `pwa-192x192.png` e `pwa-512x512.png` mas estes ficheiros podem não existir em `/public`. Verificar e adicionar.
+### Fluxo resultante
+1. Admin define composição do pacote em `/patec` (ex: PATEC 1 → Sementes de milho, Enxada, Vacinação)
+2. Fornecedor ou admin clica "Importar do PATEC 1" → produtos são criados automaticamente no catálogo
+3. Fornecedor define preços e stock para cada produto importado
+4. No POS, ao identificar produtor com PATEC 1, a checklist mostra quais itens do pacote o fornecedor tem disponíveis
 
----
-
-### 2. SEGURANÇA
-
-#### 2.1 RLS — Avaliação OK com ressalvas
-- Todas as tabelas têm RLS activo. A maioria segue o padrão correcto (admins gerem, autenticados inserem/visualizam).
-- **Ressalva**: `notifications` não permite INSERT por utilizadores — apenas triggers internos. Correcto.
-- **Ressalva**: `farmer_documents` não permite UPDATE — aceitável.
-- **Ressalva**: `profiles` não permite INSERT por utilizadores normais — o trigger `handle_new_user` cria automaticamente. Correcto.
-
-#### 2.2 Credenciais Unitel Money
-- Armazenadas em `system_settings` com visibilidade para todos os autenticados (SELECT). As chaves de API ficam expostas a qualquer utilizador logado. **Recomendação**: mover credenciais sensíveis para secrets da Edge Function ou criar política RLS restrita para chaves `unitel_*`.
-
-#### 2.3 Fornecedor — registo sem verificação de email
-- `FornecedorAuth.tsx` faz `signUp` e depois insere em `suppliers` directamente. Se o auto-confirm estiver activo, a conta fica imediatamente acessível.
-
----
-
-### 3. FLUXOS VALIDADOS (Funcionais)
-
-| Fluxo | Estado |
-|-------|--------|
-| Login / Logout (online + offline) | ✅ OK |
-| RBAC com 9 perfis + RoleGuard | ✅ OK |
-| Registo de agricultores (online + offline) | ✅ OK |
-| Edição inline no perfil do agricultor | ✅ OK |
-| Remoção / restauro de agricultores | ✅ OK |
-| PATEC — atribuição individual e bulk | ✅ OK |
-| Parcelas, produção, dependentes, transações | ✅ OK |
-| Escolas de campo com mapa interactivo | ✅ OK |
-| Gestão territorial (províncias/municípios) | ✅ OK |
-| Cascata Província → Município em formulários | ✅ OK |
-| POS com kiosk, facturas fiscais, QR | ✅ OK |
-| Notas de crédito com ajuste de saldo | ✅ OK |
-| SAF-T AO exportação e validação | ✅ OK |
-| Stock movements e alertas | ✅ OK |
-| Portal do fornecedor isolado | ✅ OK |
-| Relatórios com filtros e impressão | ✅ OK |
-| Notificações e push subscriptions | ✅ OK |
-| Sincronização offline (IndexedDB + auto-sync) | ✅ OK |
-| Audit logs | ✅ OK |
-
----
-
-### 4. MELHORIAS RECOMENDADAS (Não bloqueantes)
-
-| Melhoria | Impacto |
-|----------|---------|
-| Adicionar loading skeleton no Dashboard enquanto carrega | UX |
-| Limitar query de `pos_sales` e `farmers` a paginação server-side (actualmente carrega tudo) | Performance |
-| Adicionar `<meta>` robots `noindex` se não quiser indexação | SEO |
-| Traduzir mensagens do Supabase Auth (e.g. "Invalid login credentials") | UX |
-| Adicionar rate-limiting ou captcha no login | Segurança |
-| Verificar existência dos ficheiros PWA icons | PWA |
-
----
-
-### 5. PLANO DE IMPLEMENTAÇÃO
-
-Correcções a fazer num único ciclo:
-
-1. **Traduzir `NotFound.tsx`** para português
-2. **Adicionar `ErrorBoundary`** global com fallback em português
-3. **Corrigir join de Incentivos** — usar `.select()` com join explícito ou verificar FK
-4. **Mover credenciais Unitel** — adicionar RLS policy para `system_settings` que restrinja chaves `unitel_*` a admins apenas (o SELECT actual já permite a todos)
-5. **Avaliar registo público** — adicionar flag ou desactivar tab de registo conforme decisão
-
-### Detalhes Técnicos
-
-- **ErrorBoundary**: Novo componente em `src/components/ErrorBoundary.tsx`, wrapping `<App>` em `main.tsx`
-- **NotFound**: Alterar textos para PT-AO
-- **Incentivos join**: A query usa uma FK hint que pode falhar. Mudar para `.select("*, farmers(full_name, phone, province, school)")` sem hint, ou adicionar migration para criar a FK real
-- **system_settings RLS**: Adicionar policy que restrinja SELECT de chaves `unitel_*` apenas a admins via `is_admin(auth.uid())`, mantendo SELECT geral para outras settings
-- **Registo**: Remover tab "Registar" de `Auth.tsx` (apenas admin cria utilizadores via `/utilizadores`), ou manter mas com nota de que a conta precisa de aprovação
+### Detalhes técnicos
+- Nenhuma migração necessária — `patec_category` já existe em `supplier_products`
+- Match entre patec_items e supplier_products: `patec_number` + `name` (case-insensitive)
+- A importação não duplica itens já existentes
 
