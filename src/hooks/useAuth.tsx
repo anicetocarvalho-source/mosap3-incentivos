@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, useCallback, useRef, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import type { User } from "@supabase/supabase-js";
@@ -41,27 +41,29 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const [isOfflineSession, setIsOfflineSession] = useState(false);
 
-  // Cache session data after successful fetch
-  const cacheCurrentSession = useCallback(
-    (email: string, password: string, userId: string, prof: AuthState["profile"], r: AppRole[]) => {
-      cacheSession(email, password, userId, prof, r).catch(() => {});
-    },
-    [],
-  );
+  // Guards against concurrent fetches and double initialization
+  const fetchingRef = useRef<string | null>(null);
+  const initializedRef = useRef(false);
 
   const fetchUserData = useCallback(async (userId: string) => {
-    const [profileRes, rolesRes] = await Promise.all([
-      supabase.from("profiles").select("full_name, phone").eq("user_id", userId).maybeSingle(),
-      supabase.from("user_roles").select("role").eq("user_id", userId),
-    ]);
+    // Prevent concurrent fetches for the same user
+    if (fetchingRef.current === userId) return;
+    fetchingRef.current = userId;
 
-    const prof = profileRes.data ?? null;
-    const fetchedRoles = rolesRes.data?.map((r) => r.role) ?? [];
+    try {
+      const [profileRes, rolesRes] = await Promise.all([
+        supabase.from("profiles").select("full_name, phone").eq("user_id", userId).maybeSingle(),
+        supabase.from("user_roles").select("role").eq("user_id", userId),
+      ]);
 
-    setProfile(prof);
-    setRoles(fetchedRoles);
+      const prof = profileRes.data ?? null;
+      const fetchedRoles = rolesRes.data?.map((r) => r.role) ?? [];
 
-    return { profile: prof, roles: fetchedRoles };
+      setProfile(prof);
+      setRoles(fetchedRoles);
+    } finally {
+      fetchingRef.current = null;
+    }
   }, []);
 
   // Restore offline session if no online session
@@ -69,7 +71,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (!navigator.onLine) {
       const cached = await getLastSession();
       if (cached) {
-        // Create a minimal "fake" user for offline
         setUser({ id: cached.userId, email: cached.email } as User);
         setProfile(cached.profile);
         setRoles(cached.roles as AppRole[]);
@@ -98,14 +99,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   useEffect(() => {
+    // CRITICAL: Set up onAuthStateChange FIRST, BEFORE getSession
+    // The callback must NOT be async to avoid deadlocks (Supabase docs)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
+      (event, session) => {
+        // Skip INITIAL_SESSION — we handle that via getSession() below
+        if (event === "INITIAL_SESSION") return;
+
         const currentUser = session?.user ?? null;
         setUser(currentUser);
         setIsOfflineSession(false);
 
         if (currentUser) {
-          setTimeout(() => fetchUserData(currentUser.id), 0);
+          // Fire-and-forget — no await in this callback
+          fetchUserData(currentUser.id);
         } else {
           setProfile(null);
           setRoles([]);
@@ -114,14 +121,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
     );
 
+    // Then restore session from storage
     supabase.auth.getSession().then(async ({ data: { session } }) => {
+      // Guard against double init (StrictMode)
+      if (initializedRef.current) return;
+      initializedRef.current = true;
+
       const currentUser = session?.user ?? null;
       setUser(currentUser);
       if (currentUser) {
-        fetchUserData(currentUser.id);
+        await fetchUserData(currentUser.id);
         setLoading(false);
       } else {
-        // No online session — try offline restore
         const restored = await tryRestoreOffline();
         if (!restored) setLoading(false);
       }
@@ -132,15 +143,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   // Listen for online event to re-sync if we were in offline mode
   useEffect(() => {
-    const handler = async () => {
+    const handler = () => {
       if (isOfflineSession) {
-        // Try to get a real session now that we're online
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user) {
-          setUser(session.user);
-          setIsOfflineSession(false);
-          fetchUserData(session.user.id);
-        }
+        supabase.auth.getSession().then(({ data: { session } }) => {
+          if (session?.user) {
+            setUser(session.user);
+            setIsOfflineSession(false);
+            fetchUserData(session.user.id);
+          }
+        });
       }
     };
     window.addEventListener("online", handler);
