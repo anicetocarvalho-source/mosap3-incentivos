@@ -187,4 +187,4 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 };
 
 /** Helper to cache session after a successful online login */
-export { cacheSession as cacheAuthSession };
+export { doCacheSession as cacheAuthSession };
