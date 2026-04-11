@@ -256,7 +256,12 @@ const Mosap3PayPOS = () => {
         setSeasonPurchases({});
       }
       setCart([]);
-      toast.success(`Produtor identificado: ${data.full_name}`);
+      const balance = await fetchFarmerBalance(data.code);
+      if (balance <= 0) {
+        toast.warning(`${data.full_name} tem saldo de incentivo de ${balance.toLocaleString("pt-AO")} Kz. Compras bloqueadas.`);
+      } else {
+        toast.success(`Produtor identificado: ${data.full_name} — Saldo: ${balance.toLocaleString("pt-AO")} Kz`);
+      }
     } else {
       toast.error("Produtor não encontrado");
       setFarmer(null);
