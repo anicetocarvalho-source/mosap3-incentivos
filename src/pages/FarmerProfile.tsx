@@ -50,6 +50,8 @@ const FarmerProfile = () => {
   const navigate = useNavigate();
   const { farmerInfo, farmer: farmerRaw, loading: dbLoading, refetch: refetchFarmer } = useFarmerFromDb(id);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [posSales, setPosSales] = useState<any[]>([]);
+  const [posSalesLoaded, setPosSalesLoaded] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [expandedProduction, setExpandedProduction] = useState<string | null>(null);
   const [zoomedImageIndex, setZoomedImageIndex] = useState<number | null>(null);
