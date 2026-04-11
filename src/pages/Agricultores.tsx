@@ -15,6 +15,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import FarmerRegistrationForm from "@/components/FarmerRegistrationForm";
+import BulkImportDialog from "@/components/agricultores/BulkImportDialog";
 import { useFarmersList } from "@/hooks/useFarmersList";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -131,11 +132,14 @@ const Agricultores = () => {
           <h1 className="page-title text-lg md:text-2xl">Agricultores</h1>
           <p className="text-muted-foreground text-xs md:text-sm mt-1 hidden sm:block">Cadastro e gestão de produtores do MOSAP3</p>
         </div>
-        <Button className="gap-2 flex-shrink-0" size="sm" onClick={() => { setEditingFarmer(null); setDialogOpen(true); }}>
-          <Plus className="h-4 w-4" />
-          <span className="hidden sm:inline">Novo Agricultor</span>
-          <span className="sm:hidden">Novo</span>
-        </Button>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <BulkImportDialog />
+          <Button className="gap-2" size="sm" onClick={() => { setEditingFarmer(null); setDialogOpen(true); }}>
+            <Plus className="h-4 w-4" />
+            <span className="hidden sm:inline">Novo Agricultor</span>
+            <span className="sm:hidden">Novo</span>
+          </Button>
+        </div>
         <FarmerRegistrationForm open={dialogOpen} onOpenChange={handleCloseDialog} editData={editingFarmer} />
       </div>
 
