@@ -251,7 +251,7 @@ const FingerprintCapture = ({ label, onCapture, captured, onRemove }: Props) => 
     return (
       <div className="space-y-2">
         <label className="text-xs font-medium text-foreground">{label}</label>
-        <div className="relative rounded-xl overflow-hidden border-2 border-primary/60 bg-gray-950 shadow-xl shadow-primary/10">
+        <div className="relative rounded-xl overflow-hidden border-2 border-primary/60 bg-foreground/95 shadow-xl shadow-primary/10">
           <canvas
             ref={canvasRef}
             className="w-full touch-none cursor-crosshair"
@@ -267,14 +267,14 @@ const FingerprintCapture = ({ label, onCapture, captured, onRemove }: Props) => 
 
           {/* Progress bar */}
           <div className="absolute bottom-0 left-0 right-0">
-            <Progress value={progress} className="h-1.5 rounded-none bg-gray-800 [&>div]:bg-gradient-to-r [&>div]:from-green-500 [&>div]:to-emerald-400" />
+            <Progress value={progress} className="h-1.5 rounded-none bg-muted [&>div]:bg-gradient-to-r [&>div]:from-primary [&>div]:to-success" />
           </div>
 
           {/* HUD overlay */}
           <div className="absolute top-0 left-0 right-0 p-2 flex items-center justify-between pointer-events-none">
-            <div className="flex items-center gap-1.5 bg-black/60 backdrop-blur-sm px-2 py-1 rounded-md">
-              <span className={`inline-block h-1.5 w-1.5 rounded-full ${progress >= 100 ? "bg-emerald-400" : "bg-green-500 animate-pulse"}`} />
-              <span className="text-[10px] font-medium text-green-300">
+            <div className="flex items-center gap-1.5 bg-foreground/60 backdrop-blur-sm px-2 py-1 rounded-md">
+              <span className={`inline-block h-1.5 w-1.5 rounded-full ${progress >= 100 ? "bg-success" : "bg-primary animate-pulse"}`} />
+              <span className="text-[10px] font-medium text-primary-foreground">
                 {progress >= 100 ? "Concluído" : "A capturar…"}
               </span>
             </div>
