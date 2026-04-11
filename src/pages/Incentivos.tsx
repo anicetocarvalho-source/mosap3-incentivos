@@ -27,7 +27,7 @@ const Incentivos = () => {
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState("all");
-  const [typeFilter, setTypeFilter] = useState("all");
+  
   const [page, setPage] = useState(1);
   const queryClient = useQueryClient();
 
@@ -57,14 +57,13 @@ const Incentivos = () => {
     },
   });
 
-  useEffect(() => { setPage(1); }, [search, statusFilter, typeFilter]);
+  useEffect(() => { setPage(1); }, [search, statusFilter]);
 
   const filtered = incentives.filter((inc: any) => {
     const name = inc.farmers?.full_name || "";
     const matchesSearch = name.toLowerCase().includes(search.toLowerCase()) || inc.incentive_code.toLowerCase().includes(search.toLowerCase());
     const matchesStatus = statusFilter === "all" || inc.status.toLowerCase() === statusFilter;
-    const matchesType = typeFilter === "all" || inc.type.toLowerCase().replace(/\s/g, "") === typeFilter;
-    return matchesSearch && matchesStatus && matchesType;
+    return matchesSearch && matchesStatus;
   });
 
   const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
