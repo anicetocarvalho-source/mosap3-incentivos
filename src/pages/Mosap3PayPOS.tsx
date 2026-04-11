@@ -1119,9 +1119,15 @@ const Mosap3PayPOS = () => {
                       <Separator />
                       <div className="flex justify-between font-bold text-base"><span>Total</span><span>{cartTotal.toLocaleString("pt-AO")} Kz</span></div>
                     </div>
-                    <Button className="w-full mt-3" onClick={() => setConfirmOpen(true)} disabled={!farmer}>
+                    <Button className="w-full mt-3" onClick={() => setConfirmOpen(true)} disabled={!farmer || cart.length === 0 || farmerBalance <= 0 || cartTotal > farmerBalance}>
                       <CreditCard className="h-4 w-4 mr-2" /> Processar Pagamento
                     </Button>
+                    {farmer && farmerBalance <= 0 && (
+                      <p className="text-xs text-destructive text-center mt-2 font-medium">⚠ Produtor sem saldo de incentivo</p>
+                    )}
+                    {farmer && farmerBalance > 0 && cartTotal > farmerBalance && (
+                      <p className="text-xs text-destructive text-center mt-2 font-medium">⚠ Saldo insuficiente ({farmerBalance.toLocaleString("pt-AO")} Kz)</p>
+                    )}
                   </div>
                 )}
               </CardContent>
