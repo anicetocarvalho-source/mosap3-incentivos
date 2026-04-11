@@ -1,7 +1,7 @@
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, User, MapPin, Phone, CreditCard, Wheat, ShoppingCart, Gift, Calendar, FileText, Users, Sprout, Sun, Droplets, CheckCircle2, Camera, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Clock, Printer, Beef, Plus, Fingerprint, Package, FolderOpen, Trash2, RotateCcw, Edit } from "lucide-react";
+import { ArrowLeft, User, MapPin, Phone, CreditCard, Wheat, ShoppingCart, Gift, Calendar, FileText, Users, Sprout, Sun, Droplets, CheckCircle2, Camera, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Clock, Printer, Beef, Plus, Fingerprint, Package, FolderOpen, Trash2, RotateCcw, Edit, Scale, ArrowUpRight, ArrowDownRight } from "lucide-react";
 import FarmerRegistrationForm from "@/components/FarmerRegistrationForm";
 import InlineEditableField from "@/components/InlineEditableField";
 import { useProvinceMunicipalities } from "@/hooks/useProvinceMunicipalities";
