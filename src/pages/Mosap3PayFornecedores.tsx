@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { Store, Plus, Search, Edit2, Package, Monitor, Trash2, Eye, MapPin, X, CheckCircle, LayoutGrid, List, Filter, ChevronLeft, ChevronRight } from "lucide-react";
+import { Store, Plus, Search, Edit2, Package, Monitor, Trash2, Eye, MapPin, X, CheckCircle, LayoutGrid, List, Filter, ChevronLeft, ChevronRight, Download } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -83,6 +83,14 @@ const Mosap3PayFornecedores = () => {
   // POS dialog
   const [posDialogOpen, setPosDialogOpen] = useState(false);
   const [editPos, setEditPos] = useState<Partial<PosTerminal>>({});
+
+  // PATEC import dialog
+  const [importPatecOpen, setImportPatecOpen] = useState(false);
+  const [importPatecNumber, setImportPatecNumber] = useState<number>(1);
+  const [patecItemsList, setPatecItemsList] = useState<{ id: string; name: string; category: string; patec_number: number }[]>([]);
+  const [selectedPatecItems, setSelectedPatecItems] = useState<Set<string>>(new Set());
+  const [existingPatecNames, setExistingPatecNames] = useState<Set<string>>(new Set());
+  const [importingPatec, setImportingPatec] = useState(false);
 
   // Supplier form
   const [form, setForm] = useState({ name: "", nif: "", phone: "", email: "", province: "" });
@@ -261,6 +269,48 @@ const Mosap3PayFornecedores = () => {
     fetchSupplierDetails(selectedSupplier.id);
   };
 
+  // PATEC import logic
+  const openImportPatec = async (patecNum: number) => {
+    if (!selectedSupplier) return;
+    setImportPatecNumber(patecNum);
+    setImportingPatec(false);
+    const [{ data: items }, { data: existing }] = await Promise.all([
+      supabase.from("patec_items").select("*").eq("patec_number", patecNum).order("category, name"),
+      supabase.from("supplier_products").select("name, patec_number").eq("supplier_id", selectedSupplier.id).eq("patec_number", patecNum),
+    ]);
+    setPatecItemsList(items || []);
+    const existNames = new Set((existing || []).map((p: any) => p.name.toLowerCase()));
+    setExistingPatecNames(existNames);
+    const newItems = (items || []).filter(i => !existNames.has(i.name.toLowerCase()));
+    setSelectedPatecItems(new Set(newItems.map(i => i.id)));
+    setImportPatecOpen(true);
+  };
+
+  const categoryMap: Record<string, string> = { "Insumos": "insumos", "Pecuária": "pecuaria", "Serviços": "servicos" };
+
+  const handleImportPatec = async () => {
+    if (!selectedSupplier || selectedPatecItems.size === 0) return;
+    setImportingPatec(true);
+    const toImport = patecItemsList.filter(i => selectedPatecItems.has(i.id) && !existingPatecNames.has(i.name.toLowerCase()));
+    if (toImport.length === 0) { toast.info("Nenhum item novo para importar"); setImportingPatec(false); return; }
+    const rows = toImport.map(i => ({
+      supplier_id: selectedSupplier.id,
+      name: i.name,
+      patec_number: i.patec_number,
+      patec_category: i.category,
+      category: categoryMap[i.category] || "insumos",
+      price: 0,
+      stock: 0,
+      unit: "un",
+      iva_rate: 14,
+    }));
+    const { error } = await supabase.from("supplier_products").insert(rows);
+    if (error) { toast.error("Erro ao importar"); setImportingPatec(false); return; }
+    toast.success(`${toImport.length} produto(s) importado(s) do PATEC ${importPatecNumber}`);
+    setImportPatecOpen(false);
+    fetchSupplierDetails(selectedSupplier.id);
+  };
+
   // ===================== DETAIL VIEW =====================
   if (selectedSupplier) {
     return (
@@ -312,7 +362,18 @@ const Mosap3PayFornecedores = () => {
           </TabsList>
 
           <TabsContent value="produtos" className="space-y-3">
-            <div className="flex justify-end">
+            <div className="flex justify-end gap-2">
+              <Select onValueChange={(v) => openImportPatec(Number(v))}>
+                <SelectTrigger className="w-auto h-8 text-xs gap-1">
+                  <Download className="h-3 w-3" />
+                  <SelectValue placeholder="Importar do PATEC" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">PATEC 1 — Milho</SelectItem>
+                  <SelectItem value="2">PATEC 2 — Massango</SelectItem>
+                  <SelectItem value="3">PATEC 3 — Massambala</SelectItem>
+                </SelectContent>
+              </Select>
               <Button size="sm" onClick={() => { setEditProduct({}); setProductDialogOpen(true); }}>
                 <Plus className="h-3 w-3 mr-1" /> Adicionar Produto
               </Button>
@@ -430,7 +491,7 @@ const Mosap3PayFornecedores = () => {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label>PATEC elegível</Label>
-                  <Select value={editProduct.patec_number ? String(editProduct.patec_number) : "all"} onValueChange={(v) => setEditProduct({ ...editProduct, patec_number: v === "all" ? null : Number(v) })}>
+                  <Select value={editProduct.patec_number ? String(editProduct.patec_number) : "all"} onValueChange={(v) => setEditProduct({ ...editProduct, patec_number: v === "all" ? null : Number(v), patec_category: v === "all" ? null : editProduct.patec_category })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">Todos os PATEC</SelectItem>
@@ -440,11 +501,32 @@ const Mosap3PayFornecedores = () => {
                     </SelectContent>
                   </Select>
                 </div>
+                {editProduct.patec_number && (
+                  <div>
+                    <Label>Categoria PATEC</Label>
+                    <Select value={editProduct.patec_category || ""} onValueChange={(v) => setEditProduct({ ...editProduct, patec_category: v || null })}>
+                      <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Insumos">Insumos</SelectItem>
+                        <SelectItem value="Pecuária">Pecuária</SelectItem>
+                        <SelectItem value="Serviços">Serviços</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+                {!editProduct.patec_number && (
+                  <div>
+                    <Label>Limite por produtor/época</Label>
+                    <Input type="number" placeholder="Sem limite" value={editProduct.max_per_farmer_per_season ?? ""} onChange={(e) => setEditProduct({ ...editProduct, max_per_farmer_per_season: e.target.value ? Number(e.target.value) : null })} />
+                  </div>
+                )}
+              </div>
+              {editProduct.patec_number && (
                 <div>
                   <Label>Limite por produtor/época</Label>
                   <Input type="number" placeholder="Sem limite" value={editProduct.max_per_farmer_per_season ?? ""} onChange={(e) => setEditProduct({ ...editProduct, max_per_farmer_per_season: e.target.value ? Number(e.target.value) : null })} />
                 </div>
-              </div>
+              )}
               <div><Label>IVA (%)</Label><Input type="number" value={editProduct.iva_rate ?? 14} onChange={(e) => setEditProduct({ ...editProduct, iva_rate: Number(e.target.value) })} /></div>
             </div>
             <DialogFooter>
@@ -467,6 +549,56 @@ const Mosap3PayFornecedores = () => {
             <DialogFooter>
               <Button variant="outline" onClick={() => setPosDialogOpen(false)}>Cancelar</Button>
               <Button onClick={handleSavePos} disabled={!editPos.pos_code}>Guardar</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* PATEC Import Dialog */}
+        <Dialog open={importPatecOpen} onOpenChange={setImportPatecOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Download className="h-4 w-4" /> Importar itens — PATEC {importPatecNumber}
+              </DialogTitle>
+            </DialogHeader>
+            {patecItemsList.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-4 text-center">Nenhum item definido para este PATEC. Adicione itens na página de Pacotes Tecnológicos.</p>
+            ) : (
+              <div className="space-y-3 max-h-[50vh] overflow-y-auto">
+                {["Insumos", "Pecuária", "Serviços"].map((cat) => {
+                  const items = patecItemsList.filter(i => i.category === cat);
+                  if (items.length === 0) return null;
+                  return (
+                    <div key={cat}>
+                      <p className="text-xs font-semibold text-muted-foreground uppercase mb-1">{cat}</p>
+                      {items.map((item) => {
+                        const alreadyExists = existingPatecNames.has(item.name.toLowerCase());
+                        return (
+                          <label key={item.id} className={`flex items-center gap-2 py-1.5 px-2 rounded text-sm ${alreadyExists ? "opacity-50" : "hover:bg-muted/50 cursor-pointer"}`}>
+                            <Checkbox
+                              checked={alreadyExists || selectedPatecItems.has(item.id)}
+                              disabled={alreadyExists}
+                              onCheckedChange={(checked) => {
+                                const next = new Set(selectedPatecItems);
+                                if (checked) next.add(item.id); else next.delete(item.id);
+                                setSelectedPatecItems(next);
+                              }}
+                            />
+                            <span>{item.name}</span>
+                            {alreadyExists && <Badge variant="outline" className="text-[9px] ml-auto">Já existe</Badge>}
+                          </label>
+                        );
+                      })}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setImportPatecOpen(false)}>Cancelar</Button>
+              <Button onClick={handleImportPatec} disabled={importingPatec || selectedPatecItems.size === 0}>
+                {importingPatec ? "A importar..." : `Importar (${[...selectedPatecItems].filter(id => !existingPatecNames.has(patecItemsList.find(i => i.id === id)?.name.toLowerCase() || "")).length})`}
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

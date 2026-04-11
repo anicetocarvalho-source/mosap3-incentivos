@@ -951,9 +951,31 @@ const Mosap3PayPOS = () => {
                       return (
                         <div key={cat} className="space-y-1">
                           <p className="text-xs font-semibold text-muted-foreground uppercase">{cat}</p>
-                          {items.map((item) => (
-                            <div key={item.id} className="flex items-center gap-1.5 text-xs"><Check className="h-3 w-3 text-primary" /><span>{item.name}</span></div>
-                          ))}
+                          {items.map((item) => {
+                            const hasProduct = products.some(p =>
+                              p.patec_number === farmer!.patec &&
+                              p.name.toLowerCase() === item.name.toLowerCase() &&
+                              p.stock > 0
+                            );
+                            const hasProductNoStock = !hasProduct && products.some(p =>
+                              p.patec_number === farmer!.patec &&
+                              p.name.toLowerCase() === item.name.toLowerCase()
+                            );
+                            return (
+                              <div key={item.id} className="flex items-center gap-1.5 text-xs">
+                                {hasProduct ? (
+                                  <Check className="h-3 w-3 text-emerald-600" />
+                                ) : hasProductNoStock ? (
+                                  <AlertTriangle className="h-3 w-3 text-amber-500" />
+                                ) : (
+                                  <AlertTriangle className="h-3 w-3 text-muted-foreground/40" />
+                                )}
+                                <span className={!hasProduct && !hasProductNoStock ? "text-muted-foreground" : ""}>{item.name}</span>
+                                {hasProductNoStock && <span className="text-[9px] text-amber-600 ml-auto">Sem stock</span>}
+                                {!hasProduct && !hasProductNoStock && <span className="text-[9px] text-muted-foreground ml-auto">Indisponível</span>}
+                              </div>
+                            );
+                          })}
                         </div>
                       );
                     })}
