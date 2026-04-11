@@ -136,7 +136,7 @@ const BatchDistributionDialog = () => {
     setSelectedProvinceId("");
     setSelectedMunicipalityName("");
     setSelectedEca("");
-    setFormType("");
+    
     setFormAmount("");
     setExcludedFarmers(new Set());
     setInputMode("manual");
@@ -418,19 +418,6 @@ const BatchDistributionDialog = () => {
           {/* FILE MODE */}
           {scopeReady && inputMode === "file" && (
             <>
-              {/* Incentive type for file mode */}
-              <div className="space-y-2">
-                <Label>Tipo de Incentivo</Label>
-                <Select value={formType} onValueChange={setFormType}>
-                  <SelectTrigger><SelectValue placeholder="Tipo" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Insumos Agrícolas">Insumos Agrícolas</SelectItem>
-                    <SelectItem value="Sementes">Sementes</SelectItem>
-                    <SelectItem value="Fertilizantes">Fertilizantes</SelectItem>
-                    <SelectItem value="Mecanização">Mecanização</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
 
               {/* File upload area */}
               <div className="space-y-2">
@@ -587,24 +574,10 @@ const BatchDistributionDialog = () => {
           {/* MANUAL MODE */}
           {scopeReady && inputMode === "manual" && matchingFarmers.length > 0 && (
             <>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Tipo de Incentivo</Label>
-                  <Select value={formType} onValueChange={setFormType}>
-                    <SelectTrigger><SelectValue placeholder="Tipo" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Insumos Agrícolas">Insumos Agrícolas</SelectItem>
-                      <SelectItem value="Sementes">Sementes</SelectItem>
-                      <SelectItem value="Fertilizantes">Fertilizantes</SelectItem>
-                      <SelectItem value="Mecanização">Mecanização</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
+              <div className="space-y-2">
                   <Label>Valor por agricultor (Kz)</Label>
                   <Input placeholder="0.00" value={formAmount} onChange={(e) => setFormAmount(e.target.value)} />
                 </div>
-              </div>
 
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
