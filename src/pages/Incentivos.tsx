@@ -104,7 +104,7 @@ const Incentivos = () => {
     const { error } = await supabase.from("farmer_incentives").insert({
       incentive_code: code,
       farmer_code: formFarmer,
-      type: formType,
+      type: "Monetário",
       amount: formAmount,
       method: formMethod,
       incentive_date: new Date().toLocaleDateString("pt-AO"),

@@ -68,7 +68,7 @@ const BatchDistributionDialog = () => {
   const [selectedProvinceId, setSelectedProvinceId] = useState("");
   const [selectedMunicipalityName, setSelectedMunicipalityName] = useState("");
   const [selectedEca, setSelectedEca] = useState("");
-  const [formType, setFormType] = useState("");
+  const [formType] = useState("Monetário");
   const [formAmount, setFormAmount] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [excludedFarmers, setExcludedFarmers] = useState<Set<string>>(new Set());
