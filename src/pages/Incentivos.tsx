@@ -96,7 +96,7 @@ const Incentivos = () => {
   const CHART_COLORS = ["hsl(var(--primary))", "hsl(var(--accent))", "hsl(142 71% 45%)", "hsl(38 92% 50%)", "hsl(280 65% 60%)", "hsl(200 80% 50%)"];
 
   const handleSubmit = async () => {
-    if (!formFarmer || !formType || !formAmount) {
+    if (!formFarmer || !formAmount) {
       toast({ title: "Preencha todos os campos obrigatórios", variant: "destructive" });
       return;
     }
@@ -113,7 +113,7 @@ const Incentivos = () => {
     toast({ title: "Incentivo registado com sucesso" });
     queryClient.invalidateQueries({ queryKey: ["farmer_incentives"] });
     setDialogOpen(false);
-    setFormFarmer(""); setFormType(""); setFormAmount("");
+    setFormFarmer(""); setFormAmount("");
   };
 
   return (
