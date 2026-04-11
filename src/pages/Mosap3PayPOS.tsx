@@ -798,7 +798,12 @@ const Mosap3PayPOS = () => {
               <span>Total</span>
               <span className="text-lg font-mono text-[hsl(45,90%,55%)]">{cartTotal.toLocaleString("pt-AO")} Kz</span>
             </div>
-
+            {farmer && (
+              <div className={`flex justify-between items-center text-xs mt-1 ${farmerBalance - cartTotal >= 0 ? "text-[hsl(120,60%,50%)]" : "text-[hsl(0,70%,60%)]"}`}>
+                <span>Saldo restante</span>
+                <span className="font-mono font-semibold">{(farmerBalance - cartTotal).toLocaleString("pt-AO")} Kz</span>
+              </div>
+            )}
             {/* Doc type */}
             <div className="grid grid-cols-2 gap-2">
               <button
@@ -879,6 +884,10 @@ const Mosap3PayPOS = () => {
               <div className="flex justify-between font-bold text-lg">
                 <span>Total</span>
                 <span className="text-[hsl(45,90%,55%)] font-mono">{cartTotal.toLocaleString("pt-AO")} Kz</span>
+              </div>
+              <div className={`flex justify-between text-xs mt-1 ${farmerBalance - cartTotal >= 0 ? "text-[hsl(120,60%,50%)]" : "text-[hsl(0,70%,60%)]"}`}>
+                <span>Saldo restante</span>
+                <span className="font-mono font-semibold">{(farmerBalance - cartTotal).toLocaleString("pt-AO")} Kz</span>
               </div>
             </div>
             <DialogFooter>
@@ -1134,6 +1143,12 @@ const Mosap3PayPOS = () => {
                       <div className="flex justify-between text-muted-foreground"><span>IVA</span><span>{cartIva.toLocaleString("pt-AO")} Kz</span></div>
                       <Separator />
                       <div className="flex justify-between font-bold text-base"><span>Total</span><span>{cartTotal.toLocaleString("pt-AO")} Kz</span></div>
+                      {farmer && (
+                        <div className={`flex justify-between text-xs mt-1 ${farmerBalance - cartTotal >= 0 ? "text-primary" : "text-destructive"}`}>
+                          <span>Saldo restante</span>
+                          <span className="font-mono font-semibold">{(farmerBalance - cartTotal).toLocaleString("pt-AO")} Kz</span>
+                        </div>
+                      )}
                     </div>
                     <Button className="w-full mt-3" onClick={() => setConfirmOpen(true)} disabled={!farmer || cart.length === 0 || farmerBalance <= 0 || cartTotal > farmerBalance}>
                       <CreditCard className="h-4 w-4 mr-2" /> Processar Pagamento
