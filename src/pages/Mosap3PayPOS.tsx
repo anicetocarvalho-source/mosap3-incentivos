@@ -1143,6 +1143,12 @@ const Mosap3PayPOS = () => {
                       <div className="flex justify-between text-muted-foreground"><span>IVA</span><span>{cartIva.toLocaleString("pt-AO")} Kz</span></div>
                       <Separator />
                       <div className="flex justify-between font-bold text-base"><span>Total</span><span>{cartTotal.toLocaleString("pt-AO")} Kz</span></div>
+                      {farmer && (
+                        <div className={`flex justify-between text-xs mt-1 ${farmerBalance - cartTotal >= 0 ? "text-primary" : "text-destructive"}`}>
+                          <span>Saldo restante</span>
+                          <span className="font-mono font-semibold">{(farmerBalance - cartTotal).toLocaleString("pt-AO")} Kz</span>
+                        </div>
+                      )}
                     </div>
                     <Button className="w-full mt-3" onClick={() => setConfirmOpen(true)} disabled={!farmer || cart.length === 0 || farmerBalance <= 0 || cartTotal > farmerBalance}>
                       <CreditCard className="h-4 w-4 mr-2" /> Processar Pagamento
