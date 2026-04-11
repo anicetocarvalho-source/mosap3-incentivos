@@ -224,12 +224,12 @@ const FingerprintCapture = ({ label, onCapture, captured, onRemove }: Props) => 
     return (
       <div className="space-y-1.5">
         <label className="text-xs font-medium text-foreground">{label}</label>
-        <div className="relative h-40 rounded-xl overflow-hidden border border-primary/30 bg-gray-900 shadow-lg shadow-primary/5">
+        <div className="relative h-40 rounded-xl overflow-hidden border border-primary/30 bg-foreground/95 shadow-lg shadow-primary/5">
           <img src={captured} alt={label} className="w-full h-full object-cover" />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-foreground/60 via-transparent to-transparent" />
           <div className="absolute bottom-0 left-0 right-0 flex items-center justify-center gap-1.5 py-2">
-            <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
-            <span className="text-xs font-semibold text-emerald-300">Capturada</span>
+            <ShieldCheck className="h-3.5 w-3.5 text-success" />
+            <span className="text-xs font-semibold text-success">Capturada</span>
           </div>
           {onRemove && (
             <button
