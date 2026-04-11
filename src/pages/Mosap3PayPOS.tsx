@@ -689,6 +689,9 @@ const Mosap3PayPOS = () => {
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-medium truncate">{farmer.full_name}</p>
                   <p className="text-[10px] text-[hsl(220,10%,45%)]">{farmer.code}</p>
+                  <p className={`text-[10px] font-semibold ${farmerBalance > 0 ? "text-[hsl(120,60%,50%)]" : "text-[hsl(0,70%,60%)]"}`}>
+                    Saldo: {farmerBalance.toLocaleString("pt-AO")} Kz
+                  </p>
                 </div>
                 <button onClick={() => { setFarmer(null); setFarmerSearch(""); setCart([]); }} className="text-[hsl(220,10%,40%)] hover:text-[hsl(0,70%,60%)]">
                   <Trash2 className="h-3 w-3" />
