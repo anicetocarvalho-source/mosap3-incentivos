@@ -123,10 +123,12 @@ const Incentivos = () => {
           <h1 className="page-title">Gestão de Incentivos</h1>
           <p className="text-muted-foreground text-sm mt-1">Distribuição e acompanhamento de incentivos via Unitel Money</p>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="gap-2"><Plus className="h-4 w-4" />Novo Incentivo</Button>
-          </DialogTrigger>
+        <div className="flex items-center gap-2">
+          <BatchDistributionDialog />
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="gap-2"><Plus className="h-4 w-4" />Novo Incentivo</Button>
+            </DialogTrigger>
           <DialogContent className="sm:max-w-lg">
             <DialogHeader><DialogTitle className="font-heading">Registar Incentivo</DialogTitle></DialogHeader>
             <div className="grid gap-4 py-4">
