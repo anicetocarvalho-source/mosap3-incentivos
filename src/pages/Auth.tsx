@@ -76,17 +76,8 @@ const Auth = () => {
     if (error) {
       toast({ title: "Erro ao entrar", description: error.message, variant: "destructive" });
     } else if (data.user) {
-      // Cache for offline use (fire-and-forget)
-      // Profile/roles will be fetched by AuthProvider via onAuthStateChange
-      supabase.from("profiles").select("full_name, phone").eq("user_id", data.user.id).maybeSingle()
-        .then(profileRes => {
-          supabase.from("user_roles").select("role").eq("user_id", data.user.id)
-            .then(rolesRes => {
-              const prof = profileRes.data ?? null;
-              const roles = rolesRes.data?.map((r) => r.role) ?? [];
-              cacheSession(result.data.email, result.data.password, data.user!.id, prof, roles).catch(() => {});
-            });
-        });
+      // Offline cache will be populated after AuthProvider fetches profile/roles
+      // via SIGNED_IN event — no need to duplicate queries here
       navigate("/");
     }
   };
