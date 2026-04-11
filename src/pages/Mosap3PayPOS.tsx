@@ -290,6 +290,17 @@ const Mosap3PayPOS = () => {
   };
 
   const addToCart = (product: Product) => {
+    // Check farmer balance
+    if (farmerBalance <= 0) {
+      toast.error("Compra bloqueada — este produtor não tem saldo de incentivo disponível.");
+      return;
+    }
+    const currentCartTotal = cart.reduce((sum, c) => sum + c.product.price * c.quantity * (1 + c.product.iva_rate / 100), 0);
+    const itemTotal = product.price * (1 + product.iva_rate / 100);
+    if (currentCartTotal + itemTotal > farmerBalance) {
+      toast.error(`Saldo insuficiente (${farmerBalance.toLocaleString("pt-AO")} Kz). Este produto custa ${itemTotal.toLocaleString("pt-AO")} Kz.`);
+      return;
+    }
     const remaining = getRemainingLimit(product);
     if (remaining <= 0) {
       toast.error(`Limite de "${product.name}" atingido para este produtor nesta época`);
