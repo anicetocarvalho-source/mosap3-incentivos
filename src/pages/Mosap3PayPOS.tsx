@@ -798,7 +798,12 @@ const Mosap3PayPOS = () => {
               <span>Total</span>
               <span className="text-lg font-mono text-[hsl(45,90%,55%)]">{cartTotal.toLocaleString("pt-AO")} Kz</span>
             </div>
-
+            {farmer && (
+              <div className={`flex justify-between items-center text-xs mt-1 ${farmerBalance - cartTotal >= 0 ? "text-[hsl(120,60%,50%)]" : "text-[hsl(0,70%,60%)]"}`}>
+                <span>Saldo restante</span>
+                <span className="font-mono font-semibold">{(farmerBalance - cartTotal).toLocaleString("pt-AO")} Kz</span>
+              </div>
+            )}
             {/* Doc type */}
             <div className="grid grid-cols-2 gap-2">
               <button
