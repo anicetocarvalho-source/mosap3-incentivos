@@ -81,6 +81,7 @@ const Mosap3PayPOS = () => {
   // Purchased quantities this season (per farmer)
   const [seasonPurchases, setSeasonPurchases] = useState<Record<string, number>>({});
   const [patecItems, setPatecItems] = useState<{ id: string; name: string; category: string; patec_number: number }[]>([]);
+  const [farmerBalance, setFarmerBalance] = useState<number>(0);
 
   // Toggle fullscreen API
   const toggleFullscreen = useCallback(async (enable?: boolean) => {
