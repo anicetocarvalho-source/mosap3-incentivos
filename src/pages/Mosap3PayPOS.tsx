@@ -885,6 +885,10 @@ const Mosap3PayPOS = () => {
                 <span>Total</span>
                 <span className="text-[hsl(45,90%,55%)] font-mono">{cartTotal.toLocaleString("pt-AO")} Kz</span>
               </div>
+              <div className={`flex justify-between text-xs mt-1 ${farmerBalance - cartTotal >= 0 ? "text-[hsl(120,60%,50%)]" : "text-[hsl(0,70%,60%)]"}`}>
+                <span>Saldo restante</span>
+                <span className="font-mono font-semibold">{(farmerBalance - cartTotal).toLocaleString("pt-AO")} Kz</span>
+              </div>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setConfirmOpen(false)}>Cancelar</Button>
