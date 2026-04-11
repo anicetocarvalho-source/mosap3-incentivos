@@ -81,6 +81,7 @@ const Mosap3PayPOS = () => {
   // Purchased quantities this season (per farmer)
   const [seasonPurchases, setSeasonPurchases] = useState<Record<string, number>>({});
   const [patecItems, setPatecItems] = useState<{ id: string; name: string; category: string; patec_number: number }[]>([]);
+  const [farmerBalance, setFarmerBalance] = useState<number>(0);
 
   // Toggle fullscreen API
   const toggleFullscreen = useCallback(async (enable?: boolean) => {
@@ -171,6 +172,18 @@ const Mosap3PayPOS = () => {
     return () => clearTimeout(timeout);
   }, [farmerSearch]);
 
+  const fetchFarmerBalance = async (farmerCode: string) => {
+    const [incRes, salesRes] = await Promise.all([
+      supabase.from("farmer_incentives").select("amount").eq("farmer_code", farmerCode).in("status", ["Aprovado", "Pendente", "Pago"]),
+      supabase.from("pos_sales").select("total").eq("farmer_code", farmerCode),
+    ]);
+    const totalInc = (incRes.data || []).reduce((s, i) => s + parseFloat(i.amount || "0"), 0);
+    const totalSpent = (salesRes.data || []).reduce((s, sale) => s + Number(sale.total || 0), 0);
+    const balance = totalInc - totalSpent;
+    setFarmerBalance(balance);
+    return balance;
+  };
+
   const selectFarmerFromSuggestion = async (f: Farmer) => {
     setFarmer(f);
     setFarmerSearch(f.code);
@@ -193,7 +206,12 @@ const Mosap3PayPOS = () => {
       setSeasonPurchases({});
     }
     setCart([]);
-    toast.success(`Produtor identificado: ${f.full_name}`);
+    const balance = await fetchFarmerBalance(f.code);
+    if (balance <= 0) {
+      toast.warning(`${f.full_name} tem saldo de incentivo de ${balance.toLocaleString("pt-AO")} Kz. Compras bloqueadas.`);
+    } else {
+      toast.success(`Produtor identificado: ${f.full_name} — Saldo: ${balance.toLocaleString("pt-AO")} Kz`);
+    }
   };
 
   const searchFarmer = async () => {
@@ -238,7 +256,12 @@ const Mosap3PayPOS = () => {
         setSeasonPurchases({});
       }
       setCart([]);
-      toast.success(`Produtor identificado: ${data.full_name}`);
+      const balance = await fetchFarmerBalance(data.code);
+      if (balance <= 0) {
+        toast.warning(`${data.full_name} tem saldo de incentivo de ${balance.toLocaleString("pt-AO")} Kz. Compras bloqueadas.`);
+      } else {
+        toast.success(`Produtor identificado: ${data.full_name} — Saldo: ${balance.toLocaleString("pt-AO")} Kz`);
+      }
     } else {
       toast.error("Produtor não encontrado");
       setFarmer(null);
@@ -267,6 +290,17 @@ const Mosap3PayPOS = () => {
   };
 
   const addToCart = (product: Product) => {
+    // Check farmer balance
+    if (farmerBalance <= 0) {
+      toast.error("Compra bloqueada — este produtor não tem saldo de incentivo disponível.");
+      return;
+    }
+    const currentCartTotal = cart.reduce((sum, c) => sum + c.product.price * c.quantity * (1 + c.product.iva_rate / 100), 0);
+    const itemTotal = product.price * (1 + product.iva_rate / 100);
+    if (currentCartTotal + itemTotal > farmerBalance) {
+      toast.error(`Saldo insuficiente (${farmerBalance.toLocaleString("pt-AO")} Kz). Este produto custa ${itemTotal.toLocaleString("pt-AO")} Kz.`);
+      return;
+    }
     const remaining = getRemainingLimit(product);
     if (remaining <= 0) {
       toast.error(`Limite de "${product.name}" atingido para este produtor nesta época`);
@@ -294,6 +328,13 @@ const Mosap3PayPOS = () => {
             toast.error("Limite atingido");
             return c;
           }
+          // Check balance
+          const currentCartTotal = prev.reduce((sum, item) => sum + item.product.price * item.quantity * (1 + item.product.iva_rate / 100), 0);
+          const itemCost = c.product.price * (1 + c.product.iva_rate / 100);
+          if (currentCartTotal + itemCost > farmerBalance) {
+            toast.error("Saldo de incentivo insuficiente");
+            return c;
+          }
         }
         return { ...c, quantity: newQty };
       }).filter((c) => c.quantity > 0);
@@ -318,6 +359,17 @@ const Mosap3PayPOS = () => {
 
   const processSale = async () => {
     if (!farmer || cart.length === 0 || !selectedSupplierId) return;
+    
+    // Final balance check before processing
+    if (farmerBalance <= 0) {
+      toast.error("Compra bloqueada — produtor sem saldo de incentivo.");
+      return;
+    }
+    if (cartTotal > farmerBalance) {
+      toast.error(`Saldo insuficiente. Saldo: ${farmerBalance.toLocaleString("pt-AO")} Kz, Total: ${cartTotal.toLocaleString("pt-AO")} Kz.`);
+      return;
+    }
+    
     setProcessing(true);
     setPaymentStatus("processing");
 
@@ -637,6 +689,9 @@ const Mosap3PayPOS = () => {
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-medium truncate">{farmer.full_name}</p>
                   <p className="text-[10px] text-[hsl(220,10%,45%)]">{farmer.code}</p>
+                  <p className={`text-[10px] font-semibold ${farmerBalance > 0 ? "text-[hsl(120,60%,50%)]" : "text-[hsl(0,70%,60%)]"}`}>
+                    Saldo: {farmerBalance.toLocaleString("pt-AO")} Kz
+                  </p>
                 </div>
                 <button onClick={() => { setFarmer(null); setFarmerSearch(""); setCart([]); }} className="text-[hsl(220,10%,40%)] hover:text-[hsl(0,70%,60%)]">
                   <Trash2 className="h-3 w-3" />
@@ -777,7 +832,7 @@ const Mosap3PayPOS = () => {
 
             {/* Submit */}
             <button
-              disabled={cart.length === 0 || !farmer || processing}
+              disabled={cart.length === 0 || !farmer || processing || farmerBalance <= 0 || cartTotal > farmerBalance}
               onClick={() => setConfirmOpen(true)}
               className="w-full py-3 rounded-lg font-bold text-sm flex items-center justify-center gap-2 transition-colors disabled:opacity-40 disabled:cursor-not-allowed bg-[hsl(45,70%,40%)] text-[hsl(220,20%,10%)] hover:bg-[hsl(45,75%,45%)]"
             >
@@ -931,7 +986,12 @@ const Mosap3PayPOS = () => {
                     </div>
                     <div className="text-right">
                       {farmer.patec ? <Badge className="text-xs">{patecLabels[farmer.patec]}</Badge> : <Badge variant="destructive" className="text-xs">Sem PATEC</Badge>}
-                      <p className="text-xs text-muted-foreground mt-1">Saldo: {farmer.saldo_final || "0,00"} Kz</p>
+                      <p className={`text-xs font-semibold mt-1 ${farmerBalance > 0 ? "text-primary" : "text-destructive"}`}>
+                        Saldo: {farmerBalance.toLocaleString("pt-AO")} Kz
+                      </p>
+                      {farmerBalance <= 0 && (
+                        <p className="text-[10px] text-destructive font-medium">⚠ Sem saldo — compras bloqueadas</p>
+                      )}
                     </div>
                   </div>
                 )}
@@ -1059,9 +1119,15 @@ const Mosap3PayPOS = () => {
                       <Separator />
                       <div className="flex justify-between font-bold text-base"><span>Total</span><span>{cartTotal.toLocaleString("pt-AO")} Kz</span></div>
                     </div>
-                    <Button className="w-full mt-3" onClick={() => setConfirmOpen(true)} disabled={!farmer}>
+                    <Button className="w-full mt-3" onClick={() => setConfirmOpen(true)} disabled={!farmer || cart.length === 0 || farmerBalance <= 0 || cartTotal > farmerBalance}>
                       <CreditCard className="h-4 w-4 mr-2" /> Processar Pagamento
                     </Button>
+                    {farmer && farmerBalance <= 0 && (
+                      <p className="text-xs text-destructive text-center mt-2 font-medium">⚠ Produtor sem saldo de incentivo</p>
+                    )}
+                    {farmer && farmerBalance > 0 && cartTotal > farmerBalance && (
+                      <p className="text-xs text-destructive text-center mt-2 font-medium">⚠ Saldo insuficiente ({farmerBalance.toLocaleString("pt-AO")} Kz)</p>
+                    )}
                   </div>
                 )}
               </CardContent>
