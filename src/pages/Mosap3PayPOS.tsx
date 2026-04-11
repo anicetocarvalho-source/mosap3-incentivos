@@ -172,6 +172,18 @@ const Mosap3PayPOS = () => {
     return () => clearTimeout(timeout);
   }, [farmerSearch]);
 
+  const fetchFarmerBalance = async (farmerCode: string) => {
+    const [incRes, salesRes] = await Promise.all([
+      supabase.from("farmer_incentives").select("amount").eq("farmer_code", farmerCode).in("status", ["Aprovado", "Pendente", "Pago"]),
+      supabase.from("pos_sales").select("total").eq("farmer_code", farmerCode),
+    ]);
+    const totalInc = (incRes.data || []).reduce((s, i) => s + parseFloat(i.amount || "0"), 0);
+    const totalSpent = (salesRes.data || []).reduce((s, sale) => s + Number(sale.total || 0), 0);
+    const balance = totalInc - totalSpent;
+    setFarmerBalance(balance);
+    return balance;
+  };
+
   const selectFarmerFromSuggestion = async (f: Farmer) => {
     setFarmer(f);
     setFarmerSearch(f.code);
@@ -194,7 +206,12 @@ const Mosap3PayPOS = () => {
       setSeasonPurchases({});
     }
     setCart([]);
-    toast.success(`Produtor identificado: ${f.full_name}`);
+    const balance = await fetchFarmerBalance(f.code);
+    if (balance <= 0) {
+      toast.warning(`${f.full_name} tem saldo de incentivo de ${balance.toLocaleString("pt-AO")} Kz. Compras bloqueadas.`);
+    } else {
+      toast.success(`Produtor identificado: ${f.full_name} — Saldo: ${balance.toLocaleString("pt-AO")} Kz`);
+    }
   };
 
   const searchFarmer = async () => {
