@@ -768,7 +768,179 @@ const FarmerProfile = () => {
             <FarmerDocuments farmerCode={farmer.id} />
           </TabsContent>
 
-          {/* PATEC Tab */}
+          {/* Conformação Tab */}
+          <TabsContent value="conformacao" className="mt-4 space-y-6">
+            {(() => {
+              const totalIncentivos = incentives.reduce((sum, inc) => sum + parseFloat(inc.amount || "0"), 0);
+              const totalCompras = posSales.reduce((sum, sale) => sum + Number(sale.total || 0), 0);
+              const saldo = totalIncentivos - totalCompras;
+              const percentUsado = totalIncentivos > 0 ? Math.min((totalCompras / totalIncentivos) * 100, 100) : 0;
+
+              // Build unified timeline
+              const timeline: { date: string; type: "incentivo" | "compra"; description: string; value: number; status: string }[] = [];
+              incentives.forEach((inc) => {
+                timeline.push({
+                  date: inc.incentive_date || "",
+                  type: "incentivo",
+                  description: `Incentivo ${inc.incentive_code}`,
+                  value: parseFloat(inc.amount || "0"),
+                  status: inc.status,
+                });
+              });
+              posSales.forEach((sale) => {
+                const items = (sale.pos_sale_items || []).map((i: any) => i.product_name).join(", ");
+                timeline.push({
+                  date: sale.created_at?.split("T")[0] || "",
+                  type: "compra",
+                  description: items || `Venda ${sale.sale_code}`,
+                  value: Number(sale.total || 0),
+                  status: sale.payment_status,
+                });
+              });
+              timeline.sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+
+              return (
+                <>
+                  {/* Summary Cards */}
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                    <Card className="p-5">
+                      <div className="flex items-center gap-2 mb-1">
+                        <ArrowDownRight className="h-4 w-4 text-primary" />
+                        <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Incentivos Recebidos</p>
+                      </div>
+                      <p className="text-2xl font-bold font-heading text-primary">{totalIncentivos.toLocaleString("pt-AO")} Kz</p>
+                      <p className="text-xs text-muted-foreground mt-1">{incentives.length} distribuição(ões)</p>
+                    </Card>
+                    <Card className="p-5">
+                      <div className="flex items-center gap-2 mb-1">
+                        <ArrowUpRight className="h-4 w-4 text-destructive" />
+                        <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Compras Realizadas</p>
+                      </div>
+                      <p className="text-2xl font-bold font-heading text-destructive">{totalCompras.toLocaleString("pt-AO")} Kz</p>
+                      <p className="text-xs text-muted-foreground mt-1">{posSales.length} compra(s)</p>
+                    </Card>
+                    <Card className="p-5">
+                      <div className="flex items-center gap-2 mb-1">
+                        <CreditCard className="h-4 w-4" style={{ color: "hsl(var(--success))" }} />
+                        <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Saldo Disponível</p>
+                      </div>
+                      <p className="text-2xl font-bold font-heading" style={{ color: saldo >= 0 ? "hsl(var(--success))" : "hsl(var(--destructive))" }}>
+                        {saldo.toLocaleString("pt-AO")} Kz
+                      </p>
+                    </Card>
+                    <Card className="p-5">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Scale className="h-4 w-4 text-muted-foreground" />
+                        <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Taxa de Utilização</p>
+                      </div>
+                      <p className="text-2xl font-bold font-heading">{percentUsado.toFixed(1)}%</p>
+                      <Progress value={percentUsado} className="h-2 mt-2" />
+                    </Card>
+                  </div>
+
+                  {/* Conformação Status */}
+                  <Card className="p-5">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className={`h-10 w-10 rounded-xl flex items-center justify-center ${
+                        saldo >= 0 ? "bg-primary/10" : "bg-destructive/10"
+                      }`}>
+                        <Scale className={`h-5 w-5 ${saldo >= 0 ? "text-primary" : "text-destructive"}`} />
+                      </div>
+                      <div>
+                        <h3 className="font-heading font-semibold text-base">Estado da Conformação</h3>
+                        <p className="text-xs text-muted-foreground">
+                          {saldo >= 0 && totalCompras === 0 && "Incentivo recebido, sem compras registadas."}
+                          {saldo >= 0 && totalCompras > 0 && "Conformado — O produtor tem saldo positivo."}
+                          {saldo < 0 && "Não conformado — O produtor gastou mais do que o valor recebido."}
+                          {totalIncentivos === 0 && totalCompras === 0 && "Sem movimentos financeiros registados."}
+                        </p>
+                      </div>
+                      <Badge className={`ml-auto ${
+                        totalIncentivos === 0 && totalCompras === 0 ? "bg-muted text-muted-foreground" :
+                        saldo >= 0 ? "bg-primary/10 text-primary" : "bg-destructive/10 text-destructive"
+                      }`}>
+                        {totalIncentivos === 0 && totalCompras === 0 ? "Sem Dados" : saldo >= 0 ? "Conformado" : "Não Conformado"}
+                      </Badge>
+                    </div>
+                  </Card>
+
+                  {/* Timeline */}
+                  <Card className="p-0 overflow-hidden">
+                    <div className="px-6 py-4 border-b border-border">
+                      <h3 className="font-heading font-semibold text-lg">Movimentos Financeiros</h3>
+                      <p className="text-xs text-muted-foreground mt-0.5">Histórico cronológico de incentivos recebidos e compras realizadas</p>
+                    </div>
+                    <div className="hidden md:block overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-border bg-muted/50">
+                            <th className="text-left px-6 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Data</th>
+                            <th className="text-left px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Tipo</th>
+                            <th className="text-left px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Descrição</th>
+                            <th className="text-right px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Valor</th>
+                            <th className="text-left px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Estado</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {timeline.length === 0 ? (
+                            <tr><td colSpan={5} className="px-6 py-8 text-center text-muted-foreground">Nenhum movimento registado</td></tr>
+                          ) : timeline.map((item, idx) => (
+                            <tr key={idx} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
+                              <td className="px-6 py-3 text-xs text-muted-foreground">{item.date || "—"}</td>
+                              <td className="px-4 py-3">
+                                <Badge variant="outline" className={`text-[10px] ${item.type === "incentivo" ? "border-primary/30 text-primary" : "border-destructive/30 text-destructive"}`}>
+                                  {item.type === "incentivo" ? "↓ Incentivo" : "↑ Compra"}
+                                </Badge>
+                              </td>
+                              <td className="px-4 py-3 font-medium max-w-[300px] truncate">{item.description}</td>
+                              <td className={`px-4 py-3 text-right font-semibold ${item.type === "incentivo" ? "text-primary" : "text-destructive"}`}>
+                                {item.type === "incentivo" ? "+" : "−"}{item.value.toLocaleString("pt-AO")} Kz
+                              </td>
+                              <td className="px-4 py-3">
+                                <span className={`text-[10px] ${
+                                  item.status === "Aprovado" || item.status === "pago" ? "badge-active" :
+                                  item.status === "Pendente" || item.status === "pendente" ? "badge-pending" : "badge-suspended"
+                                }`}>{item.status}</span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    {/* Mobile */}
+                    <div className="md:hidden divide-y divide-border">
+                      {timeline.length === 0 ? (
+                        <div className="px-4 py-8 text-center text-muted-foreground text-sm">Nenhum movimento registado</div>
+                      ) : timeline.map((item, idx) => (
+                        <div key={idx} className="p-4 space-y-1">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              {item.type === "incentivo" ? (
+                                <ArrowDownRight className="h-4 w-4 text-primary" />
+                              ) : (
+                                <ArrowUpRight className="h-4 w-4 text-destructive" />
+                              )}
+                              <span className="font-medium text-sm truncate max-w-[200px]">{item.description}</span>
+                            </div>
+                            <span className={`font-semibold text-sm ${item.type === "incentivo" ? "text-primary" : "text-destructive"}`}>
+                              {item.type === "incentivo" ? "+" : "−"}{item.value.toLocaleString("pt-AO")} Kz
+                            </span>
+                          </div>
+                          <div className="flex justify-between text-xs text-muted-foreground">
+                            <span>{item.date || "—"}</span>
+                            <span className={`text-[10px] ${
+                              item.status === "Aprovado" || item.status === "pago" ? "badge-active" : "badge-pending"
+                            }`}>{item.status}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </Card>
+                </>
+              );
+            })()}
+          </TabsContent>
+
           <TabsContent value="patec" className="mt-4 space-y-4">
             {(() => {
               const patecNum = farmerRaw?.patec;
