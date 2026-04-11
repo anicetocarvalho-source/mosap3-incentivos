@@ -378,6 +378,7 @@ const Mosap3PayPOS = () => {
     // Final balance check before processing
     if (farmerBalance <= 0) {
       toast.error("Compra bloqueada — produtor sem saldo de incentivo.");
+      notifyNoBalance(farmer.full_name, farmer.code, farmerBalance);
       return;
     }
     if (cartTotal > farmerBalance) {
