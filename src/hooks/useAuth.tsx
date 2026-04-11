@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState, useCallback, useRef, ty
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import type { User } from "@supabase/supabase-js";
-import { cacheSession, getLastSession, clearCachedSession, type CachedSession } from "@/lib/offlineAuth";
+import { cacheSession as doCacheSession, getLastSession, clearCachedSession, type CachedSession } from "@/lib/offlineAuth";
 
 type AppRole = Database["public"]["Enums"]["app_role"];
 
@@ -45,6 +45,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const fetchingRef = useRef<string | null>(null);
   const initializedRef = useRef(false);
 
+  // Keep track of current email for offline caching
+  const emailRef = useRef<string | null>(null);
+
   const fetchUserData = useCallback(async (userId: string) => {
     // Prevent concurrent fetches for the same user
     if (fetchingRef.current === userId) return;
@@ -61,6 +64,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       setProfile(prof);
       setRoles(fetchedRoles);
+
+      // Auto-cache session for offline use (fire-and-forget)
+      const email = emailRef.current;
+      if (email) {
+        doCacheSession(email, "", userId, prof, fetchedRoles).catch(() => {});
+      }
     } finally {
       fetchingRef.current = null;
     }
@@ -103,14 +112,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // The callback must NOT be async to avoid deadlocks (Supabase docs)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        // Skip INITIAL_SESSION — we handle that via getSession() below
-        if (event === "INITIAL_SESSION") return;
+        // Skip events that don't require React state updates:
+        // - INITIAL_SESSION: handled via getSession() below
+        // - TOKEN_REFRESHED: token changed but user didn't; letting this
+        //   through triggers fetchUserData → DB queries → the Supabase client
+        //   auto-refreshes again → TOKEN_REFRESHED → infinite loop → 429 → logout
+        if (event === "INITIAL_SESSION" || event === "TOKEN_REFRESHED") return;
 
         const currentUser = session?.user ?? null;
         setUser(currentUser);
         setIsOfflineSession(false);
 
         if (currentUser) {
+          emailRef.current = currentUser.email ?? null;
           // Fire-and-forget — no await in this callback
           fetchUserData(currentUser.id);
         } else {
@@ -130,6 +144,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const currentUser = session?.user ?? null;
       setUser(currentUser);
       if (currentUser) {
+        emailRef.current = currentUser.email ?? null;
         await fetchUserData(currentUser.id);
         setLoading(false);
       } else {
@@ -172,4 +187,4 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 };
 
 /** Helper to cache session after a successful online login */
-export { cacheSession as cacheAuthSession };
+export { doCacheSession as cacheAuthSession };

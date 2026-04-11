@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,6 @@ import { toast } from "@/hooks/use-toast";
 import { Loader2, Mail, Lock, UserPlus, LogIn, Shield, Gift, Sprout, Wheat, Eye, TrendingUp, WifiOff } from "lucide-react";
 import { z } from "zod";
 import mosapLogo from "@/assets/mosap3-logo.png";
-import { cacheSession } from "@/lib/offlineAuth";
 import { offlineLogin } from "@/lib/offlineAuth";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { useAuth } from "@/hooks/useAuth";
@@ -76,17 +75,8 @@ const Auth = () => {
     if (error) {
       toast({ title: "Erro ao entrar", description: error.message, variant: "destructive" });
     } else if (data.user) {
-      // Cache for offline use (fire-and-forget)
-      // Profile/roles will be fetched by AuthProvider via onAuthStateChange
-      supabase.from("profiles").select("full_name, phone").eq("user_id", data.user.id).maybeSingle()
-        .then(profileRes => {
-          supabase.from("user_roles").select("role").eq("user_id", data.user.id)
-            .then(rolesRes => {
-              const prof = profileRes.data ?? null;
-              const roles = rolesRes.data?.map((r) => r.role) ?? [];
-              cacheSession(result.data.email, result.data.password, data.user!.id, prof, roles).catch(() => {});
-            });
-        });
+      // Offline cache will be populated after AuthProvider fetches profile/roles
+      // via SIGNED_IN event — no need to duplicate queries here
       navigate("/");
     }
   };
