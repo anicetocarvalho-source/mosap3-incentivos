@@ -983,7 +983,12 @@ const Mosap3PayPOS = () => {
                     </div>
                     <div className="text-right">
                       {farmer.patec ? <Badge className="text-xs">{patecLabels[farmer.patec]}</Badge> : <Badge variant="destructive" className="text-xs">Sem PATEC</Badge>}
-                      <p className="text-xs text-muted-foreground mt-1">Saldo: {farmer.saldo_final || "0,00"} Kz</p>
+                      <p className={`text-xs font-semibold mt-1 ${farmerBalance > 0 ? "text-primary" : "text-destructive"}`}>
+                        Saldo: {farmerBalance.toLocaleString("pt-AO")} Kz
+                      </p>
+                      {farmerBalance <= 0 && (
+                        <p className="text-[10px] text-destructive font-medium">⚠ Sem saldo — compras bloqueadas</p>
+                      )}
                     </div>
                   </div>
                 )}
