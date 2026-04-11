@@ -143,24 +143,10 @@ const Incentivos = () => {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Tipo de Incentivo</Label>
-                  <Select value={formType} onValueChange={setFormType}>
-                    <SelectTrigger><SelectValue placeholder="Tipo" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Insumos Agrícolas">Insumos Agrícolas</SelectItem>
-                      <SelectItem value="Sementes">Sementes</SelectItem>
-                      <SelectItem value="Fertilizantes">Fertilizantes</SelectItem>
-                      <SelectItem value="Mecanização">Mecanização</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
+              <div className="space-y-2">
                   <Label>Valor (Kz)</Label>
                   <Input placeholder="0.00" value={formAmount} onChange={(e) => setFormAmount(e.target.value)} />
                 </div>
-              </div>
               <Button onClick={handleSubmit}>Registar Incentivo</Button>
             </div>
           </DialogContent>
@@ -234,16 +220,6 @@ const Incentivos = () => {
               <SelectItem value="pendente">Pendente</SelectItem>
               <SelectItem value="processando">Processando</SelectItem>
               <SelectItem value="rejeitado">Rejeitado</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={typeFilter} onValueChange={(v) => { setTypeFilter(v); setPage(1); }}>
-            <SelectTrigger className="w-full sm:w-44"><SelectValue placeholder="Tipo" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos</SelectItem>
-              <SelectItem value="insumosagrícolas">Insumos Agrícolas</SelectItem>
-              <SelectItem value="sementes">Sementes</SelectItem>
-              <SelectItem value="fertilizantes">Fertilizantes</SelectItem>
-              <SelectItem value="mecanização">Mecanização</SelectItem>
             </SelectContent>
           </Select>
         </div>
