@@ -832,7 +832,7 @@ const Mosap3PayPOS = () => {
 
             {/* Submit */}
             <button
-              disabled={cart.length === 0 || !farmer || processing}
+              disabled={cart.length === 0 || !farmer || processing || farmerBalance <= 0 || cartTotal > farmerBalance}
               onClick={() => setConfirmOpen(true)}
               className="w-full py-3 rounded-lg font-bold text-sm flex items-center justify-center gap-2 transition-colors disabled:opacity-40 disabled:cursor-not-allowed bg-[hsl(45,70%,40%)] text-[hsl(220,20%,10%)] hover:bg-[hsl(45,75%,45%)]"
             >
