@@ -165,6 +165,7 @@ const Incentivos = () => {
             </div>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       {/* Stats */}
