@@ -1,37 +1,48 @@
 import { useEffect, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Pencil, Trash2, Package } from "lucide-react";
+import { Plus, Pencil, Trash2, Package, Download } from "lucide-react";
 import { toast } from "sonner";
 
 const patecLabels: Record<string, string> = { "1": "PATEC 1 — Milho", "2": "PATEC 2 — Massango", "3": "PATEC 3 — Massambala" };
+
+interface PatecItem { id: string; name: string; category: string; patec_number: number; }
 
 const FornecedorProdutos = () => {
   const { supplier } = useOutletContext<{ supplier: { id: string } }>();
   const [products, setProducts] = useState<any[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<any>(null);
-  const [form, setForm] = useState({ name: "", category: "insumos", unit: "un", price: "", stock: "", iva_rate: "14", patec_number: "", max_per_farmer_per_season: "" });
+  const [form, setForm] = useState({ name: "", category: "insumos", unit: "un", price: "", stock: "", iva_rate: "14", patec_number: "", patec_category: "", max_per_farmer_per_season: "" });
 
-  const fetch = async () => {
+  // PATEC import state
+  const [importOpen, setImportOpen] = useState(false);
+  const [importPatecNum, setImportPatecNum] = useState<number>(1);
+  const [patecItems, setPatecItems] = useState<PatecItem[]>([]);
+  const [selectedImport, setSelectedImport] = useState<Set<string>>(new Set());
+  const [existingNames, setExistingNames] = useState<Set<string>>(new Set());
+  const [importing, setImporting] = useState(false);
+
+  const fetchProducts = async () => {
     const { data } = await supabase.from("supplier_products").select("*").eq("supplier_id", supplier.id).order("name");
     setProducts(data || []);
   };
 
-  useEffect(() => { fetch(); }, [supplier.id]);
+  useEffect(() => { fetchProducts(); }, [supplier.id]);
 
-  const openNew = () => { setEditing(null); setForm({ name: "", category: "insumos", unit: "un", price: "", stock: "", iva_rate: "14", patec_number: "", max_per_farmer_per_season: "" }); setDialogOpen(true); };
+  const openNew = () => { setEditing(null); setForm({ name: "", category: "insumos", unit: "un", price: "", stock: "", iva_rate: "14", patec_number: "", patec_category: "", max_per_farmer_per_season: "" }); setDialogOpen(true); };
   const openEdit = (p: any) => {
     setEditing(p);
-    setForm({ name: p.name, category: p.category, unit: p.unit, price: String(p.price), stock: String(p.stock), iva_rate: String(p.iva_rate), patec_number: p.patec_number ? String(p.patec_number) : "", max_per_farmer_per_season: p.max_per_farmer_per_season ? String(p.max_per_farmer_per_season) : "" });
+    setForm({ name: p.name, category: p.category, unit: p.unit, price: String(p.price), stock: String(p.stock), iva_rate: String(p.iva_rate), patec_number: p.patec_number ? String(p.patec_number) : "", patec_category: p.patec_category || "", max_per_farmer_per_season: p.max_per_farmer_per_season ? String(p.max_per_farmer_per_season) : "" });
     setDialogOpen(true);
   };
 
@@ -46,6 +57,7 @@ const FornecedorProdutos = () => {
       stock: parseInt(form.stock) || 0,
       iva_rate: parseFloat(form.iva_rate) || 14,
       patec_number: form.patec_number ? parseInt(form.patec_number) : null,
+      patec_category: form.patec_number && form.patec_category ? form.patec_category : null,
       max_per_farmer_per_season: form.max_per_farmer_per_season ? parseInt(form.max_per_farmer_per_season) : null,
     };
     if (editing) {
@@ -56,20 +68,68 @@ const FornecedorProdutos = () => {
       toast.success("Produto adicionado");
     }
     setDialogOpen(false);
-    fetch();
+    fetchProducts();
   };
 
   const handleDelete = async (id: string) => {
     await supabase.from("supplier_products").delete().eq("id", id);
     toast.success("Produto removido");
-    fetch();
+    fetchProducts();
+  };
+
+  // PATEC import
+  const categoryMap: Record<string, string> = { "Insumos": "insumos", "Pecuária": "pecuaria", "Serviços": "servicos" };
+
+  const openImportPatec = async (patecNum: number) => {
+    setImportPatecNum(patecNum);
+    setImporting(false);
+    const [{ data: items }, { data: existing }] = await Promise.all([
+      supabase.from("patec_items").select("*").eq("patec_number", patecNum).order("category, name"),
+      supabase.from("supplier_products").select("name, patec_number").eq("supplier_id", supplier.id).eq("patec_number", patecNum),
+    ]);
+    setPatecItems(items || []);
+    const names = new Set((existing || []).map((p: any) => p.name.toLowerCase()));
+    setExistingNames(names);
+    const newItems = (items || []).filter(i => !names.has(i.name.toLowerCase()));
+    setSelectedImport(new Set(newItems.map(i => i.id)));
+    setImportOpen(true);
+  };
+
+  const handleImport = async () => {
+    if (selectedImport.size === 0) return;
+    setImporting(true);
+    const toImport = patecItems.filter(i => selectedImport.has(i.id) && !existingNames.has(i.name.toLowerCase()));
+    if (toImport.length === 0) { toast.info("Nenhum item novo para importar"); setImporting(false); return; }
+    const rows = toImport.map(i => ({
+      supplier_id: supplier.id, name: i.name, patec_number: i.patec_number,
+      patec_category: i.category, category: categoryMap[i.category] || "insumos",
+      price: 0, stock: 0, unit: "un", iva_rate: 14,
+    }));
+    const { error } = await supabase.from("supplier_products").insert(rows);
+    if (error) { toast.error("Erro ao importar"); setImporting(false); return; }
+    toast.success(`${toImport.length} produto(s) importado(s) do PATEC ${importPatecNum}`);
+    setImportOpen(false);
+    fetchProducts();
   };
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <h1 className="text-xl font-heading font-bold flex items-center gap-2"><Package className="h-5 w-5 text-primary" /> Catálogo de Produtos</h1>
-        <Button onClick={openNew}><Plus className="h-4 w-4 mr-1" /> Adicionar</Button>
+        <div className="flex items-center gap-2">
+          <Select onValueChange={(v) => openImportPatec(Number(v))}>
+            <SelectTrigger className="w-auto h-8 text-xs gap-1">
+              <Download className="h-3 w-3" />
+              <SelectValue placeholder="Importar do PATEC" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="1">PATEC 1 — Milho</SelectItem>
+              <SelectItem value="2">PATEC 2 — Massango</SelectItem>
+              <SelectItem value="3">PATEC 3 — Massambala</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button onClick={openNew}><Plus className="h-4 w-4 mr-1" /> Adicionar</Button>
+        </div>
       </div>
 
       <Card>
@@ -122,12 +182,25 @@ const FornecedorProdutos = () => {
                 </Select>
               </div>
               <div><Label>PATEC</Label>
-                <Select value={form.patec_number} onValueChange={(v) => setForm({ ...form, patec_number: v })}>
+                <Select value={form.patec_number} onValueChange={(v) => setForm({ ...form, patec_number: v, patec_category: v ? form.patec_category : "" })}>
                   <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
                   <SelectContent><SelectItem value="1">PATEC 1</SelectItem><SelectItem value="2">PATEC 2</SelectItem><SelectItem value="3">PATEC 3</SelectItem></SelectContent>
                 </Select>
               </div>
             </div>
+            {form.patec_number && (
+              <div>
+                <Label>Categoria PATEC</Label>
+                <Select value={form.patec_category} onValueChange={(v) => setForm({ ...form, patec_category: v })}>
+                  <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Insumos">Insumos</SelectItem>
+                    <SelectItem value="Pecuária">Pecuária</SelectItem>
+                    <SelectItem value="Serviços">Serviços</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div className="grid grid-cols-3 gap-3">
               <div><Label>Preço (Kz) *</Label><Input type="number" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} /></div>
               <div><Label>Stock</Label><Input type="number" value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })} /></div>
@@ -141,6 +214,56 @@ const FornecedorProdutos = () => {
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
             <Button onClick={handleSave}>{editing ? "Guardar" : "Adicionar"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* PATEC Import Dialog */}
+      <Dialog open={importOpen} onOpenChange={setImportOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Download className="h-4 w-4" /> Importar itens — PATEC {importPatecNum}
+            </DialogTitle>
+          </DialogHeader>
+          {patecItems.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-4 text-center">Nenhum item definido para este PATEC.</p>
+          ) : (
+            <div className="space-y-3 max-h-[50vh] overflow-y-auto">
+              {["Insumos", "Pecuária", "Serviços"].map((cat) => {
+                const items = patecItems.filter(i => i.category === cat);
+                if (items.length === 0) return null;
+                return (
+                  <div key={cat}>
+                    <p className="text-xs font-semibold text-muted-foreground uppercase mb-1">{cat}</p>
+                    {items.map((item) => {
+                      const exists = existingNames.has(item.name.toLowerCase());
+                      return (
+                        <label key={item.id} className={`flex items-center gap-2 py-1.5 px-2 rounded text-sm ${exists ? "opacity-50" : "hover:bg-muted/50 cursor-pointer"}`}>
+                          <Checkbox
+                            checked={exists || selectedImport.has(item.id)}
+                            disabled={exists}
+                            onCheckedChange={(checked) => {
+                              const next = new Set(selectedImport);
+                              if (checked) next.add(item.id); else next.delete(item.id);
+                              setSelectedImport(next);
+                            }}
+                          />
+                          <span>{item.name}</span>
+                          {exists && <Badge variant="outline" className="text-[9px] ml-auto">Já existe</Badge>}
+                        </label>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setImportOpen(false)}>Cancelar</Button>
+            <Button onClick={handleImport} disabled={importing || selectedImport.size === 0}>
+              {importing ? "A importar..." : `Importar (${[...selectedImport].filter(id => !existingNames.has(patecItems.find(i => i.id === id)?.name.toLowerCase() || "")).length})`}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
