@@ -38,11 +38,11 @@ const phaseIcons: Record<string, any> = {
 
 const phaseColors: Record<string, string> = {
   "Preparação": "bg-muted text-muted-foreground",
-  "Sementeira": "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
-  "Crescimento": "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
-  "Floração": "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
-  "Colheita": "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200",
-  "Pós-Colheita": "bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200",
+  "Sementeira": "bg-info/10 text-info",
+  "Crescimento": "bg-success/10 text-success",
+  "Floração": "bg-warning/10 text-warning",
+  "Colheita": "bg-secondary/20 text-secondary-foreground",
+  "Pós-Colheita": "bg-accent text-accent-foreground",
 };
 
 const FarmerProfile = () => {
@@ -181,7 +181,7 @@ const FarmerProfile = () => {
           }}
         />
         {farmer.status === "Removido" ? (
-          <Button variant="outline" size="icon" className="h-8 w-8 text-green-600 hover:text-green-700" onClick={async () => {
+          <Button variant="outline" size="icon" className="h-8 w-8 text-success hover:text-success" onClick={async () => {
             const { error } = await supabase.from("farmers").update({ status: "Ativo" }).eq("code", farmer.id);
             if (error) { toast.error("Erro ao restaurar"); } else { toast.success(`${farmer.name} restaurado como Ativo`); refetchFarmer(); }
           }} title="Restaurar agricultor">

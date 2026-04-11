@@ -44,8 +44,8 @@ interface StockMovement {
 const MOVEMENT_LABELS: Record<string, { label: string; color: string; icon: any }> = {
   entrada: { label: "Entrada", color: "text-primary", icon: ArrowUpCircle },
   saida: { label: "Saída", color: "text-destructive", icon: ArrowDownCircle },
-  ajuste: { label: "Ajuste", color: "text-amber-600", icon: RotateCcw },
-  venda: { label: "Venda", color: "text-blue-600", icon: ArrowDownCircle },
+  ajuste: { label: "Ajuste", color: "text-warning", icon: RotateCcw },
+  venda: { label: "Venda", color: "text-info", icon: ArrowDownCircle },
   devolucao: { label: "Devolução", color: "text-primary", icon: ArrowUpCircle },
 };
 

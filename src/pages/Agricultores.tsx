@@ -281,7 +281,7 @@ const Agricultores = () => {
                         </Link>
                         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(f)}><Edit className="h-4 w-4" /></Button>
                         {f.status === "Removido" ? (
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-green-600 hover:text-green-700" onClick={() => handleRestore(f)} title="Restaurar"><RotateCcw className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-success hover:text-success" onClick={() => handleRestore(f)} title="Restaurar"><RotateCcw className="h-4 w-4" /></Button>
                         ) : (
                           <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => setDeleteTarget(f)}><Trash2 className="h-4 w-4" /></Button>
                         )}
@@ -327,7 +327,7 @@ const Agricultores = () => {
                   </Link>
                   <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(f)}><Edit className="h-4 w-4" /></Button>
                   {f.status === "Removido" ? (
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-green-600 hover:text-green-700" onClick={() => handleRestore(f)} title="Restaurar"><RotateCcw className="h-4 w-4" /></Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-success hover:text-success" onClick={() => handleRestore(f)} title="Restaurar"><RotateCcw className="h-4 w-4" /></Button>
                   ) : (
                     <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => setDeleteTarget(f)}><Trash2 className="h-4 w-4" /></Button>
                   )}

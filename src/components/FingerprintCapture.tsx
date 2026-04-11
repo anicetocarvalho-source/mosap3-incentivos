@@ -14,10 +14,10 @@ const REQUIRED_POINTS = 50;
 const QUALITY_THRESHOLDS = { low: 40, medium: 75, high: 100 };
 
 function getQualityLabel(progress: number) {
-  if (progress < QUALITY_THRESHOLDS.low) return { text: "Fraca", color: "text-red-400" };
-  if (progress < QUALITY_THRESHOLDS.medium) return { text: "Média", color: "text-yellow-400" };
-  if (progress < QUALITY_THRESHOLDS.high) return { text: "Boa", color: "text-green-400" };
-  return { text: "Excelente", color: "text-emerald-300" };
+  if (progress < QUALITY_THRESHOLDS.low) return { text: "Fraca", color: "text-destructive" };
+  if (progress < QUALITY_THRESHOLDS.medium) return { text: "Média", color: "text-warning" };
+  if (progress < QUALITY_THRESHOLDS.high) return { text: "Boa", color: "text-success" };
+  return { text: "Excelente", color: "text-primary" };
 }
 
 function vibrate(ms = 8) {

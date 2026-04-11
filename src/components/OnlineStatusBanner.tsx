@@ -59,7 +59,7 @@ const OnlineStatusBanner = () => {
     <div
       className={`px-4 py-2 text-xs font-medium flex items-center gap-2 ${
         justSynced
-          ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
+          ? "bg-success/10 text-success"
           : syncing
           ? "bg-primary/10 text-primary"
           : isOnline
