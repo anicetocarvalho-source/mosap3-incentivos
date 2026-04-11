@@ -27,13 +27,13 @@ const Incentivos = () => {
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState("all");
-  const [typeFilter, setTypeFilter] = useState("all");
+  
   const [page, setPage] = useState(1);
   const queryClient = useQueryClient();
 
   // Form state
   const [formFarmer, setFormFarmer] = useState("");
-  const [formType, setFormType] = useState("");
+  
   const [formAmount, setFormAmount] = useState("");
   const [formMethod, setFormMethod] = useState("Unitel Money");
 
@@ -57,14 +57,13 @@ const Incentivos = () => {
     },
   });
 
-  useEffect(() => { setPage(1); }, [search, statusFilter, typeFilter]);
+  useEffect(() => { setPage(1); }, [search, statusFilter]);
 
   const filtered = incentives.filter((inc: any) => {
     const name = inc.farmers?.full_name || "";
     const matchesSearch = name.toLowerCase().includes(search.toLowerCase()) || inc.incentive_code.toLowerCase().includes(search.toLowerCase());
     const matchesStatus = statusFilter === "all" || inc.status.toLowerCase() === statusFilter;
-    const matchesType = typeFilter === "all" || inc.type.toLowerCase().replace(/\s/g, "") === typeFilter;
-    return matchesSearch && matchesStatus && matchesType;
+    return matchesSearch && matchesStatus;
   });
 
   const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
@@ -96,7 +95,7 @@ const Incentivos = () => {
   const CHART_COLORS = ["hsl(var(--primary))", "hsl(var(--accent))", "hsl(142 71% 45%)", "hsl(38 92% 50%)", "hsl(280 65% 60%)", "hsl(200 80% 50%)"];
 
   const handleSubmit = async () => {
-    if (!formFarmer || !formType || !formAmount) {
+    if (!formFarmer || !formAmount) {
       toast({ title: "Preencha todos os campos obrigatórios", variant: "destructive" });
       return;
     }
@@ -104,7 +103,7 @@ const Incentivos = () => {
     const { error } = await supabase.from("farmer_incentives").insert({
       incentive_code: code,
       farmer_code: formFarmer,
-      type: formType,
+      type: "Monetário",
       amount: formAmount,
       method: formMethod,
       incentive_date: new Date().toLocaleDateString("pt-AO"),
@@ -113,7 +112,7 @@ const Incentivos = () => {
     toast({ title: "Incentivo registado com sucesso" });
     queryClient.invalidateQueries({ queryKey: ["farmer_incentives"] });
     setDialogOpen(false);
-    setFormFarmer(""); setFormType(""); setFormAmount("");
+    setFormFarmer(""); setFormAmount("");
   };
 
   return (
@@ -143,24 +142,10 @@ const Incentivos = () => {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Tipo de Incentivo</Label>
-                  <Select value={formType} onValueChange={setFormType}>
-                    <SelectTrigger><SelectValue placeholder="Tipo" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Insumos Agrícolas">Insumos Agrícolas</SelectItem>
-                      <SelectItem value="Sementes">Sementes</SelectItem>
-                      <SelectItem value="Fertilizantes">Fertilizantes</SelectItem>
-                      <SelectItem value="Mecanização">Mecanização</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
+              <div className="space-y-2">
                   <Label>Valor (Kz)</Label>
                   <Input placeholder="0.00" value={formAmount} onChange={(e) => setFormAmount(e.target.value)} />
                 </div>
-              </div>
               <Button onClick={handleSubmit}>Registar Incentivo</Button>
             </div>
           </DialogContent>
@@ -234,16 +219,6 @@ const Incentivos = () => {
               <SelectItem value="pendente">Pendente</SelectItem>
               <SelectItem value="processando">Processando</SelectItem>
               <SelectItem value="rejeitado">Rejeitado</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={typeFilter} onValueChange={(v) => { setTypeFilter(v); setPage(1); }}>
-            <SelectTrigger className="w-full sm:w-44"><SelectValue placeholder="Tipo" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos</SelectItem>
-              <SelectItem value="insumosagrícolas">Insumos Agrícolas</SelectItem>
-              <SelectItem value="sementes">Sementes</SelectItem>
-              <SelectItem value="fertilizantes">Fertilizantes</SelectItem>
-              <SelectItem value="mecanização">Mecanização</SelectItem>
             </SelectContent>
           </Select>
         </div>
