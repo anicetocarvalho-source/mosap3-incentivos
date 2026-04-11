@@ -328,6 +328,13 @@ const Mosap3PayPOS = () => {
             toast.error("Limite atingido");
             return c;
           }
+          // Check balance
+          const currentCartTotal = prev.reduce((sum, item) => sum + item.product.price * item.quantity * (1 + item.product.iva_rate / 100), 0);
+          const itemCost = c.product.price * (1 + c.product.iva_rate / 100);
+          if (currentCartTotal + itemCost > farmerBalance) {
+            toast.error("Saldo de incentivo insuficiente");
+            return c;
+          }
         }
         return { ...c, quantity: newQty };
       }).filter((c) => c.quantity > 0);
