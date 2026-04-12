@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, useCallback, useRef, ty
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import type { User } from "@supabase/supabase-js";
+import { normalizeAuthSessionClockSkew, normalizeStoredAuthSessionClockSkew } from "@/lib/authSessionClockSkew";
 import { cacheSession as doCacheSession, getLastSession, clearCachedSession, type CachedSession } from "@/lib/offlineAuth";
 
 type AppRole = Database["public"]["Enums"]["app_role"];
@@ -108,10 +109,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   useEffect(() => {
+    normalizeStoredAuthSessionClockSkew();
+
     // CRITICAL: Set up onAuthStateChange FIRST, BEFORE getSession
     // The callback must NOT be async to avoid deadlocks (Supabase docs)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
+        const normalizedSession = normalizeAuthSessionClockSkew(session);
+
         // Skip events that don't require React state updates:
         // - INITIAL_SESSION: handled via getSession() below
         // - TOKEN_REFRESHED: token changed but user didn't; letting this
@@ -119,7 +124,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         //   auto-refreshes again → TOKEN_REFRESHED → infinite loop → 429 → logout
         if (event === "INITIAL_SESSION" || event === "TOKEN_REFRESHED") return;
 
-        const currentUser = session?.user ?? null;
+        const currentUser = normalizedSession?.user ?? null;
         setUser(currentUser);
         setIsOfflineSession(false);
 
@@ -141,7 +146,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (initializedRef.current) return;
       initializedRef.current = true;
 
-      const currentUser = session?.user ?? null;
+      const normalizedSession = normalizeAuthSessionClockSkew(session);
+      const currentUser = normalizedSession?.user ?? null;
       setUser(currentUser);
       if (currentUser) {
         emailRef.current = currentUser.email ?? null;
@@ -161,10 +167,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const handler = () => {
       if (isOfflineSession) {
         supabase.auth.getSession().then(({ data: { session } }) => {
-          if (session?.user) {
-            setUser(session.user);
+          const normalizedSession = normalizeAuthSessionClockSkew(session);
+          if (normalizedSession?.user) {
+            setUser(normalizedSession.user);
             setIsOfflineSession(false);
-            fetchUserData(session.user.id);
+            fetchUserData(normalizedSession.user.id);
           }
         });
       }
