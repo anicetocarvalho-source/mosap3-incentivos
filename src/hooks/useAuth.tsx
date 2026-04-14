@@ -159,19 +159,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     normalizeStoredAuthSessionClockSkew();
 
-    // CRITICAL: Set up onAuthStateChange FIRST, BEFORE getSession
-    // The callback must NOT be async to avoid deadlocks (Supabase docs)
+    // CRITICAL: Set up onAuthStateChange FIRST, BEFORE getSession.
+    // The callback must NOT be async to avoid deadlocks (Supabase docs).
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        const normalizedSession = normalizeAuthSessionClockSkew(session);
-
         // Skip events that don't require React state updates:
         // - INITIAL_SESSION: handled via getSession() below
-        // - TOKEN_REFRESHED: token changed but user didn't; letting this
-        //   through triggers fetchUserData → DB queries → the Supabase client
-        //   auto-refreshes again → TOKEN_REFRESHED → infinite loop → 429 → logout
+        // - TOKEN_REFRESHED: token changed but user didn't.
+        //   CRITICAL: We must NOT call normalizeAuthSessionClockSkew here
+        //   because it writes to localStorage, which the Supabase client
+        //   detects as a session change and triggers another refresh →
+        //   infinite loop → 429 rate limit → logout.
         if (event === "INITIAL_SESSION" || event === "TOKEN_REFRESHED") return;
 
+        // Only normalize for meaningful events (SIGNED_IN, SIGNED_OUT, etc.)
+        const normalizedSession = normalizeAuthSessionClockSkew(session);
         void resolveAuthState(normalizedSession?.user ?? null);
       }
     );

@@ -165,4 +165,6 @@ export function normalizeAuthSessionClockSkew(session: Session | null): Session 
   return normalizedSession as Session;
 }
 
-normalizeStoredAuthSessionClockSkew();
+// NOTE: Do NOT auto-call at module load. This is called explicitly from
+// useAuth's useEffect to avoid running before the Supabase client
+// has finished initializing (which can cause storage event loops).
