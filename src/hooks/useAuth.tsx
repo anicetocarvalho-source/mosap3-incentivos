@@ -12,6 +12,7 @@ interface AuthState {
   profile: { full_name: string; phone: string | null } | null;
   roles: AppRole[];
   loading: boolean;
+  authReady: boolean;
   hasRole: (role: AppRole) => boolean;
   hasAnyRole: (roles: AppRole[]) => boolean;
   isAdmin: boolean;
@@ -25,6 +26,7 @@ const AuthContext = createContext<AuthState>({
   profile: null,
   roles: [],
   loading: true,
+  authReady: false,
   hasRole: () => false,
   hasAnyRole: () => false,
   isAdmin: false,
@@ -40,40 +42,51 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [profile, setProfile] = useState<AuthState["profile"]>(null);
   const [roles, setRoles] = useState<AppRole[]>([]);
   const [loading, setLoading] = useState(true);
+  const [authReady, setAuthReady] = useState(false);
   const [isOfflineSession, setIsOfflineSession] = useState(false);
 
   // Guards against concurrent fetches and double initialization
   const fetchingRef = useRef<string | null>(null);
+  const fetchPromiseRef = useRef<Promise<void> | null>(null);
   const initializedRef = useRef(false);
+  const authCycleRef = useRef(0);
 
   // Keep track of current email for offline caching
   const emailRef = useRef<string | null>(null);
 
   const fetchUserData = useCallback(async (userId: string) => {
     // Prevent concurrent fetches for the same user
-    if (fetchingRef.current === userId) return;
-    fetchingRef.current = userId;
-
-    try {
-      const [profileRes, rolesRes] = await Promise.all([
-        supabase.from("profiles").select("full_name, phone").eq("user_id", userId).maybeSingle(),
-        supabase.from("user_roles").select("role").eq("user_id", userId),
-      ]);
-
-      const prof = profileRes.data ?? null;
-      const fetchedRoles = rolesRes.data?.map((r) => r.role) ?? [];
-
-      setProfile(prof);
-      setRoles(fetchedRoles);
-
-      // Auto-cache session for offline use (fire-and-forget)
-      const email = emailRef.current;
-      if (email) {
-        doCacheSession(email, "", userId, prof, fetchedRoles).catch(() => {});
-      }
-    } finally {
-      fetchingRef.current = null;
+    if (fetchingRef.current === userId && fetchPromiseRef.current) {
+      await fetchPromiseRef.current;
+      return;
     }
+
+    fetchingRef.current = userId;
+    fetchPromiseRef.current = (async () => {
+      try {
+        const [profileRes, rolesRes] = await Promise.all([
+          supabase.from("profiles").select("full_name, phone").eq("user_id", userId).maybeSingle(),
+          supabase.from("user_roles").select("role").eq("user_id", userId),
+        ]);
+
+        const prof = profileRes.data ?? null;
+        const fetchedRoles = rolesRes.data?.map((r) => r.role) ?? [];
+
+        setProfile(prof);
+        setRoles(fetchedRoles);
+
+        // Auto-cache session for offline use (fire-and-forget)
+        const email = emailRef.current;
+        if (email) {
+          doCacheSession(email, "", userId, prof, fetchedRoles).catch(() => {});
+        }
+      } finally {
+        fetchingRef.current = null;
+        fetchPromiseRef.current = null;
+      }
+    })();
+
+    await fetchPromiseRef.current;
   }, []);
 
   // Restore offline session if no online session
@@ -85,7 +98,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setProfile(cached.profile);
         setRoles(cached.roles as AppRole[]);
         setIsOfflineSession(true);
-        setLoading(false);
         return true;
       }
     }
@@ -98,6 +110,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setProfile(null);
     setRoles([]);
     setIsOfflineSession(false);
+    setAuthReady(true);
+    setLoading(false);
   }, []);
 
   const setOfflineSession = useCallback((session: CachedSession) => {
@@ -105,8 +119,42 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setProfile(session.profile);
     setRoles(session.roles as AppRole[]);
     setIsOfflineSession(true);
+    setAuthReady(true);
     setLoading(false);
   }, []);
+
+  const resolveAuthState = useCallback(async (currentUser: User | null) => {
+    const cycle = ++authCycleRef.current;
+
+    setLoading(true);
+    setAuthReady(false);
+
+    if (currentUser) {
+      setUser(currentUser);
+      setIsOfflineSession(false);
+      emailRef.current = currentUser.email ?? null;
+
+      await fetchUserData(currentUser.id);
+
+      if (authCycleRef.current !== cycle) return;
+
+      setLoading(false);
+      setAuthReady(true);
+      return;
+    }
+
+    setUser(null);
+    setProfile(null);
+    setRoles([]);
+    setIsOfflineSession(false);
+
+    await tryRestoreOffline();
+
+    if (authCycleRef.current !== cycle) return;
+
+    setLoading(false);
+    setAuthReady(true);
+  }, [fetchUserData, tryRestoreOffline]);
 
   useEffect(() => {
     normalizeStoredAuthSessionClockSkew();
@@ -124,19 +172,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         //   auto-refreshes again → TOKEN_REFRESHED → infinite loop → 429 → logout
         if (event === "INITIAL_SESSION" || event === "TOKEN_REFRESHED") return;
 
-        const currentUser = normalizedSession?.user ?? null;
-        setUser(currentUser);
-        setIsOfflineSession(false);
-
-        if (currentUser) {
-          emailRef.current = currentUser.email ?? null;
-          // Fire-and-forget — no await in this callback
-          fetchUserData(currentUser.id);
-        } else {
-          setProfile(null);
-          setRoles([]);
-        }
-        setLoading(false);
+        void resolveAuthState(normalizedSession?.user ?? null);
       }
     );
 
@@ -147,20 +183,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       initializedRef.current = true;
 
       const normalizedSession = normalizeAuthSessionClockSkew(session);
-      const currentUser = normalizedSession?.user ?? null;
-      setUser(currentUser);
-      if (currentUser) {
-        emailRef.current = currentUser.email ?? null;
-        await fetchUserData(currentUser.id);
-        setLoading(false);
-      } else {
-        const restored = await tryRestoreOffline();
-        if (!restored) setLoading(false);
-      }
+      await resolveAuthState(normalizedSession?.user ?? null);
     });
 
     return () => subscription.unsubscribe();
-  }, [fetchUserData, tryRestoreOffline]);
+  }, [resolveAuthState]);
 
   // Listen for online event to re-sync if we were in offline mode
   useEffect(() => {
@@ -169,16 +196,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         supabase.auth.getSession().then(({ data: { session } }) => {
           const normalizedSession = normalizeAuthSessionClockSkew(session);
           if (normalizedSession?.user) {
-            setUser(normalizedSession.user);
-            setIsOfflineSession(false);
-            fetchUserData(normalizedSession.user.id);
+            void resolveAuthState(normalizedSession.user);
           }
         });
       }
     };
     window.addEventListener("online", handler);
     return () => window.removeEventListener("online", handler);
-  }, [isOfflineSession, fetchUserData]);
+  }, [isOfflineSession, resolveAuthState]);
 
   const hasRole = useCallback((role: AppRole) => roles.includes(role), [roles]);
   const hasAnyRole = useCallback((r: AppRole[]) => r.some((role) => roles.includes(role)), [roles]);
@@ -186,7 +211,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   return (
     <AuthContext.Provider
-      value={{ user, profile, roles, loading, hasRole, hasAnyRole, isAdmin, isOfflineSession, offlineLogout, setOfflineSession }}
+      value={{ user, profile, roles, loading, authReady, hasRole, hasAnyRole, isAdmin, isOfflineSession, offlineLogout, setOfflineSession }}
     >
       {children}
     </AuthContext.Provider>

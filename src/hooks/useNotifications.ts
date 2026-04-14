@@ -14,14 +14,14 @@ export interface AppNotification {
 }
 
 export function useNotifications() {
-  const { user } = useAuth();
+  const { user, authReady } = useAuth();
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
   // Fetch notifications
   const fetchNotifications = useCallback(async () => {
-    if (!user) return;
+    if (!user || !authReady) return;
     const { data } = await supabase
       .from("notifications")
       .select("*")
@@ -34,7 +34,7 @@ export function useNotifications() {
       setUnreadCount(data.filter((n: any) => !n.read).length);
     }
     setLoading(false);
-  }, [user]);
+  }, [user, authReady]);
 
   // Mark as read
   const markAsRead = useCallback(async (notificationId: string) => {
@@ -74,6 +74,11 @@ export function useNotifications() {
 
   // Initial fetch + realtime subscription
   useEffect(() => {
+    if (!authReady) {
+      setLoading(true);
+      return;
+    }
+
     if (!user) {
       setNotifications([]);
       setUnreadCount(0);
@@ -112,11 +117,11 @@ export function useNotifications() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user, fetchNotifications]);
+  }, [user, authReady, fetchNotifications]);
 
   // Subscribe to push notifications
   const subscribeToPush = useCallback(async () => {
-    if (!user) return false;
+    if (!user || !authReady) return false;
 
     try {
       const permission = await window.Notification.requestPermission();
@@ -169,7 +174,7 @@ export function useNotifications() {
       console.error("Push subscription failed:", error);
       return false;
     }
-  }, [user]);
+  }, [user, authReady]);
 
   return {
     notifications,
