@@ -1347,6 +1347,59 @@ export type Database = {
           },
         ]
       }
+      supplier_stores: {
+        Row: {
+          address: string | null
+          created_at: string
+          id: string
+          manager_name: string | null
+          manager_phone: string | null
+          municipality: string | null
+          name: string
+          phone: string | null
+          province: string | null
+          status: string
+          supplier_id: string
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          created_at?: string
+          id?: string
+          manager_name?: string | null
+          manager_phone?: string | null
+          municipality?: string | null
+          name: string
+          phone?: string | null
+          province?: string | null
+          status?: string
+          supplier_id: string
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          created_at?: string
+          id?: string
+          manager_name?: string | null
+          manager_phone?: string | null
+          municipality?: string | null
+          name?: string
+          phone?: string | null
+          province?: string | null
+          status?: string
+          supplier_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_stores_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       suppliers: {
         Row: {
           address: string | null
