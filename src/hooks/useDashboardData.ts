@@ -235,12 +235,12 @@ async function fetchDashboardData(
 }
 
 export function useDashboardData() {
-  const { user, roles } = useAuth();
+  const { user, roles, authReady } = useAuth();
 
   return useQuery({
     queryKey: ["dashboard-stats", user?.id, roles],
     queryFn: () => fetchDashboardData(user!.id, roles as AppRole[]),
-    enabled: !!user && roles.length > 0,
+    enabled: !!user && authReady && roles.length > 0,
     staleTime: 5 * 60 * 1000,
   });
 }

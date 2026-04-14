@@ -13,11 +13,11 @@ interface RoleGuardProps {
 }
 
 const RoleGuard = ({ allowedRoles, children }: RoleGuardProps) => {
-  const { roles, isAdmin, user, loading } = useAuth();
+  const { roles, isAdmin, user, loading, authReady } = useAuth();
   const toastShown = useRef(false);
 
   const hasAccess =
-    !user || loading || isAdmin || roles.length === 0
+    !user || loading || !authReady || isAdmin || roles.length === 0
       ? true
       : allowedRoles.some((r) => roles.includes(r));
 
@@ -32,7 +32,7 @@ const RoleGuard = ({ allowedRoles, children }: RoleGuardProps) => {
     }
   }, [loading, user, roles, isAdmin, hasAccess]);
 
-  if (loading) return null;
+  if (loading || !authReady) return null;
   if (!user) return <Navigate to="/auth" replace />;
   if (isAdmin) return <>{children}</>;
   if (roles.length === 0) return null;
