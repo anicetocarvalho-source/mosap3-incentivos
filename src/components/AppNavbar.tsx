@@ -38,6 +38,7 @@ import { Button } from "@/components/ui/button";
 import { useIsMobile } from "@/hooks/use-mobile";
 import NotificationBell from "@/components/NotificationBell";
 import type { Database } from "@/integrations/supabase/types";
+import { useModulePermissions, canAccessModule } from "@/hooks/useModulePermissions";
 
 type AppRole = Database["public"]["Enums"]["app_role"];
 
