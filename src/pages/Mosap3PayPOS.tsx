@@ -395,7 +395,7 @@ const Mosap3PayPOS = () => {
 
     try {
       const { data: sale, error: saleError } = await withRetry(
-        () => supabase.from("pos_sales").insert({
+        () => Promise.resolve(supabase.from("pos_sales").insert({
           sale_code: saleCode,
           supplier_id: selectedSupplierId,
           farmer_code: farmer.code,
@@ -408,7 +408,7 @@ const Mosap3PayPOS = () => {
           payment_method: kioskPayMethod || "unitel_money",
           payment_status: "pendente",
           created_by: user?.id,
-        }).select().single().then((res) => {
+        }).select().single()).then((res) => {
           if (res.error) throw res.error;
           return res;
         }),
