@@ -531,6 +531,12 @@ const Mosap3PayPOS = () => {
     setConfirmOpen(false);
     setReceiptOpen(true);
     setCart([]);
+    } catch (err) {
+      const classified = classifyError(err);
+      toast.error(classified.description + (classified.retryable ? " Tente novamente." : ""));
+      setProcessing(false);
+      setPaymentStatus("idle");
+    }
   };
 
   const pollPaymentStatus = async (saleId: string, conversationId: string) => {
