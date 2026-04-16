@@ -735,6 +735,30 @@ export type Database = {
           },
         ]
       }
+      module_permissions: {
+        Row: {
+          has_access: boolean
+          id: string
+          module_name: string
+          role: string
+          updated_at: string
+        }
+        Insert: {
+          has_access?: boolean
+          id?: string
+          module_name: string
+          role: string
+          updated_at?: string
+        }
+        Update: {
+          has_access?: boolean
+          id?: string
+          module_name?: string
+          role?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       municipalities: {
         Row: {
           created_at: string
