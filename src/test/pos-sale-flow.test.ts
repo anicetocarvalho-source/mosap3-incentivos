@@ -86,24 +86,40 @@ describe("Fluxo de Venda POS — Lógica de Negócio", () => {
   });
 
   describe("Geração de Código Fiscal", () => {
+    const baseInvoice: InvoiceData = {
+      sale_code: "V-001",
+      invoice_number: "FT 2026/00001",
+      created_at: "2026-04-16T10:00:00Z",
+      farmer_name: "João",
+      farmer_code: "PROD-001",
+      supplier_name: "Loja Test",
+      supplier_nif: "123456789",
+      subtotal: 5000,
+      iva_total: 700,
+      total: 5700,
+      payment_method: "unitel_money",
+      payment_status: "pago",
+      items: [],
+    };
+
     it("gera hash fiscal não-vazio", async () => {
-      const hash = await generateFiscalHash("FT 2026/00001", "2026-04-16", 5700, "");
+      const hash = await generateFiscalHash(baseInvoice);
       expect(hash).toBeTruthy();
       expect(typeof hash).toBe("string");
       expect(hash.length).toBeGreaterThan(0);
     });
 
     it("gera hashes diferentes para facturas diferentes", async () => {
-      const hash1 = await generateFiscalHash("FT 2026/00001", "2026-04-16", 5700, "");
-      const hash2 = await generateFiscalHash("FT 2026/00002", "2026-04-16", 5700, "");
+      const hash1 = await generateFiscalHash(baseInvoice);
+      const hash2 = await generateFiscalHash({ ...baseInvoice, sale_code: "V-002" });
       expect(hash1).not.toBe(hash2);
     });
 
     it("constrói conteúdo QR com campos obrigatórios", () => {
-      const qr = buildQRContent("FT 2026/00001", "2026-04-16", 5700, "abc123hash");
-      expect(qr).toContain("FT 2026/00001");
-      expect(qr).toContain("2026-04-16");
-      expect(qr).toContain("5700");
+      const qr = buildQRContent(baseInvoice, "abc123hash");
+      expect(qr).toContain("123456789");
+      expect(qr).toContain("PROD-001");
+      expect(qr).toContain("5700.00");
       expect(qr).toContain("abc123hash");
     });
   });
