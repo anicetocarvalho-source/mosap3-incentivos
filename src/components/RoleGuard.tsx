@@ -47,7 +47,7 @@ const RoleGuard = ({ allowedRoles, moduleName, children }: RoleGuardProps) => {
   if (!user) return <Navigate to="/auth" replace />;
   if (isAdmin) return <>{children}</>;
   if (roles.length === 0) return null;
-  if (!hasAccess) return <cessoNegado />;
+  if (!hasAccess) return <AcessoNegado />;
 
   return <>{children}</>;
 };
