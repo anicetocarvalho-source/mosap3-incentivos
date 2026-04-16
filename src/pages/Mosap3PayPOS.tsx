@@ -11,6 +11,7 @@ import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { InvoicePDF, generateFiscalHash, buildQRContent, type InvoiceData } from "@/components/InvoicePDF";
+import { classifyError, withRetry } from "@/lib/errorHandling";
 
 interface Farmer {
   code: string;
@@ -263,7 +264,7 @@ const Mosap3PayPOS = () => {
         toast.success(`Produtor identificado: ${data.full_name} — Saldo: ${balance.toLocaleString("pt-AO")} Kz`);
       }
     } else {
-      toast.error("Produtor não encontrado");
+      toast.error("Produtor não encontrado. Verifique o código, BI, telefone ou nome e tente novamente.");
       setFarmer(null);
     }
   };
@@ -392,27 +393,38 @@ const Mosap3PayPOS = () => {
     const saleCode = generateSaleCode();
     const { data: { user } } = await supabase.auth.getUser();
 
-    const { data: sale, error: saleError } = await supabase.from("pos_sales").insert({
-      sale_code: saleCode,
-      supplier_id: selectedSupplierId,
-      farmer_code: farmer.code,
-      farmer_name: farmer.full_name,
-      farmer_phone: farmer.phone,
-      patec_number: farmer.patec,
-      subtotal: cartSubtotal,
-      iva_total: cartIva,
-      total: cartTotal,
-      payment_method: "unitel_money",
-      payment_status: "pendente",
-      created_by: user?.id,
-    }).select().single();
+    try {
+      const { data: sale, error: saleError } = await withRetry(
+        () => Promise.resolve(supabase.from("pos_sales").insert({
+          sale_code: saleCode,
+          supplier_id: selectedSupplierId,
+          farmer_code: farmer.code,
+          farmer_name: farmer.full_name,
+          farmer_phone: farmer.phone,
+          patec_number: farmer.patec,
+          subtotal: cartSubtotal,
+          iva_total: cartIva,
+          total: cartTotal,
+          payment_method: kioskPayMethod || "unitel_money",
+          payment_status: "pendente",
+          created_by: user?.id,
+        }).select().single()).then((res) => {
+          if (res.error) throw res.error;
+          return res;
+        }),
+        {
+          maxAttempts: 2,
+          baseDelay: 2000,
+          onRetry: () => toast.info("Erro de rede — a tentar registar a venda novamente..."),
+        },
+      );
 
-    if (saleError || !sale) {
-      toast.error("Erro ao registar venda");
-      setProcessing(false);
-      setPaymentStatus("idle");
-      return;
-    }
+      if (!sale) {
+        toast.error("Não foi possível registar a venda. Verifique a ligação à internet e tente novamente.");
+        setProcessing(false);
+        setPaymentStatus("idle");
+        return;
+      }
 
     // Insert items
     const items = cart.map((c) => ({
@@ -519,6 +531,12 @@ const Mosap3PayPOS = () => {
     setConfirmOpen(false);
     setReceiptOpen(true);
     setCart([]);
+    } catch (err) {
+      const classified = classifyError(err);
+      toast.error(classified.description + (classified.retryable ? " Tente novamente." : ""));
+      setProcessing(false);
+      setPaymentStatus("idle");
+    }
   };
 
   const pollPaymentStatus = async (saleId: string, conversationId: string) => {

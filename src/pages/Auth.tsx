@@ -7,12 +7,13 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
-import { Loader2, Mail, Lock, UserPlus, LogIn, Shield, Gift, Sprout, Wheat, Eye, TrendingUp, WifiOff } from "lucide-react";
+import { Loader2, Mail, Lock, UserPlus, LogIn, Shield, Gift, Sprout, Wheat, Eye, TrendingUp, WifiOff, RefreshCw } from "lucide-react";
 import { z } from "zod";
 import mosapLogo from "@/assets/mosap3-logo.png";
 import { offlineLogin } from "@/lib/offlineAuth";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { useAuth } from "@/hooks/useAuth";
+import { classifyError } from "@/lib/errorHandling";
 
 const TEST_USERS = [
   { email: "admin@mosap3.test", password: "teste123", label: "Admin", icon: Shield, color: "text-red-500" },
@@ -41,6 +42,7 @@ const Auth = () => {
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [loading, setLoading] = useState(false);
+  const [loginAttempts, setLoginAttempts] = useState(0);
   const navigate = useNavigate();
   const isOnline = useOnlineStatus();
   const { setOfflineSession } = useAuth();
@@ -54,30 +56,69 @@ const Auth = () => {
     setLoading(true);
 
     if (!isOnline) {
-      // Offline login attempt
-      const cached = await offlineLogin(result.data.email, result.data.password);
-      setLoading(false);
-      if (cached) {
-        setOfflineSession(cached);
-        toast({ title: "Sessão offline", description: "Entrou com dados em cache. Algumas funcionalidades podem estar limitadas." });
-        navigate("/");
-      } else {
-        toast({ title: "Sem sessão em cache", description: "Nunca fez login com este email neste dispositivo. Conecte-se à internet.", variant: "destructive" });
+      try {
+        const cached = await offlineLogin(result.data.email, result.data.password);
+        setLoading(false);
+        if (cached) {
+          setOfflineSession(cached);
+          setLoginAttempts(0);
+          toast({ title: "Sessão offline", description: "Entrou com dados em cache. Algumas funcionalidades podem estar limitadas." });
+          navigate("/");
+        } else {
+          setLoginAttempts((prev) => prev + 1);
+          toast({
+            title: "Sem sessão em cache",
+            description: loginAttempts >= 2
+              ? "Nunca fez login com este email neste dispositivo. Conecte-se a uma rede Wi-Fi ou dados móveis para iniciar sessão pela primeira vez."
+              : "Nunca fez login com este email neste dispositivo. Conecte-se à internet.",
+            variant: "destructive",
+          });
+        }
+      } catch (err) {
+        setLoading(false);
+        toast({ title: "Erro offline", description: "Não foi possível verificar as credenciais em cache. Tente novamente.", variant: "destructive" });
       }
       return;
     }
 
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: result.data.email,
-      password: result.data.password,
-    });
-    setLoading(false);
-    if (error) {
-      toast({ title: "Erro ao entrar", description: error.message, variant: "destructive" });
-    } else if (data.user) {
-      // Offline cache will be populated after AuthProvider fetches profile/roles
-      // via SIGNED_IN event — no need to duplicate queries here
-      navigate("/");
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: result.data.email,
+        password: result.data.password,
+      });
+      setLoading(false);
+
+      if (error) {
+        setLoginAttempts((prev) => prev + 1);
+        const classified = classifyError(error);
+        
+        let extraHint = "";
+        if (loginAttempts >= 2 && classified.category === "auth") {
+          extraHint = " Se esqueceu a password, contacte o administrador do sistema.";
+        }
+
+        toast({
+          title: classified.title,
+          description: classified.description + extraHint,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (data.user) {
+        setLoginAttempts(0);
+        navigate("/");
+      }
+    } catch (err) {
+      setLoading(false);
+      const classified = classifyError(err);
+      toast({
+        title: classified.title,
+        description: classified.retryable
+          ? classified.description + " Tente novamente em alguns segundos."
+          : classified.description,
+        variant: "destructive",
+      });
     }
   };
 
@@ -88,27 +129,40 @@ const Auth = () => {
       return;
     }
     if (!isOnline) {
-      toast({ title: "Sem internet", description: "O registo requer ligação à internet.", variant: "destructive" });
+      toast({ title: "Sem internet", description: "O registo requer ligação à internet. Conecte-se a uma rede e tente novamente.", variant: "destructive" });
       return;
     }
     setLoading(true);
-    const { error } = await supabase.auth.signUp({
-      email: result.data.email,
-      password: result.data.password,
-      options: {
-        emailRedirectTo: window.location.origin,
-        data: { full_name: result.data.fullName },
-      },
-    });
-    setLoading(false);
-    if (error) {
-      toast({ title: "Erro ao registar", description: error.message, variant: "destructive" });
-    } else {
-      toast({
-        title: "Registo efetuado!",
-        description: "Verifique o seu email para confirmar a conta antes de entrar.",
+    try {
+      const { error } = await supabase.auth.signUp({
+        email: result.data.email,
+        password: result.data.password,
+        options: {
+          emailRedirectTo: window.location.origin,
+          data: { full_name: result.data.fullName },
+        },
       });
-      setIsLogin(true);
+      setLoading(false);
+      if (error) {
+        const classified = classifyError(error);
+        toast({ title: classified.title, description: classified.description, variant: "destructive" });
+      } else {
+        toast({
+          title: "Registo efetuado!",
+          description: "Verifique o seu email para confirmar a conta antes de entrar.",
+        });
+        setIsLogin(true);
+      }
+    } catch (err) {
+      setLoading(false);
+      const classified = classifyError(err);
+      toast({
+        title: classified.title,
+        description: classified.retryable
+          ? classified.description + " Tente novamente."
+          : classified.description,
+        variant: "destructive",
+      });
     }
   };
 
