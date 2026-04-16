@@ -1,53 +1,77 @@
 
 
-## Plano: Vincular itens PATEC aos produtos do fornecedor no POS
+# Inventário Completo da Plataforma MOSAP3
 
-### Problema actual
-- Os `patec_items` (composição do pacote) e os `supplier_products` (catálogo do fornecedor) são geridos de forma independente.
-- No POS, os itens do pacote aparecem como checklist estática, sem indicar quais já têm produto correspondente no catálogo do fornecedor.
-- Não existe forma de gerar automaticamente os produtos a partir do template PATEC.
+## Plataforma Principal (Backoffice) — Rotas protegidas por `ProtectedRoute` + `AppLayout`
 
-### Alterações previstas
+| Módulo | Rota(s) | Componentes principais | Dependências externas | Estado |
+|---|---|---|---|---|
+| **Autenticação** | `/auth` | `Auth.tsx`, `useAuth`, `offlineAuth`, `authSessionClockSkew` | Supabase Auth, IndexedDB (offline), Zod | Completo |
+| **Dashboard** | `/` | `Dashboard.tsx`, `StatCard`, `useDashboardData`, Recharts | Supabase (farmers, production, livestock, transactions), Recharts | Completo |
+| **Produtores (Agricultores)** | `/agricultores`, `/agricultores/:id`, `/agricultores/:id/ficha` | `Agricultores.tsx`, `FarmerProfile.tsx`, `FichaProdutor.tsx`, `FarmerRegistrationForm`, `BulkImportDialog`, `FarmerDocuments`, `InlineEditableField`, `FarmerAvatar`, `FingerprintCapture`, `DependentRegistrationForm` | Supabase (farmers, farmer_parcels, farmer_production, farmer_incentives, farmer_transactions, farmer_dependents, farmer_documents, livestock), Supabase Storage (farmer-media), xlsx | Completo |
+| **Escolas de Campo** | `/escolas`, `/escolas/provincia/:slug`, `/escolas/:id`, `/escolas/:id/ficha` | `EscolasCampo.tsx`, `ProvinciaEscolas.tsx`, `EscolaDetalhe.tsx`, `FichaEscola.tsx`, `ParcelasMap` | Supabase (schools, provinces, municipalities), Leaflet, ArcGIS tiles | Completo |
+| **Parcelas** | `/parcelas` | `Parcelas.tsx`, `ParcelRegistrationForm`, `ParcelasMap` | Supabase (farmer_parcels), Leaflet | Completo |
+| **Produção** | `/producao` | `Producao.tsx`, `TransactionRegistrationForm` | Supabase (farmer_production, farmer_production_phases) | Completo |
+| **PATEC** | `/patec` | `Patec.tsx` | Supabase (patec_items, farmers) | Completo |
+| **Incentivos** | `/incentivos` | `Incentivos.tsx`, `BatchDistributionDialog` | Supabase (farmer_incentives) | Completo |
+| **Transações** | `/transacoes` | `Transacoes.tsx` | Supabase (farmer_transactions) | Completo |
+| **Relatórios** | `/relatorios` | `Relatorios.tsx`, `ReportCharts`, `ReportPreview` | Supabase (múltiplas tabelas), Recharts | Completo |
+| **MOSAP3Pay Dashboard** | `/mosap3pay` | `Mosap3Pay.tsx` | Supabase (pos_sales, suppliers) | Completo |
+| **MOSAP3Pay Fornecedores** | `/mosap3pay/fornecedores` | `Mosap3PayFornecedores.tsx` | Supabase (suppliers, supplier_products, supplier_pos, supplier_provinces, patec_items) | Completo |
+| **MOSAP3Pay Terminal POS** | `/mosap3pay/pos` | `Mosap3PayPOS.tsx`, `InvoicePDF` | Supabase (suppliers, supplier_products, farmers, pos_sales, pos_sale_items, stock_movements, invoice_sequences), Edge Function (unitel-money-payment) | Completo |
+| **MOSAP3Pay Vendas** | `/mosap3pay/vendas` | `Mosap3PayVendas.tsx`, `InvoicePDF` | Supabase (pos_sales, pos_sale_items), Edge Functions (generate-saft, validate-saft) | Completo |
+| **MOSAP3Pay Notas de Crédito** | `/mosap3pay/notas-credito` | `Mosap3PayNotasCredito.tsx` | Supabase (credit_notes, credit_note_items) | Completo |
+| **MOSAP3Pay Stock** | `/mosap3pay/stock` | `Mosap3PayStock.tsx` | Supabase (supplier_products, stock_movements) | Completo |
+| **MOSAP3Pay Relatórios** | `/mosap3pay/relatorios` | `Mosap3PayRelatorios.tsx` | Supabase (pos_sales, credit_notes), Recharts | Completo |
+| **MOSAP3Pay Auditoria** | `/mosap3pay/auditoria` | `Mosap3PayAuditLogs.tsx` | Supabase (audit_logs) | Completo |
+| **MOSAP3Pay Configurações** | `/mosap3pay/configuracoes` | `Mosap3PayConfiguracoes.tsx` | Supabase (system_settings) | Completo |
+| **Utilizadores** | `/utilizadores` | `Utilizadores.tsx` | Supabase (profiles, user_roles, user_provinces, user_ecas) | Completo |
+| **Perfis (Matriz RBAC)** | `/perfis` | `Perfis.tsx` | Local state (sem persistência DB) | Parcial |
+| **Configurações Gerais** | `/configuracoes` | `Configuracoes.tsx` | Supabase (system_settings, profiles, provinces) | Completo |
+| **Gestão Províncias** | `/provincias` | `GestaoProvincias.tsx` | Supabase (provinces, municipalities, schools) | Completo |
+| **Instalar (PWA)** | `/instalar` | `Instalar.tsx` | Service Worker (push-sw.js), Web Push API | Completo |
+| **Notificações** | (componente global) | `NotificationBell.tsx`, `useNotifications` | Supabase (notifications), Edge Function (send-push-notification) | Completo |
 
-#### 1. Botão "Importar itens PATEC" nos formulários de produtos
-**Ficheiros**: `src/pages/Mosap3PayFornecedores.tsx`, `src/pages/fornecedor/FornecedorProdutos.tsx`
+## Portal do Fornecedor (isolado) — Layout próprio `FornecedorLayout`
 
-- Adicionar botão "Importar do PATEC" junto ao "Adicionar Produto".
-- Ao clicar, abre diálogo com selector de PATEC (1, 2 ou 3).
-- Carrega `patec_items` desse PATEC e mostra lista com checkbox.
-- Itens que já existam no catálogo (match por nome + patec_number) aparecem marcados e desactivados.
-- Ao confirmar, insere os itens seleccionados como `supplier_products` com:
-  - `name` = nome do patec_item
-  - `patec_number` = número do PATEC
-  - `patec_category` = categoria do patec_item
-  - `category` = mapeamento (Insumos→insumos, Pecuária→pecuaria, Serviços→servicos)
-  - `price` = 0 (a preencher pelo fornecedor)
-  - `stock` = 0
-- Toast de sucesso com contagem de itens importados.
+| Módulo | Rota(s) | Componentes principais | Dependências externas | Estado |
+|---|---|---|---|---|
+| **Auth Fornecedor** | `/fornecedor/login` | `FornecedorAuth.tsx` (wizard 3 passos com multi-loja) | Supabase Auth, Supabase (suppliers, supplier_stores) | Completo |
+| **Dashboard Fornecedor** | `/fornecedor` | `FornecedorDashboard.tsx` | Supabase (supplier_products, supplier_pos, pos_sales) | Completo |
+| **Produtos** | `/fornecedor/produtos` | `FornecedorProdutos.tsx` | Supabase (supplier_products) | Completo |
+| **Stock** | `/fornecedor/stock` | `FornecedorStock.tsx` | Supabase (supplier_products, stock_movements) | Completo |
+| **POS Terminais** | `/fornecedor/pos` | `FornecedorPOS.tsx` | Supabase (supplier_pos) | Completo |
+| **Vendas** | `/fornecedor/vendas` | `FornecedorVendas.tsx` | Supabase (pos_sales) | Completo |
+| **Perfil** | `/fornecedor/perfil` | `FornecedorPerfil.tsx` | Supabase (suppliers), Supabase Storage (supplier-logos) | Completo |
 
-#### 2. Checklist enriquecida no POS
-**Ficheiro**: `src/pages/Mosap3PayPOS.tsx`
+## Edge Functions (Backend)
 
-- Quando o produtor é identificado e os `patec_items` são carregados, cruzar com os `products` do fornecedor seleccionado.
-- Para cada item do pacote, mostrar:
-  - ✅ verde se existe produto correspondente no catálogo (match por `patec_number` + `patec_category` + nome similar)
-  - ⚠️ amarelo/cinza se não existe produto correspondente
-- Isto dá visibilidade imediata ao operador sobre quais itens do pacote estão disponíveis para venda.
+| Função | Finalidade | Integrações | Estado |
+|---|---|---|---|
+| `generate-saft` | Exportação SAF-T (AO) XML | Supabase DB (pos_sales, suppliers) | Completo |
+| `validate-saft` | Validação SAF-T contra esquema AGT | XML Schema v1.01_01 | Completo |
+| `unitel-money-payment` | Pagamento via Unitel Money API v4.7 | Unitel Money OAuth2 (BuyGoods) | Completo |
+| `send-push-notification` | Web Push via VAPID | Web Push Protocol | Completo |
+| `generate-vapid-keys` | Geração de chaves VAPID | Crypto API | Completo |
+| `seed-test-users` | Criação dos 9 utilizadores de teste | Supabase Auth Admin | Completo |
 
-#### 3. Campo `patec_category` visível nos formulários
-**Ficheiros**: `src/pages/fornecedor/FornecedorProdutos.tsx`, `src/pages/Mosap3PayFornecedores.tsx`
+## Infraestrutura Transversal
 
-- Quando um produto tem `patec_number` definido, mostrar selector de `patec_category` (Insumos, Pecuária, Serviços) para permitir o mapeamento manual.
-- Este campo já existe na tabela `supplier_products` mas não está exposto nos formulários do portal do fornecedor.
+| Componente | Descrição | Estado |
+|---|---|---|
+| **RBAC (9 níveis)** | `user_roles` + `has_role()` + `RoleGuard` + `is_admin()` | Completo |
+| **RLS Policies** | Todas as 30+ tabelas com políticas Row-Level Security | Completo |
+| **PWA / Offline** | Service Worker, IndexedDB cache (30m TTL), SyncQueue v3, login offline PBKDF2 | Completo |
+| **Compressão de Imagens** | Client-side (max 1024px, quality 0.7) antes do upload | Completo |
+| **Notificações Híbridas** | In-app (DB) + Web Push (VAPID) com triggers automáticos | Completo |
+| **Geolocalização** | Leaflet vanilla + ArcGIS satellite tiles | Completo |
+| **Matriz de Permissões** | UI interativa em `/perfis` — switches visuais, **sem persistência em DB** | Parcial |
 
-### Fluxo resultante
-1. Admin define composição do pacote em `/patec` (ex: PATEC 1 → Sementes de milho, Enxada, Vacinação)
-2. Fornecedor ou admin clica "Importar do PATEC 1" → produtos são criados automaticamente no catálogo
-3. Fornecedor define preços e stock para cada produto importado
-4. No POS, ao identificar produtor com PATEC 1, a checklist mostra quais itens do pacote o fornecedor tem disponíveis
+## Resumo
 
-### Detalhes técnicos
-- Nenhuma migração necessária — `patec_category` já existe em `supplier_products`
-- Match entre patec_items e supplier_products: `patec_number` + `name` (case-insensitive)
-- A importação não duplica itens já existentes
+- **Total de rotas**: 33 (25 backoffice + 7 portal fornecedor + 1 auth)
+- **Tabelas Supabase**: 30
+- **Edge Functions**: 6
+- **Storage Buckets**: 2 (farmer-media privado, supplier-logos público)
+- **Estado geral**: A grande maioria dos módulos está **completa**. O único item **parcial** é a Matriz de Permissões (`/perfis`) que funciona apenas em memória local sem guardar alterações na base de dados.
 
