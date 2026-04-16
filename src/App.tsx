@@ -46,6 +46,7 @@ import FornecedorPOS from "@/pages/fornecedor/FornecedorPOS";
 import FornecedorVendas from "@/pages/fornecedor/FornecedorVendas";
 import FornecedorStock from "@/pages/fornecedor/FornecedorStock";
 import FornecedorPerfil from "@/pages/fornecedor/FornecedorPerfil";
+import FornecedorLojas from "@/pages/fornecedor/FornecedorLojas";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient({
@@ -116,6 +117,7 @@ const App = () => (
             <Route path="stock" element={<FornecedorStock />} />
             <Route path="pos" element={<FornecedorPOS />} />
             <Route path="vendas" element={<FornecedorVendas />} />
+            <Route path="lojas" element={<FornecedorLojas />} />
             <Route path="perfil" element={<FornecedorPerfil />} />
           </Route>
 
