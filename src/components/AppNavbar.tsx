@@ -153,6 +153,7 @@ const AppNavbar = () => {
   const isMobile = useIsMobile();
   const { user, profile, roles, isAdmin } = useAuth();
   const { data: patecPending = 0 } = usePatecPendingCount();
+  const { data: matrix } = useModulePermissions();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const dropdownTimeout = useRef<NodeJS.Timeout | null>(null);
@@ -163,6 +164,9 @@ const AppNavbar = () => {
   const canSee = (item: NavItem): boolean => {
     if (!user || roles.length === 0) return true;
     if (isAdmin) return true;
+    if (item.moduleName && matrix && matrix[item.moduleName]) {
+      return canAccessModule(item.moduleName, roles, matrix, isAdmin);
+    }
     if (!item.allowedRoles || item.allowedRoles.length === 0) return true;
     return item.allowedRoles.some((r) => roles.includes(r));
   };
