@@ -48,6 +48,7 @@ type NavItem = {
   children?: { label: string; path: string; icon?: any }[];
   allowedRoles?: AppRole[];
   sidebar?: boolean;
+  moduleName?: string;
 };
 
 export type { NavItem, AppRole };
