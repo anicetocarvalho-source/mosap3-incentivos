@@ -61,29 +61,31 @@ const ALL_ROLES: AppRole[] = [
 ];
 
 export const navItems: NavItem[] = [
-  { icon: LayoutDashboard, label: "Dashboard", path: "/", sidebar: true },
+  { icon: LayoutDashboard, label: "Dashboard", path: "/", sidebar: true, moduleName: "Dashboard" },
   {
     icon: Users,
     label: "Produtores",
     sidebar: true,
+    moduleName: "Cadastro de Agricultores",
     children: [
       { label: "Registo do Pequeno Produtor", path: "/agricultores", icon: UserPlus },
     ],
   },
-  { icon: School, label: "Escolas", path: "/escolas" },
+  { icon: School, label: "Escolas", path: "/escolas", moduleName: "Escolas de Campo" },
   {
     icon: Gift,
     label: "Incentivos",
     sidebar: true,
     allowedRoles: ["admin", "gestor_incentivos"],
+    moduleName: "Incentivos",
     children: [
       { label: "PATEC", path: "/patec", icon: Package },
       { label: "Incentivos", path: "/incentivos", icon: Gift },
       { label: "Transações", path: "/transacoes", icon: ArrowLeftRight },
     ],
   },
-  { icon: MapPin, label: "Parcelas", path: "/parcelas" },
-  { icon: Wheat, label: "Produção", path: "/producao" },
+  { icon: MapPin, label: "Parcelas", path: "/parcelas", moduleName: "Parcelas" },
+  { icon: Wheat, label: "Produção", path: "/producao", moduleName: "Produção" },
   {
     icon: CreditCard,
     label: "MOSAP3Pay",
@@ -106,12 +108,14 @@ export const navItems: NavItem[] = [
     label: "Relatórios",
     path: "/relatorios",
     allowedRoles: ["admin", "gestor_incentivos", "senior_agricultura", "senior_monitoria", "junior_monitoria", "junior_agricultura", "senior_agronegocio"],
+    moduleName: "Relatórios",
   },
   {
     icon: UserCog,
     label: "Utilizadores",
     sidebar: true,
     allowedRoles: ["admin"],
+    moduleName: "Utilizadores",
     children: [
       { label: "Lista de Utilizadores", path: "/utilizadores" },
       { label: "Perfis", path: "/perfis" },
@@ -122,6 +126,7 @@ export const navItems: NavItem[] = [
     label: "Configurações",
     sidebar: true,
     allowedRoles: ["admin"],
+    moduleName: "Configurações",
     children: [
       { label: "Geral", path: "/configuracoes", icon: Settings },
       { label: "Províncias", path: "/provincias", icon: MapPin },
