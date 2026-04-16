@@ -25,6 +25,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { farmerSchema } from "@/lib/formValidation";
 import { compressImage } from "@/lib/imageCompression";
+import { classifyError, withRetry } from "@/lib/errorHandling";
 
 const photoSlots = [
   { label: "Foto Frontal", key: "frontal" },
@@ -138,7 +139,11 @@ const FarmerRegistrationForm = ({ open, onOpenChange, editData }: Props) => {
   const handleSubmit = async () => {
     const validation = farmerSchema.safeParse(formData);
     if (!validation.success) {
-      toast({ title: "Erro de validação", description: validation.error.errors[0].message, variant: "destructive" });
+      const errors = validation.error.errors;
+      const errorList = errors.length > 1
+        ? errors.map((e, i) => `${i + 1}. ${e.message}`).join("\n")
+        : errors[0].message;
+      toast({ title: "Dados incompletos", description: errorList, variant: "destructive" });
       return;
     }
     setSaving(true);
@@ -148,9 +153,16 @@ const FarmerRegistrationForm = ({ open, onOpenChange, editData }: Props) => {
 
     try {
       if (isOnline) {
-        // Upload media to cloud storage
-        const { photoUrls, biometricUrls } = await uploadAllFarmerMedia(
-          farmerCode, photos, biometrics,
+        // Upload media to cloud storage with retry for transient failures
+        const { photoUrls, biometricUrls } = await withRetry(
+          () => uploadAllFarmerMedia(farmerCode, photos, biometrics),
+          {
+            maxAttempts: 3,
+            baseDelay: 1500,
+            onRetry: (attempt) => {
+              toast({ title: "A tentar novamente...", description: `Tentativa ${attempt + 1} de envio dos ficheiros.` });
+            },
+          },
         );
 
         // Save farmer record to database
@@ -188,8 +200,8 @@ const FarmerRegistrationForm = ({ open, onOpenChange, editData }: Props) => {
         }
 
         toast({
-          title: "Agricultor registado",
-          description: "O registo e ficheiros foram guardados com sucesso.",
+          title: isEditing ? "Agricultor actualizado" : "Agricultor registado",
+          description: `${formData.nome} foi ${isEditing ? "actualizado" : "registado"} com sucesso.`,
         });
       } else {
         // Offline: save locally
@@ -204,7 +216,7 @@ const FarmerRegistrationForm = ({ open, onOpenChange, editData }: Props) => {
         await saveFarmerOffline(record);
         toast({
           title: "Guardado offline",
-          description: "O registo será sincronizado quando houver ligação à internet.",
+          description: `${formData.nome} será sincronizado automaticamente quando houver ligação à internet.`,
         });
       }
 
@@ -215,7 +227,22 @@ const FarmerRegistrationForm = ({ open, onOpenChange, editData }: Props) => {
       setBiometrics({});
       setFormData({ nome: "", bi: "", dataNascimento: "", genero: "", telefone: "", provincia: "", municipio: "", escolaCampo: "", patec: "" });
     } catch (err: any) {
-      toast({ title: "Erro", description: err?.message || "Não foi possível guardar o registo.", variant: "destructive" });
+      const classified = classifyError(err);
+
+      let actionHint = "";
+      if (classified.category === "network") {
+        actionHint = " Os dados podem ser guardados offline — desactive o Wi-Fi e tente novamente.";
+      } else if (classified.category === "auth") {
+        actionHint = " A sua sessão pode ter expirado. Faça logout e entre novamente.";
+      } else if (classified.description.includes("duplicado")) {
+        actionHint = " Verifique se este agricultor já foi registado.";
+      }
+
+      toast({
+        title: classified.title,
+        description: classified.description + actionHint,
+        variant: "destructive",
+      });
     } finally {
       setSaving(false);
     }
