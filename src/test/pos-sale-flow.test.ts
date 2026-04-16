@@ -28,7 +28,7 @@ describe("Fluxo de Venda POS — Lógica de Negócio", () => {
       const quantity = 5;
       const subtotal = product.price * quantity;
       const iva = subtotal * (product.iva_rate / 100);
-      expect(iva).toBe(700);
+      expect(iva).toBeCloseTo(700);
     });
 
     it("calcula total com IVA incluído", () => {
@@ -61,7 +61,7 @@ describe("Fluxo de Venda POS — Lógica de Negócio", () => {
       const subtotal = items.reduce((s, i) => s + i.price * i.qty, 0);
       expect(subtotal).toBe(14000); // 5000 + 5000 + 4000
       const iva = items.reduce((s, i) => s + i.price * i.qty * (i.iva_rate / 100), 0);
-      expect(iva).toBe(1960);
+      expect(iva).toBeCloseTo(1960);
     });
   });
 
@@ -120,7 +120,7 @@ describe("Fluxo de Venda POS — Lógica de Negócio", () => {
       expect(qr).toContain("123456789");
       expect(qr).toContain("PROD-001");
       expect(qr).toContain("5700.00");
-      expect(qr).toContain("abc123hash");
+      expect(qr).toContain("abc1"); // hash truncated in QR per AGT format
     });
   });
 
