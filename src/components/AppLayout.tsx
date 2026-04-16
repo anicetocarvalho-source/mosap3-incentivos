@@ -5,6 +5,7 @@ import OnlineStatusBanner from "./OnlineStatusBanner";
 import { useAuth } from "@/hooks/useAuth";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Separator } from "@/components/ui/separator";
+import { useModulePermissions, canAccessModule } from "@/hooks/useModulePermissions";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -12,11 +13,19 @@ const AppLayout = () => {
   const location = useLocation();
   const isMobile = useIsMobile();
   const { roles, isAdmin, user } = useAuth();
+  const { data: matrix } = useModulePermissions();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const canSee = (item: NavItem): boolean => {
     if (!user || roles.length === 0) return true;
     if (isAdmin) return true;
+
+    // Check DB matrix if a moduleName is defined on the nav item
+    if (item.moduleName && matrix && matrix[item.moduleName]) {
+      return canAccessModule(item.moduleName, roles, matrix, isAdmin);
+    }
+
+    // Fallback to hardcoded allowedRoles
     if (!item.allowedRoles || item.allowedRoles.length === 0) return true;
     return item.allowedRoles.some((r) => roles.includes(r));
   };

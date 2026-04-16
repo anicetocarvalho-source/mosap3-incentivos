@@ -93,18 +93,18 @@ const App = () => (
               <Route path="/mosap3pay/configuracoes" element={<Mosap3PayConfiguracoes />} />
 
               {/* Incentivos & Transações: admin, gestor_incentivos */}
-              <Route path="/incentivos" element={<RoleGuard allowedRoles={["admin", "gestor_incentivos"]}><Incentivos /></RoleGuard>} />
-              <Route path="/transacoes" element={<RoleGuard allowedRoles={["admin", "gestor_incentivos"]}><Transacoes /></RoleGuard>} />
+              <Route path="/incentivos" element={<RoleGuard allowedRoles={["admin", "gestor_incentivos"]} moduleName="Incentivos"><Incentivos /></RoleGuard>} />
+              <Route path="/transacoes" element={<RoleGuard allowedRoles={["admin", "gestor_incentivos"]} moduleName="Transações"><Transacoes /></RoleGuard>} />
 
 
               {/* Relatórios: todos excepto junior_agronegocio e tecnico_extensionista */}
-              <Route path="/relatorios" element={<RoleGuard allowedRoles={["admin", "gestor_incentivos", "senior_agricultura", "senior_monitoria", "junior_monitoria", "junior_agricultura", "senior_agronegocio"]}><Relatorios /></RoleGuard>} />
+              <Route path="/relatorios" element={<RoleGuard allowedRoles={["admin", "gestor_incentivos", "senior_agricultura", "senior_monitoria", "junior_monitoria", "junior_agricultura", "senior_agronegocio"]} moduleName="Relatórios"><Relatorios /></RoleGuard>} />
 
               {/* Admin only */}
-              <Route path="/utilizadores" element={<RoleGuard allowedRoles={["admin"]}><Utilizadores /></RoleGuard>} />
-              <Route path="/perfis" element={<RoleGuard allowedRoles={["admin"]}><Perfis /></RoleGuard>} />
-              <Route path="/configuracoes" element={<RoleGuard allowedRoles={["admin"]}><Configuracoes /></RoleGuard>} />
-              <Route path="/provincias" element={<RoleGuard allowedRoles={["admin"]}><GestaoProvincias /></RoleGuard>} />
+              <Route path="/utilizadores" element={<RoleGuard allowedRoles={["admin"]} moduleName="Utilizadores"><Utilizadores /></RoleGuard>} />
+              <Route path="/perfis" element={<RoleGuard allowedRoles={["admin"]} moduleName="Utilizadores"><Perfis /></RoleGuard>} />
+              <Route path="/configuracoes" element={<RoleGuard allowedRoles={["admin"]} moduleName="Configurações"><Configuracoes /></RoleGuard>} />
+              <Route path="/provincias" element={<RoleGuard allowedRoles={["admin"]} moduleName="Gestão de Províncias"><GestaoProvincias /></RoleGuard>} />
             </Route>
           </Route>
 

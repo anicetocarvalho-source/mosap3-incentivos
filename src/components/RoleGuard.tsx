@@ -2,24 +2,35 @@ import { useEffect, useRef } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { Navigate } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
+import { useModulePermissions, canAccessModule } from "@/hooks/useModulePermissions";
 import type { Database } from "@/integrations/supabase/types";
 import AcessoNegado from "@/pages/AcessoNegado";
 
 type AppRole = Database["public"]["Enums"]["app_role"];
 
 interface RoleGuardProps {
+  /** Kept for backwards compat but now secondary to DB matrix */
   allowedRoles: AppRole[];
+  /** Module name in the permissions matrix (optional – if provided, DB check takes priority) */
+  moduleName?: string;
   children: React.ReactNode;
 }
 
-const RoleGuard = ({ allowedRoles, children }: RoleGuardProps) => {
+const RoleGuard = ({ allowedRoles, moduleName, children }: RoleGuardProps) => {
   const { roles, isAdmin, user, loading, authReady } = useAuth();
+  const { data: matrix } = useModulePermissions();
   const toastShown = useRef(false);
 
-  const hasAccess =
-    !user || loading || !authReady || isAdmin || roles.length === 0
-      ? true
-      : allowedRoles.some((r) => roles.includes(r));
+  // Determine access: DB matrix takes priority if available
+  let hasAccess = true;
+  if (user && !loading && authReady && !isAdmin && roles.length > 0) {
+    if (moduleName && matrix && matrix[moduleName]) {
+      hasAccess = canAccessModule(moduleName, roles, matrix, isAdmin);
+    } else {
+      // Fallback to hardcoded allowedRoles
+      hasAccess = allowedRoles.some((r) => roles.includes(r));
+    }
+  }
 
   useEffect(() => {
     if (!loading && user && roles.length > 0 && !isAdmin && !hasAccess && !toastShown.current) {

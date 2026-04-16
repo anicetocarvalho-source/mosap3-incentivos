@@ -1,7 +1,9 @@
-import { useState, useCallback } from "react";
+import { useCallback } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "@/hooks/use-toast";
+import { useModulePermissions, useTogglePermission } from "@/hooks/useModulePermissions";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const ROLE_LABELS: Record<string, string> = {
   admin: "Admin",
@@ -36,47 +38,46 @@ const MODULE_NAMES = [
   "Gestão de ECAs",
 ];
 
-const DEFAULT_ACCESS: Record<string, Record<string, boolean>> = {};
-MODULE_NAMES.forEach((mod) => {
-  DEFAULT_ACCESS[mod] = {};
-  ROLES.forEach((role) => {
-    const allAccess = ["Dashboard", "Cadastro de Agricultores", "Registo do Pequeno Produtor", "Escolas de Campo", "Parcelas", "Produção", "Pecuária"];
-    if (allAccess.includes(mod)) {
-      DEFAULT_ACCESS[mod][role] = true;
-    } else if (mod === "Relatórios") {
-      DEFAULT_ACCESS[mod][role] = !["junior_agronegocio", "tecnico_extensionista"].includes(role);
-    } else if (mod === "Gestão de Províncias") {
-      DEFAULT_ACCESS[mod][role] = ["admin", "senior_agricultura", "senior_monitoria"].includes(role);
-    } else if (mod === "Incentivos" || mod === "Transações") {
-      DEFAULT_ACCESS[mod][role] = ["admin", "gestor_incentivos"].includes(role);
-    } else if (mod === "Compras" || mod === "Empresas") {
-      DEFAULT_ACCESS[mod][role] = ["admin", "gestor_incentivos", "senior_agronegocio", "junior_agronegocio"].includes(role);
-    } else if (mod === "Utilizadores" || mod === "Configurações") {
-      DEFAULT_ACCESS[mod][role] = role === "admin";
-    } else if (mod === "Gestão de ECAs") {
-      DEFAULT_ACCESS[mod][role] = ["admin", "tecnico_extensionista"].includes(role);
-    } else {
-      DEFAULT_ACCESS[mod][role] = false;
-    }
-  });
-});
-
 const Perfis = () => {
-  const [access, setAccess] = useState<Record<string, Record<string, boolean>>>(DEFAULT_ACCESS);
+  const { data: matrix, isLoading } = useModulePermissions();
+  const toggleMutation = useTogglePermission();
 
   const toggleAccess = useCallback((mod: string, role: string) => {
-    setAccess((prev) => {
-      const newVal = !prev[mod][role];
-      toast({
-        title: newVal ? "Acesso ativado" : "Acesso desativado",
-        description: `${ROLE_LABELS[role]} → ${mod}`,
-      });
-      return {
-        ...prev,
-        [mod]: { ...prev[mod], [role]: newVal },
-      };
-    });
-  }, []);
+    if (!matrix) return;
+    const current = matrix[mod]?.[role] ?? false;
+    const newVal = !current;
+
+    toggleMutation.mutate(
+      { module_name: mod, role, has_access: newVal },
+      {
+        onSuccess: () => {
+          toast({
+            title: newVal ? "Acesso ativado" : "Acesso desativado",
+            description: `${ROLE_LABELS[role]} → ${mod}`,
+          });
+        },
+        onError: () => {
+          toast({
+            title: "Erro ao guardar",
+            description: "Não foi possível actualizar a permissão.",
+            variant: "destructive",
+          });
+        },
+      }
+    );
+  }, [matrix, toggleMutation]);
+
+  if (isLoading || !matrix) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="page-title">Perfis & Permissões</h1>
+          <p className="text-muted-foreground text-sm mt-1">A carregar matriz de permissões…</p>
+        </div>
+        <Skeleton className="h-96 w-full rounded-xl" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -110,7 +111,7 @@ const Perfis = () => {
                 {ROLES.map((role) => (
                   <TableCell key={role} className="text-center">
                     <Switch
-                      checked={access[mod][role]}
+                      checked={matrix[mod]?.[role] ?? false}
                       onCheckedChange={() => toggleAccess(mod, role)}
                       className="mx-auto"
                     />
@@ -124,7 +125,7 @@ const Perfis = () => {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         {ROLES.map((role) => {
-          const accessCount = MODULE_NAMES.filter((m) => access[m][role]).length;
+          const accessCount = MODULE_NAMES.filter((m) => matrix[m]?.[role]).length;
           return (
             <div key={role} className="flex items-center gap-3 p-3 rounded-lg border border-border bg-card">
               <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xs font-bold">
