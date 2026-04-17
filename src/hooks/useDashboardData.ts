@@ -81,7 +81,7 @@ async function fetchDashboardData(
   userId: string,
   roles: AppRole[],
 ): Promise<DashboardStats> {
-  const scope = getFilterScope(roles);
+  let scope = getFilterScope(roles);
 
   let provinces: string[] = [];
   let ecas: string[] = [];
