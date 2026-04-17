@@ -229,7 +229,7 @@ const Mosap3PayFornecedores = () => {
     toast.success(editSupplier ? "Fornecedor atualizado" : "Fornecedor criado");
     setDialogOpen(false);
     setEditSupplier(null);
-    fetchSuppliers();
+    invalidateSuppliers();
   };
 
   const openEditDialog = (s: Supplier) => {
@@ -263,13 +263,13 @@ const Mosap3PayFornecedores = () => {
       toast.success("Produto adicionado");
     }
     setProductDialogOpen(false);
-    fetchSupplierDetails(selectedSupplier.id);
+    invalidateDetails();
   };
 
   const handleDeleteProduct = async (id: string) => {
     await supabase.from("supplier_products").delete().eq("id", id);
     toast.success("Produto removido");
-    if (selectedSupplier) fetchSupplierDetails(selectedSupplier.id);
+    if (selectedSupplier) invalidateDetails();
   };
 
   const handleSavePos = async () => {
@@ -287,7 +287,7 @@ const Mosap3PayFornecedores = () => {
       toast.success("Terminal adicionado");
     }
     setPosDialogOpen(false);
-    fetchSupplierDetails(selectedSupplier.id);
+    invalidateDetails();
   };
 
   // PATEC import logic
@@ -329,7 +329,7 @@ const Mosap3PayFornecedores = () => {
     if (error) { toast.error("Erro ao importar"); setImportingPatec(false); return; }
     toast.success(`${toImport.length} produto(s) importado(s) do PATEC ${importPatecNumber}`);
     setImportPatecOpen(false);
-    fetchSupplierDetails(selectedSupplier.id);
+    invalidateDetails();
   };
 
   // ===================== DETAIL VIEW =====================
