@@ -45,7 +45,13 @@ const Auth = () => {
   const [loginAttempts, setLoginAttempts] = useState(0);
   const navigate = useNavigate();
   const isOnline = useOnlineStatus();
-  const { setOfflineSession } = useAuth();
+  const { setOfflineSession, user, authReady } = useAuth();
+
+  useEffect(() => {
+    if (authReady && user) {
+      navigate("/", { replace: true });
+    }
+  }, [authReady, user, navigate]);
 
   const handleLogin = async () => {
     const result = loginSchema.safeParse({ email, password });
