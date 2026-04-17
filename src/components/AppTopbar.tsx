@@ -72,12 +72,12 @@ const AppTopbar = () => {
             <Fragment key={crumb.path}>
               <BreadcrumbItem className="hidden md:inline-flex">
                 {crumb.isLast ? (
-                  <BreadcrumbPage className="capitalize text-sm font-medium truncate max-w-[200px]">
+                  <BreadcrumbPage className="text-sm font-medium truncate max-w-[200px]">
                     {crumb.label}
                   </BreadcrumbPage>
                 ) : (
                   <BreadcrumbLink asChild>
-                    <Link to={crumb.path} className="capitalize text-sm text-muted-foreground hover:text-foreground transition-colors">
+                    <Link to={crumb.path} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
                       {crumb.label}
                     </Link>
                   </BreadcrumbLink>
