@@ -1567,6 +1567,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      dashboard_charts: {
+        Args: { p_ecas?: string[]; p_provinces?: string[]; p_scope: string }
+        Returns: Json
+      }
+      dashboard_kpis: {
+        Args: { p_ecas?: string[]; p_provinces?: string[]; p_scope: string }
+        Returns: Json
+      }
       has_any_backoffice_role: { Args: { _user_id: string }; Returns: boolean }
       has_role: {
         Args: {
@@ -1602,6 +1610,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      parse_ptao_numeric: { Args: { _s: string }; Returns: number }
     }
     Enums: {
       app_role:
