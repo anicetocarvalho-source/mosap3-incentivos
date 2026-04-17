@@ -646,7 +646,7 @@ const Mosap3PayFornecedores = () => {
       </div>
 
       {loadError && (
-        <Card><CardContent className="p-6"><ErrorState onRetry={fetchSuppliers} /></CardContent></Card>
+        <Card><CardContent className="p-6"><ErrorState onRetry={() => suppliersQuery.refetch()} /></CardContent></Card>
       )}
 
       {/* KPI Cards */}
