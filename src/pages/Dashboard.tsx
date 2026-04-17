@@ -1,9 +1,8 @@
-import { Users, ThumbsUp, ArrowRightLeft, Building2, School, MapPin, Wheat, Gift, Beef, Loader2, BarChart3, PieChart as PieIcon, Activity, Sprout } from "lucide-react";
-import { motion } from "framer-motion";
+import { Users, ThumbsUp, ArrowRightLeft, Building2, School, MapPin, Wheat, Beef, Loader2, BarChart3, PieChart as PieIcon, Activity, Sprout, Target, Gauge, AlertTriangle, TrendingUp } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
-  PieChart, Pie, Cell,
+  PieChart, Pie, Cell, AreaChart, Area,
 } from "recharts";
 import { useAuth } from "@/hooks/useAuth";
 import { useDashboardData } from "@/hooks/useDashboardData";
