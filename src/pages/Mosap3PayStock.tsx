@@ -335,6 +335,10 @@ const Mosap3PayStock = () => {
         </CardContent></Card>
       </div>
 
+      {loadError && (
+        <Card><CardContent className="p-6"><ErrorState onRetry={fetchData} /></CardContent></Card>
+      )}
+
       <Tabs defaultValue="products" className="space-y-4">
         <TabsList>
           <TabsTrigger value="products" className="gap-1"><Package className="h-3.5 w-3.5" /> Produtos</TabsTrigger>
