@@ -1,278 +1,212 @@
-import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import {
-  LayoutDashboard,
-  Users,
-  
-  ArrowLeftRight,
-  UserCog,
-  Settings,
-  ChevronLeft,
-  ChevronRight,
-  ChevronDown,
-  ChevronUp,
-  UserPlus,
-  School,
-  Wheat,
-  Gift,
-  
-  MapPin,
-  Smartphone,
-  FileText,
-  Package,
-} from "lucide-react";
-import mosapLogo from "@/assets/mosap3-logo.png";
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
+  useSidebar,
+} from "@/components/ui/sidebar";
+import { navItems, type NavItem } from "./AppNavbar";
 import { useAuth } from "@/hooks/useAuth";
-import type { Database } from "@/integrations/supabase/types";
+import { useModulePermissions, canAccessModule } from "@/hooks/useModulePermissions";
+import { usePatecPendingCount } from "@/hooks/usePatecPendingCount";
+import mosapLogo from "@/assets/mosap3-logo.png";
+import { LogOut, User as UserIcon } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
 
-type AppRole = Database["public"]["Enums"]["app_role"];
-
-type NavItem = {
-  icon: any;
-  label: string;
-  path?: string;
-  children?: { label: string; path: string; icon?: any }[];
-  allowedRoles?: AppRole[];
-  compact?: boolean;
+const ROLE_LABELS: Record<string, string> = {
+  admin: "Administrador",
+  gestor_incentivos: "Gestor de Incentivos",
+  senior_agricultura: "Sénior Agricultura",
+  senior_monitoria: "Sénior Monitoria",
+  junior_monitoria: "Júnior Monitoria",
+  junior_agricultura: "Júnior Agricultura",
+  senior_agronegocio: "Sénior Agronegócio",
+  junior_agronegocio: "Júnior Agronegócio",
+  tecnico_extensionista: "Técnico Extensionista",
 };
 
-const ALL_ROLES: AppRole[] = [
-  "admin", "gestor_incentivos",
-  "senior_agricultura", "senior_monitoria", "senior_agronegocio",
-  "junior_agricultura", "junior_monitoria", "junior_agronegocio",
-  "tecnico_extensionista",
-];
+// Group nav items into logical sections
+const SECTION_MAP: Record<string, string> = {
+  Dashboard: "Visão geral",
+  Produtores: "Operação",
+  Escolas: "Operação",
+  Parcelas: "Operação",
+  Produção: "Operação",
+  Incentivos: "Incentivos",
+  MOSAP3Pay: "Comercial",
+  Relatórios: "Comercial",
+  Utilizadores: "Sistema",
+  Configurações: "Sistema",
+  Instalar: "Sistema",
+};
 
-const navItems: NavItem[] = [
-  { icon: LayoutDashboard, label: "Dashboard", path: "/" },
-  {
-    icon: Users,
-    label: "Registo do Pequeno Produtor",
-    children: [
-      { label: "Registo do Pequeno Produtor", path: "/agricultores", icon: UserPlus },
-    ],
-  },
-  {
-    icon: School,
-    label: "Escolas de Campo",
-    path: "/escolas",
-  },
-  {
-    icon: Gift,
-    label: "Incentivos",
-    allowedRoles: ["admin", "gestor_incentivos"],
-    children: [
-      { label: "PATEC", path: "/patec", icon: Package },
-      { label: "Incentivos", path: "/incentivos", icon: Gift },
-      { label: "Transações", path: "/transacoes", icon: ArrowLeftRight },
-    ],
-  },
-  {
-    icon: MapPin,
-    label: "Parcelas",
-    path: "/parcelas",
-    compact: true,
-  },
-  {
-    icon: Wheat,
-    label: "Produção",
-    path: "/producao",
-    compact: true,
-  },
-  {
-    icon: FileText,
-    label: "Relatórios",
-    path: "/relatorios",
-    compact: true,
-    allowedRoles: ["admin", "gestor_incentivos", "senior_agricultura", "senior_monitoria", "junior_monitoria", "junior_agricultura", "senior_agronegocio"],
-  },
-  {
-    icon: UserCog,
-    label: "Utilizadores",
-    allowedRoles: ["admin"],
-    children: [
-      { label: "Lista de Utilizadores", path: "/utilizadores" },
-      { label: "Perfis", path: "/perfis" },
-    ],
-  },
-  {
-    icon: Settings,
-    label: "Configurações",
-    allowedRoles: ["admin"],
-    children: [
-      { label: "Geral", path: "/configuracoes" },
-      { label: "Províncias", path: "/provincias" },
-    ],
-  },
-  { icon: Smartphone, label: "Instalar App", path: "/instalar" },
-];
+const SECTION_ORDER = ["Visão geral", "Operação", "Incentivos", "Comercial", "Sistema"];
 
-interface AppSidebarProps {
-  mobileOpen?: boolean;
-  onMobileClose?: () => void;
-}
-
-const AppSidebar = ({ mobileOpen, onMobileClose }: AppSidebarProps) => {
+const AppSidebar = () => {
   const location = useLocation();
-  const [collapsed, setCollapsed] = useState(false);
-  const [openMenus, setOpenMenus] = useState<string[]>(["Registo do Pequeno Produtor"]);
-  const { roles, isAdmin, user } = useAuth();
-  const isMobile = mobileOpen !== undefined;
+  const navigate = useNavigate();
+  const { state } = useSidebar();
+  const collapsed = state === "collapsed";
+  const { user, profile, roles, isAdmin } = useAuth();
+  const { data: matrix } = useModulePermissions();
+  const { data: patecPending = 0 } = usePatecPendingCount();
 
-  const toggleMenu = (label: string) => {
-    setOpenMenus((prev) =>
-      prev.includes(label) ? prev.filter((l) => l !== label) : [...prev, label]
-    );
-  };
-
-  const isChildActive = (item: NavItem) =>
-    item.children?.some((c) => location.pathname === c.path);
+  const displayName = profile?.full_name || user?.email || "Utilizador";
+  const primaryRole = roles.length > 0 ? ROLE_LABELS[roles[0]] || roles[0] : "Sem perfil";
 
   const canSee = (item: NavItem): boolean => {
-    // If no roles assigned yet or not logged in, show all (graceful fallback)
     if (!user || roles.length === 0) return true;
-    // Admin sees everything
     if (isAdmin) return true;
-    // No restriction defined = visible to all
+    if (item.moduleName && matrix && matrix[item.moduleName]) {
+      return canAccessModule(item.moduleName, roles, matrix, isAdmin);
+    }
     if (!item.allowedRoles || item.allowedRoles.length === 0) return true;
-    // Check if user has any of the allowed roles
     return item.allowedRoles.some((r) => roles.includes(r));
   };
 
-  const visibleItems = navItems.filter(canSee);
+  const visible = navItems.filter(canSee);
 
-  const handleLinkClick = () => {
-    if (isMobile && onMobileClose) onMobileClose();
+  // Group by section
+  const grouped: Record<string, NavItem[]> = {};
+  visible.forEach((item) => {
+    const section = SECTION_MAP[item.label] || "Outros";
+    grouped[section] = grouped[section] || [];
+    grouped[section].push(item);
+  });
+
+  const isActivePath = (path?: string) => path && location.pathname === path;
+  const isChildActive = (item: NavItem) => item.children?.some((c) => location.pathname === c.path);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    navigate("/auth");
   };
-  const sidebarHidden = isMobile && !mobileOpen;
 
   return (
-    <aside
-      className={`fixed top-0 left-0 h-screen flex flex-col z-40 transition-all duration-300 ${
-        sidebarHidden ? "-translate-x-full" : "translate-x-0"
-      } ${isMobile ? "w-64" : collapsed ? "w-[72px]" : "w-64"}`}
-      style={{ background: "hsl(var(--sidebar-background))" }}
-    >
-      {/* Logo */}
-      <div className="flex items-center gap-3 px-4 h-16 border-b" style={{ borderColor: "hsl(var(--sidebar-border))" }}>
-        <div className="h-10 w-auto flex-shrink-0 bg-card rounded-lg p-1">
-          <img src={mosapLogo} alt="MOSAP3" className="h-full w-auto" />
-        </div>
-        {!collapsed && (
-          <span className="font-heading font-bold text-lg" style={{ color: "hsl(var(--sidebar-primary))" }}>
-            MOSAP3
-          </span>
-        )}
-      </div>
+    <Sidebar collapsible="icon" className="border-r border-sidebar-border">
+      <SidebarHeader className="border-b border-sidebar-border">
+        <Link to="/" className="flex items-center gap-2.5 px-1 py-1">
+          <div className="h-9 w-9 flex-shrink-0 bg-card rounded-lg p-1 flex items-center justify-center">
+            <img src={mosapLogo} alt="MOSAP3" className="h-full w-auto" />
+          </div>
+          {!collapsed && (
+            <div className="flex flex-col leading-tight">
+              <span className="font-heading font-bold text-base text-sidebar-primary">MOSAP3</span>
+              <span className="text-[10px] text-sidebar-foreground/60">Plataforma de Incentivos</span>
+            </div>
+          )}
+        </Link>
+      </SidebarHeader>
 
-      {/* Navigation */}
-      <nav className="flex-1 py-4 px-3 space-y-0.5 overflow-y-auto">
-        {(() => {
-          const elements: React.ReactNode[] = [];
-          let compactBatch: NavItem[] = [];
+      <SidebarContent className="gap-0">
+        {SECTION_ORDER.filter((s) => grouped[s]?.length).map((section) => (
+          <SidebarGroup key={section}>
+            {!collapsed && (
+              <SidebarGroupLabel className="text-[10px] uppercase tracking-widest text-sidebar-foreground/50">
+                {section}
+              </SidebarGroupLabel>
+            )}
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {grouped[section].map((item) => {
+                  if (item.children) {
+                    const childActive = isChildActive(item);
+                    return (
+                      <SidebarMenuItem key={item.label}>
+                        <SidebarMenuButton
+                          tooltip={item.label}
+                          isActive={childActive}
+                          className="data-[active=true]:bg-sidebar-primary/15 data-[active=true]:text-sidebar-primary data-[active=true]:font-medium"
+                        >
+                          <item.icon className="h-4 w-4" />
+                          <span>{item.label}</span>
+                        </SidebarMenuButton>
+                        {!collapsed && (
+                          <SidebarMenuSub>
+                            {item.children.map((child) => {
+                              const active = location.pathname === child.path;
+                              return (
+                                <SidebarMenuSubItem key={child.path}>
+                                  <SidebarMenuSubButton asChild isActive={active}>
+                                    <Link to={child.path} className="flex items-center gap-2">
+                                      {child.icon && <child.icon className="h-3.5 w-3.5" />}
+                                      <span>{child.label}</span>
+                                      {child.label === "PATEC" && patecPending > 0 && (
+                                        <span className="ml-auto inline-flex items-center justify-center h-4 min-w-[18px] px-1 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold">
+                                          {patecPending}
+                                        </span>
+                                      )}
+                                    </Link>
+                                  </SidebarMenuSubButton>
+                                </SidebarMenuSubItem>
+                              );
+                            })}
+                          </SidebarMenuSub>
+                        )}
+                      </SidebarMenuItem>
+                    );
+                  }
 
-          const flushCompact = () => {
-            if (compactBatch.length === 0) return;
-            const batch = [...compactBatch];
-            compactBatch = [];
-            elements.push(
-              <div key={`compact-${batch[0].label}`} className={collapsed ? "space-y-0.5" : "grid grid-cols-2 gap-1"}>
-                {batch.map((item) => {
-                  const isActive = location.pathname === item.path;
+                  const active = isActivePath(item.path);
                   return (
-                    <Link
-                      key={item.path}
-                      to={item.path!}
-                      onClick={handleLinkClick}
-                      className={`sidebar-link ${isActive ? "active" : ""} ${!collapsed ? "flex-col gap-1 py-2 text-xs" : ""}`}
-                      title={collapsed ? item.label : undefined}
-                    >
-                      <item.icon className="h-4 w-4 flex-shrink-0" />
-                      {!collapsed && <span className="truncate">{item.label}</span>}
-                    </Link>
+                    <SidebarMenuItem key={item.path}>
+                      <SidebarMenuButton
+                        asChild
+                        tooltip={item.label}
+                        isActive={!!active}
+                        className="data-[active=true]:bg-sidebar-primary/15 data-[active=true]:text-sidebar-primary data-[active=true]:font-medium relative data-[active=true]:before:content-[''] data-[active=true]:before:absolute data-[active=true]:before:left-0 data-[active=true]:before:top-1/2 data-[active=true]:before:-translate-y-1/2 data-[active=true]:before:h-5 data-[active=true]:before:w-0.5 data-[active=true]:before:bg-sidebar-primary data-[active=true]:before:rounded-r"
+                      >
+                        <Link to={item.path!}>
+                          <item.icon className="h-4 w-4" />
+                          <span>{item.label}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
                   );
                 })}
-              </div>
-            );
-          };
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ))}
+      </SidebarContent>
 
-          for (const item of visibleItems) {
-            if (item.compact && !item.children) {
-              compactBatch.push(item);
-              continue;
-            }
-            flushCompact();
-
-            if (item.children) {
-              const isOpen = openMenus.includes(item.label);
-              const childActive = isChildActive(item);
-              elements.push(
-                <div key={item.label}>
-                  <button
-                    onClick={() => !collapsed && toggleMenu(item.label)}
-                    className={`sidebar-link w-full justify-between ${childActive ? "active" : ""}`}
-                    title={collapsed ? item.label : undefined}
-                  >
-                    <div className="flex items-center gap-3">
-                      <item.icon className="h-5 w-5 flex-shrink-0" />
-                      {!collapsed && <span className="truncate">{item.label}</span>}
-                    </div>
-                    {!collapsed && (
-                      isOpen ? <ChevronUp className="h-4 w-4 flex-shrink-0" /> : <ChevronDown className="h-4 w-4 flex-shrink-0" />
-                    )}
-                  </button>
-                  {!collapsed && isOpen && (
-                    <div className="ml-4 pl-4 border-l space-y-0.5 mt-0.5" style={{ borderColor: "hsl(var(--sidebar-border))" }}>
-                      {item.children.map((child) => {
-                        const isActive = location.pathname === child.path;
-                        return (
-                          <Link
-                            key={child.path}
-                            to={child.path}
-                            onClick={handleLinkClick}
-                            className={`sidebar-link text-xs py-2 ${isActive ? "active" : ""}`}
-                          >
-                            {child.icon && <child.icon className="h-4 w-4 flex-shrink-0" />}
-                            <span className="truncate">{child.label}</span>
-                          </Link>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              );
-            } else {
-              const isActive = location.pathname === item.path;
-              elements.push(
-                <Link
-                  key={item.path}
-                  to={item.path!}
-                  onClick={handleLinkClick}
-                  className={`sidebar-link ${isActive ? "active" : ""}`}
-                  title={collapsed ? item.label : undefined}
-                >
-                  <item.icon className="h-5 w-5 flex-shrink-0" />
-                  {!collapsed && <span>{item.label}</span>}
-                </Link>
-              );
-            }
-          }
-          flushCompact();
-          return elements;
-        })()}
-      </nav>
-
-      {/* Footer */}
-      <div className="px-3 py-4 border-t" style={{ borderColor: "hsl(var(--sidebar-border))" }}>
-        <button
-          onClick={() => setCollapsed(!collapsed)}
-          className="sidebar-link w-full"
-        >
-          {collapsed ? <ChevronRight className="h-5 w-5" /> : <ChevronLeft className="h-5 w-5" />}
-          {!collapsed && <span>Recolher</span>}
-        </button>
-      </div>
-    </aside>
+      <SidebarFooter className="border-t border-sidebar-border">
+        <div className={`flex items-center gap-2 px-1 py-1 ${collapsed ? "justify-center" : ""}`}>
+          <div className="h-8 w-8 flex-shrink-0 rounded-full bg-sidebar-primary/20 flex items-center justify-center">
+            <UserIcon className="h-4 w-4 text-sidebar-primary" />
+          </div>
+          {!collapsed && (
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold text-sidebar-foreground truncate">{displayName}</p>
+              <p className="text-[10px] text-sidebar-foreground/60 truncate">{primaryRole}</p>
+            </div>
+          )}
+          {!collapsed && user && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleLogout}
+              className="h-7 w-7 text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent"
+              title="Terminar sessão"
+            >
+              <LogOut className="h-3.5 w-3.5" />
+            </Button>
+          )}
+        </div>
+      </SidebarFooter>
+    </Sidebar>
   );
 };
 
