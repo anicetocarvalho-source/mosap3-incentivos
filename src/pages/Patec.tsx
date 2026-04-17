@@ -506,6 +506,9 @@ const Patec = () => {
       </div>
 
       {/* Table */}
+      {loadError ? (
+        <Card><CardContent className="p-0"><ErrorState onRetry={fetchFarmers} /></CardContent></Card>
+      ) : (
       <Card>
         <CardContent className="p-0">
           {/* Desktop table */}
