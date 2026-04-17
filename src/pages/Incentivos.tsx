@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ErrorState } from "@/components/ui/error-state";
 import StatCard from "@/components/StatCard";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -37,7 +38,7 @@ const Incentivos = () => {
   const [formAmount, setFormAmount] = useState("");
   const [formMethod, setFormMethod] = useState("Unitel Money");
 
-  const { data: incentives = [], isLoading } = useQuery({
+  const { data: incentives = [], isLoading, isError, refetch } = useQuery({
     queryKey: ["farmer_incentives"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -226,6 +227,9 @@ const Incentivos = () => {
 
       {/* Table */}
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+        {isError ? (
+          <Card><ErrorState onRetry={() => refetch()} /></Card>
+        ) : (
         <Card className="p-0 overflow-hidden">
           {/* Desktop table */}
           <div className="hidden md:block overflow-x-auto">
@@ -322,6 +326,7 @@ const Incentivos = () => {
             </div>
           </div>
         </Card>
+        )}
       </motion.div>
     </div>
   );
