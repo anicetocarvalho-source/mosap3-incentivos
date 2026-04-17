@@ -247,21 +247,22 @@ const Dashboard = () => {
 
       {/* Empty state */}
       {stats.totalFarmers === 0 && (
-        <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="rounded-xl border border-dashed border-border bg-card p-10 text-center"
-        >
-          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-accent">
-            <Users className="h-7 w-7 text-accent-foreground" />
-          </div>
-          <h3 className="font-heading text-lg font-semibold">Sem dados disponíveis</h3>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {stats.filterScope === "global"
-              ? "Ainda não existem produtores registados no sistema."
-              : `Não existem produtores registados na(s) ${stats.filterScope === "province" ? "província(s)" : "ECA(s)"} atribuída(s) ao seu perfil.`}
-          </p>
-        </motion.div>
+        <div className="rounded-xl border border-dashed border-border bg-card">
+          <EmptyState
+            icon={Users}
+            title="Sem dados disponíveis"
+            description={
+              stats.filterScope === "global"
+                ? "Ainda não existem produtores registados no sistema. Comece por cadastrar o primeiro produtor."
+                : `Não existem produtores registados na(s) ${stats.filterScope === "province" ? "província(s)" : "ECA(s)"} atribuída(s) ao seu perfil.`
+            }
+            action={
+              stats.filterScope === "global"
+                ? { label: "Cadastrar primeiro produtor", onClick: () => navigate("/agricultores") }
+                : undefined
+            }
+          />
+        </div>
       )}
     </div>
   );
