@@ -77,6 +77,23 @@ const parseValor = (s: string | null | undefined): number => {
   return isNaN(v) ? 0 : v;
 };
 
+/** Pagina uma query em chunks de 1000 e devolve TODAS as linhas (contorna o limite default do Supabase). */
+async function fetchAll<T = any>(builder: any): Promise<T[]> {
+  const PAGE = 1000;
+  let from = 0;
+  const out: T[] = [];
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const { data, error } = await builder.range(from, from + PAGE - 1);
+    if (error) throw error;
+    const rows = (data ?? []) as T[];
+    out.push(...rows);
+    if (rows.length < PAGE) break;
+    from += PAGE;
+  }
+  return out;
+}
+
 async function fetchDashboardData(
   userId: string,
   roles: AppRole[],
@@ -88,23 +105,20 @@ async function fetchDashboardData(
 
   if (scope === "province") {
     provinces = await fetchUserProvinces(userId);
-    // Fallback: se não tem províncias atribuídas, ver tudo (supervisão nacional)
     if (provinces.length === 0) scope = "global";
   } else if (scope === "eca") {
     ecas = await fetchUserEcas(userId);
     if (ecas.length === 0) scope = "global";
   }
 
-  // Build farmer query
+  // Farmer query — paginated (Supabase limita a 1000 por query)
   let farmerQuery = supabase.from("farmers").select("code, full_name, gender, province, school, status, saldo_final, valor_recebido, total_gasto");
-
   if (scope === "province" && provinces.length > 0) {
     farmerQuery = farmerQuery.in("province", provinces);
   } else if (scope === "eca" && ecas.length > 0) {
     farmerQuery = farmerQuery.in("school", ecas);
   }
-
-  const { data: farmers = [] } = await farmerQuery;
+  const farmers = await fetchAll<{ code: string; full_name: string; gender: string | null; province: string | null; school: string | null; status: string; saldo_final: string | null; valor_recebido: string | null; total_gasto: string | null }>(farmerQuery);
   const farmerCodes = farmers.map((f) => f.code);
 
   const totalFarmers = farmers.length;
