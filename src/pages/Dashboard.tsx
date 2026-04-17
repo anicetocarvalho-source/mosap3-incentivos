@@ -5,12 +5,13 @@ import {
   PieChart, Pie, Cell, AreaChart, Area,
 } from "recharts";
 import { useAuth } from "@/hooks/useAuth";
-import { useDashboardData } from "@/hooks/useDashboardData";
+import { useDashboardKpis, useDashboardCharts } from "@/hooks/useDashboardData";
 import HeroHeader from "@/components/dashboard/HeroHeader";
 import KpiCard from "@/components/dashboard/KpiCard";
 import ChartCard from "@/components/dashboard/ChartCard";
 import { ErrorState } from "@/components/ui/error-state";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const PROVINCE_COLORS = [
   "hsl(130, 55%, 35%)", "hsl(45, 90%, 50%)", "hsl(210, 75%, 50%)",
@@ -44,13 +45,16 @@ const tooltipStyle = {
   boxShadow: "var(--shadow-elevated)",
 };
 
+const ChartSkeleton = () => <Skeleton className="h-[280px] w-full rounded-lg" />;
+
 const Dashboard = () => {
   const { roles } = useAuth();
-  const { data: stats, isLoading, isError, refetch } = useDashboardData();
+  const { data: stats, isLoading: kpisLoading, isError: kpisError, refetch: refetchKpis } = useDashboardKpis();
+  const { data: charts, isLoading: chartsLoading, isError: chartsError, refetch: refetchCharts } = useDashboardCharts();
   const navigate = useNavigate();
   const roleName = roles.length > 0 ? (roleLabels[roles[0]] ?? roles[0]) : "Utilizador";
 
-  if (isLoading || (!stats && !isError)) {
+  if (kpisLoading || (!stats && !kpisError)) {
     return (
       <div className="flex min-h-[60vh] flex-col items-center justify-center gap-3">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -59,17 +63,16 @@ const Dashboard = () => {
     );
   }
 
-  if (isError || !stats) {
+  if (kpisError || !stats) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center">
-        <ErrorState onRetry={() => refetch()} />
+        <ErrorState onRetry={() => { refetchKpis(); refetchCharts(); }} />
       </div>
     );
   }
 
   return (
     <div className="space-y-5 md:space-y-6">
-      {/* Hero */}
       <HeroHeader
         roleName={roleName}
         filterScope={stats.filterScope}
@@ -194,50 +197,54 @@ const Dashboard = () => {
           icon={TrendingUp}
           delay={0.15}
         >
-          <ResponsiveContainer width="100%" height={280}>
-            <AreaChart data={stats.posSalesTrend} margin={{ top: 8, right: 8, left: -8, bottom: 8 }}>
-              <defs>
-                <linearGradient id="posGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="hsl(130, 55%, 40%)" stopOpacity={0.6} />
-                  <stop offset="95%" stopColor="hsl(130, 55%, 40%)" stopOpacity={0.05} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-              <XAxis dataKey="month" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v} />
-              <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => formatCurrency(v)} />
-              <Area type="monotone" dataKey="valor" name="Volume" stroke="hsl(130, 55%, 40%)" strokeWidth={2} fill="url(#posGradient)" />
-            </AreaChart>
-          </ResponsiveContainer>
+          {chartsLoading || !charts ? <ChartSkeleton /> : (
+            <ResponsiveContainer width="100%" height={280}>
+              <AreaChart data={charts.posSalesTrend} margin={{ top: 8, right: 8, left: -8, bottom: 8 }}>
+                <defs>
+                  <linearGradient id="posGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="hsl(130, 55%, 40%)" stopOpacity={0.6} />
+                    <stop offset="95%" stopColor="hsl(130, 55%, 40%)" stopOpacity={0.05} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                <XAxis dataKey="month" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v} />
+                <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => formatCurrency(v)} />
+                <Area type="monotone" dataKey="valor" name="Volume" stroke="hsl(130, 55%, 40%)" strokeWidth={2} fill="url(#posGradient)" />
+              </AreaChart>
+            </ResponsiveContainer>
+          )}
         </ChartCard>
       </div>
 
       {/* Charts Row 1 */}
       <div className="grid grid-cols-1 gap-4 md:gap-5 lg:grid-cols-3">
-        {stats.farmersByProvince.length > 0 && (
-          <div className="lg:col-span-2">
-            <ChartCard
-              title="Produtores por Província"
-              description="Distribuição geográfica do registo"
-              icon={BarChart3}
-              delay={0.1}
-            >
+        <div className="lg:col-span-2">
+          <ChartCard
+            title="Produtores por Província"
+            description="Distribuição geográfica do registo"
+            icon={BarChart3}
+            delay={0.1}
+          >
+            {chartsLoading || !charts ? <ChartSkeleton /> : charts.farmersByProvince.length === 0 ? (
+              <div className="flex h-[280px] items-center justify-center text-sm text-muted-foreground">Sem dados</div>
+            ) : (
               <ResponsiveContainer width="100%" height={280}>
-                <BarChart data={stats.farmersByProvince} margin={{ top: 8, right: 8, left: -16, bottom: 8 }}>
+                <BarChart data={charts.farmersByProvince} margin={{ top: 8, right: 8, left: -16, bottom: 8 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
                   <XAxis dataKey="name" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} interval={0} angle={-25} textAnchor="end" height={60} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
                   <Tooltip contentStyle={tooltipStyle} cursor={{ fill: "hsl(var(--muted) / 0.5)" }} />
                   <Bar dataKey="value" name="Produtores" radius={[6, 6, 0, 0]}>
-                    {stats.farmersByProvince.map((_, i) => (
+                    {charts.farmersByProvince.map((_, i) => (
                       <Cell key={i} fill={PROVINCE_COLORS[i % PROVINCE_COLORS.length]} />
                     ))}
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
-            </ChartCard>
-          </div>
-        )}
+            )}
+          </ChartCard>
+        </div>
 
         <ChartCard
           title="Distribuição por Género"
@@ -245,42 +252,46 @@ const Dashboard = () => {
           icon={PieIcon}
           delay={0.15}
         >
-          <ResponsiveContainer width="100%" height={280}>
-            <PieChart>
-              <Pie
-                data={stats.genderData}
-                cx="50%"
-                cy="50%"
-                innerRadius={55}
-                outerRadius={95}
-                paddingAngle={3}
-                dataKey="value"
-                label={({ value }) => `${value}%`}
-                labelLine={false}
-                style={{ fontSize: 11, fontWeight: 600 }}
-              >
-                {stats.genderData.map((entry, i) => (
-                  <Cell key={i} fill={entry.color} stroke="hsl(var(--card))" strokeWidth={2} />
-                ))}
-              </Pie>
-              <Tooltip contentStyle={tooltipStyle} formatter={(value: number) => `${value}%`} />
-              <Legend wrapperStyle={{ fontSize: 11 }} iconType="circle" />
-            </PieChart>
-          </ResponsiveContainer>
+          {chartsLoading || !charts ? <ChartSkeleton /> : (
+            <ResponsiveContainer width="100%" height={280}>
+              <PieChart>
+                <Pie
+                  data={charts.genderData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={55}
+                  outerRadius={95}
+                  paddingAngle={3}
+                  dataKey="value"
+                  label={({ value }) => `${value}%`}
+                  labelLine={false}
+                  style={{ fontSize: 11, fontWeight: 600 }}
+                >
+                  {charts.genderData.map((entry, i) => (
+                    <Cell key={i} fill={entry.color} stroke="hsl(var(--card))" strokeWidth={2} />
+                  ))}
+                </Pie>
+                <Tooltip contentStyle={tooltipStyle} formatter={(value: number) => `${value}%`} />
+                <Legend wrapperStyle={{ fontSize: 11 }} iconType="circle" />
+              </PieChart>
+            </ResponsiveContainer>
+          )}
         </ChartCard>
       </div>
 
       {/* Charts Row 2 */}
       <div className="grid grid-cols-1 gap-4 md:gap-5 lg:grid-cols-2">
-        {stats.productionByCulture.length > 0 && (
-          <ChartCard
-            title="Produção por Cultura"
-            description="Área cultivada e produção em toneladas"
-            icon={Sprout}
-            delay={0.2}
-          >
+        <ChartCard
+          title="Produção por Cultura"
+          description="Área cultivada e produção em toneladas"
+          icon={Sprout}
+          delay={0.2}
+        >
+          {chartsLoading || !charts ? <ChartSkeleton /> : charts.productionByCulture.length === 0 ? (
+            <div className="flex h-[280px] items-center justify-center text-sm text-muted-foreground">Sem dados</div>
+          ) : (
             <ResponsiveContainer width="100%" height={280}>
-              <BarChart data={stats.productionByCulture} layout="vertical" margin={{ top: 8, right: 8, left: 0, bottom: 8 }}>
+              <BarChart data={charts.productionByCulture} layout="vertical" margin={{ top: 8, right: 8, left: 0, bottom: 8 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" horizontal={false} />
                 <XAxis type="number" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
                 <YAxis type="category" dataKey="name" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} width={75} axisLine={false} tickLine={false} />
@@ -290,18 +301,20 @@ const Dashboard = () => {
                 <Bar dataKey="producao" name="Produção (ton)" fill="hsl(130, 55%, 40%)" radius={[0, 6, 6, 0]} />
               </BarChart>
             </ResponsiveContainer>
-          </ChartCard>
-        )}
+          )}
+        </ChartCard>
 
-        {stats.livestockBySpecies.length > 0 && (
-          <ChartCard
-            title="Efectivo Pecuário"
-            description="Cabeças e produtores por espécie"
-            icon={Activity}
-            delay={0.25}
-          >
+        <ChartCard
+          title="Efectivo Pecuário"
+          description="Cabeças e produtores por espécie"
+          icon={Activity}
+          delay={0.25}
+        >
+          {chartsLoading || !charts ? <ChartSkeleton /> : charts.livestockBySpecies.length === 0 ? (
+            <div className="flex h-[280px] items-center justify-center text-sm text-muted-foreground">Sem dados</div>
+          ) : (
             <ResponsiveContainer width="100%" height={280}>
-              <BarChart data={stats.livestockBySpecies} margin={{ top: 8, right: 8, left: -16, bottom: 8 }}>
+              <BarChart data={charts.livestockBySpecies} margin={{ top: 8, right: 8, left: -16, bottom: 8 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
                 <XAxis dataKey="name" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
@@ -311,33 +324,35 @@ const Dashboard = () => {
                 <Bar dataKey="produtores" name="Produtores" fill="hsl(45, 90%, 55%)" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
-          </ChartCard>
-        )}
+          )}
+        </ChartCard>
       </div>
 
       {/* Transactions by Province */}
-      {stats.transactionsByProvince.length > 0 && (
-        <ChartCard
-          title="Transações por Província"
-          description="Volume de movimentação no MOSAP3Pay"
-          icon={ArrowRightLeft}
-          delay={0.3}
-        >
+      <ChartCard
+        title="Transações por Província"
+        description="Volume de movimentação no MOSAP3Pay"
+        icon={ArrowRightLeft}
+        delay={0.3}
+      >
+        {chartsLoading || !charts ? <ChartSkeleton /> : charts.transactionsByProvince.length === 0 ? (
+          <div className="flex h-[280px] items-center justify-center text-sm text-muted-foreground">Sem dados</div>
+        ) : (
           <ResponsiveContainer width="100%" height={280}>
-            <BarChart data={stats.transactionsByProvince} margin={{ top: 8, right: 8, left: -16, bottom: 8 }}>
+            <BarChart data={charts.transactionsByProvince} margin={{ top: 8, right: 8, left: -16, bottom: 8 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
               <XAxis dataKey="name" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} interval={0} angle={-25} textAnchor="end" height={60} axisLine={false} tickLine={false} />
               <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
               <Tooltip contentStyle={tooltipStyle} cursor={{ fill: "hsl(var(--muted) / 0.5)" }} />
               <Bar dataKey="value" name="Transações" radius={[6, 6, 0, 0]}>
-                {stats.transactionsByProvince.map((_, i) => (
+                {charts.transactionsByProvince.map((_, i) => (
                   <Cell key={i} fill={PROVINCE_COLORS[i % PROVINCE_COLORS.length]} />
                 ))}
               </Bar>
             </BarChart>
           </ResponsiveContainer>
-        </ChartCard>
-      )}
+        )}
+      </ChartCard>
 
       {/* Empty state */}
       {stats.totalFarmers === 0 && (
