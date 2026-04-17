@@ -19,14 +19,21 @@ export interface FarmerListItem {
 export function useFarmersList() {
   const [farmers, setFarmers] = useState<FarmerListItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
 
   const fetchFarmers = async () => {
     setLoading(true);
-    const { data } = await supabase
+    setError(null);
+    const { data, error: err } = await supabase
       .from("farmers")
       .select("id, code, full_name, bi, phone, province, municipality, school, status, photo_frontal_url, patec, created_at")
       .order("created_at", { ascending: false });
-    setFarmers((data as FarmerListItem[]) || []);
+    if (err) {
+      setError(err as unknown as Error);
+      setFarmers([]);
+    } else {
+      setFarmers((data as FarmerListItem[]) || []);
+    }
     setLoading(false);
   };
 
@@ -38,5 +45,5 @@ export function useFarmersList() {
     return () => window.removeEventListener("mosap3-saved", handler);
   }, []);
 
-  return { farmers, loading, refetch: fetchFarmers };
+  return { farmers, loading, error, refetch: fetchFarmers };
 }

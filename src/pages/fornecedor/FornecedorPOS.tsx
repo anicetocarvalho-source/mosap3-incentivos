@@ -10,17 +10,26 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Plus, Monitor, Pencil } from "lucide-react";
 import { toast } from "sonner";
+import { LoadingState } from "@/components/ui/loading-state";
+import { ErrorState } from "@/components/ui/error-state";
+import { EmptyState } from "@/components/ui/empty-state";
 
 const FornecedorPOS = () => {
   const { supplier } = useOutletContext<{ supplier: { id: string } }>();
   const [terminals, setTerminals] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<any>(null);
   const [form, setForm] = useState({ pos_code: "", label: "", location: "", operator_name: "", operator_phone: "" });
 
   const load = async () => {
-    const { data } = await supabase.from("supplier_pos").select("*").eq("supplier_id", supplier.id).order("created_at");
-    setTerminals(data || []);
+    setLoading(true);
+    setError(null);
+    const { data, error: err } = await supabase.from("supplier_pos").select("*").eq("supplier_id", supplier.id).order("created_at");
+    if (err) setError(err as unknown as Error);
+    else setTerminals(data || []);
+    setLoading(false);
   };
 
   useEffect(() => { load(); }, [supplier.id]);
@@ -40,15 +49,21 @@ const FornecedorPOS = () => {
 
   const handleSave = async () => {
     const payload = { supplier_id: supplier.id, pos_code: form.pos_code, label: form.label || null, location: form.location || null, operator_name: form.operator_name || null, operator_phone: form.operator_phone || null };
-    if (editing) {
-      await supabase.from("supplier_pos").update(payload).eq("id", editing.id);
-      toast.success("Terminal actualizado");
-    } else {
-      await supabase.from("supplier_pos").insert(payload);
-      toast.success("Terminal criado");
+    try {
+      if (editing) {
+        const { error: err } = await supabase.from("supplier_pos").update(payload).eq("id", editing.id);
+        if (err) throw err;
+        toast.success("Terminal actualizado");
+      } else {
+        const { error: err } = await supabase.from("supplier_pos").insert(payload);
+        if (err) throw err;
+        toast.success("Terminal criado");
+      }
+      setDialogOpen(false);
+      load();
+    } catch (e: any) {
+      toast.error("Erro ao guardar: " + (e.message || "tente novamente"));
     }
-    setDialogOpen(false);
-    load();
   };
 
   return (
@@ -59,34 +74,46 @@ const FornecedorPOS = () => {
       </div>
 
       <Card>
-        <CardContent className="pt-4 overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Código</TableHead>
-                <TableHead>Etiqueta</TableHead>
-                <TableHead>Localização</TableHead>
-                <TableHead>Operador</TableHead>
-                <TableHead>Estado</TableHead>
-                <TableHead />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {terminals.map((t) => (
-                <TableRow key={t.id}>
-                  <TableCell className="font-mono text-sm">{t.pos_code}</TableCell>
-                  <TableCell>{t.label || "—"}</TableCell>
-                  <TableCell>{t.location || "—"}</TableCell>
-                  <TableCell>{t.operator_name || "—"}</TableCell>
-                  <TableCell><Badge variant={t.status === "Ativo" ? "default" : "outline"}>{t.status}</Badge></TableCell>
-                  <TableCell><Button variant="ghost" size="sm" onClick={() => openEdit(t)}><Pencil className="h-3 w-3" /></Button></TableCell>
-                </TableRow>
-              ))}
-              {terminals.length === 0 && (
-                <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">Nenhum terminal registado</TableCell></TableRow>
-              )}
-            </TableBody>
-          </Table>
+        <CardContent className="pt-4">
+          {loading ? (
+            <LoadingState rows={5} />
+          ) : error ? (
+            <ErrorState onRetry={load} />
+          ) : terminals.length === 0 ? (
+            <EmptyState
+              icon={Monitor}
+              title="Nenhum terminal registado"
+              description="Crie um terminal POS para começar a registar vendas."
+              action={{ label: "Criar primeiro terminal", onClick: openNew }}
+            />
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Código</TableHead>
+                    <TableHead>Etiqueta</TableHead>
+                    <TableHead>Localização</TableHead>
+                    <TableHead>Operador</TableHead>
+                    <TableHead>Estado</TableHead>
+                    <TableHead />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {terminals.map((t) => (
+                    <TableRow key={t.id}>
+                      <TableCell className="font-mono text-sm">{t.pos_code}</TableCell>
+                      <TableCell>{t.label || "—"}</TableCell>
+                      <TableCell>{t.location || "—"}</TableCell>
+                      <TableCell>{t.operator_name || "—"}</TableCell>
+                      <TableCell><Badge variant={t.status === "Ativo" ? "default" : "outline"}>{t.status}</Badge></TableCell>
+                      <TableCell><Button variant="ghost" size="sm" onClick={() => openEdit(t)}><Pencil className="h-3 w-3" /></Button></TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
         </CardContent>
       </Card>
 
