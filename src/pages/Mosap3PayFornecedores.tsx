@@ -634,6 +634,10 @@ const Mosap3PayFornecedores = () => {
         )}
       </div>
 
+      {loadError && (
+        <Card><CardContent className="p-6"><ErrorState onRetry={fetchSuppliers} /></CardContent></Card>
+      )}
+
       {/* KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
         <StatCard
