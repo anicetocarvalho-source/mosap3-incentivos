@@ -86,10 +86,12 @@ interface MOSAP3DB extends DBSchema {
 }
 
 let dbInstance: IDBPDatabase<MOSAP3DB> | null = null;
+let dbPromise: Promise<IDBPDatabase<MOSAP3DB>> | null = null;
 
-async function getDb() {
+async function getDb(): Promise<IDBPDatabase<MOSAP3DB>> {
   if (dbInstance) return dbInstance;
-  dbInstance = await openDB<MOSAP3DB>("mosap3-offline", 3, {
+  if (dbPromise) return dbPromise;
+  dbPromise = openDB<MOSAP3DB>("mosap3-offline", 3, {
     upgrade(db, oldVersion) {
       if (oldVersion < 1) {
         const store = db.createObjectStore("farmers", { keyPath: "id" });
@@ -106,8 +108,48 @@ async function getDb() {
         cache.createIndex("by-table", "table");
       }
     },
+    blocked() {
+      console.warn("[offlineDb] connection blocked by another tab");
+    },
+    blocking() {
+      // Another tab is requesting an upgrade — close so it can proceed
+      try { dbInstance?.close(); } catch {}
+      dbInstance = null;
+      dbPromise = null;
+    },
+    terminated() {
+      dbInstance = null;
+      dbPromise = null;
+    },
+  }).then((db) => {
+    db.addEventListener("close", () => {
+      dbInstance = null;
+      dbPromise = null;
+    });
+    dbInstance = db;
+    return db;
+  }).catch((err) => {
+    dbPromise = null;
+    throw err;
   });
-  return dbInstance;
+  return dbPromise;
+}
+
+/** Run an IDB operation with one auto-retry if the connection was closing. */
+async function withDb<T>(fn: (db: IDBPDatabase<MOSAP3DB>) => Promise<T>): Promise<T> {
+  try {
+    const db = await getDb();
+    return await fn(db);
+  } catch (err: any) {
+    const msg = String(err?.message || err);
+    if (msg.includes("closing") || msg.includes("closed") || err?.name === "InvalidStateError") {
+      dbInstance = null;
+      dbPromise = null;
+      const db = await getDb();
+      return await fn(db);
+    }
+    throw err;
+  }
 }
 
 // ─── Farmer helpers (legacy, kept for compatibility) ───────────────────────
