@@ -172,56 +172,51 @@ const Mosap3PayStock = () => {
     setEditMinOpen(true);
   };
 
-  const saveMinStock = async () => {
-    if (!editMinProduct) return;
-    setSubmitting(true);
-    try {
-      await supabase.from("supplier_products").update({ min_stock: editMinValue }).eq("id", editMinProduct.id);
+  const minStockMutation = useMutation({
+    mutationFn: async ({ product, newMin }: { product: Product; newMin: number }) => {
+      const { error } = await supabase.from("supplier_products").update({ min_stock: newMin }).eq("id", product.id);
+      if (error) throw error;
       await supabase.from("audit_logs").insert({
         user_id: user?.id,
         user_name: user?.email,
         action: "update",
         entity_type: "supplier_product",
-        entity_id: editMinProduct.id,
-        details: { product: editMinProduct.name, field: "min_stock", old: editMinProduct.min_stock, new: editMinValue },
+        entity_id: product.id,
+        details: { product: product.name, field: "min_stock", old: product.min_stock, new: newMin },
       });
-      toast.success(`Stock mínimo de ${editMinProduct.name} actualizado para ${editMinValue}`);
+      return { product, newMin };
+    },
+    onSuccess: ({ product, newMin }) => {
+      toast.success(`Stock mínimo de ${product.name} actualizado para ${newMin}`);
       setEditMinOpen(false);
-      fetchData();
-    } catch (e: any) {
-      toast.error("Erro: " + e.message);
-    } finally {
-      setSubmitting(false);
-    }
+      invalidateStock();
+    },
+    onError: (e: any) => toast.error("Erro: " + e.message),
+  });
+
+  const saveMinStock = () => {
+    if (!editMinProduct) return;
+    minStockMutation.mutate({ product: editMinProduct, newMin: editMinValue });
   };
 
-  const submitMovement = async () => {
-    if (!moveProduct || moveQty <= 0) {
-      toast.error("Indique uma quantidade válida");
-      return;
-    }
+  const movementMutation = useMutation({
+    mutationFn: async (params: { product: Product; type: string; qty: number; reason: string }) => {
+      const { product, type, qty, reason } = params;
+      const isOut = type === "saida" || type === "venda";
+      const prevStock = product.stock;
+      const newStock = isOut ? prevStock - qty : prevStock + qty;
 
-    const isOut = moveType === "saida" || moveType === "venda";
-    if (isOut && moveQty > moveProduct.stock) {
-      toast.error("Quantidade excede o stock disponível");
-      return;
-    }
-
-    setSubmitting(true);
-    try {
-      const prevStock = moveProduct.stock;
-      const newStock = isOut ? prevStock - moveQty : prevStock + moveQty;
-
-      await supabase.from("supplier_products").update({ stock: newStock }).eq("id", moveProduct.id);
+      const upd = await supabase.from("supplier_products").update({ stock: newStock }).eq("id", product.id);
+      if (upd.error) throw upd.error;
 
       await supabase.from("stock_movements").insert({
-        supplier_id: moveProduct.supplier_id,
-        product_id: moveProduct.id,
-        movement_type: moveType,
-        quantity: moveQty,
+        supplier_id: product.supplier_id,
+        product_id: product.id,
+        movement_type: type,
+        quantity: qty,
         previous_stock: prevStock,
         new_stock: newStock,
-        reason: moveReason.trim() || null,
+        reason: reason.trim() || null,
         created_by: user?.id,
       });
 
@@ -230,25 +225,37 @@ const Mosap3PayStock = () => {
         user_name: user?.email,
         action: "stock_movement",
         entity_type: "supplier_product",
-        entity_id: moveProduct.id,
-        details: { product: moveProduct.name, type: moveType, quantity: moveQty, prev: prevStock, new: newStock },
+        entity_id: product.id,
+        details: { product: product.name, type, quantity: qty, prev: prevStock, new: newStock },
       });
 
-      toast.success(`Stock de ${moveProduct.name} actualizado: ${prevStock} → ${newStock}`);
-
-      // Alert if now below min
-      if (newStock <= moveProduct.min_stock && prevStock > moveProduct.min_stock) {
-        toast.warning(`⚠️ ${moveProduct.name} está agora abaixo do stock mínimo (${newStock}/${moveProduct.min_stock})`, { duration: 6000 });
+      return { product, prevStock, newStock };
+    },
+    onSuccess: ({ product, prevStock, newStock }) => {
+      toast.success(`Stock de ${product.name} actualizado: ${prevStock} → ${newStock}`);
+      if (newStock <= product.min_stock && prevStock > product.min_stock) {
+        toast.warning(`⚠️ ${product.name} está agora abaixo do stock mínimo (${newStock}/${product.min_stock})`, { duration: 6000 });
       }
-
       setMoveOpen(false);
-      fetchData();
-    } catch (e: any) {
-      toast.error("Erro: " + e.message);
-    } finally {
-      setSubmitting(false);
+      invalidateStock();
+    },
+    onError: (e: any) => toast.error("Erro: " + e.message),
+  });
+
+  const submitMovement = () => {
+    if (!moveProduct || moveQty <= 0) {
+      toast.error("Indique uma quantidade válida");
+      return;
     }
+    const isOut = moveType === "saida" || moveType === "venda";
+    if (isOut && moveQty > moveProduct.stock) {
+      toast.error("Quantidade excede o stock disponível");
+      return;
+    }
+    movementMutation.mutate({ product: moveProduct, type: moveType, qty: moveQty, reason: moveReason });
   };
+
+  const submitting = movementMutation.isPending || minStockMutation.isPending;
 
   const stockHealthPercent = activeProducts.length > 0
     ? Math.round(((activeProducts.length - lowStockProducts.length - outOfStock.length) / activeProducts.length) * 100)
