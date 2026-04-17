@@ -29,7 +29,6 @@ const ROUTE_LABELS: Record<string, string> = {
   fornecedores: "Fornecedores",
   pos: "Terminal POS",
   vendas: "Vendas",
-  "notas-credito": "Notas de Crédito",
   stock: "Stock",
   relatorios: "Relatórios",
   auditoria: "Auditoria",
