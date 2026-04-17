@@ -16,6 +16,8 @@ const ROUTE_LABELS: Record<string, string> = {
   "": "Dashboard",
   agricultores: "Produtores",
   escolas: "Escolas de Campo",
+  "escolas-campo": "Escolas de Campo",
+  "notas-credito": "Notas de Crédito",
   provincia: "Província",
   ficha: "Ficha",
   parcelas: "Parcelas",
