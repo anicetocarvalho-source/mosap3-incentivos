@@ -90,7 +90,7 @@ const AppTopbar = () => {
           ))}
           {/* Mobile: only last crumb */}
           <BreadcrumbItem className="md:hidden">
-            <BreadcrumbPage className="capitalize text-sm font-medium truncate">
+            <BreadcrumbPage className="text-sm font-medium truncate">
               {crumbs[crumbs.length - 1].label}
             </BreadcrumbPage>
           </BreadcrumbItem>
