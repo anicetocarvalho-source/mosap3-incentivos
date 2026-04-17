@@ -39,7 +39,11 @@ const ROUTE_LABELS: Record<string, string> = {
   instalar: "Instalar App",
 };
 
-const labelFor = (segment: string) => ROUTE_LABELS[segment] || segment.replace(/-/g, " ");
+const labelFor = (segment: string) => {
+  if (ROUTE_LABELS[segment]) return ROUTE_LABELS[segment];
+  const spaced = segment.replace(/-/g, " ");
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1);
+};
 
 const AppTopbar = () => {
   const location = useLocation();
