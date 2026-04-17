@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Package, AlertTriangle, ArrowUpCircle, ArrowDownCircle, RotateCcw, Search, History, Edit2, TrendingDown, TrendingUp, BarChart3, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -59,11 +60,7 @@ const PAGE_SIZE = 15;
 
 const Mosap3PayStock = () => {
   const { user } = useAuth();
-  const [products, setProducts] = useState<Product[]>([]);
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-  const [movements, setMovements] = useState<StockMovement[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
   const [filterSupplier, setFilterSupplier] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
   const [search, setSearch] = useState("");
@@ -76,7 +73,6 @@ const Mosap3PayStock = () => {
   const [moveType, setMoveType] = useState<string>("entrada");
   const [moveQty, setMoveQty] = useState(0);
   const [moveReason, setMoveReason] = useState("");
-  const [submitting, setSubmitting] = useState(false);
 
   // History dialog
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -92,30 +88,37 @@ const Mosap3PayStock = () => {
   const [prodPage, setProdPage] = useState(1);
   const [movPage, setMovPage] = useState(1);
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const fetchData = async () => {
-    setLoading(true);
-    setLoadError(null);
-    try {
+  // ---- Queries ----
+  const stockQuery = useQuery({
+    queryKey: ["mosap3pay", "stock"],
+    queryFn: async () => {
       const [prodRes, supRes, movRes] = await Promise.all([
         supabase.from("supplier_products").select("id, name, category, stock, min_stock, price, unit, supplier_id, status").order("name"),
         supabase.from("suppliers").select("id, name").order("name"),
         supabase.from("stock_movements").select("*").order("created_at", { ascending: false }).limit(200),
       ]);
       if (prodRes.error) throw prodRes.error;
-      setProducts((prodRes.data as Product[]) || []);
-      setSuppliers(supRes.data || []);
-      setMovements((movRes.data as StockMovement[]) || []);
-    } catch (e: any) {
-      setLoadError(e.message || "Erro");
-      toast.error("Erro ao carregar dados de stock");
-    } finally {
-      setLoading(false);
-    }
-  };
+      if (supRes.error) throw supRes.error;
+      if (movRes.error) throw movRes.error;
+      return {
+        products: (prodRes.data as Product[]) || [],
+        suppliers: (supRes.data as Supplier[]) || [],
+        movements: (movRes.data as StockMovement[]) || [],
+      };
+    },
+  });
+
+  const products = stockQuery.data?.products ?? [];
+  const suppliers = stockQuery.data?.suppliers ?? [];
+  const movements = stockQuery.data?.movements ?? [];
+  const loading = stockQuery.isLoading;
+  const loadError = stockQuery.error ? (stockQuery.error as Error).message : null;
+
+  useEffect(() => {
+    if (stockQuery.error) toast.error("Erro ao carregar dados de stock");
+  }, [stockQuery.error]);
+
+  const invalidateStock = () => queryClient.invalidateQueries({ queryKey: ["mosap3pay", "stock"] });
 
   const filtered = products.filter(p => {
     if (filterSupplier !== "all" && p.supplier_id !== filterSupplier) return false;
