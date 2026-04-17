@@ -251,7 +251,7 @@ const Mosap3PayVendas = () => {
       </div>
 
       {loadError ? (
-        <Card><CardContent className="p-6"><ErrorState onRetry={fetchSales} /></CardContent></Card>
+        <Card><CardContent className="p-6"><ErrorState onRetry={() => salesQuery.refetch()} /></CardContent></Card>
       ) : (
       <Card>
         <CardContent className="p-0">
