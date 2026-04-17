@@ -9,12 +9,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { allSchools } from "@/data/escolasData";
 import type { Database } from "@/integrations/supabase/types";
 
 type AppRole = Database["public"]["Enums"]["app_role"];
-
-const ECA_NAMES = allSchools.map((s) => s.name);
 
 const ROLE_LABELS: Record<AppRole, string> = {
   admin: "Administrador",
@@ -60,6 +57,13 @@ const Utilizadores = () => {
   const [newEca, setNewEca] = useState("");
   const [saving, setSaving] = useState(false);
   const [page, setPage] = useState(1);
+  const [ecaNames, setEcaNames] = useState<string[]>([]);
+
+  useEffect(() => {
+    supabase.from("schools").select("name").order("name").then(({ data }) => {
+      if (data) setEcaNames(data.map((s) => s.name));
+    });
+  }, []);
 
   const fetchUsers = useCallback(async () => {
     setLoading(true);
@@ -440,7 +444,7 @@ const Utilizadores = () => {
                                   <SelectValue placeholder="Selecione uma ECA..." />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  {ECA_NAMES.map((eca) => (
+                                  {ecaNames.map((eca) => (
                                     <SelectItem key={eca} value={eca} disabled={u.ecas.includes(eca)}>
                                       {eca}
                                     </SelectItem>
