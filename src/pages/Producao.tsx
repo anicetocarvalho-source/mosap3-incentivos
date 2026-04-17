@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ErrorState } from "@/components/ui/error-state";
 import StatCard from "@/components/StatCard";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -40,7 +41,7 @@ const Producao = () => {
   const [formArea, setFormArea] = useState("");
   const [formNotes, setFormNotes] = useState("");
 
-  const { data: production = [], isLoading } = useQuery({
+  const { data: production = [], isLoading, isError, refetch } = useQuery({
     queryKey: ["farmer_production"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -239,6 +240,9 @@ const Producao = () => {
 
       {/* Table */}
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
+        {isError ? (
+          <Card><ErrorState onRetry={() => refetch()} /></Card>
+        ) : (
         <Card className="p-0 overflow-hidden">
           {/* Desktop table */}
           <div className="hidden md:block overflow-x-auto">
