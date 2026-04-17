@@ -612,6 +612,7 @@ const Patec = () => {
           )}
         </CardContent>
       </Card>
+      )}
 
       {/* Edit Dialog (single) */}
       <Dialog open={!!editFarmer} onOpenChange={(o) => !o && setEditFarmer(null)}>
