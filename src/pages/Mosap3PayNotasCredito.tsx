@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
+import { ErrorState } from "@/components/ui/error-state";
 
 const PAGE_SIZE = 15;
 
@@ -58,6 +59,7 @@ const Mosap3PayNotasCredito = () => {
   const { user } = useAuth();
   const [creditNotes, setCreditNotes] = useState<CreditNote[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
   const [detailNote, setDetailNote] = useState<CreditNote | null>(null);
@@ -80,11 +82,17 @@ const Mosap3PayNotasCredito = () => {
 
   const fetchCreditNotes = async () => {
     setLoading(true);
-    const { data } = await supabase
+    setLoadError(null);
+    const { data, error } = await supabase
       .from("credit_notes")
       .select("*")
       .order("created_at", { ascending: false });
-    setCreditNotes((data as CreditNote[]) || []);
+    if (error) {
+      setLoadError(error.message);
+      toast.error("Erro ao carregar notas de crédito");
+    } else {
+      setCreditNotes((data as CreditNote[]) || []);
+    }
     setLoading(false);
   };
 

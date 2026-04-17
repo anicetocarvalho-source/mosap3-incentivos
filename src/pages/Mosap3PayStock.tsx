@@ -14,6 +14,7 @@ import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
+import { ErrorState } from "@/components/ui/error-state";
 
 interface Product {
   id: string;
@@ -62,6 +63,7 @@ const Mosap3PayStock = () => {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [movements, setMovements] = useState<StockMovement[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [filterSupplier, setFilterSupplier] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
   const [search, setSearch] = useState("");
@@ -96,15 +98,23 @@ const Mosap3PayStock = () => {
 
   const fetchData = async () => {
     setLoading(true);
-    const [prodRes, supRes, movRes] = await Promise.all([
-      supabase.from("supplier_products").select("id, name, category, stock, min_stock, price, unit, supplier_id, status").order("name"),
-      supabase.from("suppliers").select("id, name").order("name"),
-      supabase.from("stock_movements").select("*").order("created_at", { ascending: false }).limit(200),
-    ]);
-    setProducts((prodRes.data as Product[]) || []);
-    setSuppliers(supRes.data || []);
-    setMovements((movRes.data as StockMovement[]) || []);
-    setLoading(false);
+    setLoadError(null);
+    try {
+      const [prodRes, supRes, movRes] = await Promise.all([
+        supabase.from("supplier_products").select("id, name, category, stock, min_stock, price, unit, supplier_id, status").order("name"),
+        supabase.from("suppliers").select("id, name").order("name"),
+        supabase.from("stock_movements").select("*").order("created_at", { ascending: false }).limit(200),
+      ]);
+      if (prodRes.error) throw prodRes.error;
+      setProducts((prodRes.data as Product[]) || []);
+      setSuppliers(supRes.data || []);
+      setMovements((movRes.data as StockMovement[]) || []);
+    } catch (e: any) {
+      setLoadError(e.message || "Erro");
+      toast.error("Erro ao carregar dados de stock");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const filtered = products.filter(p => {

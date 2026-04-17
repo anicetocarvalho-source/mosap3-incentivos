@@ -13,6 +13,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { InvoicePDF, generateFiscalHash, buildQRContent, type InvoiceData } from "@/components/InvoicePDF";
+import { ErrorState } from "@/components/ui/error-state";
 
 interface Sale {
   id: string;
@@ -44,6 +45,7 @@ const PAGE_SIZE = 15;
 const Mosap3PayVendas = () => {
   const [sales, setSales] = useState<Sale[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [page, setPage] = useState(1);
@@ -70,16 +72,23 @@ const Mosap3PayVendas = () => {
   const [validationResult, setValidationResult] = useState<any>(null);
 
 
-  useEffect(() => {
-    const fetchSales = async () => {
-      setLoading(true);
-      const { data } = await supabase
-        .from("pos_sales")
-        .select("*")
-        .order("created_at", { ascending: false });
+  const fetchSales = async () => {
+    setLoading(true);
+    setLoadError(null);
+    const { data, error } = await supabase
+      .from("pos_sales")
+      .select("*")
+      .order("created_at", { ascending: false });
+    if (error) {
+      setLoadError(error.message);
+      toast.error("Erro ao carregar vendas");
+    } else {
       setSales((data as Sale[]) || []);
-      setLoading(false);
-    };
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => {
     const fetchSuppliers = async () => {
       const { data } = await supabase.from("suppliers").select("id, name").order("name");
       setSaftSuppliers(data || []);
