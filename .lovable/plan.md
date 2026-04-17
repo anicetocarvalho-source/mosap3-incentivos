@@ -1,78 +1,84 @@
 
 
+# Plano de Melhorias Globais da Plataforma MOSAP3
 
-# Inventário Completo da Plataforma MOSAP3
+Foram identificados problemas em 4 categorias: bugs de runtime, segurança da base de dados, qualidade de codigo, e robustez do sistema offline.
 
-## Plataforma Principal (Backoffice) — Rotas protegidas por `ProtectedRoute` + `AppLayout`
+---
 
-| Módulo | Rota(s) | Componentes principais | Dependências externas | Estado |
-|---|---|---|---|---|
-| **Autenticação** | `/auth` | `Auth.tsx`, `useAuth`, `offlineAuth`, `authSessionClockSkew` | Supabase Auth, IndexedDB (offline), Zod | Completo |
-| **Dashboard** | `/` | `Dashboard.tsx`, `StatCard`, `useDashboardData`, Recharts | Supabase (farmers, production, livestock, transactions), Recharts | Completo |
-| **Produtores (Agricultores)** | `/agricultores`, `/agricultores/:id`, `/agricultores/:id/ficha` | `Agricultores.tsx`, `FarmerProfile.tsx`, `FichaProdutor.tsx`, `FarmerRegistrationForm`, `BulkImportDialog`, `FarmerDocuments`, `InlineEditableField`, `FarmerAvatar`, `FingerprintCapture`, `DependentRegistrationForm` | Supabase (farmers + 6 sub-tabelas), Supabase Storage (farmer-media), xlsx | Completo |
-| **Escolas de Campo** | `/escolas`, `/escolas/provincia/:slug`, `/escolas/:id`, `/escolas/:id/ficha` | `EscolasCampo.tsx`, `ProvinciaEscolas.tsx`, `EscolaDetalhe.tsx`, `FichaEscola.tsx`, `ParcelasMap` | Supabase (schools, provinces, municipalities), Leaflet, ArcGIS tiles | Completo |
-| **Parcelas** | `/parcelas` | `Parcelas.tsx`, `ParcelRegistrationForm`, `ParcelasMap` | Supabase (farmer_parcels), Leaflet | Completo |
-| **Produção** | `/producao` | `Producao.tsx`, `TransactionRegistrationForm` | Supabase (farmer_production, farmer_production_phases) | Completo |
-| **PATEC** | `/patec` | `Patec.tsx` | Supabase (patec_items, farmers) | Completo |
-| **Incentivos** | `/incentivos` | `Incentivos.tsx`, `BatchDistributionDialog` | Supabase (farmer_incentives) | Completo |
-| **Transações** | `/transacoes` | `Transacoes.tsx` | Supabase (farmer_transactions) | Completo |
-| **Relatórios** | `/relatorios` | `Relatorios.tsx`, `ReportCharts`, `ReportPreview` | Supabase (múltiplas tabelas), Recharts | Completo |
-| **MOSAP3Pay Dashboard** | `/mosap3pay` | `Mosap3Pay.tsx` | Supabase (pos_sales, suppliers) | Completo |
-| **MOSAP3Pay Fornecedores** | `/mosap3pay/fornecedores` | `Mosap3PayFornecedores.tsx` | Supabase (suppliers, supplier_products, supplier_pos, supplier_provinces, patec_items) | Completo |
-| **MOSAP3Pay Terminal POS** | `/mosap3pay/pos` | `Mosap3PayPOS.tsx`, `InvoicePDF` | Supabase (suppliers, supplier_products, farmers, pos_sales, pos_sale_items, stock_movements, invoice_sequences), Edge Function (unitel-money-payment) | Completo |
-| **MOSAP3Pay Vendas** | `/mosap3pay/vendas` | `Mosap3PayVendas.tsx`, `InvoicePDF` | Supabase (pos_sales, pos_sale_items), Edge Functions (generate-saft, validate-saft) | Completo |
-| **MOSAP3Pay Notas de Crédito** | `/mosap3pay/notas-credito` | `Mosap3PayNotasCredito.tsx` | Supabase (credit_notes, credit_note_items) | Completo |
-| **MOSAP3Pay Stock** | `/mosap3pay/stock` | `Mosap3PayStock.tsx` | Supabase (supplier_products, stock_movements) | Completo |
-| **MOSAP3Pay Relatórios** | `/mosap3pay/relatorios` | `Mosap3PayRelatorios.tsx` | Supabase (pos_sales, credit_notes), Recharts | Completo |
-| **MOSAP3Pay Auditoria** | `/mosap3pay/auditoria` | `Mosap3PayAuditLogs.tsx` | Supabase (audit_logs) | Completo |
-| **MOSAP3Pay Configurações** | `/mosap3pay/configuracoes` | `Mosap3PayConfiguracoes.tsx` | Supabase (system_settings) | Completo |
-| **Utilizadores** | `/utilizadores` | `Utilizadores.tsx` | Supabase (profiles, user_roles, user_provinces, user_ecas) | Completo |
-| **Perfis (Matriz RBAC)** | `/perfis` | `Perfis.tsx` | Supabase (module_permissions) | Completo |
-| **Configurações Gerais** | `/configuracoes` | `Configuracoes.tsx` | Supabase (system_settings, profiles, provinces) | Completo |
-| **Gestão Províncias** | `/provincias` | `GestaoProvincias.tsx` | Supabase (provinces, municipalities, schools) | Completo |
-| **Instalar (PWA)** | `/instalar` | `Instalar.tsx` | Service Worker (push-sw.js), Web Push API | Completo |
-| **Notificações** | (componente global) | `NotificationBell.tsx`, `useNotifications` | Supabase (notifications), Edge Function (send-push-notification) | Completo |
+## 1. Corrigir Bug Critico: `useState` usado como `useEffect` no FarmerProfile
 
-## Portal do Fornecedor (isolado) — Layout próprio `FornecedorLayout`
+**Problema**: Em `FarmerProfile.tsx` (linha 71), `useState(() => { ... })` esta a ser usado como inicializador, o que executa queries Supabase no render -- potencialmente multiplas vezes, sem cleanup.
 
-| Módulo | Rota(s) | Componentes principais | Dependências externas | Estado |
-|---|---|---|---|---|
-| **Auth Fornecedor** | `/fornecedor/login` | `FornecedorAuth.tsx` (wizard 3 passos com multi-loja) | Supabase Auth, Supabase (suppliers, supplier_stores) | Completo |
-| **Dashboard Fornecedor** | `/fornecedor` | `FornecedorDashboard.tsx` | Supabase (supplier_products, supplier_pos, pos_sales) | Completo |
-| **Produtos** | `/fornecedor/produtos` | `FornecedorProdutos.tsx` | Supabase (supplier_products) | Completo |
-| **Stock** | `/fornecedor/stock` | `FornecedorStock.tsx` | Supabase (supplier_products, stock_movements) | Completo |
-| **POS Terminais** | `/fornecedor/pos` | `FornecedorPOS.tsx` | Supabase (supplier_pos) | Completo |
-| **Vendas** | `/fornecedor/vendas` | `FornecedorVendas.tsx` | Supabase (pos_sales) | Completo |
-| **Lojas** | `/fornecedor/lojas` | `FornecedorLojas.tsx` | Supabase (supplier_stores, provinces, municipalities) | Completo |
-| **Perfil** | `/fornecedor/perfil` | `FornecedorPerfil.tsx` | Supabase (suppliers), Supabase Storage (supplier-logos) | Completo |
+**Correcao**: Substituir por `useEffect` com dependencia em `id`.
 
-## Edge Functions (Backend)
+---
 
-| Função | Finalidade | Integrações | Estado |
+## 2. Corrigir Erro de Runtime: IndexedDB "database connection is closing"
+
+**Problema**: O `offlineDb.ts` mantém um singleton `dbInstance` que pode fechar inesperadamente (ex: tab em background, upgrade concorrente). Quando se tenta usar a conexao fechada, dá o erro.
+
+**Correcao**: Adicionar handler `onclose` no `getDb()` que limpa `dbInstance = null`, e envolver chamadas criticas num try/catch que recria a conexao.
+
+---
+
+## 3. Corrigir Warning: "Function components cannot be given refs" no FarmerProfile
+
+**Problema**: `Dialog` e `AlertDialog` (Radix) estao a receber refs de componentes funcionais sem `forwardRef`.
+
+**Correcao**: Verificar e corrigir os componentes que sao passados como children directos desses primitivos.
+
+---
+
+## 4. Reforcar Seguranca RLS (Prioridade Alta)
+
+O scan de seguranca identificou **39 findings**, incluindo 7 de severidade **error**. As tabelas com dados sensíveis (PII de agricultores, dados financeiros, logs de auditoria) estao acessiveis a qualquer utilizador autenticado.
+
+### Migracao SQL para restringir politicas RLS:
+
+**Tabelas afectadas e nova logica**:
+
+| Tabela | Operacao | Politica actual | Nova politica |
 |---|---|---|---|
-| `generate-saft` | Exportação SAF-T (AO) XML | Supabase DB (pos_sales, suppliers) | Completo |
-| `validate-saft` | Validação SAF-T contra esquema AGT | XML Schema v1.01_01 | Completo |
-| `unitel-money-payment` | Pagamento via Unitel Money API v4.7 | Unitel Money OAuth2 (BuyGoods) | Completo |
-| `send-push-notification` | Web Push via VAPID | Web Push Protocol | Completo |
-| `generate-vapid-keys` | Geração de chaves VAPID | Crypto API | Completo |
-| `seed-test-users` | Criação dos 9 utilizadores de teste | Supabase Auth Admin | Completo |
+| `farmers` | INSERT/UPDATE | `WITH CHECK (true)` / `USING (true)` | Restringir a `has_role(auth.uid(), role)` para roles com acesso ao modulo |
+| `farmer_dependents` | INSERT/UPDATE | `true` | Restringir a utilizadores autenticados com role adequado |
+| `farmer_transactions` | INSERT/UPDATE | `true` | Idem |
+| `farmer_incentives` | INSERT/UPDATE | `true` | Idem |
+| `farmer_parcels` | INSERT/UPDATE | `true` | Idem |
+| `farmer_production` | INSERT/UPDATE | `true` | Idem |
+| `farmer_production_phases` | INSERT/UPDATE | `true` | Idem |
+| `audit_logs` | SELECT | `USING (true)` | Restringir a admins |
+| `livestock` / `livestock_health` / `livestock_production` | INSERT/UPDATE | `true` | Restringir a authenticated com role |
 
-## Infraestrutura Transversal
+**Abordagem**: Criar uma funcao `has_any_backoffice_role(uuid)` que verifica se o utilizador tem pelo menos uma role do backoffice. Usar esta funcao nas politicas INSERT/UPDATE em vez de `true`. Para SELECT de dados sensíveis (audit_logs), restringir a admins.
 
-| Componente | Descrição | Estado |
-|---|---|---|
-| **RBAC (9 níveis)** | `user_roles` + `has_role()` + `RoleGuard` + `is_admin()` | Completo |
-| **Matriz Permissões** | `module_permissions` com persistência DB, aplicada em RoleGuard/AppLayout/AppNavbar | Completo |
-| **RLS Policies** | Todas as 31 tabelas com políticas Row-Level Security | Completo |
-| **PWA / Offline** | Service Worker, IndexedDB cache (30m TTL), SyncQueue v3, login offline PBKDF2 | Completo |
-| **Compressão de Imagens** | Client-side (max 1024px, quality 0.7) antes do upload | Completo |
-| **Notificações Híbridas** | In-app (DB) + Web Push (VAPID) com triggers automáticos | Completo |
-| **Geolocalização** | Leaflet vanilla + ArcGIS satellite tiles | Completo |
+> **Nota**: Muitas destas tabelas necessitam que qualquer utilizador do backoffice (com qualquer role) possa inserir/editar -- o objectivo e apenas bloquear utilizadores sem role (ex: fornecedores que registam conta mas nao devem aceder a dados de agricultores).
 
-## Resumo
+---
 
-- **Total de rotas**: 34 (25 backoffice + 8 portal fornecedor + 1 auth)
-- **Tabelas Supabase**: 31
-- **Edge Functions**: 6
-- **Storage Buckets**: 2 (farmer-media privado, supplier-logos público)
-- **Estado geral**: Todos os módulos estão **completos**, incluindo a Matriz de Permissões com persistência na base de dados e a Gestão de Lojas no portal do fornecedor.
+## 5. Melhorar Robustez do ErrorBoundary
+
+**Melhoria**: Adicionar botao "Voltar ao Dashboard" alem do "Recarregar", e usar os design tokens do sistema em vez de cores hardcoded (`bg-gray-50`, `bg-green-700`).
+
+---
+
+## 6. Melhorar Gestao de Estado no offlineDb
+
+**Melhoria**: Adicionar `db.onclose` handler para invalidar o singleton quando a conexao fecha, evitando o erro de runtime reportado.
+
+---
+
+## Ficheiros a alterar
+
+| Ficheiro | Alteracao |
+|---|---|
+| `src/pages/FarmerProfile.tsx` | `useState(() => {...})` -> `useEffect(() => {...}, [id])` |
+| `src/lib/offlineDb.ts` | Adicionar `onclose` handler, try/catch com reconnect |
+| `src/components/ErrorBoundary.tsx` | Usar design tokens, adicionar "Voltar ao Dashboard" |
+| **Migracao SQL** | Criar `has_any_backoffice_role()`, actualizar ~20 politicas RLS |
+
+## Estimativa
+
+- Bug fixes (items 1-3, 5-6): rapido, 3 ficheiros
+- Seguranca RLS (item 4): 1 migracao SQL com ~40 statements
+
