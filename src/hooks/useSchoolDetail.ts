@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { allSchools, type School, type FarmerTracking, type SchoolVisit } from "@/data/escolasData";
+import type { FarmerTracking, SchoolVisit } from "@/data/escolasData";
 
 export interface SchoolDetail {
   id: string;
@@ -39,14 +39,10 @@ export function useSchoolDetail(id: string | undefined) {
         .maybeSingle();
 
       if (dbSchool) {
-        // Get province and municipality names
         const [provRes, munRes] = await Promise.all([
           supabase.from("provinces").select("name, slug").eq("id", dbSchool.province_id).single(),
           supabase.from("municipalities").select("name").eq("id", dbSchool.municipality_id).single(),
         ]);
-
-        // Get farmers/visits from static data if available (until migrated to DB)
-        const staticSchool = allSchools.find((s) => s.name === dbSchool.name);
 
         setSchool({
           id: dbSchool.id,
@@ -62,15 +58,9 @@ export function useSchoolDetail(id: string | undefined) {
           totalFarmers: dbSchool.total_farmers,
           totalArea: dbSchool.total_area || "0 ha",
           activeCycles: dbSchool.active_cycles,
-          farmers: staticSchool?.farmers || [],
-          visits: staticSchool?.visits || [],
+          farmers: [],
+          visits: [],
         });
-      } else {
-        // Fallback to static data for old IDs like "ec-caimbambo"
-        const staticSchool = allSchools.find((s) => s.id === id);
-        if (staticSchool) {
-          setSchool(staticSchool);
-        }
       }
 
       setLoading(false);
