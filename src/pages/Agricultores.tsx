@@ -20,6 +20,7 @@ import { useFarmersList } from "@/hooks/useFarmersList";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { ErrorState } from "@/components/ui/error-state";
 
 const PAGE_SIZE = 15;
 
@@ -142,6 +143,10 @@ const Agricultores = () => {
         </div>
         <FarmerRegistrationForm open={dialogOpen} onOpenChange={handleCloseDialog} editData={editingFarmer} />
       </div>
+
+      {farmersError && !loading && (
+        <ErrorState onRetry={refetchFarmers} />
+      )}
 
       {/* Filters */}
       <Card className="p-3 md:p-4">
