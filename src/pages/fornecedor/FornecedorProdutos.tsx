@@ -12,6 +12,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Plus, Pencil, Trash2, Package, Download } from "lucide-react";
 import { toast } from "sonner";
+import { LoadingState } from "@/components/ui/loading-state";
+import { ErrorState } from "@/components/ui/error-state";
+import { EmptyState } from "@/components/ui/empty-state";
 
 const patecLabels: Record<string, string> = { "1": "PATEC 1 — Milho", "2": "PATEC 2 — Massango", "3": "PATEC 3 — Massambala" };
 
@@ -20,6 +23,8 @@ interface PatecItem { id: string; name: string; category: string; patec_number: 
 const FornecedorProdutos = () => {
   const { supplier } = useOutletContext<{ supplier: { id: string } }>();
   const [products, setProducts] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<any>(null);
   const [form, setForm] = useState({ name: "", category: "insumos", unit: "un", price: "", stock: "", iva_rate: "14", patec_number: "", patec_category: "", max_per_farmer_per_season: "" });
@@ -33,8 +38,12 @@ const FornecedorProdutos = () => {
   const [importing, setImporting] = useState(false);
 
   const fetchProducts = async () => {
-    const { data } = await supabase.from("supplier_products").select("*").eq("supplier_id", supplier.id).order("name");
-    setProducts(data || []);
+    setLoading(true);
+    setError(null);
+    const { data, error: err } = await supabase.from("supplier_products").select("*").eq("supplier_id", supplier.id).order("name");
+    if (err) setError(err as unknown as Error);
+    else setProducts(data || []);
+    setLoading(false);
   };
 
   useEffect(() => { fetchProducts(); }, [supplier.id]);
@@ -60,21 +69,30 @@ const FornecedorProdutos = () => {
       patec_category: form.patec_number && form.patec_category ? form.patec_category : null,
       max_per_farmer_per_season: form.max_per_farmer_per_season ? parseInt(form.max_per_farmer_per_season) : null,
     };
-    if (editing) {
-      await supabase.from("supplier_products").update(payload).eq("id", editing.id);
-      toast.success("Produto actualizado");
-    } else {
-      await supabase.from("supplier_products").insert(payload);
-      toast.success("Produto adicionado");
+    try {
+      if (editing) {
+        const { error: err } = await supabase.from("supplier_products").update(payload).eq("id", editing.id);
+        if (err) throw err;
+        toast.success("Produto actualizado");
+      } else {
+        const { error: err } = await supabase.from("supplier_products").insert(payload);
+        if (err) throw err;
+        toast.success("Produto adicionado");
+      }
+      setDialogOpen(false);
+      fetchProducts();
+    } catch (e: any) {
+      toast.error("Erro ao guardar produto: " + (e.message || "tente novamente"));
     }
-    setDialogOpen(false);
-    fetchProducts();
   };
 
   const handleDelete = async (id: string) => {
-    await supabase.from("supplier_products").delete().eq("id", id);
-    toast.success("Produto removido");
-    fetchProducts();
+    const { error: err } = await supabase.from("supplier_products").delete().eq("id", id);
+    if (err) toast.error("Erro ao remover produto: " + err.message);
+    else {
+      toast.success("Produto removido");
+      fetchProducts();
+    }
   };
 
   // PATEC import
@@ -133,39 +151,51 @@ const FornecedorProdutos = () => {
       </div>
 
       <Card>
-        <CardContent className="pt-4 overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nome</TableHead>
-                <TableHead>Categoria</TableHead>
-                <TableHead>PATEC</TableHead>
-                <TableHead className="text-right">Preço</TableHead>
-                <TableHead className="text-right">Stock</TableHead>
-                <TableHead className="text-right">Limite/Época</TableHead>
-                <TableHead />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {products.map((p) => (
-                <TableRow key={p.id}>
-                  <TableCell className="font-medium">{p.name}</TableCell>
-                  <TableCell><Badge variant="outline">{p.category}</Badge></TableCell>
-                  <TableCell>{p.patec_number ? `PATEC ${p.patec_number}` : "—"}</TableCell>
-                  <TableCell className="text-right">{Number(p.price).toLocaleString("pt-AO")} Kz</TableCell>
-                  <TableCell className="text-right">{p.stock}</TableCell>
-                  <TableCell className="text-right">{p.max_per_farmer_per_season ?? "—"}</TableCell>
-                  <TableCell className="text-right">
-                    <Button variant="ghost" size="sm" onClick={() => openEdit(p)}><Pencil className="h-3 w-3" /></Button>
-                    <Button variant="ghost" size="sm" className="text-destructive" onClick={() => handleDelete(p.id)}><Trash2 className="h-3 w-3" /></Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {products.length === 0 && (
-                <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">Nenhum produto registado</TableCell></TableRow>
-              )}
-            </TableBody>
-          </Table>
+        <CardContent className="pt-4">
+          {loading ? (
+            <LoadingState rows={6} />
+          ) : error ? (
+            <ErrorState onRetry={fetchProducts} />
+          ) : products.length === 0 ? (
+            <EmptyState
+              icon={Package}
+              title="Nenhum produto no catálogo"
+              description="Adicione produtos manualmente ou importe a partir de um PATEC."
+              action={{ label: "Adicionar primeiro produto", onClick: openNew }}
+            />
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nome</TableHead>
+                    <TableHead>Categoria</TableHead>
+                    <TableHead>PATEC</TableHead>
+                    <TableHead className="text-right">Preço</TableHead>
+                    <TableHead className="text-right">Stock</TableHead>
+                    <TableHead className="text-right">Limite/Época</TableHead>
+                    <TableHead />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {products.map((p) => (
+                    <TableRow key={p.id}>
+                      <TableCell className="font-medium">{p.name}</TableCell>
+                      <TableCell><Badge variant="outline">{p.category}</Badge></TableCell>
+                      <TableCell>{p.patec_number ? `PATEC ${p.patec_number}` : "—"}</TableCell>
+                      <TableCell className="text-right">{Number(p.price).toLocaleString("pt-AO")} Kz</TableCell>
+                      <TableCell className="text-right">{p.stock}</TableCell>
+                      <TableCell className="text-right">{p.max_per_farmer_per_season ?? "—"}</TableCell>
+                      <TableCell className="text-right">
+                        <Button variant="ghost" size="sm" onClick={() => openEdit(p)}><Pencil className="h-3 w-3" /></Button>
+                        <Button variant="ghost" size="sm" className="text-destructive" onClick={() => handleDelete(p.id)}><Trash2 className="h-3 w-3" /></Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
         </CardContent>
       </Card>
 
