@@ -59,7 +59,23 @@ export interface DashboardStats {
   livestockBySpecies: { name: string; quantidade: number; produtores: number }[];
   filterScope: FilterScope;
   filterLabel: string;
+  // ─── Impacto ───
+  totalRecebido: number;
+  totalGasto: number;
+  utilizationRate: number; // %
+  avgYieldPerHa: number; // kg/ha
+  criticalStockCount: number;
+  // Funil do incentivo
+  incentiveFunnel: { stage: string; value: number }[];
+  // Vendas POS últimos 12 meses
+  posSalesTrend: { month: string; valor: number; vendas: number }[];
 }
+
+const parseValor = (s: string | null | undefined): number => {
+  if (!s) return 0;
+  const v = parseFloat(s.replace(/\./g, "").replace(",", "."));
+  return isNaN(v) ? 0 : v;
+};
 
 async function fetchDashboardData(
   userId: string,
@@ -204,6 +220,70 @@ async function fetchDashboardData(
   const totalLivestock = livestock.reduce((s, l) => s + l.quantity, 0);
   const totalLivestockProducers = new Set(livestock.map((l) => l.farmer_id)).size;
 
+  // ─── Impacto: Utilização de Incentivos ───
+  const totalRecebido = farmers.reduce((s, f) => s + parseValor(f.valor_recebido), 0);
+  const totalGasto = farmers.reduce((s, f) => s + parseValor(f.total_gasto), 0);
+  const utilizationRate = totalRecebido > 0 ? (totalGasto / totalRecebido) * 100 : 0;
+
+  // Produtividade kg/ha (actual_yield em ton → *1000 = kg)
+  const totalAreaProd = production.reduce((s, p) => s + parseValor(p.area), 0);
+  const totalYieldKg = production.reduce((s, p) => s + parseValor(p.actual_yield) * 1000, 0);
+  const avgYieldPerHa = totalAreaProd > 0 ? totalYieldKg / totalAreaProd : 0;
+
+  // Stock crítico (global — não filtra por geo, é responsabilidade dos fornecedores)
+  let criticalStockCount = 0;
+  if (scope === "global") {
+    const { count } = await supabase
+      .from("supplier_products")
+      .select("id", { count: "exact", head: true })
+      .filter("stock", "lte", "min_stock" as any);
+    // Supabase não suporta comparar colunas no filter — fallback a query manual
+    const { data: prodStock } = await supabase
+      .from("supplier_products")
+      .select("stock, min_stock");
+    criticalStockCount = (prodStock || []).filter((p) => p.stock <= p.min_stock).length;
+  }
+
+  // Funil do incentivo (em AOA)
+  const totalAtribuido = totalRecebido; // proxy: valor_recebido representa o atribuído pago
+  const totalReconciliado = transactions.reduce((s, t) => s + parseValor(t.valor), 0);
+  const incentiveFunnel = [
+    { stage: "Atribuído", value: Math.round(totalAtribuido) },
+    { stage: "Recebido", value: Math.round(totalRecebido) },
+    { stage: "Gasto", value: Math.round(totalGasto) },
+    { stage: "Reconciliado", value: Math.round(totalReconciliado) },
+  ];
+
+  // Tendência POS últimos 12 meses
+  let posQuery = supabase
+    .from("pos_sales")
+    .select("total, created_at, farmer_code")
+    .gte("created_at", new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString());
+  if (farmerCodes.length > 0 && scope !== "global") {
+    posQuery = posQuery.in("farmer_code", farmerCodes);
+  }
+  const { data: posSales = [] } = await posQuery;
+  const monthMap: Record<string, { valor: number; vendas: number }> = {};
+  const now = new Date();
+  for (let i = 11; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    monthMap[key] = { valor: 0, vendas: 0 };
+  }
+  posSales.forEach((s) => {
+    const d = new Date(s.created_at);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    if (monthMap[key]) {
+      monthMap[key].valor += Number(s.total) || 0;
+      monthMap[key].vendas += 1;
+    }
+  });
+  const monthLabels = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+  const posSalesTrend = Object.entries(monthMap).map(([key, v]) => {
+    const [, m] = key.split("-");
+    return { month: monthLabels[parseInt(m, 10) - 1], valor: Math.round(v.valor), vendas: v.vendas };
+  });
+
   // Filter label
   let filterLabel = "Todas as províncias";
   if (scope === "province") {
@@ -231,6 +311,13 @@ async function fetchDashboardData(
     livestockBySpecies,
     filterScope: scope,
     filterLabel,
+    totalRecebido,
+    totalGasto,
+    utilizationRate: Math.round(utilizationRate * 10) / 10,
+    avgYieldPerHa: Math.round(avgYieldPerHa),
+    criticalStockCount,
+    incentiveFunnel,
+    posSalesTrend,
   };
 }
 

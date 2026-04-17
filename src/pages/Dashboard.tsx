@@ -1,9 +1,8 @@
-import { Users, ThumbsUp, ArrowRightLeft, Building2, School, MapPin, Wheat, Gift, Beef, Loader2, BarChart3, PieChart as PieIcon, Activity, Sprout } from "lucide-react";
-import { motion } from "framer-motion";
+import { Users, ThumbsUp, ArrowRightLeft, Building2, School, MapPin, Wheat, Beef, Loader2, BarChart3, PieChart as PieIcon, Activity, Sprout, Target, Gauge, AlertTriangle, TrendingUp } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
-  PieChart, Pie, Cell,
+  PieChart, Pie, Cell, AreaChart, Area,
 } from "recharts";
 import { useAuth } from "@/hooks/useAuth";
 import { useDashboardData } from "@/hooks/useDashboardData";
@@ -91,6 +90,47 @@ const Dashboard = () => {
         </div>
       </div>
 
+      {/* KPIs Impacto & Eficiência */}
+      <div>
+        <p className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+          Impacto & Eficiência
+        </p>
+        <div className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-4">
+          <KpiCard
+            title="Utilização Incentivos"
+            value={`${formatNumber(stats.utilizationRate)}%`}
+            subtitle={`${formatCurrency(stats.totalGasto)} de ${formatCurrency(stats.totalRecebido)}`}
+            icon={Target}
+            accent={stats.utilizationRate >= 70 ? "success" : stats.utilizationRate >= 40 ? "warning" : "destructive"}
+            delay={0.05}
+          />
+          <KpiCard
+            title="Produtividade Média"
+            value={`${formatNumber(stats.avgYieldPerHa)} kg/ha`}
+            subtitle="Rendimento agronómico"
+            icon={Gauge}
+            accent="info"
+            delay={0.1}
+          />
+          <KpiCard
+            title="Volume POS"
+            value={formatCurrency(stats.volumeTransactions)}
+            subtitle={`${formatNumber(stats.totalTransactions)} transações`}
+            icon={TrendingUp}
+            accent="primary"
+            delay={0.15}
+          />
+          <KpiCard
+            title="Stock Crítico"
+            value={formatNumber(stats.criticalStockCount)}
+            subtitle={stats.criticalStockCount > 10 ? "Atenção: rupturas iminentes" : "Níveis estáveis"}
+            icon={AlertTriangle}
+            accent={stats.criticalStockCount > 10 ? "destructive" : stats.criticalStockCount > 0 ? "warning" : "success"}
+            delay={0.2}
+          />
+        </div>
+      </div>
+
       {/* KPIs Agricultura */}
       <div>
         <p className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
@@ -116,6 +156,53 @@ const Dashboard = () => {
             delay={0.2}
           />
         </div>
+      </div>
+
+      {/* Funil do Incentivo + Tendência POS */}
+      <div className="grid grid-cols-1 gap-4 md:gap-5 lg:grid-cols-2">
+        <ChartCard
+          title="Funil de Conversão do Incentivo"
+          description="Atribuído → Recebido → Gasto → Reconciliado (AOA)"
+          icon={Target}
+          delay={0.1}
+        >
+          <ResponsiveContainer width="100%" height={280}>
+            <BarChart data={stats.incentiveFunnel} layout="vertical" margin={{ top: 8, right: 16, left: 0, bottom: 8 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" horizontal={false} />
+              <XAxis type="number" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v} />
+              <YAxis type="category" dataKey="stage" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} width={100} axisLine={false} tickLine={false} />
+              <Tooltip contentStyle={tooltipStyle} cursor={{ fill: "hsl(var(--muted) / 0.5)" }} formatter={(v: number) => formatCurrency(v)} />
+              <Bar dataKey="value" name="Valor" radius={[0, 6, 6, 0]}>
+                {stats.incentiveFunnel.map((_, i) => (
+                  <Cell key={i} fill={["hsl(210, 75%, 55%)", "hsl(165, 55%, 40%)", "hsl(45, 90%, 50%)", "hsl(130, 55%, 35%)"][i]} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartCard>
+
+        <ChartCard
+          title="Evolução das Vendas POS"
+          description="Volume mensal nos últimos 12 meses (AOA)"
+          icon={TrendingUp}
+          delay={0.15}
+        >
+          <ResponsiveContainer width="100%" height={280}>
+            <AreaChart data={stats.posSalesTrend} margin={{ top: 8, right: 8, left: -8, bottom: 8 }}>
+              <defs>
+                <linearGradient id="posGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="hsl(130, 55%, 40%)" stopOpacity={0.6} />
+                  <stop offset="95%" stopColor="hsl(130, 55%, 40%)" stopOpacity={0.05} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+              <XAxis dataKey="month" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v} />
+              <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => formatCurrency(v)} />
+              <Area type="monotone" dataKey="valor" name="Volume" stroke="hsl(130, 55%, 40%)" strokeWidth={2} fill="url(#posGradient)" />
+            </AreaChart>
+          </ResponsiveContainer>
+        </ChartCard>
       </div>
 
       {/* Charts Row 1 */}
