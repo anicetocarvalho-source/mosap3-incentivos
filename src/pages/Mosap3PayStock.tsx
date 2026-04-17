@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Package, AlertTriangle, ArrowUpCircle, ArrowDownCircle, RotateCcw, Search, History, Edit2, TrendingDown, TrendingUp, BarChart3, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -59,11 +60,7 @@ const PAGE_SIZE = 15;
 
 const Mosap3PayStock = () => {
   const { user } = useAuth();
-  const [products, setProducts] = useState<Product[]>([]);
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-  const [movements, setMovements] = useState<StockMovement[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
   const [filterSupplier, setFilterSupplier] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
   const [search, setSearch] = useState("");
@@ -76,7 +73,6 @@ const Mosap3PayStock = () => {
   const [moveType, setMoveType] = useState<string>("entrada");
   const [moveQty, setMoveQty] = useState(0);
   const [moveReason, setMoveReason] = useState("");
-  const [submitting, setSubmitting] = useState(false);
 
   // History dialog
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -92,30 +88,37 @@ const Mosap3PayStock = () => {
   const [prodPage, setProdPage] = useState(1);
   const [movPage, setMovPage] = useState(1);
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const fetchData = async () => {
-    setLoading(true);
-    setLoadError(null);
-    try {
+  // ---- Queries ----
+  const stockQuery = useQuery({
+    queryKey: ["mosap3pay", "stock"],
+    queryFn: async () => {
       const [prodRes, supRes, movRes] = await Promise.all([
         supabase.from("supplier_products").select("id, name, category, stock, min_stock, price, unit, supplier_id, status").order("name"),
         supabase.from("suppliers").select("id, name").order("name"),
         supabase.from("stock_movements").select("*").order("created_at", { ascending: false }).limit(200),
       ]);
       if (prodRes.error) throw prodRes.error;
-      setProducts((prodRes.data as Product[]) || []);
-      setSuppliers(supRes.data || []);
-      setMovements((movRes.data as StockMovement[]) || []);
-    } catch (e: any) {
-      setLoadError(e.message || "Erro");
-      toast.error("Erro ao carregar dados de stock");
-    } finally {
-      setLoading(false);
-    }
-  };
+      if (supRes.error) throw supRes.error;
+      if (movRes.error) throw movRes.error;
+      return {
+        products: (prodRes.data as Product[]) || [],
+        suppliers: (supRes.data as Supplier[]) || [],
+        movements: (movRes.data as StockMovement[]) || [],
+      };
+    },
+  });
+
+  const products = stockQuery.data?.products ?? [];
+  const suppliers = stockQuery.data?.suppliers ?? [];
+  const movements = stockQuery.data?.movements ?? [];
+  const loading = stockQuery.isLoading;
+  const loadError = stockQuery.error ? (stockQuery.error as Error).message : null;
+
+  useEffect(() => {
+    if (stockQuery.error) toast.error("Erro ao carregar dados de stock");
+  }, [stockQuery.error]);
+
+  const invalidateStock = () => queryClient.invalidateQueries({ queryKey: ["mosap3pay", "stock"] });
 
   const filtered = products.filter(p => {
     if (filterSupplier !== "all" && p.supplier_id !== filterSupplier) return false;
@@ -169,56 +172,51 @@ const Mosap3PayStock = () => {
     setEditMinOpen(true);
   };
 
-  const saveMinStock = async () => {
-    if (!editMinProduct) return;
-    setSubmitting(true);
-    try {
-      await supabase.from("supplier_products").update({ min_stock: editMinValue }).eq("id", editMinProduct.id);
+  const minStockMutation = useMutation({
+    mutationFn: async ({ product, newMin }: { product: Product; newMin: number }) => {
+      const { error } = await supabase.from("supplier_products").update({ min_stock: newMin }).eq("id", product.id);
+      if (error) throw error;
       await supabase.from("audit_logs").insert({
         user_id: user?.id,
         user_name: user?.email,
         action: "update",
         entity_type: "supplier_product",
-        entity_id: editMinProduct.id,
-        details: { product: editMinProduct.name, field: "min_stock", old: editMinProduct.min_stock, new: editMinValue },
+        entity_id: product.id,
+        details: { product: product.name, field: "min_stock", old: product.min_stock, new: newMin },
       });
-      toast.success(`Stock mínimo de ${editMinProduct.name} actualizado para ${editMinValue}`);
+      return { product, newMin };
+    },
+    onSuccess: ({ product, newMin }) => {
+      toast.success(`Stock mínimo de ${product.name} actualizado para ${newMin}`);
       setEditMinOpen(false);
-      fetchData();
-    } catch (e: any) {
-      toast.error("Erro: " + e.message);
-    } finally {
-      setSubmitting(false);
-    }
+      invalidateStock();
+    },
+    onError: (e: any) => toast.error("Erro: " + e.message),
+  });
+
+  const saveMinStock = () => {
+    if (!editMinProduct) return;
+    minStockMutation.mutate({ product: editMinProduct, newMin: editMinValue });
   };
 
-  const submitMovement = async () => {
-    if (!moveProduct || moveQty <= 0) {
-      toast.error("Indique uma quantidade válida");
-      return;
-    }
+  const movementMutation = useMutation({
+    mutationFn: async (params: { product: Product; type: string; qty: number; reason: string }) => {
+      const { product, type, qty, reason } = params;
+      const isOut = type === "saida" || type === "venda";
+      const prevStock = product.stock;
+      const newStock = isOut ? prevStock - qty : prevStock + qty;
 
-    const isOut = moveType === "saida" || moveType === "venda";
-    if (isOut && moveQty > moveProduct.stock) {
-      toast.error("Quantidade excede o stock disponível");
-      return;
-    }
-
-    setSubmitting(true);
-    try {
-      const prevStock = moveProduct.stock;
-      const newStock = isOut ? prevStock - moveQty : prevStock + moveQty;
-
-      await supabase.from("supplier_products").update({ stock: newStock }).eq("id", moveProduct.id);
+      const upd = await supabase.from("supplier_products").update({ stock: newStock }).eq("id", product.id);
+      if (upd.error) throw upd.error;
 
       await supabase.from("stock_movements").insert({
-        supplier_id: moveProduct.supplier_id,
-        product_id: moveProduct.id,
-        movement_type: moveType,
-        quantity: moveQty,
+        supplier_id: product.supplier_id,
+        product_id: product.id,
+        movement_type: type,
+        quantity: qty,
         previous_stock: prevStock,
         new_stock: newStock,
-        reason: moveReason.trim() || null,
+        reason: reason.trim() || null,
         created_by: user?.id,
       });
 
@@ -227,25 +225,37 @@ const Mosap3PayStock = () => {
         user_name: user?.email,
         action: "stock_movement",
         entity_type: "supplier_product",
-        entity_id: moveProduct.id,
-        details: { product: moveProduct.name, type: moveType, quantity: moveQty, prev: prevStock, new: newStock },
+        entity_id: product.id,
+        details: { product: product.name, type, quantity: qty, prev: prevStock, new: newStock },
       });
 
-      toast.success(`Stock de ${moveProduct.name} actualizado: ${prevStock} → ${newStock}`);
-
-      // Alert if now below min
-      if (newStock <= moveProduct.min_stock && prevStock > moveProduct.min_stock) {
-        toast.warning(`⚠️ ${moveProduct.name} está agora abaixo do stock mínimo (${newStock}/${moveProduct.min_stock})`, { duration: 6000 });
+      return { product, prevStock, newStock };
+    },
+    onSuccess: ({ product, prevStock, newStock }) => {
+      toast.success(`Stock de ${product.name} actualizado: ${prevStock} → ${newStock}`);
+      if (newStock <= product.min_stock && prevStock > product.min_stock) {
+        toast.warning(`⚠️ ${product.name} está agora abaixo do stock mínimo (${newStock}/${product.min_stock})`, { duration: 6000 });
       }
-
       setMoveOpen(false);
-      fetchData();
-    } catch (e: any) {
-      toast.error("Erro: " + e.message);
-    } finally {
-      setSubmitting(false);
+      invalidateStock();
+    },
+    onError: (e: any) => toast.error("Erro: " + e.message),
+  });
+
+  const submitMovement = () => {
+    if (!moveProduct || moveQty <= 0) {
+      toast.error("Indique uma quantidade válida");
+      return;
     }
+    const isOut = moveType === "saida" || moveType === "venda";
+    if (isOut && moveQty > moveProduct.stock) {
+      toast.error("Quantidade excede o stock disponível");
+      return;
+    }
+    movementMutation.mutate({ product: moveProduct, type: moveType, qty: moveQty, reason: moveReason });
   };
+
+  const submitting = movementMutation.isPending || minStockMutation.isPending;
 
   const stockHealthPercent = activeProducts.length > 0
     ? Math.round(((activeProducts.length - lowStockProducts.length - outOfStock.length) / activeProducts.length) * 100)
@@ -336,7 +346,7 @@ const Mosap3PayStock = () => {
       </div>
 
       {loadError && (
-        <Card><CardContent className="p-6"><ErrorState onRetry={fetchData} /></CardContent></Card>
+        <Card><CardContent className="p-6"><ErrorState onRetry={() => stockQuery.refetch()} /></CardContent></Card>
       )}
 
       <Tabs defaultValue="products" className="space-y-4">

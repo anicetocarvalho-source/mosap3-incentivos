@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Store, Plus, Search, Edit2, Package, Monitor, Trash2, Eye, MapPin, X, CheckCircle, LayoutGrid, List, Filter, ChevronLeft, ChevronRight, Download } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -62,21 +63,16 @@ interface PosTerminal {
 
 const Mosap3PayFornecedores = () => {
   const { isAdmin } = useAuth();
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editSupplier, setEditSupplier] = useState<Supplier | null>(null);
 
   // Province list
-  const [allProvinces, setAllProvinces] = useState<Province[]>([]);
   const [selectedZones, setSelectedZones] = useState<string[]>([]);
 
   // Detail view
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [posTerminals, setPosTerminals] = useState<PosTerminal[]>([]);
 
   // Product dialog
   const [productDialogOpen, setProductDialogOpen] = useState(false);
@@ -97,10 +93,6 @@ const Mosap3PayFornecedores = () => {
   // Supplier form
   const [form, setForm] = useState({ name: "", nif: "", phone: "", email: "", province: "" });
 
-  // KPI counts
-  const [totalProducts, setTotalProducts] = useState(0);
-  const [totalPos, setTotalPos] = useState(0);
-
   // View toggle & filters
   const [viewMode, setViewMode] = useState<string>("grid");
   const [filterStatus, setFilterStatus] = useState("all");
@@ -109,10 +101,10 @@ const Mosap3PayFornecedores = () => {
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 12;
 
-  const fetchSuppliers = async () => {
-    setLoading(true);
-    setLoadError(null);
-    try {
+  // ---- Queries ----
+  const suppliersQuery = useQuery({
+    queryKey: ["mosap3pay", "suppliers"],
+    queryFn: async () => {
       const [suppRes, zonesRes, prodCountRes, posCountRes] = await Promise.all([
         supabase.from("suppliers").select("*").order("name"),
         supabase.from("supplier_provinces").select("supplier_id, province_id, provinces(id, name)"),
@@ -127,37 +119,56 @@ const Mosap3PayFornecedores = () => {
         if (!zonesMap.has(sid)) zonesMap.set(sid, []);
         if (row.provinces) zonesMap.get(sid)!.push({ id: row.provinces.id, name: row.provinces.name });
       }
-      setSuppliers(rawSuppliers.map(s => ({ ...s, zones: zonesMap.get(s.id) || [] })));
-      setTotalProducts(prodCountRes.count || 0);
-      setTotalPos(posCountRes.count || 0);
-    } catch (e: any) {
-      setLoadError(e.message || "Erro");
-      toast.error("Erro ao carregar fornecedores");
-    } finally {
-      setLoading(false);
-    }
-  };
+      return {
+        suppliers: rawSuppliers.map(s => ({ ...s, zones: zonesMap.get(s.id) || [] })),
+        totalProducts: prodCountRes.count || 0,
+        totalPos: posCountRes.count || 0,
+      };
+    },
+  });
 
-  const fetchProvinces = async () => {
-    const { data } = await supabase.from("provinces").select("id, name").order("name");
-    setAllProvinces((data as Province[]) || []);
-  };
+  const provincesQuery = useQuery({
+    queryKey: ["provinces", "all"],
+    queryFn: async (): Promise<Province[]> => {
+      const { data, error } = await supabase.from("provinces").select("id, name").order("name");
+      if (error) throw error;
+      return (data as Province[]) || [];
+    },
+  });
 
-  const fetchSupplierDetails = async (supplierId: string) => {
-    const [prodRes, posRes] = await Promise.all([
-      supabase.from("supplier_products").select("*").eq("supplier_id", supplierId).order("name"),
-      supabase.from("supplier_pos").select("*").eq("supplier_id", supplierId).order("pos_code"),
-    ]);
-    setProducts((prodRes.data as Product[]) || []);
-    setPosTerminals((posRes.data as PosTerminal[]) || []);
-  };
+  const supplierDetailsQuery = useQuery({
+    queryKey: ["mosap3pay", "supplier-details", selectedSupplier?.id],
+    enabled: !!selectedSupplier,
+    queryFn: async () => {
+      const supplierId = selectedSupplier!.id;
+      const [prodRes, posRes] = await Promise.all([
+        supabase.from("supplier_products").select("*").eq("supplier_id", supplierId).order("name"),
+        supabase.from("supplier_pos").select("*").eq("supplier_id", supplierId).order("pos_code"),
+      ]);
+      return {
+        products: (prodRes.data as Product[]) || [],
+        posTerminals: (posRes.data as PosTerminal[]) || [],
+      };
+    },
+  });
 
-  useEffect(() => { fetchSuppliers(); fetchProvinces(); }, []);
+  const suppliers = suppliersQuery.data?.suppliers ?? [];
+  const totalProducts = suppliersQuery.data?.totalProducts ?? 0;
+  const totalPos = suppliersQuery.data?.totalPos ?? 0;
+  const allProvinces = provincesQuery.data ?? [];
+  const products = supplierDetailsQuery.data?.products ?? [];
+  const posTerminals = supplierDetailsQuery.data?.posTerminals ?? [];
+  const loading = suppliersQuery.isLoading;
+  const loadError = suppliersQuery.error ? (suppliersQuery.error as Error).message : null;
 
   useEffect(() => {
-    if (selectedSupplier) fetchSupplierDetails(selectedSupplier.id);
-  }, [selectedSupplier]);
+    if (suppliersQuery.error) toast.error("Erro ao carregar fornecedores");
+  }, [suppliersQuery.error]);
 
+  const invalidateSuppliers = () => queryClient.invalidateQueries({ queryKey: ["mosap3pay", "suppliers"] });
+  const invalidateDetails = () => {
+    if (selectedSupplier) queryClient.invalidateQueries({ queryKey: ["mosap3pay", "supplier-details", selectedSupplier.id] });
+  };
   // --- KPI derived values ---
   const activeCount = useMemo(() => suppliers.filter(s => s.status === "Ativo").length, [suppliers]);
   const inactiveCount = useMemo(() => suppliers.filter(s => s.status !== "Ativo").length, [suppliers]);
@@ -218,7 +229,7 @@ const Mosap3PayFornecedores = () => {
     toast.success(editSupplier ? "Fornecedor atualizado" : "Fornecedor criado");
     setDialogOpen(false);
     setEditSupplier(null);
-    fetchSuppliers();
+    invalidateSuppliers();
   };
 
   const openEditDialog = (s: Supplier) => {
@@ -252,13 +263,13 @@ const Mosap3PayFornecedores = () => {
       toast.success("Produto adicionado");
     }
     setProductDialogOpen(false);
-    fetchSupplierDetails(selectedSupplier.id);
+    invalidateDetails();
   };
 
   const handleDeleteProduct = async (id: string) => {
     await supabase.from("supplier_products").delete().eq("id", id);
     toast.success("Produto removido");
-    if (selectedSupplier) fetchSupplierDetails(selectedSupplier.id);
+    if (selectedSupplier) invalidateDetails();
   };
 
   const handleSavePos = async () => {
@@ -276,7 +287,7 @@ const Mosap3PayFornecedores = () => {
       toast.success("Terminal adicionado");
     }
     setPosDialogOpen(false);
-    fetchSupplierDetails(selectedSupplier.id);
+    invalidateDetails();
   };
 
   // PATEC import logic
@@ -318,7 +329,7 @@ const Mosap3PayFornecedores = () => {
     if (error) { toast.error("Erro ao importar"); setImportingPatec(false); return; }
     toast.success(`${toImport.length} produto(s) importado(s) do PATEC ${importPatecNumber}`);
     setImportPatecOpen(false);
-    fetchSupplierDetails(selectedSupplier.id);
+    invalidateDetails();
   };
 
   // ===================== DETAIL VIEW =====================
@@ -635,7 +646,7 @@ const Mosap3PayFornecedores = () => {
       </div>
 
       {loadError && (
-        <Card><CardContent className="p-6"><ErrorState onRetry={fetchSuppliers} /></CardContent></Card>
+        <Card><CardContent className="p-6"><ErrorState onRetry={() => suppliersQuery.refetch()} /></CardContent></Card>
       )}
 
       {/* KPI Cards */}
