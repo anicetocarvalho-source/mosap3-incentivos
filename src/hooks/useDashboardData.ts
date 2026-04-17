@@ -142,12 +142,12 @@ async function fetchDashboardData(
     .map(([name, value]) => ({ name, value }))
     .sort((a, b) => b.value - a.value);
 
-  // Transactions
+  // Transactions — pagina TODAS (são 70k+)
   let txQuery = supabase.from("farmer_transactions").select("farmer_code, valor, empresa");
   if (farmerCodes.length > 0 && scope !== "global") {
     txQuery = txQuery.in("farmer_code", farmerCodes);
   }
-  const { data: transactions = [] } = await txQuery;
+  const transactions = await fetchAll<{ farmer_code: string; valor: string; empresa: string }>(txQuery);
   const totalTransactions = transactions.length;
 
   // Volume
