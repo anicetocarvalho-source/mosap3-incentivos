@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import { Package, AlertTriangle, ArrowUpCircle, ArrowDownCircle, RotateCcw, Search, History, Edit2, TrendingDown, TrendingUp, Loader2 } from "lucide-react";
+import { ErrorState } from "@/components/ui/error-state";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -199,6 +200,20 @@ const FornecedorStock = () => {
   const stockHealthPercent = activeProducts.length > 0
     ? Math.round(((activeProducts.length - lowStockProducts.length - outOfStock.length) / activeProducts.length) * 100)
     : 100;
+
+  if (loadError && !loading) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-xl font-heading font-bold flex items-center gap-2">
+            <Package className="h-5 w-5 text-primary" /> Gestão de Stock
+          </h1>
+          <p className="text-muted-foreground text-sm">Inventário da loja {supplier.name}</p>
+        </div>
+        <ErrorState onRetry={fetchData} />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
