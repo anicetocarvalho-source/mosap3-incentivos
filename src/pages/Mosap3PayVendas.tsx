@@ -248,6 +248,9 @@ const Mosap3PayVendas = () => {
         </Select>
       </div>
 
+      {loadError ? (
+        <Card><CardContent className="p-6"><ErrorState onRetry={fetchSales} /></CardContent></Card>
+      ) : (
       <Card>
         <CardContent className="p-0">
           {/* Desktop table */}
@@ -335,6 +338,7 @@ const Mosap3PayVendas = () => {
           <PaginationControls />
         </CardContent>
       </Card>
+      )}
 
       {/* Sale Detail Dialog */}
       <Dialog open={!!selectedSale} onOpenChange={(o) => !o && setSelectedSale(null)}>
