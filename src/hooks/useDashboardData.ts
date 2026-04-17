@@ -264,20 +264,27 @@ async function fetchDashboardData(
     : Promise.resolve([] as { total: number; created_at: string; farmer_code: string }[]);
 
   const criticalStockPromise: Promise<Array<{ stock: number; min_stock: number }>> = scope === "global"
-    ? supabase
-        .from("supplier_products")
-        .select("stock, min_stock")
-        .then(({ data, error }) => {
-          if (error) throw error;
-          return data ?? [];
-        })
-    : Promise.resolve([]);
+    ? (async () => {
+        const { data, error } = await supabase
+          .from("supplier_products")
+          .select("stock, min_stock");
 
-  const [{ count: suppliersCount }, schools, parcels, production, livestock, transactions, prodStock, posSales] = await Promise.all([
-    supabase
-      .from("suppliers")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "Ativo"),
+        if (error) throw error;
+        return (data ?? []) as Array<{ stock: number; min_stock: number }>;
+      })()
+    : Promise.resolve([] as Array<{ stock: number; min_stock: number }>);
+
+  const suppliersCountPromise = supabase
+    .from("suppliers")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "Ativo")
+    .then(({ count, error }) => {
+      if (error) throw error;
+      return count ?? 0;
+    });
+
+  const [suppliersCount, schools, parcels, production, livestock, transactions, prodStock, posSales] = await Promise.all([
+    suppliersCountPromise,
     schoolsPromise,
     parcelsPromise,
     productionPromise,
@@ -305,7 +312,7 @@ async function fetchDashboardData(
     .map(([name, value]) => ({ name, value }))
     .sort((a, b) => b.value - a.value);
 
-  const totalCompanies = suppliersCount ?? 0;
+  const totalCompanies = suppliersCount;
 
   const totalSchools = scope === "province" && provinces.length > 0
     ? new Set(farmers.map((f) => f.school).filter(Boolean)).size
