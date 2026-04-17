@@ -59,7 +59,23 @@ export interface DashboardStats {
   livestockBySpecies: { name: string; quantidade: number; produtores: number }[];
   filterScope: FilterScope;
   filterLabel: string;
+  // ─── Impacto ───
+  totalRecebido: number;
+  totalGasto: number;
+  utilizationRate: number; // %
+  avgYieldPerHa: number; // kg/ha
+  criticalStockCount: number;
+  // Funil do incentivo
+  incentiveFunnel: { stage: string; value: number }[];
+  // Vendas POS últimos 12 meses
+  posSalesTrend: { month: string; valor: number; vendas: number }[];
 }
+
+const parseValor = (s: string | null | undefined): number => {
+  if (!s) return 0;
+  const v = parseFloat(s.replace(/\./g, "").replace(",", "."));
+  return isNaN(v) ? 0 : v;
+};
 
 async function fetchDashboardData(
   userId: string,
