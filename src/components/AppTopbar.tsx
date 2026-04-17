@@ -16,6 +16,8 @@ const ROUTE_LABELS: Record<string, string> = {
   "": "Dashboard",
   agricultores: "Produtores",
   escolas: "Escolas de Campo",
+  "escolas-campo": "Escolas de Campo",
+  "notas-credito": "Notas de Crédito",
   provincia: "Província",
   ficha: "Ficha",
   parcelas: "Parcelas",
@@ -27,7 +29,6 @@ const ROUTE_LABELS: Record<string, string> = {
   fornecedores: "Fornecedores",
   pos: "Terminal POS",
   vendas: "Vendas",
-  "notas-credito": "Notas de Crédito",
   stock: "Stock",
   relatorios: "Relatórios",
   auditoria: "Auditoria",
@@ -38,7 +39,11 @@ const ROUTE_LABELS: Record<string, string> = {
   instalar: "Instalar App",
 };
 
-const labelFor = (segment: string) => ROUTE_LABELS[segment] || segment.replace(/-/g, " ");
+const labelFor = (segment: string) => {
+  if (ROUTE_LABELS[segment]) return ROUTE_LABELS[segment];
+  const spaced = segment.replace(/-/g, " ");
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1);
+};
 
 const AppTopbar = () => {
   const location = useLocation();
@@ -67,12 +72,12 @@ const AppTopbar = () => {
             <Fragment key={crumb.path}>
               <BreadcrumbItem className="hidden md:inline-flex">
                 {crumb.isLast ? (
-                  <BreadcrumbPage className="capitalize text-sm font-medium truncate max-w-[200px]">
+                  <BreadcrumbPage className="text-sm font-medium truncate max-w-[200px]">
                     {crumb.label}
                   </BreadcrumbPage>
                 ) : (
                   <BreadcrumbLink asChild>
-                    <Link to={crumb.path} className="capitalize text-sm text-muted-foreground hover:text-foreground transition-colors">
+                    <Link to={crumb.path} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
                       {crumb.label}
                     </Link>
                   </BreadcrumbLink>
@@ -85,7 +90,7 @@ const AppTopbar = () => {
           ))}
           {/* Mobile: only last crumb */}
           <BreadcrumbItem className="md:hidden">
-            <BreadcrumbPage className="capitalize text-sm font-medium truncate">
+            <BreadcrumbPage className="text-sm font-medium truncate">
               {crumbs[crumbs.length - 1].label}
             </BreadcrumbPage>
           </BreadcrumbItem>
