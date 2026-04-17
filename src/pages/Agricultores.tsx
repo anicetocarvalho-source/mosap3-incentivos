@@ -20,6 +20,7 @@ import { useFarmersList } from "@/hooks/useFarmersList";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { ErrorState } from "@/components/ui/error-state";
 
 const PAGE_SIZE = 15;
 
@@ -33,7 +34,7 @@ const Agricultores = () => {
   const [editingFarmer, setEditingFarmer] = useState<any>(null);
   const [page, setPage] = useState(1);
   const [deleteTarget, setDeleteTarget] = useState<any>(null);
-  const { farmers, loading } = useFarmersList();
+  const { farmers, loading, error: farmersError, refetch: refetchFarmers } = useFarmersList();
   const queryClient = useQueryClient();
 
   const { data: provinces = [] } = useQuery({
@@ -142,6 +143,10 @@ const Agricultores = () => {
         </div>
         <FarmerRegistrationForm open={dialogOpen} onOpenChange={handleCloseDialog} editData={editingFarmer} />
       </div>
+
+      {farmersError && !loading && (
+        <ErrorState onRetry={refetchFarmers} />
+      )}
 
       {/* Filters */}
       <Card className="p-3 md:p-4">

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import { Package, AlertTriangle, ArrowUpCircle, ArrowDownCircle, RotateCcw, Search, History, Edit2, TrendingDown, TrendingUp, Loader2 } from "lucide-react";
+import { ErrorState } from "@/components/ui/error-state";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -54,6 +55,7 @@ const FornecedorStock = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [movements, setMovements] = useState<StockMovement[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<Error | null>(null);
   const [filterStatus, setFilterStatus] = useState("all");
   const [search, setSearch] = useState("");
   const [movSearch, setMovSearch] = useState("");
@@ -79,13 +81,22 @@ const FornecedorStock = () => {
 
   const fetchData = async () => {
     setLoading(true);
-    const [prodRes, movRes] = await Promise.all([
-      supabase.from("supplier_products").select("id, name, category, stock, min_stock, price, unit, supplier_id, status").eq("supplier_id", supplier.id).order("name"),
-      supabase.from("stock_movements").select("*").eq("supplier_id", supplier.id).order("created_at", { ascending: false }).limit(200),
-    ]);
-    setProducts((prodRes.data as Product[]) || []);
-    setMovements((movRes.data as StockMovement[]) || []);
-    setLoading(false);
+    setLoadError(null);
+    try {
+      const [prodRes, movRes] = await Promise.all([
+        supabase.from("supplier_products").select("id, name, category, stock, min_stock, price, unit, supplier_id, status").eq("supplier_id", supplier.id).order("name"),
+        supabase.from("stock_movements").select("*").eq("supplier_id", supplier.id).order("created_at", { ascending: false }).limit(200),
+      ]);
+      if (prodRes.error) throw prodRes.error;
+      if (movRes.error) throw movRes.error;
+      setProducts((prodRes.data as Product[]) || []);
+      setMovements((movRes.data as StockMovement[]) || []);
+    } catch (e: any) {
+      setLoadError(e);
+      toast.error("Erro ao carregar stock: " + (e.message || "tente novamente"));
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => { fetchData(); }, [supplier.id]);
@@ -189,6 +200,20 @@ const FornecedorStock = () => {
   const stockHealthPercent = activeProducts.length > 0
     ? Math.round(((activeProducts.length - lowStockProducts.length - outOfStock.length) / activeProducts.length) * 100)
     : 100;
+
+  if (loadError && !loading) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-xl font-heading font-bold flex items-center gap-2">
+            <Package className="h-5 w-5 text-primary" /> Gestão de Stock
+          </h1>
+          <p className="text-muted-foreground text-sm">Inventário da loja {supplier.name}</p>
+        </div>
+        <ErrorState onRetry={fetchData} />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
