@@ -77,6 +77,23 @@ const parseValor = (s: string | null | undefined): number => {
   return isNaN(v) ? 0 : v;
 };
 
+/** Pagina uma query em chunks de 1000 e devolve TODAS as linhas (contorna o limite default do Supabase). */
+async function fetchAll<T = any>(builder: any): Promise<T[]> {
+  const PAGE = 1000;
+  let from = 0;
+  const out: T[] = [];
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const { data, error } = await builder.range(from, from + PAGE - 1);
+    if (error) throw error;
+    const rows = (data ?? []) as T[];
+    out.push(...rows);
+    if (rows.length < PAGE) break;
+    from += PAGE;
+  }
+  return out;
+}
+
 async function fetchDashboardData(
   userId: string,
   roles: AppRole[],
@@ -88,23 +105,20 @@ async function fetchDashboardData(
 
   if (scope === "province") {
     provinces = await fetchUserProvinces(userId);
-    // Fallback: se não tem províncias atribuídas, ver tudo (supervisão nacional)
     if (provinces.length === 0) scope = "global";
   } else if (scope === "eca") {
     ecas = await fetchUserEcas(userId);
     if (ecas.length === 0) scope = "global";
   }
 
-  // Build farmer query
+  // Farmer query — paginated (Supabase limita a 1000 por query)
   let farmerQuery = supabase.from("farmers").select("code, full_name, gender, province, school, status, saldo_final, valor_recebido, total_gasto");
-
   if (scope === "province" && provinces.length > 0) {
     farmerQuery = farmerQuery.in("province", provinces);
   } else if (scope === "eca" && ecas.length > 0) {
     farmerQuery = farmerQuery.in("school", ecas);
   }
-
-  const { data: farmers = [] } = await farmerQuery;
+  const farmers = await fetchAll<{ code: string; full_name: string; gender: string | null; province: string | null; school: string | null; status: string; saldo_final: string | null; valor_recebido: string | null; total_gasto: string | null }>(farmerQuery);
   const farmerCodes = farmers.map((f) => f.code);
 
   const totalFarmers = farmers.length;
@@ -128,12 +142,12 @@ async function fetchDashboardData(
     .map(([name, value]) => ({ name, value }))
     .sort((a, b) => b.value - a.value);
 
-  // Transactions
+  // Transactions — pagina TODAS (são 70k+)
   let txQuery = supabase.from("farmer_transactions").select("farmer_code, valor, empresa");
   if (farmerCodes.length > 0 && scope !== "global") {
     txQuery = txQuery.in("farmer_code", farmerCodes);
   }
-  const { data: transactions = [] } = await txQuery;
+  const transactions = await fetchAll<{ farmer_code: string; valor: string; empresa: string }>(txQuery);
   const totalTransactions = transactions.length;
 
   // Volume
@@ -161,14 +175,12 @@ async function fetchDashboardData(
     .eq("status", "Ativo");
   const totalCompanies = suppliersCount ?? 0;
 
-  // Schools
+  // Schools — pagina TODAS
   let schoolQuery = supabase.from("schools").select("id, name, province_id");
   if (scope === "eca" && ecas.length > 0) {
     schoolQuery = schoolQuery.in("name", ecas);
   }
-  // For province filter we can't easily filter schools by province name (they use province_id)
-  // We'll count schools that have farmers in the filtered set
-  const { data: schools = [] } = await schoolQuery;
+  const schools = await fetchAll<{ id: string; name: string; province_id: string }>(schoolQuery);
   const totalSchools = scope === "province" && provinces.length > 0
     ? new Set(farmers.map((f) => f.school).filter(Boolean)).size
     : schools.length;
@@ -178,7 +190,7 @@ async function fetchDashboardData(
   if (farmerCodes.length > 0 && scope !== "global") {
     parcelQuery = parcelQuery.in("farmer_code", farmerCodes);
   }
-  const { data: parcels = [] } = await parcelQuery;
+  const parcels = await fetchAll<{ area: string; culture: string; farmer_code: string }>(parcelQuery);
   const totalParcels = parcels.length;
   const totalAreaHa = parcels.reduce((sum, p) => {
     const val = parseFloat(p.area?.replace(",", ".") || "0");
@@ -190,7 +202,7 @@ async function fetchDashboardData(
   if (farmerCodes.length > 0 && scope !== "global") {
     prodQuery = prodQuery.in("farmer_code", farmerCodes);
   }
-  const { data: production = [] } = await prodQuery;
+  const production = await fetchAll<{ culture: string; area: string | null; actual_yield: string | null; farmer_code: string }>(prodQuery);
 
   const cultureMap: Record<string, { area: number; producao: number }> = {};
   production.forEach((p) => {
@@ -211,7 +223,7 @@ async function fetchDashboardData(
   if (farmerCodes.length > 0 && scope !== "global") {
     livestockQuery = livestockQuery.in("farmer_id", farmerCodes);
   }
-  const { data: livestock = [] } = await livestockQuery;
+  const livestock = await fetchAll<{ species: string; quantity: number; farmer_id: string }>(livestockQuery);
 
   const speciesMap: Record<string, { quantidade: number; produtores: Set<string> }> = {};
   livestock.forEach((l) => {
@@ -268,7 +280,7 @@ async function fetchDashboardData(
   if (farmerCodes.length > 0 && scope !== "global") {
     posQuery = posQuery.in("farmer_code", farmerCodes);
   }
-  const { data: posSales = [] } = await posQuery;
+  const posSales = await fetchAll<{ total: number; created_at: string; farmer_code: string }>(posQuery);
   const monthMap: Record<string, { valor: number; vendas: number }> = {};
   const now = new Date();
   for (let i = 11; i >= 0; i--) {
