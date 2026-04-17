@@ -90,6 +90,47 @@ const Dashboard = () => {
         </div>
       </div>
 
+      {/* KPIs Impacto & Eficiência */}
+      <div>
+        <p className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+          Impacto & Eficiência
+        </p>
+        <div className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-4">
+          <KpiCard
+            title="Utilização Incentivos"
+            value={`${formatNumber(stats.utilizationRate)}%`}
+            subtitle={`${formatCurrency(stats.totalGasto)} de ${formatCurrency(stats.totalRecebido)}`}
+            icon={Target}
+            accent={stats.utilizationRate >= 70 ? "success" : stats.utilizationRate >= 40 ? "warning" : "destructive"}
+            delay={0.05}
+          />
+          <KpiCard
+            title="Produtividade Média"
+            value={`${formatNumber(stats.avgYieldPerHa)} kg/ha`}
+            subtitle="Rendimento agronómico"
+            icon={Gauge}
+            accent="info"
+            delay={0.1}
+          />
+          <KpiCard
+            title="Volume POS"
+            value={formatCurrency(stats.volumeTransactions)}
+            subtitle={`${formatNumber(stats.totalTransactions)} transações`}
+            icon={TrendingUp}
+            accent="primary"
+            delay={0.15}
+          />
+          <KpiCard
+            title="Stock Crítico"
+            value={formatNumber(stats.criticalStockCount)}
+            subtitle={stats.criticalStockCount > 10 ? "Atenção: rupturas iminentes" : "Níveis estáveis"}
+            icon={AlertTriangle}
+            accent={stats.criticalStockCount > 10 ? "destructive" : stats.criticalStockCount > 0 ? "warning" : "success"}
+            delay={0.2}
+          />
+        </div>
+      </div>
+
       {/* KPIs Agricultura */}
       <div>
         <p className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
