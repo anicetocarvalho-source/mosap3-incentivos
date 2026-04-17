@@ -81,15 +81,18 @@ async function fetchDashboardData(
   userId: string,
   roles: AppRole[],
 ): Promise<DashboardStats> {
-  const scope = getFilterScope(roles);
+  let scope = getFilterScope(roles);
 
   let provinces: string[] = [];
   let ecas: string[] = [];
 
   if (scope === "province") {
     provinces = await fetchUserProvinces(userId);
+    // Fallback: se não tem províncias atribuídas, ver tudo (supervisão nacional)
+    if (provinces.length === 0) scope = "global";
   } else if (scope === "eca") {
     ecas = await fetchUserEcas(userId);
+    if (ecas.length === 0) scope = "global";
   }
 
   // Build farmer query
