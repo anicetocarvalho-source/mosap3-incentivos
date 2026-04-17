@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import ReportPreview from "@/components/reports/ReportPreview";
+import { EmptyState } from "@/components/ui/empty-state";
 import { supabase } from "@/integrations/supabase/client";
 
 const reportTypes = [
@@ -272,14 +273,12 @@ const Relatorios = () => {
             </div>
           ) : (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-              <Card className="p-12 flex flex-col items-center justify-center text-center min-h-[400px]">
-                <div className="h-16 w-16 rounded-2xl bg-muted flex items-center justify-center mb-4">
-                  <FileText className="h-8 w-8 text-muted-foreground" />
-                </div>
-                <h3 className="font-heading font-semibold text-lg">Selecione um relatório</h3>
-                <p className="text-sm text-muted-foreground mt-2 max-w-sm">
-                  Escolha o tipo de relatório no painel à esquerda, aplique os filtros desejados e clique em "Gerar Relatório" para visualizar a pré-visualização.
-                </p>
+              <Card className="min-h-[400px] flex items-center justify-center">
+                <EmptyState
+                  icon={FileText}
+                  title="Selecione um relatório"
+                  description="Escolha o tipo de relatório no painel à esquerda, aplique os filtros desejados e clique em Gerar Relatório para visualizar a pré-visualização."
+                />
               </Card>
             </motion.div>
           )}
