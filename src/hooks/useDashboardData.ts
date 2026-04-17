@@ -175,14 +175,12 @@ async function fetchDashboardData(
     .eq("status", "Ativo");
   const totalCompanies = suppliersCount ?? 0;
 
-  // Schools
+  // Schools — pagina TODAS
   let schoolQuery = supabase.from("schools").select("id, name, province_id");
   if (scope === "eca" && ecas.length > 0) {
     schoolQuery = schoolQuery.in("name", ecas);
   }
-  // For province filter we can't easily filter schools by province name (they use province_id)
-  // We'll count schools that have farmers in the filtered set
-  const { data: schools = [] } = await schoolQuery;
+  const schools = await fetchAll<{ id: string; name: string; province_id: string }>(schoolQuery);
   const totalSchools = scope === "province" && provinces.length > 0
     ? new Set(farmers.map((f) => f.school).filter(Boolean)).size
     : schools.length;
@@ -192,7 +190,7 @@ async function fetchDashboardData(
   if (farmerCodes.length > 0 && scope !== "global") {
     parcelQuery = parcelQuery.in("farmer_code", farmerCodes);
   }
-  const { data: parcels = [] } = await parcelQuery;
+  const parcels = await fetchAll<{ area: string; culture: string; farmer_code: string }>(parcelQuery);
   const totalParcels = parcels.length;
   const totalAreaHa = parcels.reduce((sum, p) => {
     const val = parseFloat(p.area?.replace(",", ".") || "0");
@@ -204,7 +202,7 @@ async function fetchDashboardData(
   if (farmerCodes.length > 0 && scope !== "global") {
     prodQuery = prodQuery.in("farmer_code", farmerCodes);
   }
-  const { data: production = [] } = await prodQuery;
+  const production = await fetchAll<{ culture: string; area: string | null; actual_yield: string | null; farmer_code: string }>(prodQuery);
 
   const cultureMap: Record<string, { area: number; producao: number }> = {};
   production.forEach((p) => {
@@ -225,7 +223,7 @@ async function fetchDashboardData(
   if (farmerCodes.length > 0 && scope !== "global") {
     livestockQuery = livestockQuery.in("farmer_id", farmerCodes);
   }
-  const { data: livestock = [] } = await livestockQuery;
+  const livestock = await fetchAll<{ species: string; quantity: number; farmer_id: string }>(livestockQuery);
 
   const speciesMap: Record<string, { quantidade: number; produtores: Set<string> }> = {};
   livestock.forEach((l) => {
