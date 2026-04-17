@@ -9,12 +9,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { allSchools } from "@/data/escolasData";
 import type { Database } from "@/integrations/supabase/types";
 
 type AppRole = Database["public"]["Enums"]["app_role"];
-
-const ECA_NAMES = allSchools.map((s) => s.name);
 
 const ROLE_LABELS: Record<AppRole, string> = {
   admin: "Administrador",
