@@ -1,21 +1,20 @@
 
-The user wants comprehensive route testing. This is a verification/testing task using the browser tool, not a code change. Let me plan a structured test pass.
+User wants the 2 issues fixed: breadcrumb capitalization ("Escolas De Campo") and `/auth` redirect when already authenticated.
 
-Routes to test (from App.tsx):
-- Public: /auth, /fornecedor/login
-- Protected (admin layout): /, /agricultores, /agricultores/:id, /agricultores/:id/ficha, /escolas, /escolas/provincia/:slug, /escolas/:id, /escolas/:id/ficha, /parcelas, /producao, /instalar, /patec, /mosap3pay/*, /incentivos, /transacoes, /relatorios, /utilizadores, /perfis, /configuracoes, /provincias
-- Supplier portal: /fornecedor, /fornecedor/produtos, /fornecedor/stock, /fornecedor/pos, /fornecedor/vendas, /fornecedor/lojas, /fornecedor/perfil
-- 404: any non-existent route
+Plan:
 
-Test scenarios:
-1. Unauthenticated access to protected routes → should redirect to /auth
-2. Unauthenticated access to /fornecedor/* → should redirect to /fornecedor/login
-3. Direct URL access to public routes
-4. 404 page for non-existent routes
-5. Browser back/forward navigation consistency
-6. After login, sidebar navigation between modules
-7. RoleGuard behavior (will need a non-admin role, but if only admin test user is logged, document the expected behaviour)
+# Corrigir 2 Pontos do Relatório de Testes
 
-Since this requires browser automation and the user explicitly asked to "test" — that's allowed. But I'm in READ-ONLY plan mode, so I must present a plan first and get approval before running browser tests.
+## 1. Capitalização do breadcrumb
+Em `src/components/AppTopbar.tsx`, o `labelFor()` faz `replace(/-/g, " ")` mas o CSS aplica `capitalize` que capitaliza cada palavra ("De" em vez de "de"). 
 
-Plan should be concise — just outline the test matrix and expected outcomes.
+**Fix**: substituir `capitalize` por capitalização manual só da primeira letra, OU adicionar mapeamentos completos no `ROUTE_LABELS` para segmentos compostos. Vou usar a abordagem mais limpa: remover `capitalize` e capitalizar apenas a primeira letra no helper, mantendo as labels do mapa exactas (ex: "Escolas de Campo").
+
+## 2. Redirect de `/auth` quando autenticado
+Em `src/pages/Auth.tsx`, adicionar `useEffect` que verifica `useAuth()` — se `user` existe e `authReady`, faz `navigate("/", { replace: true })`.
+
+## Ficheiros
+| Ficheiro | Alteração |
+|---|---|
+| `src/components/AppTopbar.tsx` | Remover `capitalize`, capitalizar só 1ª letra; adicionar label "Escolas de Campo" |
+| `src/pages/Auth.tsx` | `useEffect` redirect para `/` quando já autenticado |
