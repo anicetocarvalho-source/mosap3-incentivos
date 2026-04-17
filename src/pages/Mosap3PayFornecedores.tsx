@@ -16,6 +16,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import StatCard from "@/components/StatCard";
 import { motion } from "framer-motion";
+import { ErrorState } from "@/components/ui/error-state";
 
 interface Province {
   id: string;
@@ -64,6 +65,7 @@ const Mosap3PayFornecedores = () => {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editSupplier, setEditSupplier] = useState<Supplier | null>(null);
 
@@ -109,23 +111,31 @@ const Mosap3PayFornecedores = () => {
 
   const fetchSuppliers = async () => {
     setLoading(true);
-    const [suppRes, zonesRes, prodCountRes, posCountRes] = await Promise.all([
-      supabase.from("suppliers").select("*").order("name"),
-      supabase.from("supplier_provinces").select("supplier_id, province_id, provinces(id, name)"),
-      supabase.from("supplier_products").select("id", { count: "exact", head: true }),
-      supabase.from("supplier_pos").select("id", { count: "exact", head: true }),
-    ]);
-    const rawSuppliers = (suppRes.data || []) as Supplier[];
-    const zonesMap = new Map<string, Province[]>();
-    for (const row of (zonesRes.data || []) as any[]) {
-      const sid = row.supplier_id;
-      if (!zonesMap.has(sid)) zonesMap.set(sid, []);
-      if (row.provinces) zonesMap.get(sid)!.push({ id: row.provinces.id, name: row.provinces.name });
+    setLoadError(null);
+    try {
+      const [suppRes, zonesRes, prodCountRes, posCountRes] = await Promise.all([
+        supabase.from("suppliers").select("*").order("name"),
+        supabase.from("supplier_provinces").select("supplier_id, province_id, provinces(id, name)"),
+        supabase.from("supplier_products").select("id", { count: "exact", head: true }),
+        supabase.from("supplier_pos").select("id", { count: "exact", head: true }),
+      ]);
+      if (suppRes.error) throw suppRes.error;
+      const rawSuppliers = (suppRes.data || []) as Supplier[];
+      const zonesMap = new Map<string, Province[]>();
+      for (const row of (zonesRes.data || []) as any[]) {
+        const sid = row.supplier_id;
+        if (!zonesMap.has(sid)) zonesMap.set(sid, []);
+        if (row.provinces) zonesMap.get(sid)!.push({ id: row.provinces.id, name: row.provinces.name });
+      }
+      setSuppliers(rawSuppliers.map(s => ({ ...s, zones: zonesMap.get(s.id) || [] })));
+      setTotalProducts(prodCountRes.count || 0);
+      setTotalPos(posCountRes.count || 0);
+    } catch (e: any) {
+      setLoadError(e.message || "Erro");
+      toast.error("Erro ao carregar fornecedores");
+    } finally {
+      setLoading(false);
     }
-    setSuppliers(rawSuppliers.map(s => ({ ...s, zones: zonesMap.get(s.id) || [] })));
-    setTotalProducts(prodCountRes.count || 0);
-    setTotalPos(posCountRes.count || 0);
-    setLoading(false);
   };
 
   const fetchProvinces = async () => {
@@ -623,6 +633,10 @@ const Mosap3PayFornecedores = () => {
           </Button>
         )}
       </div>
+
+      {loadError && (
+        <Card><CardContent className="p-6"><ErrorState onRetry={fetchSuppliers} /></CardContent></Card>
+      )}
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">

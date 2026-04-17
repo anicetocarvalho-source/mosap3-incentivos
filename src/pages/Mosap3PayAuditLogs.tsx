@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { ErrorState } from "@/components/ui/error-state";
 
 const PAGE_SIZE = 15;
 
@@ -50,6 +51,7 @@ const ENTITY_LABELS: Record<string, string> = {
 const Mosap3PayAuditLogs = () => {
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [filterAction, setFilterAction] = useState("all");
   const [filterEntity, setFilterEntity] = useState("all");
@@ -62,12 +64,18 @@ const Mosap3PayAuditLogs = () => {
 
   const fetchLogs = async () => {
     setLoading(true);
-    const { data } = await supabase
+    setLoadError(null);
+    const { data, error } = await supabase
       .from("audit_logs")
       .select("*")
       .order("created_at", { ascending: false })
       .limit(500);
-    setLogs((data as AuditLog[]) || []);
+    if (error) {
+      setLoadError(error.message);
+      toast.error("Erro ao carregar logs");
+    } else {
+      setLogs((data as AuditLog[]) || []);
+    }
     setLoading(false);
   };
 
@@ -182,6 +190,9 @@ const Mosap3PayAuditLogs = () => {
         </Select>
       </div>
 
+      {loadError ? (
+        <Card><CardContent className="p-6"><ErrorState onRetry={fetchLogs} /></CardContent></Card>
+      ) : (
       <Card>
         <CardContent className="p-0">
           {/* Desktop table */}
@@ -259,6 +270,7 @@ const Mosap3PayAuditLogs = () => {
           <PaginationControls />
         </CardContent>
       </Card>
+      )}
 
       {/* Detail Dialog */}
       <Dialog open={!!detailLog} onOpenChange={o => !o && setDetailLog(null)}>

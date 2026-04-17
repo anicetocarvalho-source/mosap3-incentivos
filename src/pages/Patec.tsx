@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
+import { ErrorState } from "@/components/ui/error-state";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -72,6 +73,7 @@ const Patec = () => {
   const [farmers, setFarmers] = useState<FarmerPatec[]>([]);
   const [patecItems, setPatecItems] = useState<PatecItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [filterPatec, setFilterPatec] = useState<string>("all");
   const [page, setPage] = useState(1);
@@ -96,11 +98,17 @@ const Patec = () => {
 
   const fetchFarmers = async () => {
     setLoading(true);
-    const { data } = await supabase
+    setLoadError(null);
+    const { data, error } = await supabase
       .from("farmers")
       .select("id, code, full_name, province, municipality, school, patec, status")
       .order("code");
-    setFarmers((data as FarmerPatec[]) || []);
+    if (error) {
+      setLoadError(error.message);
+      toast.error("Erro ao carregar produtores");
+    } else {
+      setFarmers((data as FarmerPatec[]) || []);
+    }
     setLoading(false);
   };
 
@@ -498,6 +506,9 @@ const Patec = () => {
       </div>
 
       {/* Table */}
+      {loadError ? (
+        <Card><CardContent className="p-0"><ErrorState onRetry={fetchFarmers} /></CardContent></Card>
+      ) : (
       <Card>
         <CardContent className="p-0">
           {/* Desktop table */}
@@ -601,6 +612,7 @@ const Patec = () => {
           )}
         </CardContent>
       </Card>
+      )}
 
       {/* Edit Dialog (single) */}
       <Dialog open={!!editFarmer} onOpenChange={(o) => !o && setEditFarmer(null)}>

@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ErrorState } from "@/components/ui/error-state";
+import { EmptyState } from "@/components/ui/empty-state";
 import StatCard from "@/components/StatCard";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -37,7 +39,7 @@ const Parcelas = () => {
   const [formLon, setFormLon] = useState("");
   const [formNotes, setFormNotes] = useState("");
 
-  const { data: parcels = [], isLoading } = useQuery({
+  const { data: parcels = [], isLoading, isError, refetch } = useQuery({
     queryKey: ["farmer_parcels"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -217,6 +219,9 @@ const Parcelas = () => {
 
       {/* Table */}
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+        {isError ? (
+          <Card><ErrorState onRetry={() => refetch()} /></Card>
+        ) : (
         <Card className="p-0 overflow-hidden">
           {/* Desktop table */}
           <div className="hidden md:block overflow-x-auto">
@@ -313,6 +318,7 @@ const Parcelas = () => {
             </div>
           </div>
         </Card>
+        )}
       </motion.div>
     </div>
   );

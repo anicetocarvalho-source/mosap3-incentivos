@@ -4,6 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ErrorState } from "@/components/ui/error-state";
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -18,7 +19,7 @@ const Transacoes = () => {
   const [empresaFilter, setEmpresaFilter] = useState("all");
   const [page, setPage] = useState(1);
 
-  const { data: transactions = [], isLoading } = useQuery({
+  const { data: transactions = [], isLoading, isError, refetch } = useQuery({
     queryKey: ["farmer_transactions"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -81,6 +82,9 @@ const Transacoes = () => {
       </div>
 
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+        {isError ? (
+          <Card><ErrorState onRetry={() => refetch()} /></Card>
+        ) : (
         <Card className="p-0 overflow-hidden">
           {/* Desktop table */}
           <div className="hidden md:block overflow-x-auto">
@@ -182,6 +186,7 @@ const Transacoes = () => {
             </div>
           </div>
         </Card>
+        )}
       </motion.div>
     </div>
   );
