@@ -280,7 +280,7 @@ async function fetchDashboardData(
   if (farmerCodes.length > 0 && scope !== "global") {
     posQuery = posQuery.in("farmer_code", farmerCodes);
   }
-  const { data: posSales = [] } = await posQuery;
+  const posSales = await fetchAll<{ total: number; created_at: string; farmer_code: string }>(posQuery);
   const monthMap: Record<string, { valor: number; vendas: number }> = {};
   const now = new Date();
   for (let i = 11; i >= 0; i--) {
