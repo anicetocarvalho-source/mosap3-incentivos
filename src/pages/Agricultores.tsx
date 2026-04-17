@@ -33,7 +33,7 @@ const Agricultores = () => {
   const [editingFarmer, setEditingFarmer] = useState<any>(null);
   const [page, setPage] = useState(1);
   const [deleteTarget, setDeleteTarget] = useState<any>(null);
-  const { farmers, loading } = useFarmersList();
+  const { farmers, loading, error: farmersError, refetch: refetchFarmers } = useFarmersList();
   const queryClient = useQueryClient();
 
   const { data: provinces = [] } = useQuery({
