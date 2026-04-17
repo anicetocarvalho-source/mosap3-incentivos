@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { ShoppingCart, Search, Filter, Eye, Printer, FileDown, Loader2, ShieldCheck, CheckCircle2, AlertTriangle, XCircle, Info, ChevronLeft, ChevronRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -43,9 +44,6 @@ interface SaleItem {
 const PAGE_SIZE = 15;
 
 const Mosap3PayVendas = () => {
-  const [sales, setSales] = useState<Sale[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [page, setPage] = useState(1);
@@ -64,38 +62,42 @@ const Mosap3PayVendas = () => {
   });
   const [saftEndDate, setSaftEndDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [saftExporting, setSaftExporting] = useState(false);
-  const [saftSuppliers, setSaftSuppliers] = useState<{ id: string; name: string }[]>([]);
 
   // SAF-T validation state
   const [validationOpen, setValidationOpen] = useState(false);
   const [validating, setValidating] = useState(false);
   const [validationResult, setValidationResult] = useState<any>(null);
 
+  // ---- Queries ----
+  const salesQuery = useQuery({
+    queryKey: ["mosap3pay", "sales"],
+    queryFn: async (): Promise<Sale[]> => {
+      const { data, error } = await supabase
+        .from("pos_sales")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data as Sale[]) || [];
+    },
+  });
 
-  const fetchSales = async () => {
-    setLoading(true);
-    setLoadError(null);
-    const { data, error } = await supabase
-      .from("pos_sales")
-      .select("*")
-      .order("created_at", { ascending: false });
-    if (error) {
-      setLoadError(error.message);
-      toast.error("Erro ao carregar vendas");
-    } else {
-      setSales((data as Sale[]) || []);
-    }
-    setLoading(false);
-  };
+  const saftSuppliersQuery = useQuery({
+    queryKey: ["mosap3pay", "saft-suppliers"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("suppliers").select("id, name").order("name");
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const sales = salesQuery.data ?? [];
+  const loading = salesQuery.isLoading;
+  const loadError = salesQuery.error ? (salesQuery.error as Error).message : null;
+  const saftSuppliers = saftSuppliersQuery.data ?? [];
 
   useEffect(() => {
-    const fetchSuppliers = async () => {
-      const { data } = await supabase.from("suppliers").select("id, name").order("name");
-      setSaftSuppliers(data || []);
-    };
-    fetchSales();
-    fetchSuppliers();
-  }, []);
+    if (salesQuery.error) toast.error("Erro ao carregar vendas");
+  }, [salesQuery.error]);
 
   const exportSaft = async () => {
     if (!saftSupplierId) { toast.error("Seleccione um fornecedor"); return; }
