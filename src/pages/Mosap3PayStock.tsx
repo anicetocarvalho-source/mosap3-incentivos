@@ -346,7 +346,7 @@ const Mosap3PayStock = () => {
       </div>
 
       {loadError && (
-        <Card><CardContent className="p-6"><ErrorState onRetry={fetchData} /></CardContent></Card>
+        <Card><CardContent className="p-6"><ErrorState onRetry={() => stockQuery.refetch()} /></CardContent></Card>
       )}
 
       <Tabs defaultValue="products" className="space-y-4">
