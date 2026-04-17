@@ -151,9 +151,12 @@ async function fetchDashboardData(
     .map(([name, value]) => ({ name, value }))
     .sort((a, b) => b.value - a.value);
 
-  // Unique companies
-  const uniqueEmpresas = new Set(transactions.map((t) => t.empresa));
-  const totalCompanies = uniqueEmpresas.size;
+  // Fornecedores activos (fonte oficial: tabela suppliers)
+  const { count: suppliersCount } = await supabase
+    .from("suppliers")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "Ativo");
+  const totalCompanies = suppliersCount ?? 0;
 
   // Schools
   let schoolQuery = supabase.from("schools").select("id, name, province_id");

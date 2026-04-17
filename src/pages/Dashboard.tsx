@@ -30,11 +30,11 @@ const roleLabels: Record<string, string> = {
   tecnico_extensionista: "Técnico Extensionista",
 };
 
-const formatNumber = (n: number) =>
-  n.toLocaleString("pt-AO", { maximumFractionDigits: 1 });
+const formatNumber = (n: number | null | undefined) =>
+  (n ?? 0).toLocaleString("pt-AO", { maximumFractionDigits: 1 });
 
-const formatCurrency = (n: number) =>
-  n.toLocaleString("pt-AO", { minimumFractionDigits: 0, maximumFractionDigits: 0 }) + " AOA";
+const formatCurrency = (n: number | null | undefined) =>
+  (n ?? 0).toLocaleString("pt-AO", { minimumFractionDigits: 0, maximumFractionDigits: 0 }) + " AOA";
 
 const tooltipStyle = {
   backgroundColor: "hsl(var(--card))",
@@ -84,9 +84,16 @@ const Dashboard = () => {
         </p>
         <div className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-4">
           <KpiCard title="Total Registado" value={formatNumber(stats.totalFarmers)} icon={Users} accent="primary" delay={0.05} />
-          <KpiCard title="Total Aprovado" value={formatNumber(stats.totalApproved)} icon={ThumbsUp} accent="success" delay={0.1} />
+          <KpiCard
+            title="Aprovados"
+            value={`${formatNumber(stats.totalApproved)} / ${formatNumber(stats.totalFarmers)}`}
+            subtitle={`${stats.totalFarmers > 0 ? Math.round((stats.totalApproved / stats.totalFarmers) * 100) : 0}% validados`}
+            icon={ThumbsUp}
+            accent="success"
+            delay={0.1}
+          />
           <KpiCard title="Transações" value={formatNumber(stats.totalTransactions)} icon={ArrowRightLeft} accent="info" delay={0.15} />
-          <KpiCard title="Empresas" value={formatNumber(stats.totalCompanies)} icon={Building2} accent="secondary" delay={0.2} />
+          <KpiCard title="Fornecedores" value={formatNumber(stats.totalCompanies)} subtitle="Activos no sistema" icon={Building2} accent="secondary" delay={0.2} />
         </div>
       </div>
 
