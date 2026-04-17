@@ -342,6 +342,7 @@ const Producao = () => {
             </div>
           </div>
         </Card>
+        )}
       </motion.div>
     </div>
   );
