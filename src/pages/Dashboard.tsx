@@ -1,5 +1,6 @@
 import { Users, ThumbsUp, ArrowRightLeft, Building2, School, MapPin, Wheat, Gift, Beef, Loader2, BarChart3, PieChart as PieIcon, Activity, Sprout } from "lucide-react";
 import { motion } from "framer-motion";
+import { useNavigate } from "react-router-dom";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
   PieChart, Pie, Cell,
@@ -9,6 +10,8 @@ import { useDashboardData } from "@/hooks/useDashboardData";
 import HeroHeader from "@/components/dashboard/HeroHeader";
 import KpiCard from "@/components/dashboard/KpiCard";
 import ChartCard from "@/components/dashboard/ChartCard";
+import { ErrorState } from "@/components/ui/error-state";
+import { EmptyState } from "@/components/ui/empty-state";
 
 const PROVINCE_COLORS = [
   "hsl(130, 55%, 35%)", "hsl(45, 90%, 50%)", "hsl(210, 75%, 50%)",
@@ -44,14 +47,23 @@ const tooltipStyle = {
 
 const Dashboard = () => {
   const { roles } = useAuth();
-  const { data: stats, isLoading } = useDashboardData();
+  const { data: stats, isLoading, isError, refetch } = useDashboardData();
+  const navigate = useNavigate();
   const roleName = roles.length > 0 ? (roleLabels[roles[0]] ?? roles[0]) : "Utilizador";
 
-  if (isLoading || !stats) {
+  if (isLoading || (!stats && !isError)) {
     return (
       <div className="flex min-h-[60vh] flex-col items-center justify-center gap-3">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
         <p className="text-sm text-muted-foreground">A carregar painel…</p>
+      </div>
+    );
+  }
+
+  if (isError || !stats) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <ErrorState onRetry={() => refetch()} />
       </div>
     );
   }
