@@ -190,6 +190,9 @@ const Mosap3PayAuditLogs = () => {
         </Select>
       </div>
 
+      {loadError ? (
+        <Card><CardContent className="p-6"><ErrorState onRetry={fetchLogs} /></CardContent></Card>
+      ) : (
       <Card>
         <CardContent className="p-0">
           {/* Desktop table */}
@@ -267,6 +270,7 @@ const Mosap3PayAuditLogs = () => {
           <PaginationControls />
         </CardContent>
       </Card>
+      )}
 
       {/* Detail Dialog */}
       <Dialog open={!!detailLog} onOpenChange={o => !o && setDetailLog(null)}>
