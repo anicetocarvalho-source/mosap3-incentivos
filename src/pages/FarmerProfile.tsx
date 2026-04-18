@@ -701,7 +701,7 @@ const FarmerProfile = () => {
 
               // Incentivos: novos (farmer_incentives) + legado (farmers.valor_recebido) como fallback
               const totalIncentivosNovos = incentives.reduce((sum, inc) => sum + parseFloat(inc.amount || "0"), 0);
-              const totalIncentivosLegado = parsePtAo(farmer?.valor_recebido);
+              const totalIncentivosLegado = parsePtAo(farmerRaw?.valor_recebido);
               const totalIncentivos = totalIncentivosNovos + (totalIncentivosNovos === 0 ? totalIncentivosLegado : 0);
 
               // Compras: POS + transações manuais legadas (sempre somadas, nunca perder histórico)
