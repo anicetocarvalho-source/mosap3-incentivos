@@ -763,7 +763,7 @@ const FarmerProfile = () => {
                         <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Compras Realizadas</p>
                       </div>
                       <p className="text-2xl font-bold font-heading text-destructive">{totalCompras.toLocaleString("pt-AO")} Kz</p>
-                      <p className="text-xs text-muted-foreground mt-1">{posSales.length} compra(s)</p>
+                      <p className="text-xs text-muted-foreground mt-1">{totalComprasCount} compra(s)</p>
                     </Card>
                     <Card className="p-5">
                       <div className="flex items-center gap-2 mb-1">
