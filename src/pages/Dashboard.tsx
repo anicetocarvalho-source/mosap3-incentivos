@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Users, ThumbsUp, ArrowRightLeft, Building2, School, MapPin, Wheat, Beef, Loader2, BarChart3, PieChart as PieIcon, Activity, Sprout, Target, Gauge, AlertTriangle, TrendingUp } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -9,6 +10,7 @@ import { useDashboardKpis, useDashboardCharts } from "@/hooks/useDashboardData";
 import HeroHeader from "@/components/dashboard/HeroHeader";
 import KpiCard from "@/components/dashboard/KpiCard";
 import ChartCard from "@/components/dashboard/ChartCard";
+import PeriodFilter, { type PeriodValue } from "@/components/dashboard/PeriodFilter";
 import { ErrorState } from "@/components/ui/error-state";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
