@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllPages } from "@/lib/supabaseFetchAll";
 
 export type ReportFilters = {
   provincia: string;
@@ -36,22 +37,28 @@ export type ProducaoRow = {
 };
 
 async function fetchProducao(filters: ReportFilters): Promise<ProducaoRow[]> {
-  let farmersQ = supabase.from("farmers").select("code, province, school");
-  if (!isAll(filters.provincia)) farmersQ = farmersQ.eq("province", filters.provincia);
-  if (!isAll(filters.municipio)) farmersQ = farmersQ.eq("municipality", filters.municipio);
-  if (!isAll(filters.escola)) farmersQ = farmersQ.eq("school", filters.escola);
-  const { data: farmers = [] } = await farmersQ;
+  const farmers = await fetchAllPages<any>(() => {
+    let q = supabase.from("farmers").select("code, province, school", { count: "exact" });
+    if (!isAll(filters.provincia)) q = q.eq("province", filters.provincia);
+    if (!isAll(filters.municipio)) q = q.eq("municipality", filters.municipio);
+    if (!isAll(filters.escola)) q = q.eq("school", filters.escola);
+    return q;
+  });
   const codes = farmers.map(f => f.code);
   if (codes.length === 0) return [];
 
-  const [parcelsRes, prodRes] = await Promise.all([
-    supabase.from("farmer_parcels").select("farmer_code, area").in("farmer_code", codes),
-    supabase.from("farmer_production").select("farmer_code, area, actual_yield, created_at").in("farmer_code", codes),
+  const [parcelsRaw, prodRaw] = await Promise.all([
+    fetchAllPages<any>(() =>
+      supabase.from("farmer_parcels").select("farmer_code, area, created_at", { count: "exact" }).in("farmer_code", codes)
+    ),
+    fetchAllPages<any>(() =>
+      supabase.from("farmer_production").select("farmer_code, area, actual_yield, created_at", { count: "exact" }).in("farmer_code", codes)
+    ),
   ]);
 
-  const parcels = (parcelsRes.data || []).filter(p =>
+  const parcels = parcelsRaw.filter(p =>
     inDateRange((p as any).created_at, filters.dateFrom, filters.dateTo));
-  const prod = (prodRes.data || []).filter(p =>
+  const prod = prodRaw.filter(p =>
     inDateRange(p.created_at, filters.dateFrom, filters.dateTo));
 
   const farmerInfo = new Map(farmers.map(f => [f.code, { province: f.province || "—", school: f.school || "—" }]));
@@ -89,22 +96,27 @@ export type PecuariaRow = {
 };
 
 async function fetchPecuaria(filters: ReportFilters): Promise<PecuariaRow[]> {
-  let farmersQ = supabase.from("farmers").select("code, province, school");
-  if (!isAll(filters.provincia)) farmersQ = farmersQ.eq("province", filters.provincia);
-  if (!isAll(filters.municipio)) farmersQ = farmersQ.eq("municipality", filters.municipio);
-  if (!isAll(filters.escola)) farmersQ = farmersQ.eq("school", filters.escola);
-  const { data: farmers = [] } = await farmersQ;
+  const farmers = await fetchAllPages<any>(() => {
+    let q = supabase.from("farmers").select("code, province, school", { count: "exact" });
+    if (!isAll(filters.provincia)) q = q.eq("province", filters.provincia);
+    if (!isAll(filters.municipio)) q = q.eq("municipality", filters.municipio);
+    if (!isAll(filters.escola)) q = q.eq("school", filters.escola);
+    return q;
+  });
   const codes = farmers.map(f => f.code);
   if (codes.length === 0) return [];
 
-  const { data: livestock = [] } = await supabase
-    .from("livestock").select("id, farmer_id, species, quantity, created_at").in("farmer_id", codes);
+  const livestock = await fetchAllPages<any>(() =>
+    supabase.from("livestock").select("id, farmer_id, species, quantity, created_at", { count: "exact" }).in("farmer_id", codes)
+  );
   const filteredLivestock = livestock.filter(l => inDateRange(l.created_at, filters.dateFrom, filters.dateTo));
 
   const livestockIds = filteredLivestock.map(l => l.id);
-  const { data: production = [] } = livestockIds.length > 0
-    ? await supabase.from("livestock_production").select("livestock_id, product_type, quantity, unit").in("livestock_id", livestockIds)
-    : { data: [] as any[] };
+  const production = livestockIds.length > 0
+    ? await fetchAllPages<any>(() =>
+        supabase.from("livestock_production").select("livestock_id, product_type, quantity, unit", { count: "exact" }).in("livestock_id", livestockIds)
+      )
+    : [];
 
   const farmerInfo = new Map(farmers.map(f => [f.code, { province: f.province || "—", school: f.school || "—" }]));
   const grouped = new Map<string, PecuariaRow>();
@@ -146,12 +158,14 @@ export type AgricultoresRow = {
 };
 
 async function fetchAgricultores(filters: ReportFilters): Promise<AgricultoresRow[]> {
-  let q = supabase.from("farmers").select("province, status, created_at");
-  if (!isAll(filters.provincia)) q = q.eq("province", filters.provincia);
-  if (!isAll(filters.municipio)) q = q.eq("municipality", filters.municipio);
-  if (!isAll(filters.escola)) q = q.eq("school", filters.escola);
-  if (!isAll(filters.estado)) q = q.eq("status", filters.estado);
-  const { data = [] } = await q;
+  const data = await fetchAllPages<any>(() => {
+    let q = supabase.from("farmers").select("province, status, created_at", { count: "exact" });
+    if (!isAll(filters.provincia)) q = q.eq("province", filters.provincia);
+    if (!isAll(filters.municipio)) q = q.eq("municipality", filters.municipio);
+    if (!isAll(filters.escola)) q = q.eq("school", filters.escola);
+    if (!isAll(filters.estado)) q = q.eq("status", filters.estado);
+    return q;
+  });
   const filtered = data.filter(f => inDateRange(f.created_at, filters.dateFrom, filters.dateTo));
 
   const grouped = new Map<string, AgricultoresRow>();
@@ -175,16 +189,19 @@ export type IncentivosRow = {
 };
 
 async function fetchIncentivos(filters: ReportFilters): Promise<IncentivosRow[]> {
-  let farmersQ = supabase.from("farmers").select("code, province, school");
-  if (!isAll(filters.provincia)) farmersQ = farmersQ.eq("province", filters.provincia);
-  if (!isAll(filters.municipio)) farmersQ = farmersQ.eq("municipality", filters.municipio);
-  if (!isAll(filters.escola)) farmersQ = farmersQ.eq("school", filters.escola);
-  const { data: farmers = [] } = await farmersQ;
+  const farmers = await fetchAllPages<any>(() => {
+    let q = supabase.from("farmers").select("code, province, school", { count: "exact" });
+    if (!isAll(filters.provincia)) q = q.eq("province", filters.provincia);
+    if (!isAll(filters.municipio)) q = q.eq("municipality", filters.municipio);
+    if (!isAll(filters.escola)) q = q.eq("school", filters.escola);
+    return q;
+  });
   const codes = farmers.map(f => f.code);
   if (codes.length === 0) return [];
 
-  const { data: incentives = [] } = await supabase
-    .from("farmer_incentives").select("farmer_code, amount, type, status, created_at").in("farmer_code", codes);
+  const incentives = await fetchAllPages<any>(() =>
+    supabase.from("farmer_incentives").select("farmer_code, amount, type, status, created_at", { count: "exact" }).in("farmer_code", codes)
+  );
   const filtered = incentives.filter(i => inDateRange(i.created_at, filters.dateFrom, filters.dateTo));
 
   const farmerInfo = new Map(farmers.map(f => [f.code, { province: f.province || "—", school: f.school || "—" }]));
@@ -212,16 +229,19 @@ export type ComprasRow = {
 };
 
 async function fetchCompras(filters: ReportFilters): Promise<ComprasRow[]> {
-  let farmersQ = supabase.from("farmers").select("code, province");
-  if (!isAll(filters.provincia)) farmersQ = farmersQ.eq("province", filters.provincia);
-  if (!isAll(filters.municipio)) farmersQ = farmersQ.eq("municipality", filters.municipio);
-  if (!isAll(filters.escola)) farmersQ = farmersQ.eq("school", filters.escola);
-  const { data: farmers = [] } = await farmersQ;
+  const farmers = await fetchAllPages<any>(() => {
+    let q = supabase.from("farmers").select("code, province", { count: "exact" });
+    if (!isAll(filters.provincia)) q = q.eq("province", filters.provincia);
+    if (!isAll(filters.municipio)) q = q.eq("municipality", filters.municipio);
+    if (!isAll(filters.escola)) q = q.eq("school", filters.escola);
+    return q;
+  });
   const codes = farmers.map(f => f.code);
   if (codes.length === 0) return [];
 
-  const { data: tx = [] } = await supabase
-    .from("farmer_transactions").select("farmer_code, empresa, valor, product, created_at").in("farmer_code", codes);
+  const tx = await fetchAllPages<any>(() =>
+    supabase.from("farmer_transactions").select("farmer_code, empresa, valor, product, created_at", { count: "exact" }).in("farmer_code", codes)
+  );
   const filtered = tx.filter(t => inDateRange(t.created_at, filters.dateFrom, filters.dateTo));
 
   const farmerProv = new Map(farmers.map(f => [f.code, f.province || "—"]));
