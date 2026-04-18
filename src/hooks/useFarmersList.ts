@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllPages } from "@/lib/supabaseFetchAll";
 
 export interface FarmerListItem {
   id: string;
@@ -24,15 +25,20 @@ export function useFarmersList() {
   const fetchFarmers = async () => {
     setLoading(true);
     setError(null);
-    const { data, error: err } = await supabase
-      .from("farmers")
-      .select("id, code, full_name, bi, phone, province, municipality, school, status, photo_frontal_url, patec, created_at")
-      .order("created_at", { ascending: false });
-    if (err) {
-      setError(err as unknown as Error);
+    try {
+      const data = await fetchAllPages<FarmerListItem>(() =>
+        supabase
+          .from("farmers")
+          .select(
+            "id, code, full_name, bi, phone, province, municipality, school, status, photo_frontal_url, patec, created_at",
+            { count: "exact" }
+          )
+          .order("created_at", { ascending: false })
+      );
+      setFarmers(data);
+    } catch (err) {
+      setError(err as Error);
       setFarmers([]);
-    } else {
-      setFarmers((data as FarmerListItem[]) || []);
     }
     setLoading(false);
   };

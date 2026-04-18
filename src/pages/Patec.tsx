@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Package, Search, Filter, Edit2, Eye, CheckSquare, X, Plus, Trash2, Pencil, Check, ChevronLeft, ChevronRight, Wheat, Loader2, Users, AlertCircle, Sprout, Leaf, TreeDeciduous } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllPages } from "@/lib/supabaseFetchAll";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -99,15 +100,20 @@ const Patec = () => {
   const fetchFarmers = async () => {
     setLoading(true);
     setLoadError(null);
-    const { data, error } = await supabase
-      .from("farmers")
-      .select("id, code, full_name, province, municipality, school, patec, status")
-      .order("code");
-    if (error) {
+    try {
+      const data = await fetchAllPages<FarmerPatec>(() =>
+        supabase
+          .from("farmers")
+          .select(
+            "id, code, full_name, province, municipality, school, patec, status",
+            { count: "exact" }
+          )
+          .order("code")
+      );
+      setFarmers(data);
+    } catch (error: any) {
       setLoadError(error.message);
       toast.error("Erro ao carregar produtores");
-    } else {
-      setFarmers((data as FarmerPatec[]) || []);
     }
     setLoading(false);
   };
