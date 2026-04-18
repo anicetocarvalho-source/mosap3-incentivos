@@ -312,8 +312,8 @@ const FarmerProfile = () => {
             <TabsTrigger value="pecuaria" className="gap-1.5 text-xs md:text-sm data-[state=active]:bg-card whitespace-nowrap">
               <Beef className="h-3.5 w-3.5 md:h-4 md:w-4" /> <span className="hidden sm:inline">Pecuária</span> ({livestock.length})
             </TabsTrigger>
-            <TabsTrigger value="incentivos" className="gap-1.5 text-xs md:text-sm data-[state=active]:bg-card whitespace-nowrap">
-              <Gift className="h-3.5 w-3.5 md:h-4 md:w-4" /> <span className="hidden sm:inline">Incentivos</span> ({incentives.length})
+            <TabsTrigger value="financeiro" className="gap-1.5 text-xs md:text-sm data-[state=active]:bg-card whitespace-nowrap">
+              <Gift className="h-3.5 w-3.5 md:h-4 md:w-4" /> <span className="hidden sm:inline">Financeiro</span> ({incentives.length + posSales.length + transactions.length})
             </TabsTrigger>
             <TabsTrigger value="dependentes" className="gap-1.5 text-xs md:text-sm data-[state=active]:bg-card whitespace-nowrap">
               <Users className="h-3.5 w-3.5 md:h-4 md:w-4" /> <span className="hidden sm:inline">Dependentes</span> ({dependents.length})
@@ -323,9 +323,6 @@ const FarmerProfile = () => {
             </TabsTrigger>
             <TabsTrigger value="patec" className="gap-1.5 text-xs md:text-sm data-[state=active]:bg-card whitespace-nowrap">
               <Package className="h-3.5 w-3.5 md:h-4 md:w-4" /> <span className="hidden sm:inline">PATEC</span>
-            </TabsTrigger>
-            <TabsTrigger value="conformacao" className="gap-1.5 text-xs md:text-sm data-[state=active]:bg-card whitespace-nowrap">
-              <Scale className="h-3.5 w-3.5 md:h-4 md:w-4" /> <span className="hidden sm:inline">Conformação</span>
             </TabsTrigger>
           </TabsList>
 
@@ -600,87 +597,7 @@ const FarmerProfile = () => {
             )}
           </TabsContent>
 
-          {/* Incentivos Tab */}
-          <TabsContent value="incentivos" className="mt-4 space-y-6">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <Card className="p-5">
-                <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Valor Recebido</p>
-                <p className="text-2xl font-bold font-heading text-primary mt-1">{valorRecebido} kz</p>
-              </Card>
-              <Card className="p-5">
-                <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Total Gasto</p>
-                <p className="text-2xl font-bold font-heading text-destructive mt-1">{totalGasto} kz</p>
-              </Card>
-              <Card className="p-5">
-                <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Saldo Final</p>
-                <p className="text-2xl font-bold font-heading mt-1" style={{ color: "hsl(var(--success))" }}>{saldoFinal} kz</p>
-              </Card>
-            </div>
-
-            <Card className="p-0 overflow-hidden">
-              <div className="px-6 py-4 border-b border-border flex items-center justify-between">
-                <div>
-                  <h3 className="font-heading font-semibold text-lg">Transações do Produtor</h3>
-                </div>
-                <Dialog open={transactionDialogOpen} onOpenChange={setTransactionDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button size="sm" className="gap-1.5"><Plus className="h-4 w-4" /> Nova Transação</Button>
-                  </DialogTrigger>
-                  <DialogContent className="sm:max-w-lg">
-                    <DialogHeader>
-                      <DialogTitle>Registar Transação — {farmer.name}</DialogTitle>
-                    </DialogHeader>
-                    <TransactionRegistrationForm
-                      farmerCode={farmer.id}
-                      onSuccess={() => { setTransactionDialogOpen(false); setRefreshKey((k) => k + 1); }}
-                    />
-                  </DialogContent>
-                </Dialog>
-              </div>
-              {/* Desktop table */}
-              <div className="hidden md:block overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border bg-muted/50">
-                      <th className="text-left px-6 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Produto</th>
-                      <th className="text-left px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Empresa</th>
-                      <th className="text-right px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Valor</th>
-                      <th className="text-left px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Data</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {transactions.length === 0 ? (
-                      <tr><td colSpan={4} className="px-6 py-8 text-center text-muted-foreground">Nenhuma transação registada</td></tr>
-                    ) : transactions.map((t) => (
-                      <tr key={t.id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
-                        <td className="px-6 py-3 font-medium">{t.product}</td>
-                        <td className="px-4 py-3 text-muted-foreground text-xs max-w-[300px]">{t.empresa}</td>
-                        <td className="px-4 py-3 text-right font-semibold">{t.valor} kz</td>
-                        <td className="px-4 py-3 text-muted-foreground text-xs">{t.transaction_date}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              {/* Mobile card list */}
-              <div className="md:hidden divide-y divide-border">
-                {transactions.length === 0 ? (
-                  <div className="px-4 py-8 text-center text-muted-foreground text-sm">Nenhuma transação registada</div>
-                ) : transactions.map((t) => (
-                  <div key={t.id} className="p-4 space-y-1">
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium text-sm">{t.product}</span>
-                      <span className="font-semibold text-sm">{t.valor} kz</span>
-                    </div>
-                    <div className="flex justify-between text-xs text-muted-foreground">
-                      <span className="truncate max-w-[60%]">{t.empresa}</span>
-                      <span>{t.transaction_date}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </Card>
-          </TabsContent>
+          {/* (Aba "Incentivos" antiga removida — fundida em "Financeiro") */}
 
           {/* Dependentes Tab */}
           <TabsContent value="dependentes" className="mt-4">
@@ -773,15 +690,16 @@ const FarmerProfile = () => {
           </TabsContent>
 
           {/* Conformação Tab */}
-          <TabsContent value="conformacao" className="mt-4 space-y-6">
+          {/* Financeiro Tab — incentivos + compras POS + transações manuais (substitui as antigas abas Incentivos e Conformação) */}
+          <TabsContent value="financeiro" className="mt-4 space-y-6">
             {(() => {
               const totalIncentivos = incentives.reduce((sum, inc) => sum + parseFloat(inc.amount || "0"), 0);
               const totalCompras = posSales.reduce((sum, sale) => sum + Number(sale.total || 0), 0);
               const saldo = totalIncentivos - totalCompras;
               const percentUsado = totalIncentivos > 0 ? Math.min((totalCompras / totalIncentivos) * 100, 100) : 0;
 
-              // Build unified timeline
-              const timeline: { date: string; type: "incentivo" | "compra"; description: string; value: number; status: string }[] = [];
+              // Build unified timeline (incentivos + compras POS + transações manuais legadas)
+              const timeline: { date: string; type: "incentivo" | "compra" | "manual"; description: string; value: number; status: string }[] = [];
               incentives.forEach((inc) => {
                 timeline.push({
                   date: inc.incentive_date || "",
@@ -799,6 +717,15 @@ const FarmerProfile = () => {
                   description: items || `Venda ${sale.sale_code}`,
                   value: Number(sale.total || 0),
                   status: sale.payment_status,
+                });
+              });
+              transactions.forEach((t) => {
+                timeline.push({
+                  date: t.transaction_date || "",
+                  type: "manual",
+                  description: `${t.product}${t.empresa ? ` — ${t.empresa}` : ""}`,
+                  value: parseFloat((t.valor || "0").toString().replace(/\./g, "").replace(",", ".")) || 0,
+                  status: "Manual",
                 });
               });
               timeline.sort((a, b) => (b.date || "").localeCompare(a.date || ""));
@@ -870,9 +797,25 @@ const FarmerProfile = () => {
 
                   {/* Timeline */}
                   <Card className="p-0 overflow-hidden">
-                    <div className="px-6 py-4 border-b border-border">
-                      <h3 className="font-heading font-semibold text-lg">Movimentos Financeiros</h3>
-                      <p className="text-xs text-muted-foreground mt-0.5">Histórico cronológico de incentivos recebidos e compras realizadas</p>
+                    <div className="px-6 py-4 border-b border-border flex items-center justify-between gap-3">
+                      <div>
+                        <h3 className="font-heading font-semibold text-lg">Movimentos Financeiros</h3>
+                        <p className="text-xs text-muted-foreground mt-0.5">Histórico cronológico de incentivos, compras POS e transações manuais</p>
+                      </div>
+                      <Dialog open={transactionDialogOpen} onOpenChange={setTransactionDialogOpen}>
+                        <DialogTrigger asChild>
+                          <Button size="sm" variant="outline" className="gap-1.5"><Plus className="h-4 w-4" /> Nova Transação</Button>
+                        </DialogTrigger>
+                        <DialogContent className="sm:max-w-lg">
+                          <DialogHeader>
+                            <DialogTitle>Registar Transação Manual — {farmer.name}</DialogTitle>
+                          </DialogHeader>
+                          <TransactionRegistrationForm
+                            farmerCode={farmer.id}
+                            onSuccess={() => { setTransactionDialogOpen(false); setRefreshKey((k) => k + 1); }}
+                          />
+                        </DialogContent>
+                      </Dialog>
                     </div>
                     <div className="hidden md:block overflow-x-auto">
                       <table className="w-full text-sm">
@@ -892,12 +835,19 @@ const FarmerProfile = () => {
                             <tr key={idx} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
                               <td className="px-6 py-3 text-xs text-muted-foreground">{item.date || "—"}</td>
                               <td className="px-4 py-3">
-                                <Badge variant="outline" className={`text-[10px] ${item.type === "incentivo" ? "border-primary/30 text-primary" : "border-destructive/30 text-destructive"}`}>
-                                  {item.type === "incentivo" ? "↓ Incentivo" : "↑ Compra"}
+                                <Badge variant="outline" className={`text-[10px] ${
+                                  item.type === "incentivo" ? "border-primary/30 text-primary" :
+                                  item.type === "compra" ? "border-destructive/30 text-destructive" :
+                                  "border-muted-foreground/30 text-muted-foreground"
+                                }`}>
+                                  {item.type === "incentivo" ? "↓ Incentivo" : item.type === "compra" ? "↑ Compra POS" : "≡ Manual"}
                                 </Badge>
                               </td>
                               <td className="px-4 py-3 font-medium max-w-[300px] truncate">{item.description}</td>
-                              <td className={`px-4 py-3 text-right font-semibold ${item.type === "incentivo" ? "text-primary" : "text-destructive"}`}>
+                              <td className={`px-4 py-3 text-right font-semibold ${
+                                item.type === "incentivo" ? "text-primary" :
+                                item.type === "compra" ? "text-destructive" : "text-foreground"
+                              }`}>
                                 {item.type === "incentivo" ? "+" : "−"}{item.value.toLocaleString("pt-AO")} Kz
                               </td>
                               <td className="px-4 py-3">
@@ -918,15 +868,20 @@ const FarmerProfile = () => {
                       ) : timeline.map((item, idx) => (
                         <div key={idx} className="p-4 space-y-1">
                           <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2">
                               {item.type === "incentivo" ? (
                                 <ArrowDownRight className="h-4 w-4 text-primary" />
-                              ) : (
+                              ) : item.type === "compra" ? (
                                 <ArrowUpRight className="h-4 w-4 text-destructive" />
+                              ) : (
+                                <Scale className="h-4 w-4 text-muted-foreground" />
                               )}
                               <span className="font-medium text-sm truncate max-w-[200px]">{item.description}</span>
                             </div>
-                            <span className={`font-semibold text-sm ${item.type === "incentivo" ? "text-primary" : "text-destructive"}`}>
+                            <span className={`font-semibold text-sm ${
+                              item.type === "incentivo" ? "text-primary" :
+                              item.type === "compra" ? "text-destructive" : "text-foreground"
+                            }`}>
                               {item.type === "incentivo" ? "+" : "−"}{item.value.toLocaleString("pt-AO")} Kz
                             </span>
                           </div>
