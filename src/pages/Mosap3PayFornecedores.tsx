@@ -13,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllPages } from "@/lib/supabaseFetchAll";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import StatCard from "@/components/StatCard";
@@ -105,16 +106,14 @@ const Mosap3PayFornecedores = () => {
   const suppliersQuery = useQuery({
     queryKey: ["mosap3pay", "suppliers"],
     queryFn: async () => {
-      const [suppRes, zonesRes, prodCountRes, posCountRes] = await Promise.all([
-        supabase.from("suppliers").select("*").order("name"),
-        supabase.from("supplier_provinces").select("supplier_id, province_id, provinces(id, name)"),
+      const [rawSuppliers, zonesData, prodCountRes, posCountRes] = await Promise.all([
+        fetchAllPages<Supplier>(() => supabase.from("suppliers").select("*", { count: "exact" }).order("name")),
+        fetchAllPages<any>(() => supabase.from("supplier_provinces").select("supplier_id, province_id, provinces(id, name)", { count: "exact" })),
         supabase.from("supplier_products").select("id", { count: "exact", head: true }),
         supabase.from("supplier_pos").select("id", { count: "exact", head: true }),
       ]);
-      if (suppRes.error) throw suppRes.error;
-      const rawSuppliers = (suppRes.data || []) as Supplier[];
       const zonesMap = new Map<string, Province[]>();
-      for (const row of (zonesRes.data || []) as any[]) {
+      for (const row of zonesData as any[]) {
         const sid = row.supplier_id;
         if (!zonesMap.has(sid)) zonesMap.set(sid, []);
         if (row.provinces) zonesMap.get(sid)!.push({ id: row.provinces.id, name: row.provinces.name });
@@ -130,9 +129,9 @@ const Mosap3PayFornecedores = () => {
   const provincesQuery = useQuery({
     queryKey: ["provinces", "all"],
     queryFn: async (): Promise<Province[]> => {
-      const { data, error } = await supabase.from("provinces").select("id, name").order("name");
-      if (error) throw error;
-      return (data as Province[]) || [];
+      return await fetchAllPages<Province>(() =>
+        supabase.from("provinces").select("id, name", { count: "exact" }).order("name")
+      );
     },
   });
 

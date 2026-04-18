@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllPages } from "@/lib/supabaseFetchAll";
 
 const Mosap3Pay = () => {
   const [stats, setStats] = useState({
@@ -21,14 +22,16 @@ const Mosap3Pay = () => {
   useEffect(() => {
     const fetchStats = async () => {
       setLoading(true);
-      const [suppliers, products, pos, sales] = await Promise.all([
+      const [suppliers, products, pos, salesData, recent] = await Promise.all([
         supabase.from("suppliers").select("*", { count: "exact", head: true }),
         supabase.from("supplier_products").select("*", { count: "exact", head: true }),
         supabase.from("supplier_pos").select("*", { count: "exact", head: true }),
-        supabase.from("pos_sales").select("*"),
+        fetchAllPages<{ total: number | string; payment_status: string }>(() =>
+          supabase.from("pos_sales").select("total, payment_status", { count: "exact" })
+        ),
+        supabase.from("pos_sales").select("*").order("created_at", { ascending: false }).limit(5),
       ]);
 
-      const salesData = sales.data || [];
       const totalRevenue = salesData.reduce((sum, s) => sum + Number(s.total || 0), 0);
       const pendingPayments = salesData.filter((s) => s.payment_status === "pendente").length;
 
@@ -41,13 +44,7 @@ const Mosap3Pay = () => {
         pendingPayments,
       });
 
-      // Recent sales
-      const { data: recent } = await supabase
-        .from("pos_sales")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(5);
-      setRecentSales(recent || []);
+      setRecentSales(recent.data || []);
       setLoading(false);
     };
     fetchStats();

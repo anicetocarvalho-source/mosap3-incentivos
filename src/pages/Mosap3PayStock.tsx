@@ -13,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllPages } from "@/lib/supabaseFetchAll";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { ErrorState } from "@/components/ui/error-state";
@@ -92,17 +93,19 @@ const Mosap3PayStock = () => {
   const stockQuery = useQuery({
     queryKey: ["mosap3pay", "stock"],
     queryFn: async () => {
-      const [prodRes, supRes, movRes] = await Promise.all([
-        supabase.from("supplier_products").select("id, name, category, stock, min_stock, price, unit, supplier_id, status").order("name"),
-        supabase.from("suppliers").select("id, name").order("name"),
+      const [products, suppliers, movRes] = await Promise.all([
+        fetchAllPages<Product>(() =>
+          supabase.from("supplier_products").select("id, name, category, stock, min_stock, price, unit, supplier_id, status", { count: "exact" }).order("name")
+        ),
+        fetchAllPages<Supplier>(() =>
+          supabase.from("suppliers").select("id, name", { count: "exact" }).order("name")
+        ),
         supabase.from("stock_movements").select("*").order("created_at", { ascending: false }).limit(200),
       ]);
-      if (prodRes.error) throw prodRes.error;
-      if (supRes.error) throw supRes.error;
       if (movRes.error) throw movRes.error;
       return {
-        products: (prodRes.data as Product[]) || [],
-        suppliers: (supRes.data as Supplier[]) || [],
+        products,
+        suppliers,
         movements: (movRes.data as StockMovement[]) || [],
       };
     },

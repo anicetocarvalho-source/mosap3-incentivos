@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils";
 import ReportPreview from "@/components/reports/ReportPreview";
 import { EmptyState } from "@/components/ui/empty-state";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllPages } from "@/lib/supabaseFetchAll";
 
 const reportTypes = [
   { id: "producao_provincia", label: "Produção por Província", icon: Wheat, description: "Cruzar dados de produção com províncias e escolas de campo" },
@@ -48,14 +49,14 @@ const Relatorios = () => {
 
   useEffect(() => {
     const fetchFilterData = async () => {
-      const [provRes, munRes, schRes] = await Promise.all([
-        supabase.from("provinces").select("id, name").order("name"),
-        supabase.from("municipalities").select("id, name, province_id").order("name"),
-        supabase.from("schools").select("id, name, province_id, municipality_id").order("name"),
+      const [prov, mun, sch] = await Promise.all([
+        fetchAllPages<{ id: string; name: string }>(() => supabase.from("provinces").select("id, name", { count: "exact" }).order("name")),
+        fetchAllPages<{ id: string; name: string; province_id: string }>(() => supabase.from("municipalities").select("id, name, province_id", { count: "exact" }).order("name")),
+        fetchAllPages<{ id: string; name: string; province_id: string; municipality_id: string }>(() => supabase.from("schools").select("id, name, province_id, municipality_id", { count: "exact" }).order("name")),
       ]);
-      setProvincias(provRes.data || []);
-      setMunicipios(munRes.data || []);
-      setEscolas(schRes.data || []);
+      setProvincias(prov);
+      setMunicipios(mun);
+      setEscolas(sch);
     };
     fetchFilterData();
   }, []);

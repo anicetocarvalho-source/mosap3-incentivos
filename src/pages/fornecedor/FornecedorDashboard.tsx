@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllPages } from "@/lib/supabaseFetchAll";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Package, Monitor, ShoppingCart, TrendingUp } from "lucide-react";
@@ -19,19 +20,20 @@ const FornecedorDashboard = () => {
     setLoading(true);
     setError(null);
     try {
-      const [prodRes, posRes, salesRes] = await Promise.all([
+      const [prodRes, posRes, salesRows] = await Promise.all([
         supabase.from("supplier_products").select("id", { count: "exact", head: true }).eq("supplier_id", supplier.id),
         supabase.from("supplier_pos").select("id", { count: "exact", head: true }).eq("supplier_id", supplier.id),
-        supabase.from("pos_sales").select("id, total").eq("supplier_id", supplier.id),
+        fetchAllPages<{ total: number | string }>(() =>
+          supabase.from("pos_sales").select("total", { count: "exact" }).eq("supplier_id", supplier.id)
+        ),
       ]);
       if (prodRes.error) throw prodRes.error;
       if (posRes.error) throw posRes.error;
-      if (salesRes.error) throw salesRes.error;
-      const revenue = (salesRes.data || []).reduce((s, r) => s + Number(r.total), 0);
+      const revenue = salesRows.reduce((s, r) => s + Number(r.total), 0);
       setStats({
         products: prodRes.count || 0,
         pos: posRes.count || 0,
-        sales: salesRes.data?.length || 0,
+        sales: salesRows.length,
         revenue,
       });
     } catch (e: any) {
