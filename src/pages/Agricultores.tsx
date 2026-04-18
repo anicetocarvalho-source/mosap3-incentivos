@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Plus, Search, Download, Eye, Edit, Package, ChevronLeft, ChevronRight, Trash2, RotateCcw } from "lucide-react";
+import { Plus, Search, Download, Eye, Edit, Package, ChevronLeft, ChevronRight, Trash2, RotateCcw, MoreHorizontal } from "lucide-react";
 import FarmerAvatar from "@/components/FarmerAvatar";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,10 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import FarmerRegistrationForm from "@/components/FarmerRegistrationForm";
 import BulkImportDialog from "@/components/agricultores/BulkImportDialog";
 import { useFarmersList } from "@/hooks/useFarmersList";
@@ -23,6 +27,26 @@ import { toast } from "sonner";
 import { ErrorState } from "@/components/ui/error-state";
 
 const PAGE_SIZE = 15;
+
+// Parse pt-AO numeric strings like "1.234,56" or "1234,56"
+const parsePtAo = (s: string | null | undefined): number => {
+  if (!s) return 0;
+  const cleaned = String(s).replace(/\./g, "").replace(",", ".").replace(/[^0-9.\-]/g, "");
+  const n = parseFloat(cleaned);
+  return isNaN(n) ? 0 : n;
+};
+
+const fmtKz = (s: string | null | undefined): string => {
+  const n = parsePtAo(s);
+  return new Intl.NumberFormat("pt-AO", { maximumFractionDigits: 0 }).format(n) + " Kz";
+};
+
+const statusDotClass = (status: string): string => {
+  const s = status?.toLowerCase();
+  if (s === "ativo") return "bg-success";
+  if (s === "pendente" || s === "validado") return "bg-warning";
+  return "bg-destructive";
+};
 
 const Agricultores = () => {
   const [search, setSearch] = useState("");
