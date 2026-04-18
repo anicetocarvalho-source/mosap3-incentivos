@@ -114,6 +114,9 @@ async function fetchKpis(userId: string, roles: AppRole[]): Promise<DashboardKpi
     utilizationRate: Number(k.utilization_rate) || 0,
     avgYieldPerHa: Number(k.avg_yield_per_ha) || 0,
     criticalStockCount: Number(k.critical_stock_count) || 0,
+    totalFemale: Number(k.total_female) || 0,
+    femaleWithIncentive: Number(k.female_with_incentive) || 0,
+    femaleWithIncentivePct: Number(k.female_with_incentive_pct) || 0,
     incentiveFunnel: [
       { stage: "Atribuído", value: Math.round(totalRecebido) },
       { stage: "Recebido", value: Math.round(totalRecebido) },
