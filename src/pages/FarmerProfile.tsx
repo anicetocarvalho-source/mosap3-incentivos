@@ -693,10 +693,25 @@ const FarmerProfile = () => {
           {/* Financeiro Tab — incentivos + compras POS + transações manuais (substitui as antigas abas Incentivos e Conformação) */}
           <TabsContent value="financeiro" className="mt-4 space-y-6">
             {(() => {
-              const totalIncentivos = incentives.reduce((sum, inc) => sum + parseFloat(inc.amount || "0"), 0);
-              const totalCompras = posSales.reduce((sum, sale) => sum + Number(sale.total || 0), 0);
+              // Parser pt-AO: "198.700,00" → 198700
+              const parsePtAo = (s: string | null | undefined) => {
+                if (!s) return 0;
+                return parseFloat(String(s).replace(/\./g, "").replace(",", ".")) || 0;
+              };
+
+              // Incentivos: novos (farmer_incentives) + legado (farmers.valor_recebido) como fallback
+              const totalIncentivosNovos = incentives.reduce((sum, inc) => sum + parseFloat(inc.amount || "0"), 0);
+              const totalIncentivosLegado = parsePtAo(farmerRaw?.valor_recebido);
+              const totalIncentivos = totalIncentivosNovos + (totalIncentivosNovos === 0 ? totalIncentivosLegado : 0);
+
+              // Compras: POS + transações manuais legadas (sempre somadas, nunca perder histórico)
+              const totalComprasPos = posSales.reduce((sum, sale) => sum + Number(sale.total || 0), 0);
+              const totalComprasManuais = transactions.reduce((sum, t) => sum + parsePtAo(t.valor), 0);
+              const totalCompras = totalComprasPos + totalComprasManuais;
+
               const saldo = totalIncentivos - totalCompras;
               const percentUsado = totalIncentivos > 0 ? Math.min((totalCompras / totalIncentivos) * 100, 100) : 0;
+              const totalComprasCount = posSales.length + transactions.length;
 
               // Build unified timeline (incentivos + compras POS + transações manuais legadas)
               const timeline: { date: string; type: "incentivo" | "compra" | "manual"; description: string; value: number; status: string }[] = [];
@@ -748,7 +763,7 @@ const FarmerProfile = () => {
                         <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Compras Realizadas</p>
                       </div>
                       <p className="text-2xl font-bold font-heading text-destructive">{totalCompras.toLocaleString("pt-AO")} Kz</p>
-                      <p className="text-xs text-muted-foreground mt-1">{posSales.length} compra(s)</p>
+                      <p className="text-xs text-muted-foreground mt-1">{totalComprasCount} compra(s)</p>
                     </Card>
                     <Card className="p-5">
                       <div className="flex items-center gap-2 mb-1">
