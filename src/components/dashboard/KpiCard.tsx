@@ -9,7 +9,14 @@ interface KpiCardProps {
   icon: LucideIcon;
   accent?: "primary" | "secondary" | "success" | "warning" | "info" | "destructive";
   delay?: number;
+  /** YoY delta in %. null/undefined hides the badge. */
+  delta?: number | null;
 }
+
+const formatDelta = (n: number) => {
+  const abs = Math.abs(n).toLocaleString("pt-AO", { maximumFractionDigits: 1, minimumFractionDigits: 0 });
+  return `${abs}%`;
+};
 
 const accentMap: Record<NonNullable<KpiCardProps["accent"]>, { bg: string; fg: string; ring: string }> = {
   primary: { bg: "hsl(var(--primary) / 0.1)", fg: "hsl(var(--primary))", ring: "hsl(var(--primary) / 0.2)" },
@@ -20,8 +27,15 @@ const accentMap: Record<NonNullable<KpiCardProps["accent"]>, { bg: string; fg: s
   destructive: { bg: "hsl(var(--destructive) / 0.1)", fg: "hsl(var(--destructive))", ring: "hsl(var(--destructive) / 0.2)" },
 };
 
-const KpiCard = ({ title, value, subtitle, icon: Icon, accent = "primary", delay = 0 }: KpiCardProps) => {
+const KpiCard = ({ title, value, subtitle, icon: Icon, accent = "primary", delay = 0, delta }: KpiCardProps) => {
   const c = accentMap[accent];
+  const showDelta = delta !== undefined && delta !== null;
+  const deltaTone =
+    !showDelta ? "" :
+    delta! > 0 ? "bg-success/10 text-success ring-1 ring-success/20" :
+    delta! < 0 ? "bg-destructive/10 text-destructive ring-1 ring-destructive/20" :
+    "bg-muted text-muted-foreground ring-1 ring-border";
+  const deltaArrow = !showDelta ? "" : delta! > 0 ? "↑" : delta! < 0 ? "↓" : "–";
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
@@ -43,9 +57,23 @@ const KpiCard = ({ title, value, subtitle, icon: Icon, accent = "primary", delay
           <p className="text-[11px] md:text-xs font-semibold uppercase tracking-wider text-muted-foreground truncate">
             {title}
           </p>
-          <p className="font-heading text-2xl md:text-3xl font-bold tracking-tight text-foreground">
-            {value}
-          </p>
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="font-heading text-2xl md:text-3xl font-bold tracking-tight text-foreground">
+              {value}
+            </p>
+            {showDelta && (
+              <span
+                className={cn(
+                  "inline-flex items-center gap-0.5 rounded-md px-1.5 py-0.5 text-[10px] font-semibold",
+                  deltaTone,
+                )}
+                title="Variação vs. período homólogo (ano anterior)"
+              >
+                <span aria-hidden>{deltaArrow}</span>
+                {delta !== 0 && formatDelta(delta!)}
+              </span>
+            )}
+          </div>
           {subtitle && (
             <p className="text-[10px] md:text-xs text-muted-foreground font-medium">{subtitle}</p>
           )}
