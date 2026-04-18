@@ -253,28 +253,45 @@ const Dashboard = () => {
           delay={0.15}
         >
           {chartsLoading || !charts ? <ChartSkeleton /> : (
-            <ResponsiveContainer width="100%" height={280}>
-              <PieChart>
-                <Pie
-                  data={charts.genderData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={55}
-                  outerRadius={95}
-                  paddingAngle={3}
-                  dataKey="value"
-                  label={({ value }) => `${value}%`}
-                  labelLine={false}
-                  style={{ fontSize: 11, fontWeight: 600 }}
-                >
-                  {charts.genderData.map((entry, i) => (
-                    <Cell key={i} fill={entry.color} stroke="hsl(var(--card))" strokeWidth={2} />
-                  ))}
-                </Pie>
-                <Tooltip contentStyle={tooltipStyle} formatter={(value: number) => `${value}%`} />
-                <Legend wrapperStyle={{ fontSize: 11 }} iconType="circle" />
-              </PieChart>
-            </ResponsiveContainer>
+            <div className="space-y-3">
+              <ResponsiveContainer width="100%" height={220}>
+                <PieChart>
+                  <Pie
+                    data={charts.genderData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={50}
+                    outerRadius={85}
+                    paddingAngle={3}
+                    dataKey="value"
+                    label={({ value }) => `${value}%`}
+                    labelLine={false}
+                    style={{ fontSize: 11, fontWeight: 600 }}
+                  >
+                    {charts.genderData.map((entry, i) => (
+                      <Cell key={i} fill={entry.color} stroke="hsl(var(--card))" strokeWidth={2} />
+                    ))}
+                  </Pie>
+                  <Tooltip contentStyle={tooltipStyle} formatter={(value: number) => `${value}%`} />
+                  <Legend wrapperStyle={{ fontSize: 11 }} iconType="circle" />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="rounded-lg border border-border bg-muted/30 p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      Mulheres com Incentivo
+                    </p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {formatNumber(stats.femaleWithIncentive)} de {formatNumber(stats.totalFemale)} agricultoras
+                    </p>
+                  </div>
+                  <p className="font-heading text-2xl font-bold tracking-tight text-foreground">
+                    {formatNumber(stats.femaleWithIncentivePct)}%
+                  </p>
+                </div>
+              </div>
+            </div>
           )}
         </ChartCard>
       </div>
