@@ -1571,21 +1571,16 @@ export type Database = {
         Args: { p_ecas?: string[]; p_provinces?: string[]; p_scope: string }
         Returns: Json
       }
-      dashboard_kpis:
-        | {
-            Args: { p_ecas?: string[]; p_provinces?: string[]; p_scope: string }
-            Returns: Json
-          }
-        | {
-            Args: {
-              p_ecas?: string[]
-              p_from?: string
-              p_provinces?: string[]
-              p_scope: string
-              p_to?: string
-            }
-            Returns: Json
-          }
+      dashboard_kpis: {
+        Args: {
+          p_ecas?: string[]
+          p_from?: string
+          p_provinces?: string[]
+          p_scope: string
+          p_to?: string
+        }
+        Returns: Json
+      }
       dashboard_kpis_yoy: {
         Args: {
           p_ecas?: string[]
