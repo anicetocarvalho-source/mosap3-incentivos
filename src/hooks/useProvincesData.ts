@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { enqueueOperation } from "@/lib/offlineDb";
+import { fetchAllPages } from "@/lib/supabaseFetchAll";
 
 export interface DbProvince {
   id: string;
@@ -38,16 +39,18 @@ export function useProvincesData() {
   const [loading, setLoading] = useState(true);
 
   const fetchAll = useCallback(async () => {
-    const [provRes, munRes, schRes] = await Promise.all([
-      supabase.from("provinces").select("*").order("name"),
-      supabase.from("municipalities").select("*").order("name"),
-      supabase.from("schools").select("*").order("name"),
-    ]);
-
-    if (provRes.data) setProvinces(provRes.data as DbProvince[]);
-    if (munRes.data) setMunicipalities(munRes.data as DbMunicipality[]);
-    if (schRes.data) setSchools(schRes.data as DbSchool[]);
-    setLoading(false);
+    try {
+      const [prov, mun, sch] = await Promise.all([
+        fetchAllPages<DbProvince>(() => supabase.from("provinces").select("*", { count: "exact" }).order("name")),
+        fetchAllPages<DbMunicipality>(() => supabase.from("municipalities").select("*", { count: "exact" }).order("name")),
+        fetchAllPages<DbSchool>(() => supabase.from("schools").select("*", { count: "exact" }).order("name")),
+      ]);
+      setProvinces(prov);
+      setMunicipalities(mun);
+      setSchools(sch);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
