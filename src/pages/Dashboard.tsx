@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Users, ThumbsUp, ArrowRightLeft, Building2, School, MapPin, Wheat, Beef, Loader2, BarChart3, PieChart as PieIcon, Activity, Sprout, Target, Gauge, AlertTriangle, TrendingUp } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -9,6 +10,7 @@ import { useDashboardKpis, useDashboardCharts } from "@/hooks/useDashboardData";
 import HeroHeader from "@/components/dashboard/HeroHeader";
 import KpiCard from "@/components/dashboard/KpiCard";
 import ChartCard from "@/components/dashboard/ChartCard";
+import PeriodFilter, { type PeriodValue } from "@/components/dashboard/PeriodFilter";
 import { ErrorState } from "@/components/ui/error-state";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -49,10 +51,12 @@ const ChartSkeleton = () => <Skeleton className="h-[280px] w-full rounded-lg" />
 
 const Dashboard = () => {
   const { roles } = useAuth();
-  const { data: stats, isLoading: kpisLoading, isError: kpisError, refetch: refetchKpis } = useDashboardKpis();
+  const [period, setPeriod] = useState<PeriodValue>({});
+  const { data: stats, isLoading: kpisLoading, isError: kpisError, refetch: refetchKpis } = useDashboardKpis(period);
   const { data: charts, isLoading: chartsLoading, isError: chartsError, refetch: refetchCharts } = useDashboardCharts();
   const navigate = useNavigate();
   const roleName = roles.length > 0 ? (roleLabels[roles[0]] ?? roles[0]) : "Utilizador";
+  const d = stats?.deltas ?? null;
 
   if (kpisLoading || (!stats && !kpisError)) {
     return (
@@ -73,12 +77,17 @@ const Dashboard = () => {
 
   return (
     <div className="space-y-5 md:space-y-6">
-      <HeroHeader
-        roleName={roleName}
-        filterScope={stats.filterScope}
-        filterLabel={stats.filterLabel}
-        volumeFormatted={formatCurrency(stats.volumeTransactions)}
-      />
+      <div className="relative">
+        <HeroHeader
+          roleName={roleName}
+          filterScope={stats.filterScope}
+          filterLabel={stats.filterLabel}
+          volumeFormatted={formatCurrency(stats.volumeTransactions)}
+        />
+        <div className="absolute right-4 top-4 md:right-6 md:top-6 z-10">
+          <PeriodFilter value={period} onChange={setPeriod} />
+        </div>
+      </div>
 
       {/* KPIs principais (Produtores) */}
       <div>
@@ -86,7 +95,7 @@ const Dashboard = () => {
           Produtores & Operação
         </p>
         <div className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-4">
-          <KpiCard title="Total Registado" value={formatNumber(stats.totalFarmers)} icon={Users} accent="primary" delay={0.05} />
+          <KpiCard title="Total Registado" value={formatNumber(stats.totalFarmers)} icon={Users} accent="primary" delay={0.05} delta={d?.totalFarmers ?? null} />
           <KpiCard
             title="Aprovados"
             value={`${formatNumber(stats.totalApproved)} / ${formatNumber(stats.totalFarmers)}`}
@@ -94,9 +103,10 @@ const Dashboard = () => {
             icon={ThumbsUp}
             accent="success"
             delay={0.1}
+            delta={d?.totalApproved ?? null}
           />
-          <KpiCard title="Transações" value={formatNumber(stats.totalTransactions)} icon={ArrowRightLeft} accent="info" delay={0.15} />
-          <KpiCard title="Fornecedores" value={formatNumber(stats.totalCompanies)} subtitle="Activos no sistema" icon={Building2} accent="secondary" delay={0.2} />
+          <KpiCard title="Transações" value={formatNumber(stats.totalTransactions)} icon={ArrowRightLeft} accent="info" delay={0.15} delta={d?.totalTransactions ?? null} />
+          <KpiCard title="Fornecedores" value={formatNumber(stats.totalCompanies)} subtitle="Activos no sistema" icon={Building2} accent="secondary" delay={0.2} delta={d?.totalCompanies ?? null} />
         </div>
       </div>
 
@@ -113,6 +123,7 @@ const Dashboard = () => {
             icon={Target}
             accent={stats.utilizationRate >= 70 ? "success" : stats.utilizationRate >= 40 ? "warning" : "destructive"}
             delay={0.05}
+            delta={d?.utilizationRate ?? null}
           />
           <KpiCard
             title="Produtividade Média"
@@ -121,6 +132,7 @@ const Dashboard = () => {
             icon={Gauge}
             accent="info"
             delay={0.1}
+            delta={d?.avgYieldPerHa ?? null}
           />
           <KpiCard
             title="Volume POS"
@@ -129,6 +141,7 @@ const Dashboard = () => {
             icon={TrendingUp}
             accent="primary"
             delay={0.15}
+            delta={d?.volumeTransactions ?? null}
           />
           <KpiCard
             title="Stock Crítico"
@@ -137,6 +150,7 @@ const Dashboard = () => {
             icon={AlertTriangle}
             accent={stats.criticalStockCount > 10 ? "destructive" : stats.criticalStockCount > 0 ? "warning" : "success"}
             delay={0.2}
+            delta={d?.criticalStockCount ?? null}
           />
         </div>
       </div>
@@ -147,7 +161,7 @@ const Dashboard = () => {
           Agricultura & Pecuária
         </p>
         <div className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-4">
-          <KpiCard title="Escolas de Campo" value={formatNumber(stats.totalSchools)} icon={School} accent="warning" delay={0.05} />
+          <KpiCard title="Escolas de Campo" value={formatNumber(stats.totalSchools)} icon={School} accent="warning" delay={0.05} delta={d?.totalSchools ?? null} />
           <KpiCard
             title="Parcelas"
             value={formatNumber(stats.totalParcels)}
@@ -155,8 +169,9 @@ const Dashboard = () => {
             icon={MapPin}
             accent="success"
             delay={0.1}
+            delta={d?.totalParcels ?? null}
           />
-          <KpiCard title="Produção (ton)" value={formatNumber(stats.totalProduction)} icon={Wheat} accent="secondary" delay={0.15} />
+          <KpiCard title="Produção (ton)" value={formatNumber(stats.totalProduction)} icon={Wheat} accent="secondary" delay={0.15} delta={d?.totalProduction ?? null} />
           <KpiCard
             title="Pecuário"
             value={formatNumber(stats.totalLivestock)}
@@ -164,6 +179,7 @@ const Dashboard = () => {
             icon={Beef}
             accent="destructive"
             delay={0.2}
+            delta={d?.totalLivestock ?? null}
           />
         </div>
       </div>

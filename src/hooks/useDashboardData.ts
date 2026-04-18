@@ -31,6 +31,16 @@ async function fetchUserEcas(userId: string): Promise<string[]> {
   return data?.map((d) => d.eca_name) ?? [];
 }
 
+export type DashboardDeltas = Partial<Record<
+  | "totalFarmers" | "totalApproved" | "totalCompanies" | "totalSchools"
+  | "totalParcels" | "totalAreaHa" | "totalProduction" | "totalLivestock"
+  | "totalLivestockProducers" | "totalRecebido" | "totalGasto"
+  | "utilizationRate" | "avgYieldPerHa" | "criticalStockCount"
+  | "totalTransactions" | "volumeTransactions" | "totalReconciliado"
+  | "totalFemale" | "femaleWithIncentive" | "femaleWithIncentivePct",
+  number | null
+>>;
+
 export interface DashboardKpis {
   totalFarmers: number;
   totalApproved: number;
@@ -54,6 +64,7 @@ export interface DashboardKpis {
   incentiveFunnel: { stage: string; value: number }[];
   filterScope: FilterScope;
   filterLabel: string;
+  deltas: DashboardDeltas | null;
 }
 
 export interface DashboardCharts {
@@ -82,20 +93,43 @@ async function resolveScope(userId: string, roles: AppRole[]) {
   return { scope, provinces, ecas, filterLabel };
 }
 
-async function fetchKpis(userId: string, roles: AppRole[]): Promise<DashboardKpis> {
-  const { scope, provinces, ecas, filterLabel } = await resolveScope(userId, roles);
+const toIsoDate = (d?: Date) => (d ? d.toISOString().slice(0, 10) : null);
 
-  const { data, error } = await supabase.rpc("dashboard_kpis" as any, {
-    p_scope: scope,
-    p_provinces: provinces,
-    p_ecas: ecas,
-  });
-  if (error) throw error;
-  const k = (data ?? {}) as any;
-
+function mapKpisFromJson(k: any, deltasRaw: any | null): Omit<DashboardKpis, "filterScope" | "filterLabel"> {
   const totalRecebido = Number(k.total_recebido) || 0;
   const totalGasto = Number(k.total_gasto) || 0;
   const totalReconciliado = Number(k.total_reconciliado) || 0;
+
+  const deltaNum = (key: string): number | null => {
+    if (!deltasRaw) return null;
+    const v = deltasRaw[key];
+    return v === null || v === undefined ? null : Number(v);
+  };
+
+  const deltas: DashboardDeltas | null = deltasRaw
+    ? {
+        totalFarmers: deltaNum("total_farmers"),
+        totalApproved: deltaNum("total_approved"),
+        totalCompanies: deltaNum("total_companies"),
+        totalSchools: deltaNum("total_schools"),
+        totalParcels: deltaNum("total_parcels"),
+        totalAreaHa: deltaNum("total_area_ha"),
+        totalProduction: deltaNum("total_production"),
+        totalLivestock: deltaNum("total_livestock"),
+        totalLivestockProducers: deltaNum("total_livestock_producers"),
+        totalRecebido: deltaNum("total_recebido"),
+        totalGasto: deltaNum("total_gasto"),
+        utilizationRate: deltaNum("utilization_rate"),
+        avgYieldPerHa: deltaNum("avg_yield_per_ha"),
+        criticalStockCount: deltaNum("critical_stock_count"),
+        totalTransactions: deltaNum("total_transactions"),
+        volumeTransactions: deltaNum("volume_transactions"),
+        totalReconciliado: deltaNum("total_reconciliado"),
+        totalFemale: deltaNum("total_female"),
+        femaleWithIncentive: deltaNum("female_with_incentive"),
+        femaleWithIncentivePct: deltaNum("female_with_incentive_pct"),
+      }
+    : null;
 
   return {
     totalFarmers: Number(k.total_farmers) || 0,
@@ -123,6 +157,45 @@ async function fetchKpis(userId: string, roles: AppRole[]): Promise<DashboardKpi
       { stage: "Gasto", value: Math.round(totalGasto) },
       { stage: "Reconciliado", value: Math.round(totalReconciliado) },
     ],
+    deltas,
+  };
+}
+
+async function fetchKpis(
+  userId: string,
+  roles: AppRole[],
+  period: { from?: Date; to?: Date },
+): Promise<DashboardKpis> {
+  const { scope, provinces, ecas, filterLabel } = await resolveScope(userId, roles);
+  const p_from = toIsoDate(period.from);
+  const p_to = toIsoDate(period.to);
+  const hasPeriod = !!p_from && !!p_to;
+
+  if (hasPeriod) {
+    const { data, error } = await supabase.rpc("dashboard_kpis_yoy" as any, {
+      p_scope: scope,
+      p_provinces: provinces,
+      p_ecas: ecas,
+      p_from,
+      p_to,
+    });
+    if (error) throw error;
+    const d = (data ?? {}) as any;
+    return {
+      ...mapKpisFromJson(d.current ?? {}, d.deltas ?? null),
+      filterScope: scope,
+      filterLabel,
+    };
+  }
+
+  const { data, error } = await supabase.rpc("dashboard_kpis" as any, {
+    p_scope: scope,
+    p_provinces: provinces,
+    p_ecas: ecas,
+  });
+  if (error) throw error;
+  return {
+    ...mapKpisFromJson(data ?? {}, null),
     filterScope: scope,
     filterLabel,
   };
@@ -149,11 +222,12 @@ async function fetchCharts(userId: string, roles: AppRole[]): Promise<DashboardC
   };
 }
 
-export function useDashboardKpis() {
+export function useDashboardKpis(period?: { from?: Date; to?: Date }) {
   const { user, roles, authReady } = useAuth();
+  const p = period ?? {};
   return useQuery({
-    queryKey: ["dashboard-kpis", user?.id, roles],
-    queryFn: () => fetchKpis(user!.id, roles as AppRole[]),
+    queryKey: ["dashboard-kpis", user?.id, roles, toIsoDate(p.from), toIsoDate(p.to)],
+    queryFn: () => fetchKpis(user!.id, roles as AppRole[], p),
     enabled: !!user && authReady && roles.length > 0,
     staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
@@ -171,7 +245,6 @@ export function useDashboardCharts() {
   });
 }
 
-// Backwards-compat shape (unused by Dashboard.tsx after refactor, kept for safety)
 export interface DashboardStats extends DashboardKpis, DashboardCharts {}
 export function useDashboardData() {
   const kpis = useDashboardKpis();
