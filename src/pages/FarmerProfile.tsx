@@ -312,8 +312,8 @@ const FarmerProfile = () => {
             <TabsTrigger value="pecuaria" className="gap-1.5 text-xs md:text-sm data-[state=active]:bg-card whitespace-nowrap">
               <Beef className="h-3.5 w-3.5 md:h-4 md:w-4" /> <span className="hidden sm:inline">Pecuária</span> ({livestock.length})
             </TabsTrigger>
-            <TabsTrigger value="incentivos" className="gap-1.5 text-xs md:text-sm data-[state=active]:bg-card whitespace-nowrap">
-              <Gift className="h-3.5 w-3.5 md:h-4 md:w-4" /> <span className="hidden sm:inline">Incentivos</span> ({incentives.length})
+            <TabsTrigger value="financeiro" className="gap-1.5 text-xs md:text-sm data-[state=active]:bg-card whitespace-nowrap">
+              <Gift className="h-3.5 w-3.5 md:h-4 md:w-4" /> <span className="hidden sm:inline">Financeiro</span> ({incentives.length + posSales.length + transactions.length})
             </TabsTrigger>
             <TabsTrigger value="dependentes" className="gap-1.5 text-xs md:text-sm data-[state=active]:bg-card whitespace-nowrap">
               <Users className="h-3.5 w-3.5 md:h-4 md:w-4" /> <span className="hidden sm:inline">Dependentes</span> ({dependents.length})
@@ -323,9 +323,6 @@ const FarmerProfile = () => {
             </TabsTrigger>
             <TabsTrigger value="patec" className="gap-1.5 text-xs md:text-sm data-[state=active]:bg-card whitespace-nowrap">
               <Package className="h-3.5 w-3.5 md:h-4 md:w-4" /> <span className="hidden sm:inline">PATEC</span>
-            </TabsTrigger>
-            <TabsTrigger value="conformacao" className="gap-1.5 text-xs md:text-sm data-[state=active]:bg-card whitespace-nowrap">
-              <Scale className="h-3.5 w-3.5 md:h-4 md:w-4" /> <span className="hidden sm:inline">Conformação</span>
             </TabsTrigger>
           </TabsList>
 
