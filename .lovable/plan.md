@@ -1,63 +1,64 @@
 
 
-## Plano
+## Diagnóstico
 
-### 1. RPC `dashboard_kpis` — adicionar parâmetros de período
+O PostgREST do Supabase aplica um **limite máximo de 1000 linhas por request** mesmo quando não passamos `.limit()`/`.range()`. Com 10.905 farmers e 70.394 transações em base, várias páginas estão a mostrar apenas os primeiros 1000 registos sem aviso.
 
-Novos parâmetros opcionais: `p_from date`, `p_to date`. Quando `NULL`, comportamento actual (sem filtro de data). Quando definidos, cada agregado usa a sua **data de negócio** com fallback para `created_at`:
+### Listagens afectadas (carregam tudo client-side, sem paginação real no servidor)
 
-| Tabela | Campo de data |
-|---|---|
-| `farmers` | `created_at` |
-| `farmer_transactions` | `COALESCE(NULLIF(transaction_date,'')::date, created_at::date)` |
-| `farmer_parcels` | `created_at` |
-| `farmer_production` | `COALESCE(NULLIF(planted_date,'')::date, created_at::date)` |
-| `livestock` | `created_at` |
-| `pos_sales` | `created_at` |
-| `farmer_incentives` | `COALESCE(NULLIF(incentive_date,'')::date, created_at::date)` |
+| Página/Hook | Tabela | Linhas reais | Mostra |
+|---|---|---|---|
+| `useFarmersList` (Agricultores) | farmers | 10.905 | 1000 |
+| `Transacoes.tsx` | farmer_transactions | 70.394 | 1000 |
+| `Patec.tsx` | farmers (PATEC) | 10.905 | 1000 |
+| `Incentivos.tsx` | farmer_incentives | crescente | até 1000 |
+| `Parcelas.tsx` | farmer_parcels | crescente | até 1000 |
+| `Producao.tsx` | farmer_production | crescente | até 1000 |
+| Dropdowns "selecionar agricultor" em Incentivos/Parcelas/Producao | farmers | 10.905 | 1000 |
+| `useReportData` (joins via `.in("farmer_code", codes)`) | farmers→tx/incentivos/produção | grande | corta a 1000 em cada lado |
 
-Para `valor_recebido` / `total_gasto` (campos cumulativos no `farmers`): no período, soma a partir de `farmer_incentives.amount` (recebido) e `farmer_transactions.valor` (gasto). Sem período, mantém comportamento actual (campos do `farmers`).
+Limites já correctos (intencionais e pequenos): notificações (50), audit logs (500), stock movements (200), pesquisa POS (8), histórico vendas (50). Esses ficam como estão.
 
-`suppliers`, `schools`, `supplier_products` (stock crítico): não filtram por período (estado actual).
+## Solução
 
-### 2. RPC `dashboard_kpis_yoy` — nova função
+Criar um helper genérico **`fetchAllPages`** em `src/lib/supabaseFetchAll.ts` que faz paginação por `.range(from, to)` em blocos de 1000 até esgotar (`count: "exact"` no primeiro pedido para saber o total, depois itera). 
 
-Recebe os mesmos parâmetros + período. Devolve `{ current: jsonb, previous: jsonb, deltas: jsonb }`:
-- `current` = `dashboard_kpis(scope, from, to)`
-- `previous` = `dashboard_kpis(scope, from - 1y, to - 1y)`
-- `deltas` = % por KPI: `(current - previous) / NULLIF(previous,0) * 100`, arredondado a 1 casa. `null` quando `previous = 0`.
+Substituir os `select(...)` problemáticos por chamadas via este helper. Manter ordenação e filtros.
 
-Sem período definido, devolve só `current` com `deltas = null` (sem badge).
+Para selects que servem só dropdowns de seleção (e.g. "escolher agricultor" no formulário de Incentivos/Parcelas/Producao), usar igualmente o helper para garantir que nenhum produtor desaparece da lista.
 
-### 3. Hook `useDashboardKpis(period?)`
+### Detalhe técnico do helper
 
-- Aceita `{ from?: Date; to?: Date }`.
-- `queryKey` inclui `from`/`to`.
-- Quando ambos definidos, chama `dashboard_kpis_yoy`; senão `dashboard_kpis` simples.
-- Expõe `data.deltas` (mapa `kpi -> number | null`).
+```ts
+// fetchAllPages<T>(builder: () => PostgrestFilterBuilder, pageSize=1000): Promise<T[]>
+// 1) primeiro pedido com .range(0, 999) e { count: "exact" }
+// 2) usa total para calcular nº de páginas; corre o resto em paralelo (Promise.all em chunks de 4)
+// 3) concatena e devolve
+```
 
-### 4. UI `Dashboard.tsx`
+Vantagens:
+- Mantém RLS (cada request continua a passar pelo PostgREST).
+- Permite filtros por `.eq`/`.in` antes de chamar o helper (recebe o builder, não dados).
+- Performance OK: ~11 requests para farmers, ~71 para transações; paralelizados em chunks.
 
-- Novo `PeriodFilter` (componente novo) no topo do hero — date range picker shadcn (Popover + Calendar `mode="range"`) com:
-  - Botões rápidos: "Limpar", "Mês actual", "Trimestre actual", "Ano actual"
-  - Label dinâmico mostra intervalo seleccionado
-- Por defeito **vazio** (sem filtro) — comportamento actual mantido.
-- `KpiCard` ganha prop opcional `delta?: number | null` que renderiza badge à direita do valor:
-  - `↑ +12,3%` em verde (`success`) se >0
-  - `↓ -5,1%` em vermelho (`destructive`) se <0
-  - `–` cinzento se =0
-  - escondido se `null`/undefined
-- Todos os 12 KPI cards numéricos passam `delta={kpis.deltas?.xxx ?? null}`.
+### Ficheiros a editar
 
-### 5. Charts
+1. **`src/lib/supabaseFetchAll.ts`** (novo) — helper de paginação.
+2. **`src/hooks/useFarmersList.ts`** — usar helper.
+3. **`src/pages/Transacoes.tsx`** — usar helper na queryFn.
+4. **`src/pages/Patec.tsx`** — substituir o fetch de farmers.
+5. **`src/pages/Incentivos.tsx`** — fetch incentivos + dropdown farmers.
+6. **`src/pages/Parcelas.tsx`** — fetch parcels + dropdown farmers.
+7. **`src/pages/Producao.tsx`** — fetch production + dropdown farmers.
+8. **`src/hooks/useReportData.ts`** — wrap das 5 funções `fetch*` para puxar farmers e tabelas dependentes via helper (caso contrário os relatórios ficam incompletos para províncias grandes).
 
-Não tocar os charts (escopo: filtro YoY nos KPIs). Os charts continuam globais — manter consistência visual sem complicar a primeira iteração.
+### Considerações de UX
 
-### Ficheiros
+- O carregamento inicial das páginas grandes (Agricultores, Transações) demora ~3-8s. Os Skeletons já existentes cobrem isso.
+- Para Transações (70k linhas, ~30 MB JSON): aceitável numa primeira iteração. Se o utilizador reportar lentidão, próximo passo será **paginação server-side** com filtros (mover `search`/`empresa` para query Supabase). Mantenho fora do escopo deste ticket por ser refactor maior.
 
-1. **Migração SQL** — actualiza `dashboard_kpis` (params from/to) + nova `dashboard_kpis_yoy`.
-2. `src/hooks/useDashboardData.ts` — aceitar período, novo retorno com `deltas`.
-3. `src/components/dashboard/PeriodFilter.tsx` (novo).
-4. `src/components/dashboard/KpiCard.tsx` — prop `delta`.
-5. `src/pages/Dashboard.tsx` — estado de período, filtro no topo, passar `delta` aos cards.
+### Não tocar
+
+- Limites pequenos intencionais (notifications 50, audit_logs 500, stock_movements 200, pesquisa POS 8, recent sales 5/10).
+- RPC `dashboard_kpis*` (já agregam server-side, não sofrem do problema).
 
