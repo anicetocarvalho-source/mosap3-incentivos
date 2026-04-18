@@ -1,64 +1,74 @@
 
-
 ## Diagnóstico
 
-O PostgREST do Supabase aplica um **limite máximo de 1000 linhas por request** mesmo quando não passamos `.limit()`/`.range()`. Com 10.905 farmers e 70.394 transações em base, várias páginas estão a mostrar apenas os primeiros 1000 registos sem aviso.
+O problema já não está na lista de Agricultores em si: o helper `fetchAllPages` está activo aí e as requests mostram paginação real (`offset=2000&limit=1000`, etc.). O problema é que a correcção foi aplicada só em parte da plataforma.
 
-### Listagens afectadas (carregam tudo client-side, sem paginação real no servidor)
+Ainda existem várias páginas/hooks com `select(...)` simples, sem `.range(...)`/paginação, por isso continuam sujeitas ao limite de 1000 registos e acabam por parecer “dados em falta”.
 
-| Página/Hook | Tabela | Linhas reais | Mostra |
-|---|---|---|---|
-| `useFarmersList` (Agricultores) | farmers | 10.905 | 1000 |
-| `Transacoes.tsx` | farmer_transactions | 70.394 | 1000 |
-| `Patec.tsx` | farmers (PATEC) | 10.905 | 1000 |
-| `Incentivos.tsx` | farmer_incentives | crescente | até 1000 |
-| `Parcelas.tsx` | farmer_parcels | crescente | até 1000 |
-| `Producao.tsx` | farmer_production | crescente | até 1000 |
-| Dropdowns "selecionar agricultor" em Incentivos/Parcelas/Producao | farmers | 10.905 | 1000 |
-| `useReportData` (joins via `.in("farmer_code", codes)`) | farmers→tx/incentivos/produção | grande | corta a 1000 em cada lado |
+## Áreas ainda afectadas
 
-Limites já correctos (intencionais e pequenos): notificações (50), audit logs (500), stock movements (200), pesquisa POS (8), histórico vendas (50). Esses ficam como estão.
+- `src/hooks/useProvincesData.ts`
+  - afecta `EscolasCampo`, `ProvinciaEscolas`, `GestaoProvincias`
+  - `provinces`, `municipalities` e `schools` ainda carregam sem paginação
+- `src/pages/Mosap3PayFornecedores.tsx`
+  - lista de fornecedores e zonas de actuação ainda sem `fetchAllPages`
+- `src/pages/Relatorios.tsx`
+  - filtros de província/município/escola podem vir incompletos
+- `src/pages/Mosap3Pay.tsx`
+  - estatísticas de vendas/receita usam `pos_sales.select("*")` e podem parar nos 1000
+- `src/pages/fornecedor/FornecedorDashboard.tsx`
+  - stats de vendas por fornecedor também podem cortar nos 1000
+- `src/pages/Mosap3PayStock.tsx`
+  - produtos/fornecedores usam `select` simples; pode truncar catálogos grandes
 
-## Solução
+## Plano de correcção
 
-Criar um helper genérico **`fetchAllPages`** em `src/lib/supabaseFetchAll.ts` que faz paginação por `.range(from, to)` em blocos de 1000 até esgotar (`count: "exact"` no primeiro pedido para saber o total, depois itera). 
+### 1. Aplicar `fetchAllPages` nas fontes-base em falta
+Actualizar os carregamentos que alimentam várias páginas:
+- `useProvincesData.ts` para `provinces`, `municipalities`, `schools`
+- `Mosap3PayFornecedores.tsx` para `suppliers` e `supplier_provinces`
+- `Relatorios.tsx` para listas de filtros territoriais
 
-Substituir os `select(...)` problemáticos por chamadas via este helper. Manter ordenação e filtros.
+Isto deve resolver de uma vez:
+- Escolas de Campo
+- página por província
+- gestão territorial
+- filtros dos relatórios
+- listagem de fornecedores
 
-Para selects que servem só dropdowns de seleção (e.g. "escolher agricultor" no formulário de Incentivos/Parcelas/Producao), usar igualmente o helper para garantir que nenhum produtor desaparece da lista.
+### 2. Corrigir KPIs/listas que ainda contam só 1000 registos
+Actualizar queries agregadas que hoje fazem `select("*")` completo:
+- `Mosap3Pay.tsx`:
+  - usar `count: "exact"` para total de vendas
+  - usar `fetchAllPages` para receita total e pendentes, ou refactor para agregação leve
+- `FornecedorDashboard.tsx`:
+  - substituir `select("id,total")` simples por paginação completa para stats reais
 
-### Detalhe técnico do helper
+### 3. Rever stock e páginas satélite
+Aplicar a mesma abordagem em páginas com potencial de crescimento:
+- `Mosap3PayStock.tsx` para `supplier_products` e `suppliers`
+- manter limites pequenos intencionais, como histórico recente e movimentos recentes, onde o limite é funcional e não bug
 
-```ts
-// fetchAllPages<T>(builder: () => PostgrestFilterBuilder, pageSize=1000): Promise<T[]>
-// 1) primeiro pedido com .range(0, 999) e { count: "exact" }
-// 2) usa total para calcular nº de páginas; corre o resto em paralelo (Promise.all em chunks de 4)
-// 3) concatena e devolve
-```
+### 4. Endurecer o padrão técnico
+Padronizar para evitar regressões:
+- sempre que uma página “carrega tudo e filtra no cliente”, usar `fetchAllPages`
+- deixar selects pequenos/intencionais só quando houver `limit(...)` explícito por UX
+- opcionalmente criar um comentário utilitário/padrão de uso para a equipa repetir menos o erro
 
-Vantagens:
-- Mantém RLS (cada request continua a passar pelo PostgREST).
-- Permite filtros por `.eq`/`.in` antes de chamar o helper (recebe o builder, não dados).
-- Performance OK: ~11 requests para farmers, ~71 para transações; paralelizados em chunks.
+## Ficheiros a editar
 
-### Ficheiros a editar
+- `src/hooks/useProvincesData.ts`
+- `src/pages/Mosap3PayFornecedores.tsx`
+- `src/pages/Relatorios.tsx`
+- `src/pages/Mosap3Pay.tsx`
+- `src/pages/fornecedor/FornecedorDashboard.tsx`
+- `src/pages/Mosap3PayStock.tsx`
 
-1. **`src/lib/supabaseFetchAll.ts`** (novo) — helper de paginação.
-2. **`src/hooks/useFarmersList.ts`** — usar helper.
-3. **`src/pages/Transacoes.tsx`** — usar helper na queryFn.
-4. **`src/pages/Patec.tsx`** — substituir o fetch de farmers.
-5. **`src/pages/Incentivos.tsx`** — fetch incentivos + dropdown farmers.
-6. **`src/pages/Parcelas.tsx`** — fetch parcels + dropdown farmers.
-7. **`src/pages/Producao.tsx`** — fetch production + dropdown farmers.
-8. **`src/hooks/useReportData.ts`** — wrap das 5 funções `fetch*` para puxar farmers e tabelas dependentes via helper (caso contrário os relatórios ficam incompletos para províncias grandes).
+## Resultado esperado
 
-### Considerações de UX
-
-- O carregamento inicial das páginas grandes (Agricultores, Transações) demora ~3-8s. Os Skeletons já existentes cobrem isso.
-- Para Transações (70k linhas, ~30 MB JSON): aceitável numa primeira iteração. Se o utilizador reportar lentidão, próximo passo será **paginação server-side** com filtros (mover `search`/`empresa` para query Supabase). Mantenho fora do escopo deste ticket por ser refactor maior.
-
-### Não tocar
-
-- Limites pequenos intencionais (notifications 50, audit_logs 500, stock_movements 200, pesquisa POS 8, recent sales 5/10).
-- RPC `dashboard_kpis*` (já agregam server-side, não sofrem do problema).
-
+Após a implementação:
+- Agricultores continuam completos
+- Escolas de Campo passam a mostrar todas as províncias/municípios/escolas carregadas
+- Fornecedores e zonas aparecem completos
+- filtros dos relatórios deixam de omitir opções
+- contagens e totais de vendas deixam de ficar presos aos primeiros 1000 registos
