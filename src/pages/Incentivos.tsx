@@ -19,6 +19,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { Badge } from "@/components/ui/badge";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllPages } from "@/lib/supabaseFetchAll";
 import { toast } from "@/hooks/use-toast";
 
 const ITEMS_PER_PAGE = 10;
@@ -41,20 +42,24 @@ const Incentivos = () => {
   const { data: incentives = [], isLoading, isError, refetch } = useQuery({
     queryKey: ["farmer_incentives"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("farmer_incentives")
-        .select("*, farmers!farmer_incentives_farmer_code_fkey(full_name, phone, province, school)")
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data || [];
+      return await fetchAllPages<any>(() =>
+        supabase
+          .from("farmer_incentives")
+          .select(
+            "*, farmers!farmer_incentives_farmer_code_fkey(full_name, phone, province, school)",
+            { count: "exact" }
+          )
+          .order("created_at", { ascending: false })
+      );
     },
   });
 
   const { data: farmersList = [] } = useQuery({
     queryKey: ["farmers_list_select"],
     queryFn: async () => {
-      const { data } = await supabase.from("farmers").select("code, full_name").order("full_name");
-      return data || [];
+      return await fetchAllPages<any>(() =>
+        supabase.from("farmers").select("code, full_name", { count: "exact" }).order("full_name")
+      );
     },
   });
 

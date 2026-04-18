@@ -8,6 +8,7 @@ import { ErrorState } from "@/components/ui/error-state";
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllPages } from "@/lib/supabaseFetchAll";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -22,12 +23,15 @@ const Transacoes = () => {
   const { data: transactions = [], isLoading, isError, refetch } = useQuery({
     queryKey: ["farmer_transactions"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("farmer_transactions")
-        .select("*, farmers!farmer_transactions_farmer_code_fkey(full_name, province)")
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data || [];
+      return await fetchAllPages<any>(() =>
+        supabase
+          .from("farmer_transactions")
+          .select(
+            "*, farmers!farmer_transactions_farmer_code_fkey(full_name, province)",
+            { count: "exact" }
+          )
+          .order("created_at", { ascending: false })
+      );
     },
   });
 
