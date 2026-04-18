@@ -89,33 +89,48 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* KPIs principais (Produtores) */}
+      {/* Visão Geral — KPIs essenciais */}
       <div>
         <p className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
-          Produtores & Operação
+          Visão Geral
         </p>
-        <div className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-4">
-          <KpiCard title="Total Registado" value={formatNumber(stats.totalFarmers)} icon={Users} accent="primary" delay={0.05} delta={d?.totalFarmers ?? null} />
+        <div className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-3">
           <KpiCard
-            title="Aprovados"
-            value={`${formatNumber(stats.totalApproved)} / ${formatNumber(stats.totalFarmers)}`}
-            subtitle={`${stats.totalFarmers > 0 ? Math.round((stats.totalApproved / stats.totalFarmers) * 100) : 0}% validados`}
-            icon={ThumbsUp}
+            title="Produtores"
+            value={formatNumber(stats.totalFarmers)}
+            subtitle={`${formatNumber(stats.totalLivestockProducers)} com pecuária`}
+            icon={Users}
+            accent="primary"
+            delay={0.05}
+            delta={d?.totalFarmers ?? null}
+          />
+          <KpiCard
+            title="Parcelas"
+            value={formatNumber(stats.totalParcels)}
+            subtitle={`${formatNumber(stats.totalAreaHa)} ha cultivados`}
+            icon={MapPin}
             accent="success"
             delay={0.1}
-            delta={d?.totalApproved ?? null}
+            delta={d?.totalParcels ?? null}
           />
-          <KpiCard title="Transações" value={formatNumber(stats.totalTransactions)} icon={ArrowRightLeft} accent="info" delay={0.15} delta={d?.totalTransactions ?? null} />
-          <KpiCard title="Fornecedores" value={formatNumber(stats.totalCompanies)} subtitle="Activos no sistema" icon={Building2} accent="secondary" delay={0.2} delta={d?.totalCompanies ?? null} />
+          <KpiCard
+            title="Fornecedores"
+            value={formatNumber(stats.totalCompanies)}
+            subtitle="Activos no MOSAP3Pay"
+            icon={Building2}
+            accent="secondary"
+            delay={0.15}
+            delta={d?.totalCompanies ?? null}
+          />
         </div>
       </div>
 
-      {/* KPIs Impacto & Eficiência */}
+      {/* Performance & Impacto */}
       <div>
         <p className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
-          Impacto & Eficiência
+          Performance & Impacto
         </p>
-        <div className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-3">
           <KpiCard
             title="Utilização Incentivos"
             value={`${formatNumber(stats.utilizationRate)}%`}
@@ -126,60 +141,22 @@ const Dashboard = () => {
             delta={d?.utilizationRate ?? null}
           />
           <KpiCard
-            title="Produtividade Média"
-            value={`${formatNumber(stats.avgYieldPerHa)} kg/ha`}
-            subtitle="Rendimento agronómico"
-            icon={Gauge}
-            accent="info"
-            delay={0.1}
-            delta={d?.avgYieldPerHa ?? null}
-          />
-          <KpiCard
             title="Volume POS"
             value={formatCurrency(stats.volumeTransactions)}
             subtitle={`${formatNumber(stats.totalTransactions)} transações`}
             icon={TrendingUp}
-            accent="primary"
-            delay={0.15}
+            accent="info"
+            delay={0.1}
             delta={d?.volumeTransactions ?? null}
           />
           <KpiCard
-            title="Stock Crítico"
-            value={formatNumber(stats.criticalStockCount)}
-            subtitle={stats.criticalStockCount > 10 ? "Atenção: rupturas iminentes" : "Níveis estáveis"}
-            icon={AlertTriangle}
-            accent={stats.criticalStockCount > 10 ? "destructive" : stats.criticalStockCount > 0 ? "warning" : "success"}
-            delay={0.2}
-            delta={d?.criticalStockCount ?? null}
-          />
-        </div>
-      </div>
-
-      {/* KPIs Agricultura */}
-      <div>
-        <p className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
-          Agricultura & Pecuária
-        </p>
-        <div className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-4">
-          <KpiCard title="Escolas de Campo" value={formatNumber(stats.totalSchools)} icon={School} accent="warning" delay={0.05} delta={d?.totalSchools ?? null} />
-          <KpiCard
-            title="Parcelas"
-            value={formatNumber(stats.totalParcels)}
-            subtitle={`${formatNumber(stats.totalAreaHa)} ha total`}
-            icon={MapPin}
-            accent="success"
-            delay={0.1}
-            delta={d?.totalParcels ?? null}
-          />
-          <KpiCard title="Produção (ton)" value={formatNumber(stats.totalProduction)} icon={Wheat} accent="secondary" delay={0.15} delta={d?.totalProduction ?? null} />
-          <KpiCard
-            title="Pecuário"
-            value={formatNumber(stats.totalLivestock)}
-            subtitle={`${formatNumber(stats.totalLivestockProducers)} produtores`}
-            icon={Beef}
-            accent="destructive"
-            delay={0.2}
-            delta={d?.totalLivestock ?? null}
+            title="Produtividade"
+            value={`${formatNumber(stats.avgYieldPerHa)} kg/ha`}
+            subtitle={`${formatNumber(stats.totalProduction)} ton produzidas`}
+            icon={Gauge}
+            accent="primary"
+            delay={0.15}
+            delta={d?.avgYieldPerHa ?? null}
           />
         </div>
       </div>
