@@ -797,9 +797,25 @@ const FarmerProfile = () => {
 
                   {/* Timeline */}
                   <Card className="p-0 overflow-hidden">
-                    <div className="px-6 py-4 border-b border-border">
-                      <h3 className="font-heading font-semibold text-lg">Movimentos Financeiros</h3>
-                      <p className="text-xs text-muted-foreground mt-0.5">Histórico cronológico de incentivos recebidos e compras realizadas</p>
+                    <div className="px-6 py-4 border-b border-border flex items-center justify-between gap-3">
+                      <div>
+                        <h3 className="font-heading font-semibold text-lg">Movimentos Financeiros</h3>
+                        <p className="text-xs text-muted-foreground mt-0.5">Histórico cronológico de incentivos, compras POS e transações manuais</p>
+                      </div>
+                      <Dialog open={transactionDialogOpen} onOpenChange={setTransactionDialogOpen}>
+                        <DialogTrigger asChild>
+                          <Button size="sm" variant="outline" className="gap-1.5"><Plus className="h-4 w-4" /> Nova Transação</Button>
+                        </DialogTrigger>
+                        <DialogContent className="sm:max-w-lg">
+                          <DialogHeader>
+                            <DialogTitle>Registar Transação Manual — {farmer.name}</DialogTitle>
+                          </DialogHeader>
+                          <TransactionRegistrationForm
+                            farmerCode={farmer.id}
+                            onSuccess={() => { setTransactionDialogOpen(false); setRefreshKey((k) => k + 1); }}
+                          />
+                        </DialogContent>
+                      </Dialog>
                     </div>
                     <div className="hidden md:block overflow-x-auto">
                       <table className="w-full text-sm">
@@ -819,12 +835,19 @@ const FarmerProfile = () => {
                             <tr key={idx} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
                               <td className="px-6 py-3 text-xs text-muted-foreground">{item.date || "—"}</td>
                               <td className="px-4 py-3">
-                                <Badge variant="outline" className={`text-[10px] ${item.type === "incentivo" ? "border-primary/30 text-primary" : "border-destructive/30 text-destructive"}`}>
-                                  {item.type === "incentivo" ? "↓ Incentivo" : "↑ Compra"}
+                                <Badge variant="outline" className={`text-[10px] ${
+                                  item.type === "incentivo" ? "border-primary/30 text-primary" :
+                                  item.type === "compra" ? "border-destructive/30 text-destructive" :
+                                  "border-muted-foreground/30 text-muted-foreground"
+                                }`}>
+                                  {item.type === "incentivo" ? "↓ Incentivo" : item.type === "compra" ? "↑ Compra POS" : "≡ Manual"}
                                 </Badge>
                               </td>
                               <td className="px-4 py-3 font-medium max-w-[300px] truncate">{item.description}</td>
-                              <td className={`px-4 py-3 text-right font-semibold ${item.type === "incentivo" ? "text-primary" : "text-destructive"}`}>
+                              <td className={`px-4 py-3 text-right font-semibold ${
+                                item.type === "incentivo" ? "text-primary" :
+                                item.type === "compra" ? "text-destructive" : "text-foreground"
+                              }`}>
                                 {item.type === "incentivo" ? "+" : "−"}{item.value.toLocaleString("pt-AO")} Kz
                               </td>
                               <td className="px-4 py-3">
@@ -845,15 +868,20 @@ const FarmerProfile = () => {
                       ) : timeline.map((item, idx) => (
                         <div key={idx} className="p-4 space-y-1">
                           <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2">
                               {item.type === "incentivo" ? (
                                 <ArrowDownRight className="h-4 w-4 text-primary" />
-                              ) : (
+                              ) : item.type === "compra" ? (
                                 <ArrowUpRight className="h-4 w-4 text-destructive" />
+                              ) : (
+                                <Scale className="h-4 w-4 text-muted-foreground" />
                               )}
                               <span className="font-medium text-sm truncate max-w-[200px]">{item.description}</span>
                             </div>
-                            <span className={`font-semibold text-sm ${item.type === "incentivo" ? "text-primary" : "text-destructive"}`}>
+                            <span className={`font-semibold text-sm ${
+                              item.type === "incentivo" ? "text-primary" :
+                              item.type === "compra" ? "text-destructive" : "text-foreground"
+                            }`}>
                               {item.type === "incentivo" ? "+" : "−"}{item.value.toLocaleString("pt-AO")} Kz
                             </span>
                           </div>
