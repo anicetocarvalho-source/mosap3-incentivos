@@ -260,13 +260,13 @@ const Agricultores = () => {
               <thead>
                 <tr className="border-b border-border bg-muted/50">
                   <th className="text-left px-6 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Agricultor</th>
-                  <th className="text-left px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">BI</th>
                   <th className="text-left px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Telefone</th>
                   <th className="text-left px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Província</th>
                   <th className="text-left px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Escola</th>
                   <th className="text-left px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">PATEC</th>
-                  <th className="text-left px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Estado</th>
-                  <th className="text-right px-6 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Ações</th>
+                  <th className="text-right px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Recebido</th>
+                  <th className="text-right px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Disponível</th>
+                  <th className="text-right px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider w-12">Ações</th>
                 </tr>
               </thead>
               <tbody>
@@ -274,54 +274,78 @@ const Agricultores = () => {
                   Array.from({ length: 5 }).map((_, i) => (
                     <tr key={i} className="border-b border-border">
                       <td className="px-6 py-3"><Skeleton className="h-5 w-40" /></td>
-                      <td className="px-4 py-3"><Skeleton className="h-4 w-28" /></td>
                       <td className="px-4 py-3"><Skeleton className="h-4 w-24" /></td>
                       <td className="px-4 py-3"><Skeleton className="h-4 w-20" /></td>
                       <td className="px-4 py-3"><Skeleton className="h-4 w-24" /></td>
                       <td className="px-4 py-3"><Skeleton className="h-4 w-16" /></td>
-                      <td className="px-4 py-3"><Skeleton className="h-4 w-16" /></td>
-                      <td className="px-6 py-3"><Skeleton className="h-4 w-16 ml-auto" /></td>
+                      <td className="px-4 py-3"><Skeleton className="h-4 w-20 ml-auto" /></td>
+                      <td className="px-4 py-3"><Skeleton className="h-4 w-20 ml-auto" /></td>
+                      <td className="px-4 py-3"><Skeleton className="h-8 w-8 ml-auto" /></td>
                     </tr>
                   ))
-                ) : paginated.map((f) => (
-                  <tr key={f.id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
-                    <td className="px-6 py-3">
-                      <div className="flex items-center gap-3">
-                        <FarmerAvatar photoUrl={f.photo_frontal_url} name={f.full_name} />
-                        <div>
-                          <p className="font-medium">{f.full_name}</p>
-                          <p className="text-xs text-muted-foreground">{f.code}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground font-mono text-xs">{f.bi || "—"}</td>
-                    <td className="px-4 py-3 text-muted-foreground">{f.phone || "—"}</td>
-                    <td className="px-4 py-3">{f.province || "—"}</td>
-                    <td className="px-4 py-3 text-muted-foreground">{f.school || "—"}</td>
-                    <td className="px-4 py-3">
-                      {f.patec ? <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary">PATEC {f.patec}</span> : "—"}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={
-                        f.status === "Ativo" ? "badge-active" :
-                        f.status === "Pendente" || f.status === "Validado" ? "badge-pending" : "badge-suspended"
-                      }>{f.status}</span>
-                    </td>
-                    <td className="px-6 py-3 text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <Link to={`/agricultores/${f.code}`}>
-                          <Button variant="ghost" size="icon" className="h-8 w-8"><Eye className="h-4 w-4" /></Button>
-                        </Link>
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(f)}><Edit className="h-4 w-4" /></Button>
-                        {f.status === "Removido" ? (
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-success hover:text-success" onClick={() => handleRestore(f)} title="Restaurar"><RotateCcw className="h-4 w-4" /></Button>
-                        ) : (
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => setDeleteTarget(f)}><Trash2 className="h-4 w-4" /></Button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                ) : (
+                  <TooltipProvider delayDuration={200}>
+                    {paginated.map((f) => (
+                      <tr key={f.id} className={`border-b border-border last:border-0 hover:bg-muted/30 transition-colors ${f.status === "Removido" ? "opacity-60" : ""}`}>
+                        <td className="px-6 py-3">
+                          <div className="flex items-center gap-3">
+                            <FarmerAvatar photoUrl={f.photo_frontal_url} name={f.full_name} />
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2">
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span className={`inline-block h-2 w-2 rounded-full flex-shrink-0 ${statusDotClass(f.status)}`} aria-label={f.status} />
+                                  </TooltipTrigger>
+                                  <TooltipContent>{f.status}</TooltipContent>
+                                </Tooltip>
+                                <p className="font-medium truncate">{f.full_name}</p>
+                              </div>
+                              <p className="text-xs text-muted-foreground">{f.code}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-muted-foreground">{f.phone || "—"}</td>
+                        <td className="px-4 py-3">{f.province || "—"}</td>
+                        <td className="px-4 py-3 text-muted-foreground">{f.school || "—"}</td>
+                        <td className="px-4 py-3">
+                          {f.patec ? <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary">PATEC {f.patec}</span> : "—"}
+                        </td>
+                        <td className="px-4 py-3 text-right font-medium text-success tabular-nums">{fmtKz(f.valor_recebido)}</td>
+                        <td className="px-4 py-3 text-right font-medium text-warning tabular-nums">{fmtKz(f.saldo_final)}</td>
+                        <td className="px-4 py-3 text-right">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8">
+                                <MoreHorizontal className="h-4 w-4" />
+                                <span className="sr-only">Abrir menu</span>
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem asChild>
+                                <Link to={`/agricultores/${f.code}`}>
+                                  <Eye className="h-4 w-4 mr-2" /> Ver
+                                </Link>
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleEdit(f)}>
+                                <Edit className="h-4 w-4 mr-2" /> Editar
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              {f.status === "Removido" ? (
+                                <DropdownMenuItem onClick={() => handleRestore(f)} className="text-success focus:text-success">
+                                  <RotateCcw className="h-4 w-4 mr-2" /> Restaurar
+                                </DropdownMenuItem>
+                              ) : (
+                                <DropdownMenuItem onClick={() => setDeleteTarget(f)} className="text-destructive focus:text-destructive">
+                                  <Trash2 className="h-4 w-4 mr-2" /> Remover
+                                </DropdownMenuItem>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </td>
+                      </tr>
+                    ))}
+                  </TooltipProvider>
+                )}
               </tbody>
             </table>
           </div>
