@@ -48,6 +48,9 @@ export interface DashboardKpis {
   utilizationRate: number;
   avgYieldPerHa: number;
   criticalStockCount: number;
+  totalFemale: number;
+  femaleWithIncentive: number;
+  femaleWithIncentivePct: number;
   incentiveFunnel: { stage: string; value: number }[];
   filterScope: FilterScope;
   filterLabel: string;
