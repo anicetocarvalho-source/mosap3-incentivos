@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Users, ThumbsUp, ArrowRightLeft, Building2, School, MapPin, Wheat, Beef, Loader2, BarChart3, PieChart as PieIcon, Activity, Sprout, Target, Gauge, AlertTriangle, TrendingUp } from "lucide-react";
+import { Users, ArrowRightLeft, Building2, MapPin, Beef, Loader2, BarChart3, PieChart as PieIcon, Activity, Sprout, Target, Gauge, TrendingUp } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
