@@ -1,80 +1,63 @@
 
 
-## Diagnóstico
+## Plano
 
-O `useDashboardData` puxa **dados em bruto** para o navegador e agrega em JS:
-- `farmers` → ~10.905 linhas (11 páginas de 1.000)
-- `farmer_transactions` → ~70.394 linhas (71 páginas de 1.000)
-- `farmer_parcels`, `farmer_production`, `livestock`, `pos_sales` → também paginados
-- Total: **~85+ requests HTTP** + 80+ MB de JSON + agregação no cliente.
+### 1. RPC `dashboard_kpis` — adicionar parâmetros de período
 
-Mesmo com paralelismo de 12, isto demora vários segundos e bloqueia o thread principal nas reduções (`reduce`, `Set`, etc.).
+Novos parâmetros opcionais: `p_from date`, `p_to date`. Quando `NULL`, comportamento actual (sem filtro de data). Quando definidos, cada agregado usa a sua **data de negócio** com fallback para `created_at`:
 
-## Solução: agregar em SQL, devolver linhas pequenas
+| Tabela | Campo de data |
+|---|---|
+| `farmers` | `created_at` |
+| `farmer_transactions` | `COALESCE(NULLIF(transaction_date,'')::date, created_at::date)` |
+| `farmer_parcels` | `created_at` |
+| `farmer_production` | `COALESCE(NULLIF(planted_date,'')::date, created_at::date)` |
+| `livestock` | `created_at` |
+| `pos_sales` | `created_at` |
+| `farmer_incentives` | `COALESCE(NULLIF(incentive_date,'')::date, created_at::date)` |
 
-Criar **funções RPC** em Postgres (`SECURITY DEFINER`) que devolvem JSON já agregado, respeitando o âmbito geográfico do utilizador (global / província / ECA). O hook passa a fazer ~3 chamadas leves em vez de ~85 pesadas.
+Para `valor_recebido` / `total_gasto` (campos cumulativos no `farmers`): no período, soma a partir de `farmer_incentives.amount` (recebido) e `farmer_transactions.valor` (gasto). Sem período, mantém comportamento actual (campos do `farmers`).
 
-### 1. Migração SQL — funções e índices
+`suppliers`, `schools`, `supplier_products` (stock crítico): não filtram por período (estado actual).
 
-**Índices** (acelera filtros e agregações):
-```
-idx_farmers_province        (province)
-idx_farmers_school          (school)
-idx_farmers_status          (status)
-idx_tx_farmer_code          (farmer_code)
-idx_parcels_farmer_code     (farmer_code)
-idx_production_farmer_code  (farmer_code)
-idx_livestock_farmer_id     (farmer_id)
-idx_pos_sales_created_at    (created_at)
-idx_pos_sales_farmer_code   (farmer_code)
-```
+### 2. RPC `dashboard_kpis_yoy` — nova função
 
-**RPC `dashboard_kpis(p_scope, p_provinces, p_ecas)`** — devolve um único JSONB com:
-- `total_farmers`, `total_approved`, `total_companies`, `total_schools`
-- `total_parcels`, `total_area_ha`, `total_production`, `total_livestock`, `total_livestock_producers`
-- `total_recebido`, `total_gasto`, `utilization_rate`, `avg_yield_per_ha`, `critical_stock_count`
-- `total_transactions`, `volume_transactions`, `total_reconciliado`
+Recebe os mesmos parâmetros + período. Devolve `{ current: jsonb, previous: jsonb, deltas: jsonb }`:
+- `current` = `dashboard_kpis(scope, from, to)`
+- `previous` = `dashboard_kpis(scope, from - 1y, to - 1y)`
+- `deltas` = % por KPI: `(current - previous) / NULLIF(previous,0) * 100`, arredondado a 1 casa. `null` quando `previous = 0`.
 
-**RPC `dashboard_charts(p_scope, p_provinces, p_ecas)`** — devolve JSONB com:
-- `farmers_by_province`, `gender_data`
-- `transactions_by_province`, `production_by_culture`, `livestock_by_species`
-- `pos_sales_trend` (últimos 12 meses, agregado por mês via `date_trunc`)
+Sem período definido, devolve só `current` com `deltas = null` (sem badge).
 
-Toda a aritmética de `valor_recebido`/`total_gasto`/`valor` (formato pt-AO `"199.500,00"`) feita com `replace(replace(x,'.',''),',','.')::numeric` em SQL.
+### 3. Hook `useDashboardKpis(period?)`
 
-### 2. Refactor do hook (`src/hooks/useDashboardData.ts`)
+- Aceita `{ from?: Date; to?: Date }`.
+- `queryKey` inclui `from`/`to`.
+- Quando ambos definidos, chama `dashboard_kpis_yoy`; senão `dashboard_kpis` simples.
+- Expõe `data.deltas` (mapa `kpi -> number | null`).
 
-Substituir as ~85 paginações por:
-```ts
-const { data: kpis } = await supabase.rpc('dashboard_kpis', { p_scope, p_provinces, p_ecas });
-const { data: charts } = await supabase.rpc('dashboard_charts', { p_scope, p_provinces, p_ecas });
-```
+### 4. UI `Dashboard.tsx`
 
-Manter o mapping para a interface `DashboardStats` existente (zero mudanças no `Dashboard.tsx`).
+- Novo `PeriodFilter` (componente novo) no topo do hero — date range picker shadcn (Popover + Calendar `mode="range"`) com:
+  - Botões rápidos: "Limpar", "Mês actual", "Trimestre actual", "Ano actual"
+  - Label dinâmico mostra intervalo seleccionado
+- Por defeito **vazio** (sem filtro) — comportamento actual mantido.
+- `KpiCard` ganha prop opcional `delta?: number | null` que renderiza badge à direita do valor:
+  - `↑ +12,3%` em verde (`success`) se >0
+  - `↓ -5,1%` em vermelho (`destructive`) se <0
+  - `–` cinzento se =0
+  - escondido se `null`/undefined
+- Todos os 12 KPI cards numéricos passam `delta={kpis.deltas?.xxx ?? null}`.
 
-### 3. UX progressiva (equilíbrio pedido)
+### 5. Charts
 
-- Dividir em **2 queries React Query** com `queryKey` distintas: `["dashboard-kpis", …]` e `["dashboard-charts", …]`.
-- KPIs aparecem assim que o RPC `dashboard_kpis` responde (~tipicamente <1s).
-- Cada `ChartCard` mostra `Skeleton` enquanto `dashboard_charts` carrega (sem bloquear o ecrã).
-- Hero usa volume dos KPIs.
+Não tocar os charts (escopo: filtro YoY nos KPIs). Os charts continuam globais — manter consistência visual sem complicar a primeira iteração.
 
-### 4. Cache
+### Ficheiros
 
-- `staleTime: 5min` (mantém-se).
-- Adicionar `gcTime: 10min`.
-
-## Resultado esperado
-
-- De **~85 requests + ~80MB** para **2 requests + alguns KB**.
-- Tempo de carga: de muitos segundos → tipicamente <1.5s para KPIs.
-- Mantém RLS e filtragem geográfica intactas.
-
-## Ficheiros tocados
-
-1. **Migração SQL** (nova) — índices + 2 funções RPC.
-2. `src/hooks/useDashboardData.ts` — substituir fetch por chamadas RPC; expor `useDashboardKpis()` + `useDashboardCharts()`.
-3. `src/pages/Dashboard.tsx` — consumir os dois hooks; adicionar Skeletons aos `ChartCard` enquanto charts carregam.
-
-Sem alterações de schema nem em outras páginas.
+1. **Migração SQL** — actualiza `dashboard_kpis` (params from/to) + nova `dashboard_kpis_yoy`.
+2. `src/hooks/useDashboardData.ts` — aceitar período, novo retorno com `deltas`.
+3. `src/components/dashboard/PeriodFilter.tsx` (novo).
+4. `src/components/dashboard/KpiCard.tsx` — prop `delta`.
+5. `src/pages/Dashboard.tsx` — estado de período, filtro no topo, passar `delta` aos cards.
 
