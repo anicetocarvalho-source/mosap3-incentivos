@@ -690,15 +690,16 @@ const FarmerProfile = () => {
           </TabsContent>
 
           {/* Conformação Tab */}
-          <TabsContent value="conformacao" className="mt-4 space-y-6">
+          {/* Financeiro Tab — incentivos + compras POS + transações manuais (substitui as antigas abas Incentivos e Conformação) */}
+          <TabsContent value="financeiro" className="mt-4 space-y-6">
             {(() => {
               const totalIncentivos = incentives.reduce((sum, inc) => sum + parseFloat(inc.amount || "0"), 0);
               const totalCompras = posSales.reduce((sum, sale) => sum + Number(sale.total || 0), 0);
               const saldo = totalIncentivos - totalCompras;
               const percentUsado = totalIncentivos > 0 ? Math.min((totalCompras / totalIncentivos) * 100, 100) : 0;
 
-              // Build unified timeline
-              const timeline: { date: string; type: "incentivo" | "compra"; description: string; value: number; status: string }[] = [];
+              // Build unified timeline (incentivos + compras POS + transações manuais legadas)
+              const timeline: { date: string; type: "incentivo" | "compra" | "manual"; description: string; value: number; status: string }[] = [];
               incentives.forEach((inc) => {
                 timeline.push({
                   date: inc.incentive_date || "",
@@ -716,6 +717,15 @@ const FarmerProfile = () => {
                   description: items || `Venda ${sale.sale_code}`,
                   value: Number(sale.total || 0),
                   status: sale.payment_status,
+                });
+              });
+              transactions.forEach((t) => {
+                timeline.push({
+                  date: t.transaction_date || "",
+                  type: "manual",
+                  description: `${t.product}${t.empresa ? ` — ${t.empresa}` : ""}`,
+                  value: parseFloat((t.valor || "0").toString().replace(/\./g, "").replace(",", ".")) || 0,
+                  status: "Manual",
                 });
               });
               timeline.sort((a, b) => (b.date || "").localeCompare(a.date || ""));
