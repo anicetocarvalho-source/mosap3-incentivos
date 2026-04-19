@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Loader2, Mail, Lock, UserPlus, LogIn, Store, Plus, Trash2, MapPin, User } from "lucide-react";
+import { Loader2, Mail, Lock, UserPlus, LogIn, Store, Plus, Trash2, MapPin, User, ArrowLeft } from "lucide-react";
 import mosapLogo from "@/assets/mosap3-logo.png";
 
 interface StoreForm {
