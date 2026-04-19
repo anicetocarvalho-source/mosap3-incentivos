@@ -352,29 +352,45 @@ const Mosap3PayPOS = () => {
   };
 
   const addToCart = (product: Product) => {
-    // Check farmer balance
     if (farmerBalance <= 0) {
       toast.error("Compra bloqueada — este produtor não tem saldo de incentivo disponível.");
       if (farmer) notifyNoBalance(farmer.full_name, farmer.code, farmerBalance);
       return;
     }
+    if (!parcelSize) {
+      toast.error("Seleccione primeiro o tamanho da parcela.");
+      setParcelDialogOpen(true);
+      return;
+    }
+    // Só produtos do PATEC do agricultor são permitidos
+    const patecItem = patecItems.find(
+      (i) => i.name.trim().toLowerCase() === product.name.trim().toLowerCase()
+    );
+    if (!patecItem) {
+      toast.error(`"${product.name}" não pertence ao pacote tecnológico deste produtor.`);
+      return;
+    }
+    const recommendedQty = computeRecommendedQty(patecItem, parcelSize);
+    if (recommendedQty <= 0) {
+      toast.error(`Item "${product.name}" sem quantidade base configurada. Contacte o administrador.`);
+      return;
+    }
     const currentCartTotal = cart.reduce((sum, c) => sum + c.product.price * c.quantity * (1 + c.product.iva_rate / 100), 0);
     const itemTotal = product.price * (1 + product.iva_rate / 100);
     if (currentCartTotal + itemTotal > farmerBalance) {
-      toast.error(`Saldo insuficiente (${farmerBalance.toLocaleString("pt-AO")} Kz). Este produto custa ${itemTotal.toLocaleString("pt-AO")} Kz.`);
-      return;
-    }
-    const remaining = getRemainingLimit(product);
-    if (remaining <= 0) {
-      toast.error(`Limite de "${product.name}" atingido para este produtor nesta época`);
+      toast.error(`Saldo insuficiente (${farmerBalance.toLocaleString("pt-AO")} Kz).`);
       return;
     }
     setCart((prev) => {
       const existing = prev.find((c) => c.product.id === product.id);
       if (existing) {
+        if (existing.quantity >= existing.recommendedQty) {
+          toast.error(`Quantidade máxima atingida (${existing.recommendedQty} ${product.unit}) para esta parcela.`);
+          return prev;
+        }
         return prev.map((c) => c.product.id === product.id ? { ...c, quantity: c.quantity + 1 } : c);
       }
-      return [...prev, { product, quantity: 1 }];
+      return [...prev, { product, quantity: 1, recommendedQty }];
     });
   };
 
