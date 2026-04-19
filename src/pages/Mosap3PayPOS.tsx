@@ -1088,6 +1088,15 @@ const Mosap3PayPOS = () => {
                     <div className="flex-1">
                       <p className="font-semibold">{farmer.full_name}</p>
                       <p className="text-xs text-muted-foreground">Código: {farmer.code} • Tel: {farmer.phone || "—"}</p>
+                      {parcelSize && (
+                        <button
+                          onClick={() => setParcelDialogOpen(true)}
+                          className="text-[11px] text-primary hover:underline mt-1 inline-flex items-center gap-1"
+                          title="Alterar tamanho da parcela"
+                        >
+                          🌾 Parcela: <strong>{PARCEL_OPTIONS.find((p) => p.value === parcelSize)?.label}</strong> · Alterar
+                        </button>
+                      )}
                     </div>
                     <div className="text-right">
                       {farmer.patec ? <Badge className="text-xs">{patecLabels[farmer.patec]}</Badge> : <Badge variant="destructive" className="text-xs">Sem PATEC</Badge>}
