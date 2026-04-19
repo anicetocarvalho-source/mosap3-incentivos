@@ -826,25 +826,31 @@ export type Database = {
       }
       patec_items: {
         Row: {
+          base_quantity: number | null
           category: string
           created_at: string
           id: string
           name: string
           patec_number: number
+          unit: string | null
         }
         Insert: {
+          base_quantity?: number | null
           category: string
           created_at?: string
           id?: string
           name: string
           patec_number: number
+          unit?: string | null
         }
         Update: {
+          base_quantity?: number | null
           category?: string
           created_at?: string
           id?: string
           name?: string
           patec_number?: number
+          unit?: string | null
         }
         Relationships: []
       }
@@ -913,6 +919,8 @@ export type Database = {
           invoice_number: string | null
           iva_total: number
           notes: string | null
+          parcel_size: number | null
+          parcel_size_label: string | null
           patec_number: number | null
           payment_method: string
           payment_reference: string | null
@@ -936,6 +944,8 @@ export type Database = {
           invoice_number?: string | null
           iva_total?: number
           notes?: string | null
+          parcel_size?: number | null
+          parcel_size_label?: string | null
           patec_number?: number | null
           payment_method?: string
           payment_reference?: string | null
@@ -959,6 +969,8 @@ export type Database = {
           invoice_number?: string | null
           iva_total?: number
           notes?: string | null
+          parcel_size?: number | null
+          parcel_size_label?: string | null
           patec_number?: number | null
           payment_method?: string
           payment_reference?: string | null
