@@ -261,45 +261,58 @@ const Mosap3PayPOS = () => {
       .single();
     
     if (data) {
-      setFarmer(data as Farmer);
-      // Fetch PATEC items for this farmer's patec
-      if (data.patec) {
-        supabase.from("patec_items").select("*").eq("patec_number", data.patec)
-          .then(({ data: items }) => setPatecItems(items || []));
-      } else {
-        setPatecItems([]);
-      }
-      // Fetch season purchases for this farmer
-      const { data: sales } = await supabase
-        .from("pos_sales")
-        .select("id")
-        .eq("farmer_code", data.code);
-      
-      if (sales && sales.length > 0) {
-        const saleIds = sales.map((s) => s.id);
-        const { data: items } = await supabase
-          .from("pos_sale_items")
-          .select("product_id, quantity")
-          .in("sale_id", saleIds);
-        
-        const purchases: Record<string, number> = {};
-        items?.forEach((item) => {
-          purchases[item.product_id] = (purchases[item.product_id] || 0) + item.quantity;
-        });
-        setSeasonPurchases(purchases);
-      } else {
-        setSeasonPurchases({});
-      }
-      setCart([]);
-      const balance = await fetchFarmerBalance(data.code);
-      if (balance <= 0) {
-        toast.warning(`${data.full_name} tem saldo de incentivo de ${balance.toLocaleString("pt-AO")} Kz. Compras bloqueadas.`);
-      } else {
-        toast.success(`Produtor identificado: ${data.full_name} — Saldo: ${balance.toLocaleString("pt-AO")} Kz`);
-      }
+      await selectFarmerFromSuggestion(data as Farmer);
     } else {
       toast.error("Produtor não encontrado. Verifique o código, BI, telefone ou nome e tente novamente.");
       setFarmer(null);
+    }
+  };
+
+  /** Calcula a quantidade recomendada para um item PATEC consoante a parcela escolhida. */
+  const computeRecommendedQty = (item: PatecItemFull, parcel: number): number => {
+    if (!item.base_quantity || item.base_quantity <= 0) return 0;
+    const factor = parcel / PARCEL_REFERENCE;
+    return Math.max(1, Math.round(item.base_quantity * factor));
+  };
+
+  /** Encontra o produto do fornecedor que corresponde a um item do PATEC (match por nome). */
+  const findProductForPatecItem = (item: PatecItemFull): Product | undefined => {
+    return products.find(
+      (p) =>
+        p.patec_number === item.patec_number &&
+        p.name.trim().toLowerCase() === item.name.trim().toLowerCase()
+    );
+  };
+
+  /** Pré-popula o carrinho com todos os itens do PATEC, nas quantidades calculadas. */
+  const prefillCartFromPatec = (items: PatecItemFull[], parcel: number) => {
+    const newCart: CartItem[] = [];
+    let missingQty = 0;
+    let missingProduct = 0;
+    for (const item of items) {
+      const product = findProductForPatecItem(item);
+      if (!product) { missingProduct++; continue; }
+      const qty = computeRecommendedQty(item, parcel);
+      if (qty <= 0) { missingQty++; continue; }
+      const stockCap = Math.max(0, product.stock);
+      const finalQty = Math.min(qty, stockCap);
+      if (finalQty <= 0) continue;
+      newCart.push({ product, quantity: finalQty, recommendedQty: qty });
+    }
+    setCart(newCart);
+    if (missingQty > 0) {
+      toast.warning(`${missingQty} item(s) do PATEC sem quantidade base configurada. Contacte o administrador.`);
+    }
+    if (missingProduct > 0) {
+      toast.info(`${missingProduct} item(s) do PATEC sem produto correspondente neste fornecedor.`);
+    }
+  };
+
+  const handleSelectParcel = (size: number) => {
+    setParcelSize(size);
+    setParcelDialogOpen(false);
+    if (patecItems.length > 0) {
+      prefillCartFromPatec(patecItems, size);
     }
   };
 
