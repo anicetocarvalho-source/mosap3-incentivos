@@ -316,7 +316,10 @@ const Patec = () => {
                 </div>
               ) : (
                 <>
-                  <span className="text-xs">{item.name}</span>
+                  <span className="text-xs">
+                    {item.name}
+                    {item.base_quantity ? <span className="text-muted-foreground ml-1">· {item.base_quantity} {item.unit || "un"}/0,5Ha</span> : <span className="text-amber-600 dark:text-amber-400 ml-1">· s/ qty</span>}
+                  </span>
                   {isAdmin && (
                     <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                       <Button
