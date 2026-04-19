@@ -1,30 +1,41 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { toast } from "@/hooks/use-toast";
-import { Loader2, Mail, Lock, UserPlus, LogIn, Shield, Gift, Sprout, Wheat, Eye, TrendingUp, WifiOff, RefreshCw } from "lucide-react";
+import {
+  Loader2, Mail, Lock, LogIn, Shield, Gift, Sprout, Wheat, Eye, TrendingUp,
+  WifiOff, Wifi, Store, Fingerprint, Package, ShoppingCart, ChevronDown, ArrowRight, CheckCircle2,
+} from "lucide-react";
 import { z } from "zod";
 import mosapLogo from "@/assets/mosap3-logo.png";
 import { offlineLogin } from "@/lib/offlineAuth";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { useAuth } from "@/hooks/useAuth";
 import { classifyError } from "@/lib/errorHandling";
+import { cn } from "@/lib/utils";
 
 const TEST_USERS = [
-  { email: "admin@mosap3.test", password: "teste123", label: "Admin", icon: Shield, color: "text-red-500" },
-  { email: "gestor@mosap3.test", password: "teste123", label: "Gestor Incentivos", icon: Gift, color: "text-amber-500" },
-  { email: "tecnico@mosap3.test", password: "teste123", label: "Técnico Extensionista", icon: Sprout, color: "text-emerald-500" },
-  { email: "sr.agricultura@mosap3.test", password: "teste123", label: "Sénior Agricultura", icon: Wheat, color: "text-green-600" },
-  { email: "jr.agricultura@mosap3.test", password: "teste123", label: "Júnior Agricultura", icon: Wheat, color: "text-green-400" },
-  { email: "sr.monitoria@mosap3.test", password: "teste123", label: "Sénior Monitoria", icon: Eye, color: "text-blue-600" },
-  { email: "jr.monitoria@mosap3.test", password: "teste123", label: "Júnior Monitoria", icon: Eye, color: "text-blue-400" },
-  { email: "sr.agronegocio@mosap3.test", password: "teste123", label: "Sénior Agronegócio", icon: TrendingUp, color: "text-purple-600" },
-  { email: "jr.agronegocio@mosap3.test", password: "teste123", label: "Júnior Agronegócio", icon: TrendingUp, color: "text-purple-400" },
+  { email: "admin@mosap3.test", password: "teste123", label: "Admin", icon: Shield, color: "text-destructive" },
+  { email: "gestor@mosap3.test", password: "teste123", label: "Gestor Incentivos", icon: Gift, color: "text-warning" },
+  { email: "tecnico@mosap3.test", password: "teste123", label: "Téc. Extensionista", icon: Sprout, color: "text-success" },
+  { email: "sr.agricultura@mosap3.test", password: "teste123", label: "Sénior Agricultura", icon: Wheat, color: "text-success" },
+  { email: "jr.agricultura@mosap3.test", password: "teste123", label: "Júnior Agricultura", icon: Wheat, color: "text-success/70" },
+  { email: "sr.monitoria@mosap3.test", password: "teste123", label: "Sénior Monitoria", icon: Eye, color: "text-info" },
+  { email: "jr.monitoria@mosap3.test", password: "teste123", label: "Júnior Monitoria", icon: Eye, color: "text-info/70" },
+  { email: "sr.agronegocio@mosap3.test", password: "teste123", label: "Sénior Agronegócio", icon: TrendingUp, color: "text-accent-foreground" },
+  { email: "jr.agronegocio@mosap3.test", password: "teste123", label: "Júnior Agronegócio", icon: TrendingUp, color: "text-accent-foreground/70" },
+];
+
+const HIGHLIGHTS = [
+  { icon: Fingerprint, title: "Cadastro Biométrico", desc: "Identificação segura por impressão digital." },
+  { icon: Package, title: "Pacotes Tecnológicos", desc: "PATEC adaptado a cada agricultor." },
+  { icon: ShoppingCart, title: "POS Comercial Integrado", desc: "Vendas e incentivos em tempo real." },
 ];
 
 const loginSchema = z.object({
@@ -32,15 +43,12 @@ const loginSchema = z.object({
   password: z.string().min(6, "A password deve ter pelo menos 6 caracteres").max(128),
 });
 
-const registerSchema = loginSchema.extend({
-  fullName: z.string().trim().min(2, "O nome deve ter pelo menos 2 caracteres").max(100),
-});
+type Profile = "backoffice" | "fornecedor";
 
 const Auth = () => {
-  const [isLogin, setIsLogin] = useState(true);
+  const [profile, setProfile] = useState<Profile>("backoffice");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [fullName, setFullName] = useState("");
   const [loading, setLoading] = useState(false);
   const [loginAttempts, setLoginAttempts] = useState(0);
   const navigate = useNavigate();
@@ -97,12 +105,8 @@ const Auth = () => {
       if (error) {
         setLoginAttempts((prev) => prev + 1);
         const classified = classifyError(error);
-        
-        let extraHint = "";
-        if (loginAttempts >= 2 && classified.category === "auth") {
-          extraHint = " Se esqueceu a password, contacte o administrador do sistema.";
-        }
-
+        const extraHint = loginAttempts >= 2 && classified.category === "auth"
+          ? " Se esqueceu a password, contacte o administrador do sistema." : "";
         toast({
           title: classified.title,
           description: classified.description + extraHint,
@@ -120,53 +124,7 @@ const Auth = () => {
       const classified = classifyError(err);
       toast({
         title: classified.title,
-        description: classified.retryable
-          ? classified.description + " Tente novamente em alguns segundos."
-          : classified.description,
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleRegister = async () => {
-    const result = registerSchema.safeParse({ email, password, fullName });
-    if (!result.success) {
-      toast({ title: "Erro de validação", description: result.error.errors[0].message, variant: "destructive" });
-      return;
-    }
-    if (!isOnline) {
-      toast({ title: "Sem internet", description: "O registo requer ligação à internet. Conecte-se a uma rede e tente novamente.", variant: "destructive" });
-      return;
-    }
-    setLoading(true);
-    try {
-      const { error } = await supabase.auth.signUp({
-        email: result.data.email,
-        password: result.data.password,
-        options: {
-          emailRedirectTo: window.location.origin,
-          data: { full_name: result.data.fullName },
-        },
-      });
-      setLoading(false);
-      if (error) {
-        const classified = classifyError(error);
-        toast({ title: classified.title, description: classified.description, variant: "destructive" });
-      } else {
-        toast({
-          title: "Registo efetuado!",
-          description: "Verifique o seu email para confirmar a conta antes de entrar.",
-        });
-        setIsLogin(true);
-      }
-    } catch (err) {
-      setLoading(false);
-      const classified = classifyError(err);
-      toast({
-        title: classified.title,
-        description: classified.retryable
-          ? classified.description + " Tente novamente."
-          : classified.description,
+        description: classified.retryable ? classified.description + " Tente novamente em alguns segundos." : classified.description,
         variant: "destructive",
       });
     }
@@ -177,105 +135,280 @@ const Auth = () => {
     handleLogin();
   };
 
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    show: { opacity: 1, transition: { staggerChildren: 0.1, delayChildren: 0.1 } },
+  };
+  const itemVariants = {
+    hidden: { opacity: 0, y: 16 },
+    show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] as const } },
+  };
+
   return (
-    <div
-      className="min-h-screen flex items-center justify-center p-4"
-      style={{ background: "var(--gradient-hero)" }}
-    >
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-md"
+    <div className="min-h-screen flex flex-col lg:flex-row bg-background">
+      {/* Left Panel - Hero */}
+      <motion.aside
+        initial="hidden"
+        animate="show"
+        variants={containerVariants}
+        className="relative lg:w-1/2 lg:min-h-screen flex flex-col justify-between p-8 lg:p-12 overflow-hidden"
+        style={{ background: "var(--gradient-hero)" }}
       >
-        <div className="flex flex-col items-center mb-8">
-          <div className="bg-card rounded-2xl p-3 mb-4 shadow-lg">
-            <img src={mosapLogo} alt="MOSAP3" className="h-14 w-auto" />
+        {/* decorative blobs */}
+        <div className="absolute -top-32 -left-32 w-96 h-96 rounded-full bg-primary-foreground/5 blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-32 -right-32 w-96 h-96 rounded-full bg-primary-foreground/5 blur-3xl pointer-events-none" />
+
+        <motion.div variants={itemVariants} className="relative flex items-center gap-3">
+          <div className="bg-card rounded-2xl p-2.5 shadow-lg">
+            <img src={mosapLogo} alt="MOSAP3" className="h-10 w-auto" />
           </div>
-          <h1 className="text-2xl font-bold text-white font-heading">MOSAP3</h1>
-          <p className="text-sm mt-1" style={{ color: "hsl(100 15% 75%)" }}>
-            Sistema de Gestão Agrícola
-          </p>
+          <div>
+            <h1 className="text-xl font-bold text-primary-foreground font-heading leading-tight">MOSAP3</h1>
+            <p className="text-xs text-primary-foreground/70">Sistema de Gestão Agrícola</p>
+          </div>
+        </motion.div>
+
+        <div className="relative space-y-8 my-10 lg:my-0">
+          <motion.div variants={itemVariants}>
+            <h2 className="text-3xl lg:text-5xl font-bold text-primary-foreground font-heading leading-tight">
+              Plataforma integrada para a <span className="text-warning">agricultura</span> angolana.
+            </h2>
+            <p className="mt-4 text-primary-foreground/80 text-base lg:text-lg max-w-md">
+              Gestão de produtores, incentivos, pacotes tecnológicos e comércio — tudo num só lugar.
+            </p>
+          </motion.div>
+
+          <motion.ul variants={containerVariants} className="space-y-4 max-w-md">
+            {HIGHLIGHTS.map((h) => (
+              <motion.li key={h.title} variants={itemVariants} className="flex items-start gap-4">
+                <div className="flex-shrink-0 w-11 h-11 rounded-xl bg-primary-foreground/10 backdrop-blur-sm border border-primary-foreground/20 flex items-center justify-center">
+                  <h.icon className="h-5 w-5 text-primary-foreground" />
+                </div>
+                <div>
+                  <h3 className="text-primary-foreground font-semibold">{h.title}</h3>
+                  <p className="text-primary-foreground/70 text-sm">{h.desc}</p>
+                </div>
+              </motion.li>
+            ))}
+          </motion.ul>
         </div>
 
-        {!isOnline && (
-          <div className="flex items-center gap-2 bg-amber-500/20 text-amber-200 rounded-lg px-4 py-2 mb-4 text-sm">
-            <WifiOff className="h-4 w-4 flex-shrink-0" />
-            <span>Modo offline — pode entrar se já fez login antes neste dispositivo.</span>
+        <motion.div variants={itemVariants} className="relative flex items-center justify-between text-xs text-primary-foreground/70">
+          <span>© {new Date().getFullYear()} MOSAP3 · v1.0</span>
+          <span className="hidden sm:inline">Apoio: suporte@mosap3.ao</span>
+        </motion.div>
+      </motion.aside>
+
+      {/* Right Panel - Form */}
+      <main className="lg:w-1/2 flex items-center justify-center p-6 lg:p-12">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.2 }}
+          className="w-full max-w-md"
+        >
+          {/* Online status badge */}
+          <div className="flex justify-end mb-3">
+            <div className={cn(
+              "inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full border",
+              isOnline
+                ? "bg-success/10 text-success border-success/20"
+                : "bg-warning/10 text-warning border-warning/30"
+            )}>
+              {isOnline ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
+              {isOnline ? "Online" : "Offline"}
+            </div>
           </div>
-        )}
 
-        <Card className="p-6 shadow-xl">
-          {/* Header */}
-          <div className="flex items-center gap-2 mb-6">
-            <LogIn className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm font-medium text-muted-foreground">Iniciar sessão</span>
-          </div>
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-
-            <div className="space-y-1.5">
-              <Label htmlFor="email">Email</Label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="email@exemplo.ao"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="pl-10"
-                  maxLength={255}
-                />
-              </div>
+          <Card className="p-6 lg:p-8 shadow-xl border-border/60 backdrop-blur-sm">
+            {/* Profile toggle */}
+            <div className="grid grid-cols-2 gap-1 p-1 bg-muted rounded-lg mb-6">
+              <button
+                type="button"
+                onClick={() => setProfile("backoffice")}
+                className={cn(
+                  "flex items-center justify-center gap-2 py-2.5 rounded-md text-sm font-medium transition-all",
+                  profile === "backoffice"
+                    ? "bg-card text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <Shield className="h-4 w-4" />
+                Backoffice
+              </button>
+              <button
+                type="button"
+                onClick={() => setProfile("fornecedor")}
+                className={cn(
+                  "flex items-center justify-center gap-2 py-2.5 rounded-md text-sm font-medium transition-all",
+                  profile === "fornecedor"
+                    ? "bg-card text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <Store className="h-4 w-4" />
+                Fornecedor
+              </button>
             </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="password">Password</Label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="pl-10"
-                  maxLength={128}
-                />
-              </div>
-            </div>
+            <AnimatePresence mode="wait">
+              {profile === "backoffice" ? (
+                <motion.div
+                  key="backoffice"
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 10 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <div className="mb-6">
+                    <h2 className="text-2xl font-bold font-heading">Bem-vindo de volta</h2>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Aceda ao painel de gestão MOSAP3.
+                    </p>
+                  </div>
 
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : isLogin ? (
-                isOnline ? "Entrar" : "Entrar Offline"
+                  {!isOnline && (
+                    <div className="flex items-start gap-2 bg-warning/10 text-warning border border-warning/20 rounded-lg px-3 py-2 mb-4 text-xs">
+                      <WifiOff className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                      <span>Modo offline — pode entrar se já fez login antes neste dispositivo.</span>
+                    </div>
+                  )}
+
+                  <form onSubmit={handleSubmit} className="space-y-4">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="email">Email</Label>
+                      <div className="relative">
+                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          id="email"
+                          type="email"
+                          placeholder="email@exemplo.ao"
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          className="pl-10 h-11"
+                          maxLength={255}
+                          autoComplete="email"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label htmlFor="password">Password</Label>
+                      <div className="relative">
+                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          id="password"
+                          type="password"
+                          placeholder="••••••••"
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          className="pl-10 h-11"
+                          maxLength={128}
+                          autoComplete="current-password"
+                        />
+                      </div>
+                    </div>
+
+                    <Button
+                      type="submit"
+                      className="w-full h-11 font-semibold shadow-md"
+                      disabled={loading}
+                      style={{ background: "var(--gradient-primary)" }}
+                    >
+                      {loading ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          A entrar...
+                        </>
+                      ) : (
+                        <>
+                          <LogIn className="h-4 w-4" />
+                          {isOnline ? "Entrar" : "Entrar Offline"}
+                        </>
+                      )}
+                    </Button>
+                  </form>
+
+                  {isOnline && (
+                    <Collapsible className="mt-6 pt-4 border-t border-border">
+                      <CollapsibleTrigger className="flex items-center justify-between w-full text-xs text-muted-foreground hover:text-foreground transition-colors group">
+                        <span className="font-medium">Acessos de demonstração</span>
+                        <ChevronDown className="h-3.5 w-3.5 group-data-[state=open]:rotate-180 transition-transform" />
+                      </CollapsibleTrigger>
+                      <CollapsibleContent className="mt-3">
+                        <div className="grid gap-1.5 max-h-64 overflow-y-auto pr-1">
+                          {TEST_USERS.map((u) => (
+                            <button
+                              key={u.email}
+                              type="button"
+                              onClick={() => { setEmail(u.email); setPassword(u.password); }}
+                              className="flex items-center gap-2 px-2.5 py-1.5 rounded-md border border-border hover:bg-muted hover:border-primary/30 transition-colors text-xs text-left"
+                            >
+                              <u.icon className={cn("h-3.5 w-3.5 flex-shrink-0", u.color)} />
+                              <span className="font-medium">{u.label}</span>
+                              <span className="text-muted-foreground ml-auto truncate">{u.email}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </CollapsibleContent>
+                    </Collapsible>
+                  )}
+                </motion.div>
               ) : (
-                "Criar conta"
+                <motion.div
+                  key="fornecedor"
+                  initial={{ opacity: 0, x: 10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -10 }}
+                  transition={{ duration: 0.2 }}
+                  className="text-center py-2"
+                >
+                  <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/10 border border-primary/20 mb-4">
+                    <Store className="h-8 w-8 text-primary" />
+                  </div>
+                  <h2 className="text-2xl font-bold font-heading">Portal do Fornecedor</h2>
+                  <p className="text-sm text-muted-foreground mt-2 max-w-sm mx-auto">
+                    Faça login para gerir as suas lojas, stock e realizar vendas via POS aos agricultores.
+                  </p>
+
+                  <ul className="my-6 space-y-2 text-left max-w-xs mx-auto">
+                    {[
+                      "Gestão autónoma de lojas e stock",
+                      "Terminal POS com validação PATEC",
+                      "Faturação fiscal AGT (SAF-T AO)",
+                    ].map((item) => (
+                      <li key={item} className="flex items-start gap-2 text-sm text-muted-foreground">
+                        <CheckCircle2 className="h-4 w-4 text-success flex-shrink-0 mt-0.5" />
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+
+                  <div className="space-y-2">
+                    <Button
+                      type="button"
+                      onClick={() => navigate("/fornecedor/login")}
+                      className="w-full h-11 font-semibold shadow-md"
+                      style={{ background: "var(--gradient-primary)" }}
+                    >
+                      Entrar como Fornecedor
+                      <ArrowRight className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => navigate("/fornecedor/login")}
+                      className="w-full text-sm"
+                    >
+                      Registar nova empresa
+                    </Button>
+                  </div>
+                </motion.div>
               )}
-            </Button>
-          </form>
-          {isLogin && isOnline && (
-            <div className="mt-6 pt-4 border-t border-border">
-              <p className="text-xs text-muted-foreground mb-3 text-center">Utilizadores de teste</p>
-              <div className="grid gap-2">
-                {TEST_USERS.map((u) => (
-                  <button
-                    key={u.email}
-                    type="button"
-                    onClick={() => { setEmail(u.email); setPassword(u.password); }}
-                    className="flex items-center gap-2 px-3 py-2 rounded-md border border-border hover:bg-muted transition-colors text-sm"
-                  >
-                    <u.icon className={`h-4 w-4 ${u.color}`} />
-                    <span className="font-medium">{u.label}</span>
-                    <span className="text-muted-foreground ml-auto text-xs">{u.email} / {u.password}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-        </Card>
-      </motion.div>
+            </AnimatePresence>
+          </Card>
+        </motion.div>
+      </main>
     </div>
   );
 };

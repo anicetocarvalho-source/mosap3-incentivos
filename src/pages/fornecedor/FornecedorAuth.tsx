@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Loader2, Mail, Lock, UserPlus, LogIn, Store, Plus, Trash2, MapPin, User } from "lucide-react";
+import { Loader2, Mail, Lock, UserPlus, LogIn, Store, Plus, Trash2, MapPin, User, ArrowLeft } from "lucide-react";
 import mosapLogo from "@/assets/mosap3-logo.png";
 
 interface StoreForm {
@@ -133,6 +133,14 @@ const FornecedorAuth = () => {
   return (
     <div className="min-h-screen flex items-center justify-center p-4" style={{ background: "linear-gradient(135deg, hsl(130 55% 25%), hsl(150 25% 12%))" }}>
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-lg">
+        <button
+          type="button"
+          onClick={() => navigate("/auth")}
+          className="flex items-center gap-1.5 text-xs text-primary-foreground/80 hover:text-primary-foreground mb-4 transition-colors"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" />
+          Voltar ao acesso Backoffice
+        </button>
         <div className="flex flex-col items-center mb-6">
           <div className="bg-card rounded-2xl p-3 mb-3 shadow-lg">
             <img src={mosapLogo} alt="MOSAP3" className="h-14 w-auto" />
