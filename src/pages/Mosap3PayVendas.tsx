@@ -24,6 +24,8 @@ interface Sale {
   farmer_code: string;
   farmer_name: string;
   patec_number: number | null;
+  parcel_size: number | null;
+  parcel_size_label: string | null;
   subtotal: number;
   iva_total: number;
   total: number;
@@ -166,6 +168,7 @@ const Mosap3PayVendas = () => {
       farmer_name: sale.farmer_name,
       farmer_code: sale.farmer_code,
       patec_number: sale.patec_number,
+      parcel_size_label: sale.parcel_size_label,
       supplier_name: supplier?.name,
       supplier_nif: supplier?.nif,
       subtotal: Number(sale.subtotal),
@@ -282,7 +285,12 @@ const Mosap3PayVendas = () => {
                       <p className="font-medium text-sm">{s.farmer_name}</p>
                       <p className="text-[10px] text-muted-foreground">{s.farmer_code}</p>
                     </TableCell>
-                    <TableCell>{s.patec_number ? <Badge variant="outline" className="text-[10px]">PATEC {s.patec_number}</Badge> : "—"}</TableCell>
+                    <TableCell>
+                      <div className="flex flex-col gap-0.5">
+                        {s.patec_number ? <Badge variant="outline" className="text-[10px] w-fit">PATEC {s.patec_number}</Badge> : <span className="text-xs text-muted-foreground">—</span>}
+                        {s.parcel_size_label && <span className="text-[10px] text-muted-foreground">Parcela {s.parcel_size_label}</span>}
+                      </div>
+                    </TableCell>
                     <TableCell className="font-bold">{Number(s.total).toLocaleString("pt-AO")} Kz</TableCell>
                     <TableCell className="text-xs">{s.payment_method === "unitel_money" ? "Unitel Money" : s.payment_method}</TableCell>
                     <TableCell>
@@ -352,7 +360,10 @@ const Mosap3PayVendas = () => {
             <div className="space-y-4">
               <div className="p-3 bg-muted/50 rounded-lg">
                 <p className="font-medium">{selectedSale.farmer_name}</p>
-                <p className="text-xs text-muted-foreground">{selectedSale.farmer_code} • {selectedSale.patec_number ? `PATEC ${selectedSale.patec_number}` : "—"}</p>
+                <p className="text-xs text-muted-foreground">
+                  {selectedSale.farmer_code} • {selectedSale.patec_number ? `PATEC ${selectedSale.patec_number}` : "—"}
+                  {selectedSale.parcel_size_label && ` • Parcela ${selectedSale.parcel_size_label}`}
+                </p>
                 <p className="text-xs text-muted-foreground">{new Date(selectedSale.created_at).toLocaleString("pt-AO")}</p>
               </div>
 

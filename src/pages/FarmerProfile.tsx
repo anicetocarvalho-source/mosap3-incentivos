@@ -726,10 +726,12 @@ const FarmerProfile = () => {
               });
               posSales.forEach((sale) => {
                 const items = (sale.pos_sale_items || []).map((i: any) => i.product_name).join(", ");
+                const parcelLabel = sale.parcel_size_label || (sale.parcel_size ? `${String(sale.parcel_size).replace(".", ",")} Ha` : "");
+                const baseDesc = items || `Venda ${sale.sale_code}`;
                 timeline.push({
                   date: sale.created_at?.split("T")[0] || "",
                   type: "compra",
-                  description: items || `Venda ${sale.sale_code}`,
+                  description: parcelLabel ? `${baseDesc} • Parcela ${parcelLabel}` : baseDesc,
                   value: Number(sale.total || 0),
                   status: sale.payment_status,
                 });
