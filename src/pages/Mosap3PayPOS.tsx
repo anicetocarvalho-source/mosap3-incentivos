@@ -35,10 +35,27 @@ interface Product {
   supplier_id: string;
 }
 
+interface PatecItemFull {
+  id: string;
+  name: string;
+  category: string;
+  patec_number: number;
+  base_quantity: number | null;
+  unit: string | null;
+}
+
 interface CartItem {
   product: Product;
   quantity: number;
+  recommendedQty: number; // quantidade obrigatória/máxima calculada por PATEC × parcela
 }
+
+const PARCEL_OPTIONS = [
+  { value: 0.3, label: "0,3 Ha" },
+  { value: 0.5, label: "0,5 Ha" },
+  { value: 1, label: "1 Ha" },
+] as const;
+const PARCEL_REFERENCE = 0.5; // base_quantity é definida para 0,5 Ha
 
 interface Supplier {
   id: string;
