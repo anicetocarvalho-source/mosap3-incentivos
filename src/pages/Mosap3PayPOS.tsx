@@ -1309,7 +1309,7 @@ const Mosap3PayPOS = () => {
             <p className="text-sm text-muted-foreground">Código: <span className="font-mono font-bold">{lastSaleCode}</span></p>
             <div className="flex gap-2">
               <Button variant="outline" onClick={() => setShowInvoice(true)} disabled={!invoiceData}><Printer className="h-4 w-4 mr-1" /> Ver Factura</Button>
-              <Button onClick={() => { setReceiptOpen(false); setFarmer(null); setFarmerSearch(""); setPaymentStatus("idle"); setInvoiceData(null); }} className="flex-1">Nova Venda</Button>
+              <Button onClick={() => { setReceiptOpen(false); setFarmer(null); setFarmerSearch(""); setPaymentStatus("idle"); setInvoiceData(null); setParcelSize(null); setPatecItems([]); }} className="flex-1">Nova Venda</Button>
             </div>
           </div>
         </DialogContent>
