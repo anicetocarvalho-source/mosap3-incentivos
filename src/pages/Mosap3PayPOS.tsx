@@ -206,34 +206,47 @@ const Mosap3PayPOS = () => {
     return balance;
   };
 
-  const selectFarmerFromSuggestion = async (f: Farmer) => {
-    setFarmer(f);
-    setFarmerSearch(f.code);
-    setShowSuggestions(false);
-    setFarmerSuggestions([]);
+  const loadPatecAndPurchases = async (f: Farmer): Promise<PatecItemFull[]> => {
+    let items: PatecItemFull[] = [];
     if (f.patec) {
-      supabase.from("patec_items").select("*").eq("patec_number", f.patec)
-        .then(({ data: items }) => setPatecItems(items || []));
+      const { data } = await supabase.from("patec_items").select("*").eq("patec_number", f.patec);
+      items = (data as PatecItemFull[]) || [];
+      setPatecItems(items);
     } else {
       setPatecItems([]);
     }
     const { data: sales } = await supabase.from("pos_sales").select("id").eq("farmer_code", f.code);
     if (sales && sales.length > 0) {
       const saleIds = sales.map((s) => s.id);
-      const { data: items } = await supabase.from("pos_sale_items").select("product_id, quantity").in("sale_id", saleIds);
+      const { data: saleItems } = await supabase.from("pos_sale_items").select("product_id, quantity").in("sale_id", saleIds);
       const purchases: Record<string, number> = {};
-      items?.forEach((item) => { purchases[item.product_id] = (purchases[item.product_id] || 0) + item.quantity; });
+      saleItems?.forEach((item) => { purchases[item.product_id] = (purchases[item.product_id] || 0) + item.quantity; });
       setSeasonPurchases(purchases);
     } else {
       setSeasonPurchases({});
     }
+    return items;
+  };
+
+  const selectFarmerFromSuggestion = async (f: Farmer) => {
+    setFarmer(f);
+    setFarmerSearch(f.code);
+    setShowSuggestions(false);
+    setFarmerSuggestions([]);
     setCart([]);
+    setParcelSize(null);
+    await loadPatecAndPurchases(f);
     const balance = await fetchFarmerBalance(f.code);
     if (balance <= 0) {
       toast.warning(`${f.full_name} tem saldo de incentivo de ${balance.toLocaleString("pt-AO")} Kz. Compras bloqueadas.`);
-    } else {
-      toast.success(`Produtor identificado: ${f.full_name} — Saldo: ${balance.toLocaleString("pt-AO")} Kz`);
+      return;
     }
+    if (!f.patec) {
+      toast.error(`${f.full_name} não tem PATEC atribuído. Não é possível efectuar venda.`);
+      return;
+    }
+    toast.success(`Produtor identificado: ${f.full_name} — Saldo: ${balance.toLocaleString("pt-AO")} Kz`);
+    setParcelDialogOpen(true);
   };
 
   const searchFarmer = async () => {
