@@ -140,16 +140,20 @@ const Patec = () => {
 
   const handleAddItem = async () => {
     if (!addingCategory || !newItemName.trim()) return;
+    const qty = newItemQty ? parseFloat(newItemQty.replace(",", ".")) : null;
     const { error } = await supabase.from("patec_items").insert({
       patec_number: addingCategory.patec,
       category: addingCategory.category,
       name: newItemName.trim(),
+      base_quantity: qty && qty > 0 ? qty : null,
+      unit: newItemUnit.trim() || null,
     });
     if (error) {
       toast.error("Erro ao adicionar item");
     } else {
       toast.success("Item adicionado");
       setNewItemName("");
+      setNewItemQty("");
       setAddingCategory(null);
       fetchPatecItems();
     }
