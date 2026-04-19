@@ -462,6 +462,8 @@ const Mosap3PayPOS = () => {
           farmer_name: farmer.full_name,
           farmer_phone: farmer.phone,
           patec_number: farmer.patec,
+          parcel_size: parcelSize,
+          parcel_size_label: parcelSize ? PARCEL_OPTIONS.find((p) => p.value === parcelSize)?.label : null,
           subtotal: cartSubtotal,
           iva_total: cartIva,
           total: cartTotal,
