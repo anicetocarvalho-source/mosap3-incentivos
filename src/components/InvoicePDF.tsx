@@ -21,6 +21,7 @@ interface InvoiceData {
   farmer_code: string;
   farmer_phone?: string | null;
   patec_number?: number | null;
+  parcel_size_label?: string | null;
   supplier_name?: string;
   supplier_nif?: string;
   subtotal: number;
@@ -185,6 +186,7 @@ export const InvoicePDF = ({
               <p>Código: {data.farmer_code}</p>
               {data.farmer_phone && <p>Tel: {data.farmer_phone}</p>}
               {data.patec_number && <p>PATEC {data.patec_number}</p>}
+              {data.parcel_size_label && <p>Parcela: {data.parcel_size_label}</p>}
             </div>
           </div>
 
