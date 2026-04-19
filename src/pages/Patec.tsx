@@ -41,6 +41,8 @@ interface PatecItem {
   patec_number: number;
   category: string;
   name: string;
+  base_quantity: number | null;
+  unit: string | null;
 }
 
 const patecMeta: Record<number, { title: string; color: string; cultures: string; icon: any; gradient: string; bgAccent: string }> = {
