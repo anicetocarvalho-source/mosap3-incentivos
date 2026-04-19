@@ -788,8 +788,13 @@ const Mosap3PayPOS = () => {
                   <p className={`text-[10px] font-semibold ${farmerBalance > 0 ? "text-[hsl(120,60%,50%)]" : "text-[hsl(0,70%,60%)]"}`}>
                     Saldo: {farmerBalance.toLocaleString("pt-AO")} Kz
                   </p>
+                  {parcelSize && (
+                    <button onClick={() => setParcelDialogOpen(true)} className="text-[9px] text-[hsl(45,90%,55%)] hover:underline mt-0.5">
+                      🌾 {PARCEL_OPTIONS.find((p) => p.value === parcelSize)?.label} · alterar
+                    </button>
+                  )}
                 </div>
-                <button onClick={() => { setFarmer(null); setFarmerSearch(""); setCart([]); }} className="text-[hsl(220,10%,40%)] hover:text-[hsl(0,70%,60%)]">
+                <button onClick={() => { setFarmer(null); setFarmerSearch(""); setCart([]); setParcelSize(null); setPatecItems([]); }} className="text-[hsl(220,10%,40%)] hover:text-[hsl(0,70%,60%)]">
                   <Trash2 className="h-3 w-3" />
                 </button>
               </div>
