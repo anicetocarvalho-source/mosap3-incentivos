@@ -1014,6 +1014,33 @@ const Mosap3PayPOS = () => {
           </DialogContent>
         </Dialog>
 
+        {/* Parcel selection (kiosk) */}
+        <Dialog open={parcelDialogOpen} onOpenChange={(o) => { if (!o && parcelSize === null) return; setParcelDialogOpen(o); }}>
+          <DialogContent className="bg-[hsl(220,18%,14%)] border-[hsl(220,15%,22%)] text-[hsl(0,0%,88%)]">
+            <DialogHeader><DialogTitle>Tamanho da parcela</DialogTitle></DialogHeader>
+            <div className="space-y-3">
+              <p className="text-sm text-[hsl(220,10%,55%)]">
+                Seleccione a parcela de terra para calcular as quantidades do {farmer?.patec ? patecLabels[farmer.patec] : "PATEC"}.
+              </p>
+              <div className="grid grid-cols-3 gap-3">
+                {PARCEL_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={() => handleSelectParcel(opt.value)}
+                    className={`p-6 rounded-xl border-2 transition-all font-bold text-lg ${
+                      parcelSize === opt.value
+                        ? "bg-[hsl(45,90%,50%)] text-[hsl(220,20%,10%)] border-[hsl(45,90%,55%)]"
+                        : "bg-[hsl(220,15%,15%)] border-[hsl(220,15%,22%)] hover:border-[hsl(45,90%,40%)]"
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
         <Dialog open={showInvoice} onOpenChange={setShowInvoice}>
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader><DialogTitle>Factura / Recibo</DialogTitle></DialogHeader>
