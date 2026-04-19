@@ -41,6 +41,8 @@ interface PatecItem {
   patec_number: number;
   category: string;
   name: string;
+  base_quantity: number | null;
+  unit: string | null;
 }
 
 const patecMeta: Record<number, { title: string; color: string; cultures: string; icon: any; gradient: string; bgAccent: string }> = {
@@ -92,6 +94,8 @@ const Patec = () => {
   // Add item state
   const [addingCategory, setAddingCategory] = useState<{ patec: number; category: string } | null>(null);
   const [newItemName, setNewItemName] = useState("");
+  const [newItemQty, setNewItemQty] = useState("");
+  const [newItemUnit, setNewItemUnit] = useState("kg");
 
   // Edit item state
   const [editingItem, setEditingItem] = useState<string | null>(null);
@@ -136,16 +140,20 @@ const Patec = () => {
 
   const handleAddItem = async () => {
     if (!addingCategory || !newItemName.trim()) return;
+    const qty = newItemQty ? parseFloat(newItemQty.replace(",", ".")) : null;
     const { error } = await supabase.from("patec_items").insert({
       patec_number: addingCategory.patec,
       category: addingCategory.category,
       name: newItemName.trim(),
+      base_quantity: qty && qty > 0 ? qty : null,
+      unit: newItemUnit.trim() || null,
     });
     if (error) {
       toast.error("Erro ao adicionar item");
     } else {
       toast.success("Item adicionado");
       setNewItemName("");
+      setNewItemQty("");
       setAddingCategory(null);
       fetchPatecItems();
     }
@@ -308,7 +316,10 @@ const Patec = () => {
                 </div>
               ) : (
                 <>
-                  <span className="text-xs">{item.name}</span>
+                  <span className="text-xs">
+                    {item.name}
+                    {item.base_quantity ? <span className="text-muted-foreground ml-1">· {item.base_quantity} {item.unit || "un"}/0,5Ha</span> : <span className="text-amber-600 dark:text-amber-400 ml-1">· s/ qty</span>}
+                  </span>
                   {isAdmin && (
                     <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                       <Button

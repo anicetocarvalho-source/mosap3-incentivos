@@ -35,10 +35,27 @@ interface Product {
   supplier_id: string;
 }
 
+interface PatecItemFull {
+  id: string;
+  name: string;
+  category: string;
+  patec_number: number;
+  base_quantity: number | null;
+  unit: string | null;
+}
+
 interface CartItem {
   product: Product;
   quantity: number;
+  recommendedQty: number; // quantidade obrigatória/máxima calculada por PATEC × parcela
 }
+
+const PARCEL_OPTIONS = [
+  { value: 0.3, label: "0,3 Ha" },
+  { value: 0.5, label: "0,5 Ha" },
+  { value: 1, label: "1 Ha" },
+] as const;
+const PARCEL_REFERENCE = 0.5; // base_quantity é definida para 0,5 Ha
 
 interface Supplier {
   id: string;
@@ -81,8 +98,12 @@ const Mosap3PayPOS = () => {
 
   // Purchased quantities this season (per farmer)
   const [seasonPurchases, setSeasonPurchases] = useState<Record<string, number>>({});
-  const [patecItems, setPatecItems] = useState<{ id: string; name: string; category: string; patec_number: number }[]>([]);
+  const [patecItems, setPatecItems] = useState<PatecItemFull[]>([]);
   const [farmerBalance, setFarmerBalance] = useState<number>(0);
+
+  // Parcela selecionada (após escolher agricultor)
+  const [parcelSize, setParcelSize] = useState<number | null>(null);
+  const [parcelDialogOpen, setParcelDialogOpen] = useState(false);
 
   // Toggle fullscreen API
   const toggleFullscreen = useCallback(async (enable?: boolean) => {
@@ -185,34 +206,47 @@ const Mosap3PayPOS = () => {
     return balance;
   };
 
-  const selectFarmerFromSuggestion = async (f: Farmer) => {
-    setFarmer(f);
-    setFarmerSearch(f.code);
-    setShowSuggestions(false);
-    setFarmerSuggestions([]);
+  const loadPatecAndPurchases = async (f: Farmer): Promise<PatecItemFull[]> => {
+    let items: PatecItemFull[] = [];
     if (f.patec) {
-      supabase.from("patec_items").select("*").eq("patec_number", f.patec)
-        .then(({ data: items }) => setPatecItems(items || []));
+      const { data } = await supabase.from("patec_items").select("*").eq("patec_number", f.patec);
+      items = (data as PatecItemFull[]) || [];
+      setPatecItems(items);
     } else {
       setPatecItems([]);
     }
     const { data: sales } = await supabase.from("pos_sales").select("id").eq("farmer_code", f.code);
     if (sales && sales.length > 0) {
       const saleIds = sales.map((s) => s.id);
-      const { data: items } = await supabase.from("pos_sale_items").select("product_id, quantity").in("sale_id", saleIds);
+      const { data: saleItems } = await supabase.from("pos_sale_items").select("product_id, quantity").in("sale_id", saleIds);
       const purchases: Record<string, number> = {};
-      items?.forEach((item) => { purchases[item.product_id] = (purchases[item.product_id] || 0) + item.quantity; });
+      saleItems?.forEach((item) => { purchases[item.product_id] = (purchases[item.product_id] || 0) + item.quantity; });
       setSeasonPurchases(purchases);
     } else {
       setSeasonPurchases({});
     }
+    return items;
+  };
+
+  const selectFarmerFromSuggestion = async (f: Farmer) => {
+    setFarmer(f);
+    setFarmerSearch(f.code);
+    setShowSuggestions(false);
+    setFarmerSuggestions([]);
     setCart([]);
+    setParcelSize(null);
+    await loadPatecAndPurchases(f);
     const balance = await fetchFarmerBalance(f.code);
     if (balance <= 0) {
       toast.warning(`${f.full_name} tem saldo de incentivo de ${balance.toLocaleString("pt-AO")} Kz. Compras bloqueadas.`);
-    } else {
-      toast.success(`Produtor identificado: ${f.full_name} — Saldo: ${balance.toLocaleString("pt-AO")} Kz`);
+      return;
     }
+    if (!f.patec) {
+      toast.error(`${f.full_name} não tem PATEC atribuído. Não é possível efectuar venda.`);
+      return;
+    }
+    toast.success(`Produtor identificado: ${f.full_name} — Saldo: ${balance.toLocaleString("pt-AO")} Kz`);
+    setParcelDialogOpen(true);
   };
 
   const searchFarmer = async () => {
@@ -227,45 +261,58 @@ const Mosap3PayPOS = () => {
       .single();
     
     if (data) {
-      setFarmer(data as Farmer);
-      // Fetch PATEC items for this farmer's patec
-      if (data.patec) {
-        supabase.from("patec_items").select("*").eq("patec_number", data.patec)
-          .then(({ data: items }) => setPatecItems(items || []));
-      } else {
-        setPatecItems([]);
-      }
-      // Fetch season purchases for this farmer
-      const { data: sales } = await supabase
-        .from("pos_sales")
-        .select("id")
-        .eq("farmer_code", data.code);
-      
-      if (sales && sales.length > 0) {
-        const saleIds = sales.map((s) => s.id);
-        const { data: items } = await supabase
-          .from("pos_sale_items")
-          .select("product_id, quantity")
-          .in("sale_id", saleIds);
-        
-        const purchases: Record<string, number> = {};
-        items?.forEach((item) => {
-          purchases[item.product_id] = (purchases[item.product_id] || 0) + item.quantity;
-        });
-        setSeasonPurchases(purchases);
-      } else {
-        setSeasonPurchases({});
-      }
-      setCart([]);
-      const balance = await fetchFarmerBalance(data.code);
-      if (balance <= 0) {
-        toast.warning(`${data.full_name} tem saldo de incentivo de ${balance.toLocaleString("pt-AO")} Kz. Compras bloqueadas.`);
-      } else {
-        toast.success(`Produtor identificado: ${data.full_name} — Saldo: ${balance.toLocaleString("pt-AO")} Kz`);
-      }
+      await selectFarmerFromSuggestion(data as Farmer);
     } else {
       toast.error("Produtor não encontrado. Verifique o código, BI, telefone ou nome e tente novamente.");
       setFarmer(null);
+    }
+  };
+
+  /** Calcula a quantidade recomendada para um item PATEC consoante a parcela escolhida. */
+  const computeRecommendedQty = (item: PatecItemFull, parcel: number): number => {
+    if (!item.base_quantity || item.base_quantity <= 0) return 0;
+    const factor = parcel / PARCEL_REFERENCE;
+    return Math.max(1, Math.round(item.base_quantity * factor));
+  };
+
+  /** Encontra o produto do fornecedor que corresponde a um item do PATEC (match por nome). */
+  const findProductForPatecItem = (item: PatecItemFull): Product | undefined => {
+    return products.find(
+      (p) =>
+        p.patec_number === item.patec_number &&
+        p.name.trim().toLowerCase() === item.name.trim().toLowerCase()
+    );
+  };
+
+  /** Pré-popula o carrinho com todos os itens do PATEC, nas quantidades calculadas. */
+  const prefillCartFromPatec = (items: PatecItemFull[], parcel: number) => {
+    const newCart: CartItem[] = [];
+    let missingQty = 0;
+    let missingProduct = 0;
+    for (const item of items) {
+      const product = findProductForPatecItem(item);
+      if (!product) { missingProduct++; continue; }
+      const qty = computeRecommendedQty(item, parcel);
+      if (qty <= 0) { missingQty++; continue; }
+      const stockCap = Math.max(0, product.stock);
+      const finalQty = Math.min(qty, stockCap);
+      if (finalQty <= 0) continue;
+      newCart.push({ product, quantity: finalQty, recommendedQty: qty });
+    }
+    setCart(newCart);
+    if (missingQty > 0) {
+      toast.warning(`${missingQty} item(s) do PATEC sem quantidade base configurada. Contacte o administrador.`);
+    }
+    if (missingProduct > 0) {
+      toast.info(`${missingProduct} item(s) do PATEC sem produto correspondente neste fornecedor.`);
+    }
+  };
+
+  const handleSelectParcel = (size: number) => {
+    setParcelSize(size);
+    setParcelDialogOpen(false);
+    if (patecItems.length > 0) {
+      prefillCartFromPatec(patecItems, size);
     }
   };
 
@@ -305,29 +352,45 @@ const Mosap3PayPOS = () => {
   };
 
   const addToCart = (product: Product) => {
-    // Check farmer balance
     if (farmerBalance <= 0) {
       toast.error("Compra bloqueada — este produtor não tem saldo de incentivo disponível.");
       if (farmer) notifyNoBalance(farmer.full_name, farmer.code, farmerBalance);
       return;
     }
+    if (!parcelSize) {
+      toast.error("Seleccione primeiro o tamanho da parcela.");
+      setParcelDialogOpen(true);
+      return;
+    }
+    // Só produtos do PATEC do agricultor são permitidos
+    const patecItem = patecItems.find(
+      (i) => i.name.trim().toLowerCase() === product.name.trim().toLowerCase()
+    );
+    if (!patecItem) {
+      toast.error(`"${product.name}" não pertence ao pacote tecnológico deste produtor.`);
+      return;
+    }
+    const recommendedQty = computeRecommendedQty(patecItem, parcelSize);
+    if (recommendedQty <= 0) {
+      toast.error(`Item "${product.name}" sem quantidade base configurada. Contacte o administrador.`);
+      return;
+    }
     const currentCartTotal = cart.reduce((sum, c) => sum + c.product.price * c.quantity * (1 + c.product.iva_rate / 100), 0);
     const itemTotal = product.price * (1 + product.iva_rate / 100);
     if (currentCartTotal + itemTotal > farmerBalance) {
-      toast.error(`Saldo insuficiente (${farmerBalance.toLocaleString("pt-AO")} Kz). Este produto custa ${itemTotal.toLocaleString("pt-AO")} Kz.`);
-      return;
-    }
-    const remaining = getRemainingLimit(product);
-    if (remaining <= 0) {
-      toast.error(`Limite de "${product.name}" atingido para este produtor nesta época`);
+      toast.error(`Saldo insuficiente (${farmerBalance.toLocaleString("pt-AO")} Kz).`);
       return;
     }
     setCart((prev) => {
       const existing = prev.find((c) => c.product.id === product.id);
       if (existing) {
+        if (existing.quantity >= existing.recommendedQty) {
+          toast.error(`Quantidade máxima atingida (${existing.recommendedQty} ${product.unit}) para esta parcela.`);
+          return prev;
+        }
         return prev.map((c) => c.product.id === product.id ? { ...c, quantity: c.quantity + 1 } : c);
       }
-      return [...prev, { product, quantity: 1 }];
+      return [...prev, { product, quantity: 1, recommendedQty }];
     });
   };
 
@@ -337,14 +400,11 @@ const Mosap3PayPOS = () => {
         if (c.product.id !== productId) return c;
         const newQty = c.quantity + delta;
         if (newQty <= 0) return c;
-        // Check limit
         if (delta > 0) {
-          const remaining = getRemainingLimit(c.product);
-          if (remaining <= 0) {
-            toast.error("Limite atingido");
+          if (newQty > c.recommendedQty) {
+            toast.error(`Quantidade máxima atingida (${c.recommendedQty} ${c.product.unit}) para esta parcela.`);
             return c;
           }
-          // Check balance
           const currentCartTotal = prev.reduce((sum, item) => sum + item.product.price * item.quantity * (1 + item.product.iva_rate / 100), 0);
           const itemCost = c.product.price * (1 + c.product.iva_rate / 100);
           if (currentCartTotal + itemCost > farmerBalance) {
@@ -402,6 +462,8 @@ const Mosap3PayPOS = () => {
           farmer_name: farmer.full_name,
           farmer_phone: farmer.phone,
           patec_number: farmer.patec,
+          parcel_size: parcelSize,
+          parcel_size_label: parcelSize ? PARCEL_OPTIONS.find((p) => p.value === parcelSize)?.label : null,
           subtotal: cartSubtotal,
           iva_total: cartIva,
           total: cartTotal,
@@ -726,8 +788,13 @@ const Mosap3PayPOS = () => {
                   <p className={`text-[10px] font-semibold ${farmerBalance > 0 ? "text-[hsl(120,60%,50%)]" : "text-[hsl(0,70%,60%)]"}`}>
                     Saldo: {farmerBalance.toLocaleString("pt-AO")} Kz
                   </p>
+                  {parcelSize && (
+                    <button onClick={() => setParcelDialogOpen(true)} className="text-[9px] text-[hsl(45,90%,55%)] hover:underline mt-0.5">
+                      🌾 {PARCEL_OPTIONS.find((p) => p.value === parcelSize)?.label} · alterar
+                    </button>
+                  )}
                 </div>
-                <button onClick={() => { setFarmer(null); setFarmerSearch(""); setCart([]); }} className="text-[hsl(220,10%,40%)] hover:text-[hsl(0,70%,60%)]">
+                <button onClick={() => { setFarmer(null); setFarmerSearch(""); setCart([]); setParcelSize(null); setPatecItems([]); }} className="text-[hsl(220,10%,40%)] hover:text-[hsl(0,70%,60%)]">
                   <Trash2 className="h-3 w-3" />
                 </button>
               </div>
@@ -939,9 +1006,36 @@ const Mosap3PayPOS = () => {
                 <Button variant="outline" onClick={() => setShowInvoice(true)} disabled={!invoiceData}>
                   <Printer className="h-4 w-4 mr-1" /> Ver Factura
                 </Button>
-                <Button onClick={() => { setReceiptOpen(false); setFarmer(null); setFarmerSearch(""); setPaymentStatus("idle"); setInvoiceData(null); }} className="flex-1 bg-[hsl(45,70%,40%)] text-[hsl(220,20%,10%)] hover:bg-[hsl(45,75%,45%)]">
+                <Button onClick={() => { setReceiptOpen(false); setFarmer(null); setFarmerSearch(""); setPaymentStatus("idle"); setInvoiceData(null); setParcelSize(null); setPatecItems([]); }} className="flex-1 bg-[hsl(45,70%,40%)] text-[hsl(220,20%,10%)] hover:bg-[hsl(45,75%,45%)]">
                   Nova Venda
                 </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Parcel selection (kiosk) */}
+        <Dialog open={parcelDialogOpen} onOpenChange={(o) => { if (!o && parcelSize === null) return; setParcelDialogOpen(o); }}>
+          <DialogContent className="bg-[hsl(220,18%,14%)] border-[hsl(220,15%,22%)] text-[hsl(0,0%,88%)]">
+            <DialogHeader><DialogTitle>Tamanho da parcela</DialogTitle></DialogHeader>
+            <div className="space-y-3">
+              <p className="text-sm text-[hsl(220,10%,55%)]">
+                Seleccione a parcela de terra para calcular as quantidades do {farmer?.patec ? patecLabels[farmer.patec] : "PATEC"}.
+              </p>
+              <div className="grid grid-cols-3 gap-3">
+                {PARCEL_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={() => handleSelectParcel(opt.value)}
+                    className={`p-6 rounded-xl border-2 transition-all font-bold text-lg ${
+                      parcelSize === opt.value
+                        ? "bg-[hsl(45,90%,50%)] text-[hsl(220,20%,10%)] border-[hsl(45,90%,55%)]"
+                        : "bg-[hsl(220,15%,15%)] border-[hsl(220,15%,22%)] hover:border-[hsl(45,90%,40%)]"
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
               </div>
             </div>
           </DialogContent>
@@ -1026,6 +1120,15 @@ const Mosap3PayPOS = () => {
                     <div className="flex-1">
                       <p className="font-semibold">{farmer.full_name}</p>
                       <p className="text-xs text-muted-foreground">Código: {farmer.code} • Tel: {farmer.phone || "—"}</p>
+                      {parcelSize && (
+                        <button
+                          onClick={() => setParcelDialogOpen(true)}
+                          className="text-[11px] text-primary hover:underline mt-1 inline-flex items-center gap-1"
+                          title="Alterar tamanho da parcela"
+                        >
+                          🌾 Parcela: <strong>{PARCEL_OPTIONS.find((p) => p.value === parcelSize)?.label}</strong> · Alterar
+                        </button>
+                      )}
                     </div>
                     <div className="text-right">
                       {farmer.patec ? <Badge className="text-xs">{patecLabels[farmer.patec]}</Badge> : <Badge variant="destructive" className="text-xs">Sem PATEC</Badge>}
@@ -1233,7 +1336,7 @@ const Mosap3PayPOS = () => {
             <p className="text-sm text-muted-foreground">Código: <span className="font-mono font-bold">{lastSaleCode}</span></p>
             <div className="flex gap-2">
               <Button variant="outline" onClick={() => setShowInvoice(true)} disabled={!invoiceData}><Printer className="h-4 w-4 mr-1" /> Ver Factura</Button>
-              <Button onClick={() => { setReceiptOpen(false); setFarmer(null); setFarmerSearch(""); setPaymentStatus("idle"); setInvoiceData(null); }} className="flex-1">Nova Venda</Button>
+              <Button onClick={() => { setReceiptOpen(false); setFarmer(null); setFarmerSearch(""); setPaymentStatus("idle"); setInvoiceData(null); setParcelSize(null); setPatecItems([]); }} className="flex-1">Nova Venda</Button>
             </div>
           </div>
         </DialogContent>
@@ -1244,6 +1347,38 @@ const Mosap3PayPOS = () => {
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Factura / Recibo</DialogTitle></DialogHeader>
           {invoiceData && <InvoicePDF data={invoiceData} hash={invoiceHash} qrContent={invoiceQR} />}
+        </DialogContent>
+      </Dialog>
+
+      {/* Parcel selection (normal) */}
+      <Dialog open={parcelDialogOpen} onOpenChange={(o) => { if (!o && parcelSize === null) return; setParcelDialogOpen(o); }}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Tamanho da parcela de terra</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Seleccione a parcela a produzir. As quantidades dos produtos do {farmer?.patec ? patecLabels[farmer.patec] : "PATEC"} serão calculadas automaticamente.
+            </p>
+            <div className="grid grid-cols-3 gap-3">
+              {PARCEL_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  onClick={() => handleSelectParcel(opt.value)}
+                  className={`p-6 rounded-xl border-2 transition-all font-bold text-lg ${
+                    parcelSize === opt.value
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-card border-border hover:border-primary/50"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            {cart.length > 0 && (
+              <p className="text-xs text-amber-600 dark:text-amber-400">
+                ⚠ Alterar a parcela vai recalcular as quantidades do carrinho.
+              </p>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </div>
