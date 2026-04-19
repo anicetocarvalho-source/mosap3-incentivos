@@ -1349,6 +1349,38 @@ const Mosap3PayPOS = () => {
           {invoiceData && <InvoicePDF data={invoiceData} hash={invoiceHash} qrContent={invoiceQR} />}
         </DialogContent>
       </Dialog>
+
+      {/* Parcel selection (normal) */}
+      <Dialog open={parcelDialogOpen} onOpenChange={(o) => { if (!o && parcelSize === null) return; setParcelDialogOpen(o); }}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Tamanho da parcela de terra</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Seleccione a parcela a produzir. As quantidades dos produtos do {farmer?.patec ? patecLabels[farmer.patec] : "PATEC"} serão calculadas automaticamente.
+            </p>
+            <div className="grid grid-cols-3 gap-3">
+              {PARCEL_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  onClick={() => handleSelectParcel(opt.value)}
+                  className={`p-6 rounded-xl border-2 transition-all font-bold text-lg ${
+                    parcelSize === opt.value
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-card border-border hover:border-primary/50"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            {cart.length > 0 && (
+              <p className="text-xs text-amber-600 dark:text-amber-400">
+                ⚠ Alterar a parcela vai recalcular as quantidades do carrinho.
+              </p>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
