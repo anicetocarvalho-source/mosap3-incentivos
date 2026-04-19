@@ -400,14 +400,11 @@ const Mosap3PayPOS = () => {
         if (c.product.id !== productId) return c;
         const newQty = c.quantity + delta;
         if (newQty <= 0) return c;
-        // Check limit
         if (delta > 0) {
-          const remaining = getRemainingLimit(c.product);
-          if (remaining <= 0) {
-            toast.error("Limite atingido");
+          if (newQty > c.recommendedQty) {
+            toast.error(`Quantidade máxima atingida (${c.recommendedQty} ${c.product.unit}) para esta parcela.`);
             return c;
           }
-          // Check balance
           const currentCartTotal = prev.reduce((sum, item) => sum + item.product.price * item.quantity * (1 + item.product.iva_rate / 100), 0);
           const itemCost = c.product.price * (1 + c.product.iva_rate / 100);
           if (currentCartTotal + itemCost > farmerBalance) {
