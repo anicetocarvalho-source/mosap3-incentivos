@@ -1,75 +1,67 @@
 
+O utilizador quer reforçar o fluxo do POS para que:
+1. Pesquisa de agricultor por nome ou telefone (já existe parcialmente).
+2. Validação de saldo disponível (já existe).
+3. Restringir produtos ao PATEC do agricultor (já existe).
+4. **NOVO**: Após selecionar agricultor, perguntar tamanho da parcela (0.3, 0.5 ou 1 Ha).
+5. **NOVO**: Quantidades dos produtos pré-calculadas em função do PATEC × tamanho da parcela.
+6. **NOVO**: Bloquear aquisição fora dessas quantidades/produtos definidos.
 
-## Causa raiz
+Preciso ver o POS actual e a tabela patec_items para perceber se há quantidades por item ou se são apenas nomes.
 
-Os 4 cards (Incentivos Recebidos, Compras, Saldo, Taxa de Utilização) estão a ler das tabelas **`farmer_incentives`** e **`pos_sales`** — mas estas tabelas estão **vazias** na base de dados:
+Vou planear sem mais inspecção (já tenho contexto suficiente do schema e summaries).
 
-| Tabela | Total de registos | Para AGR-10619 |
-|---|---|---|
-| `farmer_incentives` | **0** | 0 |
-| `pos_sales` | **0** | 0 |
-| `farmer_transactions` | 70.394 | 12 |
-| `farmers.valor_recebido` (AGR-10619) | 198.700 Kz | — |
+## Plano
 
-Ou seja: os dados que vês "carregados para cada agricultor" estão guardados em **dois sítios legados**:
+### Diagnóstico
+- `patec_items` actualmente só guarda `patec_number`, `category`, `name` — **não tem quantidade base** por item nem por área de referência.
+- `Mosap3PayPOS.tsx` já filtra produtos por PATEC e valida saldo, mas:
+  - Permite entrar produtos arbitrários do catálogo do fornecedor (desde que partilhem `patec_number`).
+  - Não pergunta área, não pré-calcula quantidades, e a quantidade é livre até `max_per_farmer_per_season`/stock.
 
-1. **Campos de texto na própria tabela `farmers`** (`valor_recebido`, `total_gasto`, `saldo_final`) — são os 198.700 Kz que vês no header e na tabela de Agricultores.
-2. **Tabela `farmer_transactions`** — 70 mil linhas de transações históricas (a antiga aba "Incentivos" mostrava-as).
+### Alterações de Base de Dados (migração)
 
-A nova aba "Financeiro" (resultado da fusão anterior) só agrega `farmer_incentives` + `pos_sales`, que ainda **nunca foram alimentadas em massa**. Por isso mostra zeros.
+1. **`patec_items`** — adicionar:
+   - `base_quantity numeric` (quantidade recomendada para parcela de referência de **0.5 Ha**).
+   - `unit text` (kg, L, un...) para dar consistência.
+2. **`pos_sales`** — adicionar:
+   - `parcel_size numeric` (0.3, 0.5 ou 1).
+   - `parcel_size_label text` (ex.: "0,5 Ha").
 
-## Como corrigir
+Nada destrutivo; valores antigos ficam `NULL` e o POS faz fallback.
 
-Há duas formas. Recomendo **fazer ambas**:
+### Alterações no POS (`Mosap3PayPOS.tsx`)
 
-### A) Corrigir o cálculo dos cards para incluir os dados legados
+**Fluxo novo após confirmar agricultor:**
 
-No `FarmerProfile.tsx` (aba Financeiro, linhas ~696–699), passar a calcular:
+1. **Diálogo "Selecionar Parcela"** com 3 botões grandes: `0,3 Ha`, `0,5 Ha`, `1 Ha`. Não se pode prosseguir sem escolher.
+2. Carregar `patec_items` do PATEC do agricultor + fazer `match` com `supplier_products` por nome (já existe lógica via "vinculo-patec-catalogo"). Para cada item:
+   - `quantidade_recomendada = base_quantity × (parcel_size / 0.5)`.
+   - Esta quantidade torna-se **quantidade obrigatória/máxima** para essa venda.
+3. **Pré-popular o carrinho** automaticamente com todos os itens do PATEC nas quantidades calculadas (utilizador remove o que o agricultor não quer levar).
+4. **Bloqueios**:
+   - Não permite adicionar produtos fora da lista do PATEC (botão "Adicionar" desactivado nos restantes).
+   - Quantidade no carrinho fica `readonly` ou limitada a `≤ quantidade_recomendada` (configurável: bloqueio rígido por defeito).
+   - Validação final: total ≤ saldo disponível (já existe).
+5. **Mudar parcela**: badge no topo "Parcela: 0,5 Ha · Alterar" reabre o diálogo e recalcula carrinho (com aviso se já tinha itens).
+6. Gravar `parcel_size` e `parcel_size_label` em `pos_sales`. Mostrar essa informação na factura, no histórico de vendas e na timeline financeira do agricultor.
 
-- **Incentivos Recebidos** = soma de `farmer_incentives.amount` **+** `farmers.valor_recebido` (legado, se não houver registos em `farmer_incentives`).
-- **Compras Realizadas** = soma de `pos_sales.total` **+** soma de `farmer_transactions.valor` (legado).
-- **Saldo** = Recebido − Compras (ou usar `farmers.saldo_final` quando não há POS nem incentivos novos).
-- **Taxa Utilização** = Compras / Recebido × 100.
+### Admin — `Patec.tsx`
+Adicionar dois campos nos diálogos de criar/editar item: `Quantidade base (0,5 Ha)` e `Unidade`. Mostrar na lista. Sem isto, o POS não consegue pré-calcular — mostra `0` e pede ao admin para configurar.
 
-Lógica de fallback: se `farmer_incentives` e `pos_sales` ambos vazios → usa os campos legados de `farmers` + `farmer_transactions`. Se houver dados novos → usa preferencialmente os novos mas continua a somar os legados para não perder histórico.
+### Pesquisa por nome/telefone
+Já está implementada no POS (`searchFarmer`). Confirmo que continua a aceitar nome OU telefone (além de código/BI). Pequeno ajuste de copy: placeholder passa a "Nome ou telefone do agricultor".
 
-A timeline já inclui `transactions` (do `farmer_transactions`), por isso os movimentos individuais já aparecem — só os 4 cards é que estavam a ignorá-los.
+### Ficheiros a editar
+- Migração SQL: `patec_items` + `pos_sales` (colunas novas).
+- `src/pages/Mosap3PayPOS.tsx` — fluxo de parcela, pré-popular carrinho, bloqueios.
+- `src/pages/Patec.tsx` — diálogos com `base_quantity` e `unit`.
+- `src/pages/Mosap3PayVendas.tsx` + `src/components/InvoicePDF.tsx` — mostrar parcela na venda/factura.
+- `src/pages/FarmerProfile.tsx` (timeline) — etiqueta da parcela na compra POS.
 
-### B) (Opcional, futuro) Backfill da BD
+### Validações
+- Se o PATEC do agricultor não tem itens com `base_quantity` → mostrar aviso no POS: "Pacote tecnológico sem quantidades configuradas. Contacte o administrador."
+- Se algum item do PATEC não tem produto correspondente no fornecedor → mostrar como "Indisponível neste fornecedor" no carrinho pré-populado.
 
-Migração que copia o histórico de `farmer_transactions` para `pos_sales` (ou cria registos sintéticos em `farmer_incentives` a partir de `farmers.valor_recebido`). Recomendo **não fazer agora** — é destrutivo e os campos legados continuam fonte de verdade no header e na tabela.
-
-## Alteração proposta
-
-**Ficheiro único:** `src/pages/FarmerProfile.tsx` (linhas 696–699 e badge de estado linhas 781–793).
-
-```ts
-// Helper para parser pt-AO ("198.700,00" → 198700)
-const parsePtAo = (s: string | null | undefined) => {
-  if (!s) return 0;
-  return parseFloat(String(s).replace(/\./g, "").replace(",", ".")) || 0;
-};
-
-const totalIncentivosNovos = incentives.reduce((s, i) => s + parseFloat(i.amount || "0"), 0);
-const totalIncentivosLegado = parsePtAo(farmerRaw?.valor_recebido);
-const totalIncentivos = totalIncentivosNovos + (totalIncentivosNovos === 0 ? totalIncentivosLegado : 0);
-
-const totalComprasPos = posSales.reduce((s, v) => s + Number(v.total || 0), 0);
-const totalComprasManuais = transactions.reduce((s, t) => s + parsePtAo(t.valor), 0);
-const totalCompras = totalComprasPos + totalComprasManuais;
-
-const saldo = totalIncentivos - totalCompras;
-const percentUsado = totalIncentivos > 0 ? Math.min((totalCompras / totalIncentivos) * 100, 100) : 0;
-```
-
-E ajustar o subtítulo do card de Compras para indicar `posSales.length + transactions.length compra(s)`.
-
-## Resultado esperado para AGR-10619
-
-- Incentivos Recebidos: **198.700 Kz** (vinha de `valor_recebido`)
-- Compras: soma das 12 transações em `farmer_transactions`
-- Saldo: diferença real
-- Taxa: % real
-
-Sem migrações, sem perder histórico, sem partir nada nos perfis que já usem POS/incentivos novos.
-
+### Resultado
+Venda só acontece para produtos do PATEC do agricultor, nas quantidades exactas definidas pela parcela escolhida (0.3 / 0.5 / 1 Ha), com saldo disponível suficiente. Tudo o resto fica bloqueado.
