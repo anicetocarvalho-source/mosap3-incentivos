@@ -94,6 +94,8 @@ const Patec = () => {
   // Add item state
   const [addingCategory, setAddingCategory] = useState<{ patec: number; category: string } | null>(null);
   const [newItemName, setNewItemName] = useState("");
+  const [newItemQty, setNewItemQty] = useState("");
+  const [newItemUnit, setNewItemUnit] = useState("kg");
 
   // Edit item state
   const [editingItem, setEditingItem] = useState<string | null>(null);
