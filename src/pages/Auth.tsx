@@ -135,6 +135,53 @@ const Auth = () => {
     handleLogin();
   };
 
+  const handleSupplierLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const result = loginSchema.safeParse({ email, password });
+    if (!result.success) {
+      toast({ title: "Erro de validação", description: result.error.errors[0].message, variant: "destructive" });
+      return;
+    }
+    if (!isOnline) {
+      toast({ title: "Sem ligação", description: "O login de fornecedor requer ligação à internet.", variant: "destructive" });
+      return;
+    }
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: result.data.email,
+        password: result.data.password,
+      });
+      if (error) {
+        const classified = classifyError(error);
+        toast({ title: classified.title, description: classified.description, variant: "destructive" });
+        return;
+      }
+      if (data.user) {
+        const { data: supplier, error: supErr } = await supabase
+          .from("suppliers")
+          .select("id")
+          .eq("user_id", data.user.id)
+          .maybeSingle();
+        if (supErr || !supplier) {
+          await supabase.auth.signOut();
+          toast({
+            title: "Conta não associada",
+            description: "Esta conta não está vinculada a um fornecedor. Use 'Registar nova empresa' ou contacte o administrador.",
+            variant: "destructive",
+          });
+          return;
+        }
+        navigate("/fornecedor");
+      }
+    } catch (err) {
+      const classified = classifyError(err);
+      toast({ title: classified.title, description: classified.description, variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const containerVariants = {
     hidden: { opacity: 0 },
     show: { opacity: 1, transition: { staggerChildren: 0.1, delayChildren: 0.1 } },
