@@ -69,11 +69,14 @@ const FornecedorPOS = () => {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <h1 className="text-xl font-heading font-bold flex items-center gap-2"><Monitor className="h-5 w-5 text-primary" /> Terminais POS</h1>
-        <div className="flex gap-2">
-          <Button variant="default" onClick={() => navigate("/fornecedor/pos/venda")}>
-            <ShoppingCart className="h-4 w-4 mr-1" /> Abrir Terminal de Venda
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h1 className="text-xl font-heading font-bold flex items-center gap-2"><Monitor className="h-5 w-5 text-primary" /> Terminais POS</h1>
+          <p className="text-sm text-muted-foreground mt-1">Gira os seus terminais e abra o POS para registar vendas.</p>
+        </div>
+        <div className="flex gap-2 flex-wrap">
+          <Button variant="default" size="lg" onClick={() => navigate("/fornecedor/pos/venda")} className="shadow-md">
+            <ShoppingCart className="h-4 w-4 mr-2" /> Abrir Terminal de Venda
           </Button>
           <Button variant="outline" onClick={openNew}><Plus className="h-4 w-4 mr-1" /> Novo Terminal</Button>
         </div>
