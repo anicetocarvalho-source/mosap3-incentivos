@@ -403,6 +403,56 @@ const Auth = () => {
                       Registar nova empresa
                     </Button>
                   </div>
+
+                  {isOnline && (
+                    <div className="mt-6 pt-4 border-t border-border text-left">
+                      <p className="text-xs font-medium text-muted-foreground mb-2">
+                        Conta de demonstração
+                      </p>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          setLoading(true);
+                          try {
+                            const { data: sessionData } = await supabase.auth.getSession();
+                            if (sessionData.session) {
+                              const { data, error } = await supabase.functions.invoke("seed-test-supplier");
+                              if (error) throw error;
+                              toast({
+                                title: "Conta de fornecedor pronta",
+                                description: `Email: fornecedor@mosap3.test · Password: teste123`,
+                              });
+                              if (data?.credentials) {
+                                navigate("/fornecedor/login");
+                              }
+                            } else {
+                              toast({
+                                title: "Conta de teste",
+                                description: "Use fornecedor@mosap3.test / teste123 em /fornecedor/login. Se ainda não existir, peça a um admin para a criar.",
+                              });
+                              navigate("/fornecedor/login");
+                            }
+                          } catch (e: any) {
+                            toast({
+                              title: "Não foi possível semear conta",
+                              description: e?.message || "Inicie sessão como admin no Backoffice e tente novamente.",
+                              variant: "destructive",
+                            });
+                          } finally {
+                            setLoading(false);
+                          }
+                        }}
+                        className="w-full flex items-center gap-2 px-3 py-2 rounded-md border border-border hover:bg-muted hover:border-primary/30 transition-colors text-xs"
+                      >
+                        <Store className="h-3.5 w-3.5 text-primary flex-shrink-0" />
+                        <span className="font-medium">Fornecedor Teste</span>
+                        <span className="text-muted-foreground ml-auto truncate">fornecedor@mosap3.test</span>
+                      </button>
+                      <p className="text-[10px] text-muted-foreground mt-2 leading-relaxed">
+                        Cria automaticamente um fornecedor com loja, POS e produtos PATEC (requer admin autenticado na 1ª vez).
+                      </p>
+                    </div>
+                  )}
                 </motion.div>
               )}
             </AnimatePresence>
