@@ -1651,6 +1651,7 @@ export type Database = {
         | "senior_agronegocio"
         | "junior_agronegocio"
         | "tecnico_extensionista"
+        | "fornecedor"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1788,6 +1789,7 @@ export const Constants = {
         "senior_agronegocio",
         "junior_agronegocio",
         "tecnico_extensionista",
+        "fornecedor",
       ],
     },
   },
