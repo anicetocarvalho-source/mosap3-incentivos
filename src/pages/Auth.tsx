@@ -504,7 +504,35 @@ const Auth = () => {
                       <CollapsibleContent className="mt-3 space-y-2">
                         <button
                           type="button"
-                          onClick={() => { setEmail("fornecedor@mosap3.test"); setPassword("teste123"); }}
+                          onClick={async () => {
+                            setEmail("fornecedor@mosap3.test");
+                            setPassword("teste123");
+                            setLoading(true);
+                            try {
+                              const { data: sessionData } = await supabase.auth.getSession();
+                              if (sessionData.session) {
+                                const { error } = await supabase.functions.invoke("seed-test-supplier");
+                                if (error) throw error;
+                                toast({
+                                  title: "Conta de fornecedor pronta",
+                                  description: "fornecedor@mosap3.test · teste123 — pode entrar agora.",
+                                });
+                              } else {
+                                toast({
+                                  title: "Credenciais preenchidas",
+                                  description: "Se a conta ainda não existir, faça login como Admin no Backoffice primeiro e volte aqui para a criar automaticamente.",
+                                });
+                              }
+                            } catch (e: any) {
+                              toast({
+                                title: "Não foi possível criar a conta",
+                                description: e?.message || "Faça login como Admin no Backoffice e tente novamente.",
+                                variant: "destructive",
+                              });
+                            } finally {
+                              setLoading(false);
+                            }
+                          }}
                           className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md border border-border hover:bg-muted hover:border-primary/30 transition-colors text-xs text-left"
                         >
                           <Store className="h-3.5 w-3.5 text-primary flex-shrink-0" />
@@ -512,7 +540,7 @@ const Auth = () => {
                           <span className="text-muted-foreground ml-auto truncate">fornecedor@mosap3.test</span>
                         </button>
                         <p className="text-[10px] text-muted-foreground leading-relaxed">
-                          Se a conta ainda não existir, peça a um admin para a criar via "Fornecedor Teste" no Backoffice.
+                          Clique para preencher e criar a conta automaticamente (requer sessão de Admin activa).
                         </p>
                       </CollapsibleContent>
                     </Collapsible>
