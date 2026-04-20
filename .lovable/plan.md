@@ -1,64 +1,32 @@
 
-O utilizador quer redesenhar a página `/auth` (Auth.tsx) para ficar premium e adicionar acesso para fornecedores. Já existe `/fornecedor/login` (FornecedorAuth.tsx) separado. A solução mais elegante é adicionar um **toggle visível** entre "Backoffice MOSAP3" e "Fornecedor" na mesma tela, sem fundir os fluxos (cada um continua a chamar a sua lógica/página).
+O utilizador notou que ao clicar em "Entrar como Fornecedor" no `/auth`, é redireccionado para outra página de login (`/fornecedor/login`) em vez de fazer login directamente no `/auth`.
+
+Isto foi uma decisão deliberada do plano anterior — manter os fluxos isolados porque o `FornecedorAuth.tsx` é um wizard multi-passo (login + registo de empresa em 3 passos) bastante diferente do login simples do backoffice. Mas o utilizador quer agora um fluxo unificado.
 
 ## Plano
 
-### Página `/auth` — redesign premium
+### Unificar o login no `/auth`
 
-**Layout split-screen (desktop ≥1024px)**
-```
-┌───────────────────────┬──────────────────────┐
-│  Painel esquerdo      │  Painel direito      │
-│  (gradiente verde)    │  (formulário)        │
-│  - Logo MOSAP3 grande │  - Toggle perfil     │
-│  - Tagline            │  - Form login        │
-│  - 3 highlights       │  - CTA secundário    │
-│  - Indicador online   │                      │
-└───────────────────────┴──────────────────────┘
-```
+Quando o toggle estiver em **"Fornecedor"**, em vez de mostrar um CTA que redirige, mostrar **directamente o formulário de login** (email + password) na mesma página, idêntico ao do Backoffice mas com lógica diferente:
 
-Mobile: empilhado (hero compacto em cima, form abaixo).
-
-**Toggle de perfil no topo do form** (segmented control com 2 botões grandes):
-- **Backoffice** (verde, default) → fluxo actual de email/password do MOSAP3.
-- **Fornecedor** → redirige para `/fornecedor/login` (mantém isolamento já planeado em "portal-fornecedor-autonomia").
-- Pequeno texto explicativo por baixo: "Acesso ao módulo comercial e POS para venda aos agricultores."
-
-**Melhorias visuais (sem mudar lógica)**
-1. Card com `backdrop-blur`, sombra suave, borda subtil; ocupa altura total no painel direito.
-2. Inputs com ícones (Mail, Lock), focus ring verde, height 11.
-3. Botão principal com gradiente verde + estado loading com spinner inline.
-4. Badge offline/online no topo do form (quando offline mostra aviso âmbar).
-5. Animações Framer Motion já existem — refinadas com `staggerChildren` e fade dos highlights.
-6. Footer minimal: "© MOSAP3 · v1.0 · Apoio: suporte@mosap3.ao".
-7. Painel esquerdo com **3 features destacadas** (icon + título + 1 linha):
-   - "Cadastro Biométrico"
-   - "Pacotes Tecnológicos"
-   - "POS Comercial Integrado"
-8. Botões de teste (TEST_USERS) movidos para um `Collapsible` discreto "Acessos de demonstração" (só aparece se online, como já é).
-
-**Fluxo Fornecedor a partir do `/auth`**
-- Clicar no toggle "Fornecedor" troca o card para um estado informativo:
-  - Ícone Store grande
-  - Título "Portal do Fornecedor"
-  - Descrição: "Faça login para gerir as suas lojas, stock e realizar vendas via POS aos agricultores."
-  - Botão primário "Entrar como Fornecedor" → `navigate("/fornecedor/login")`
-  - Link secundário "Registar nova empresa" → `navigate("/fornecedor/login")` (lá já há tabs login/registo)
-
-Não duplico o form aqui — o `FornecedorAuth.tsx` já é multi-step (3 passos: empresa → lojas → conta) e funciona bem. O `/auth` apenas serve de **ponto de entrada visível**.
-
-### `/fornecedor/login` — pequenos refinamentos
-- Adicionar link "← Voltar ao acesso Backoffice" no topo (navega para `/auth`).
-- Manter restante intacto (já é multi-step e funcional).
-
-### Ficheiros a editar
-- `src/pages/Auth.tsx` — redesign completo, toggle perfil, painel split-screen.
-- `src/pages/fornecedor/FornecedorAuth.tsx` — adicionar link de retorno para `/auth`.
-
-### Sem alterações
-- Sem mudanças de BD.
-- Sem alterações de lógica de auth, roles, ou cache offline.
-- TEST_USERS continua disponível (escondido em Collapsible).
+**Fluxo Fornecedor inline em `/auth`:**
+1. Form email + password (mesmo visual do Backoffice).
+2. Ao submeter:
+   - `supabase.auth.signInWithPassword(...)`
+   - Verificar se o user tem registo na tabela `suppliers` (via `user_id`)
+   - Se sim → `navigate("/fornecedor")`
+   - Se não → `signOut()` + erro "Conta não associada a fornecedor"
+3. Botão secundário discreto: **"Registar nova empresa →"** que aí sim leva para `/fornecedor/login` (onde está o wizard de 3 passos para criar empresa + lojas + conta).
 
 ### Resultado
-Tela de login premium, dual-mode (Backoffice + Fornecedor), responsiva, com identidade visual reforçada e ponto de entrada claro para o módulo comercial — sem fundir fluxos nem partir nada do que já existe.
+- Login de fornecedor faz-se na mesma tela `/auth` (sem redireccionamento).
+- O `/fornecedor/login` continua a existir mas só é usado para **registo de nova empresa** (wizard multi-passo).
+- Mantém o toggle Backoffice/Fornecedor já existente.
+- Mantém o botão de "Fornecedor Teste" (seed) no modo Fornecedor.
+
+### Ficheiros a editar
+- `src/pages/Auth.tsx` — adicionar handler `handleSupplierLogin` e renderizar form inline quando `profile === "fornecedor"` (em vez do CTA actual).
+
+### Sem alterações
+- `FornecedorAuth.tsx` mantém-se (continua a servir registo).
+- Sem mudanças de BD nem de RLS.
