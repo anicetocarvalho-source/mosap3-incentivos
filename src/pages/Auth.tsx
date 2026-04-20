@@ -408,97 +408,114 @@ const Auth = () => {
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -10 }}
                   transition={{ duration: 0.2 }}
-                  className="text-center py-2"
                 >
-                  <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/10 border border-primary/20 mb-4">
-                    <Store className="h-8 w-8 text-primary" />
+                  <div className="mb-6 flex items-center gap-3">
+                    <div className="inline-flex items-center justify-center w-11 h-11 rounded-xl bg-primary/10 border border-primary/20 flex-shrink-0">
+                      <Store className="h-5 w-5 text-primary" />
+                    </div>
+                    <div>
+                      <h2 className="text-2xl font-bold font-heading">Portal do Fornecedor</h2>
+                      <p className="text-sm text-muted-foreground mt-0.5">
+                        Aceda à sua loja e terminal POS.
+                      </p>
+                    </div>
                   </div>
-                  <h2 className="text-2xl font-bold font-heading">Portal do Fornecedor</h2>
-                  <p className="text-sm text-muted-foreground mt-2 max-w-sm mx-auto">
-                    Faça login para gerir as suas lojas, stock e realizar vendas via POS aos agricultores.
-                  </p>
 
-                  <ul className="my-6 space-y-2 text-left max-w-xs mx-auto">
-                    {[
-                      "Gestão autónoma de lojas e stock",
-                      "Terminal POS com validação PATEC",
-                      "Faturação fiscal AGT (SAF-T AO)",
-                    ].map((item) => (
-                      <li key={item} className="flex items-start gap-2 text-sm text-muted-foreground">
-                        <CheckCircle2 className="h-4 w-4 text-success flex-shrink-0 mt-0.5" />
-                        <span>{item}</span>
-                      </li>
-                    ))}
-                  </ul>
+                  {!isOnline && (
+                    <div className="flex items-start gap-2 bg-warning/10 text-warning border border-warning/20 rounded-lg px-3 py-2 mb-4 text-xs">
+                      <WifiOff className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                      <span>Sem ligação — o login de fornecedor requer internet.</span>
+                    </div>
+                  )}
 
-                  <div className="space-y-2">
+                  <form onSubmit={handleSupplierLogin} className="space-y-4">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="supplier-email">Email</Label>
+                      <div className="relative">
+                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          id="supplier-email"
+                          type="email"
+                          placeholder="fornecedor@exemplo.ao"
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          className="pl-10 h-11"
+                          maxLength={255}
+                          autoComplete="email"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label htmlFor="supplier-password">Password</Label>
+                      <div className="relative">
+                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          id="supplier-password"
+                          type="password"
+                          placeholder="••••••••"
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          className="pl-10 h-11"
+                          maxLength={128}
+                          autoComplete="current-password"
+                        />
+                      </div>
+                    </div>
+
                     <Button
-                      type="button"
-                      onClick={() => navigate("/fornecedor/login")}
+                      type="submit"
                       className="w-full h-11 font-semibold shadow-md"
+                      disabled={loading || !isOnline}
                       style={{ background: "var(--gradient-primary)" }}
                     >
-                      Entrar como Fornecedor
-                      <ArrowRight className="h-4 w-4" />
+                      {loading ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          A entrar...
+                        </>
+                      ) : (
+                        <>
+                          <LogIn className="h-4 w-4" />
+                          Entrar como Fornecedor
+                        </>
+                      )}
                     </Button>
+                  </form>
+
+                  <div className="mt-3 text-center">
                     <Button
                       type="button"
                       variant="ghost"
                       onClick={() => navigate("/fornecedor/login")}
-                      className="w-full text-sm"
+                      className="text-sm text-muted-foreground hover:text-foreground"
                     >
                       Registar nova empresa
+                      <ArrowRight className="h-3.5 w-3.5 ml-1" />
                     </Button>
                   </div>
 
                   {isOnline && (
-                    <div className="mt-6 pt-4 border-t border-border text-left">
-                      <p className="text-xs font-medium text-muted-foreground mb-2">
-                        Conta de demonstração
-                      </p>
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          setLoading(true);
-                          try {
-                            const { data: sessionData } = await supabase.auth.getSession();
-                            if (sessionData.session) {
-                              const { data, error } = await supabase.functions.invoke("seed-test-supplier");
-                              if (error) throw error;
-                              toast({
-                                title: "Conta de fornecedor pronta",
-                                description: `Email: fornecedor@mosap3.test · Password: teste123`,
-                              });
-                              if (data?.credentials) {
-                                navigate("/fornecedor/login");
-                              }
-                            } else {
-                              toast({
-                                title: "Conta de teste",
-                                description: "Use fornecedor@mosap3.test / teste123 em /fornecedor/login. Se ainda não existir, peça a um admin para a criar.",
-                              });
-                              navigate("/fornecedor/login");
-                            }
-                          } catch (e: any) {
-                            toast({
-                              title: "Não foi possível semear conta",
-                              description: e?.message || "Inicie sessão como admin no Backoffice e tente novamente.",
-                              variant: "destructive",
-                            });
-                          } finally {
-                            setLoading(false);
-                          }
-                        }}
-                        className="w-full flex items-center gap-2 px-3 py-2 rounded-md border border-border hover:bg-muted hover:border-primary/30 transition-colors text-xs"
-                      >
-                        <Store className="h-3.5 w-3.5 text-primary flex-shrink-0" />
-                        <span className="font-medium">Fornecedor Teste</span>
-                        <span className="text-muted-foreground ml-auto truncate">fornecedor@mosap3.test</span>
-                      </button>
-                      <p className="text-[10px] text-muted-foreground mt-2 leading-relaxed">
-                        Cria automaticamente um fornecedor com loja, POS e produtos PATEC (requer admin autenticado na 1ª vez).
-                      </p>
-                    </div>
+                    <Collapsible className="mt-6 pt-4 border-t border-border">
+                      <CollapsibleTrigger className="flex items-center justify-between w-full text-xs text-muted-foreground hover:text-foreground transition-colors group">
+                        <span className="font-medium">Conta de demonstração</span>
+                        <ChevronDown className="h-3.5 w-3.5 group-data-[state=open]:rotate-180 transition-transform" />
+                      </CollapsibleTrigger>
+                      <CollapsibleContent className="mt-3 space-y-2">
+                        <button
+                          type="button"
+                          onClick={() => { setEmail("fornecedor@mosap3.test"); setPassword("teste123"); }}
+                          className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md border border-border hover:bg-muted hover:border-primary/30 transition-colors text-xs text-left"
+                        >
+                          <Store className="h-3.5 w-3.5 text-primary flex-shrink-0" />
+                          <span className="font-medium">Fornecedor Teste</span>
+                          <span className="text-muted-foreground ml-auto truncate">fornecedor@mosap3.test</span>
+                        </button>
+                        <p className="text-[10px] text-muted-foreground leading-relaxed">
+                          Se a conta ainda não existir, peça a um admin para a criar via "Fornecedor Teste" no Backoffice.
+                        </p>
+                      </CollapsibleContent>
+                    </Collapsible>
                   )}
                 </motion.div>
               )}
