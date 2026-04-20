@@ -522,6 +522,30 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
     setLastSaleCode(saleCode);
     setLastSaleId(sale.id);
 
+    // Audit log (best-effort)
+    try {
+      await supabase.from("audit_logs").insert({
+        user_id: user?.id,
+        user_name: user?.email,
+        action: "pos_sale_created",
+        entity_type: "pos_sale",
+        entity_id: sale.id,
+        details: {
+          sale_code: saleCode,
+          supplier_id: selectedSupplierId,
+          farmer_code: farmer.code,
+          farmer_name: farmer.full_name,
+          subtotal: cartSubtotal,
+          iva_total: cartIva,
+          total: cartTotal,
+          items_count: cart.length,
+          payment_method: kioskPayMethod || "unitel_money",
+        },
+      });
+    } catch (e) {
+      console.warn("Audit log failed:", e);
+    }
+
     // Generate sequential invoice number
     let invoiceNumber = "";
     try {
