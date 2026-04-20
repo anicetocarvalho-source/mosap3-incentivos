@@ -171,9 +171,17 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
   }, [cart, farmer, kioskMode, confirmOpen, toggleFullscreen]);
 
   useEffect(() => {
+    if (forcedSupplierId) {
+      supabase.from("suppliers").select("id, name").eq("id", forcedSupplierId)
+        .then(({ data }) => {
+          setSuppliers((data as Supplier[]) || []);
+          setSelectedSupplierId(forcedSupplierId);
+        });
+      return;
+    }
     supabase.from("suppliers").select("id, name").eq("status", "Ativo").order("name")
       .then(({ data }) => setSuppliers((data as Supplier[]) || []));
-  }, []);
+  }, [forcedSupplierId]);
 
   useEffect(() => {
     if (selectedSupplierId) {
