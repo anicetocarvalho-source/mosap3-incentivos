@@ -26,6 +26,7 @@ const MODULE_NAMES = [
   "Registo do Pequeno Produtor",
   "Escolas de Campo",
   "Incentivos",
+  "MOSAP3Pay",
   "Transações",
   "Compras",
   "Parcelas",
