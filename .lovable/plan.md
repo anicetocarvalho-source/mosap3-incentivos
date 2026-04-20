@@ -1,40 +1,38 @@
 
-O utilizador está em `/fornecedor/pos` mas o sidebar do `FornecedorLayout` aponta para uma página POS que provavelmente não tem um botão claro para **abrir o Terminal POS** (modo venda). Verificando: o sidebar tem item `/fornecedor/pos` com label "Terminais POS" — esta é a página de **gestão de terminais** (CRUD de terminais), não o terminal de venda em si.
 
-O terminal de venda real é `Mosap3PayPOS.tsx` em `/mosap3pay/pos` (backoffice). O fornecedor precisa de um equivalente — ou reutilizar o existente — para efectivamente vender.
+## Problema
+
+No sidebar do Portal do Fornecedor o item "Vender (Terminal POS)" aponta para `/fornecedor/pos/venda`, mas o utilizador relata que a opção "Abrir POS" não aparece. Pelos logs de sessão, o utilizador está a clicar em "Terminais POS" (`/fornecedor/pos`) e vê apenas a tabela com o botão de editar — **sem o botão "Abrir POS"** por linha nem o CTA "Abrir Terminal de Venda" no topo, apesar de `FornecedorPOS.tsx` os ter no código.
+
+## Causa provável
+
+O componente renderizado em `/fornecedor/pos` **não é o `FornecedorPOS.tsx`** que foi editado. No `App.tsx`, o import pode estar a apontar para `Mosap3PayPOS` ou outro ficheiro (já que existem dois ficheiros com nomes semelhantes: `src/pages/fornecedor/FornecedorPOS.tsx` e `src/pages/fornecedor/FornecedorPOSVenda.tsx`, e também o backoffice `src/pages/Mosap3PayPOS.tsx`). Precisa confirmar-se que a rota `/fornecedor/pos` está mapeada para `FornecedorPOS` (gestão de terminais com os botões adicionados).
 
 ## Plano
 
-### 1. Adicionar botão "Abrir Terminal de Venda" na página `/fornecedor/pos`
-Na página `FornecedorPOS.tsx` (gestão de terminais), adicionar para cada terminal listado um botão **"Abrir POS"** (ícone Play) que abre o terminal de venda. Também adicionar um botão destacado no topo "Abrir Terminal de Venda" que usa o terminal padrão (primeiro Activo).
+### 1. Verificar e corrigir imports e rotas no `App.tsx`
+Confirmar que:
+- `/fornecedor/pos` → `FornecedorPOS` (de `src/pages/fornecedor/FornecedorPOS.tsx`, gestão de terminais **com** os botões "Abrir POS" e CTA topo)
+- `/fornecedor/pos/venda` → `FornecedorPOSVenda` (wrapper que injecta `supplier.id` no `Mosap3PayPOS`)
 
-### 2. Criar rota dedicada `/fornecedor/pos/venda`
-Reutilizar o componente `Mosap3PayPOS` existente, mas:
-- Forçar o `supplier_id` ao do fornecedor logado (vindo do `useOutletContext`), saltando o seletor de fornecedor.
-- Esconder elementos só-admin se houver.
+Se qualquer um dos dois estiver errado ou em falta, corrigir.
 
-**Abordagem mais simples e segura:** Criar `FornecedorPOSVenda.tsx` como wrapper leve que:
-- Lê `supplier` do contexto.
-- Monta o componente POS com supplier pré-seleccionado (passar via prop ou query param `?supplier=<id>`).
+### 2. Garantir que `FornecedorPOS.tsx` renderiza os CTAs mesmo sem terminais
+O `EmptyState` actual mostra apenas "Criar primeiro terminal". Adicionar também o botão **"Abrir Terminal de Venda"** no header da página de forma sempre visível (já é, segundo o código actual) — confirmar que o build atual está efectivamente servido. Se o cache do Vite estiver a servir versão antiga, forçar refresh através de uma pequena edição não-funcional não é necessário; o rebuild acontece ao editar.
 
-Como `Mosap3PayPOS` actualmente faz auto-discovery do supplier, o caminho mais limpo é refactorizar **apenas o suficiente** para aceitar um `forcedSupplierId` opcional via prop. Se não vier, mantém o comportamento actual (selector). Sem prop nova → zero risco para `/mosap3pay/pos`.
+### 3. Confirmar que o sidebar tem o item "Vender"
+Verificar em `FornecedorLayout.tsx` que `"/fornecedor/pos/venda"` com label "Vender (Terminal POS)" está presente. Pela última edição, deveria estar — mas o utilizador pode não o ver se houver erro de build.
 
-### 3. Adicionar item de menu no sidebar do Fornecedor
-No `FornecedorLayout.tsx`, adicionar entrada **"Vender (Terminal POS)"** com ícone `ShoppingCart` apontando para `/fornecedor/pos/venda`, posicionada entre "Stock" e "Terminais POS".
-
-### 4. Registar a rota no `App.tsx`
-Dentro do bloco `/fornecedor/*` (já com `FornecedorLayout`), adicionar `<Route path="pos/venda" element={<FornecedorPOSVenda />} />`.
-
-### Ficheiros a editar
-- `src/components/fornecedor/FornecedorLayout.tsx` — novo item menu "Vender".
-- `src/pages/fornecedor/FornecedorPOS.tsx` — botão "Abrir POS" por terminal + CTA topo.
-- `src/pages/fornecedor/FornecedorPOSVenda.tsx` — **novo**, wrapper que injecta `supplier.id`.
-- `src/pages/Mosap3PayPOS.tsx` — aceitar prop opcional `forcedSupplierId?: string` (sem alterar comportamento default).
-- `src/App.tsx` — registar rota `pos/venda`.
-
-### Sem alterações
-- Sem mudanças de BD nem RLS (RLS de `pos_sales` já permite supplier inserir as suas próprias vendas).
-- Sem alterações ao backoffice POS existente.
+### Ficheiros a verificar/editar
+- `src/App.tsx` — confirmar os imports e rotas `/fornecedor/pos` e `/fornecedor/pos/venda`.
+- `src/pages/fornecedor/FornecedorPOS.tsx` — confirmar que os botões "Abrir Terminal de Venda" (header) e "Abrir POS" (por linha) estão presentes e a navegar para `/fornecedor/pos/venda`.
+- `src/components/fornecedor/FornecedorLayout.tsx` — confirmar item de menu "Vender (Terminal POS)".
 
 ### Resultado
-O fornecedor terá no menu lateral uma opção clara **"Vender"** que abre o terminal POS já com a sua loja seleccionada, podendo identificar produtor, montar carrinho e processar pagamento — exactamente como no backoffice, mas restrito ao seu próprio catálogo.
+Após correcção, em `/fornecedor/pos` o fornecedor verá:
+- Botão destacado no topo **"Abrir Terminal de Venda"**.
+- Em cada linha da tabela, botão **"Abrir POS"** (ícone Play).
+- No sidebar, item **"Vender (Terminal POS)"** sempre acessível.
+
+Clicar em qualquer um deles abre `/fornecedor/pos/venda` com o terminal de venda pré-configurado para a loja do fornecedor.
+
