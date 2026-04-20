@@ -68,9 +68,13 @@ const patecLabels: Record<number, string> = {
   3: "PATEC 3 — Massambala",
 };
 
-const Mosap3PayPOS = () => {
+interface Mosap3PayPOSProps {
+  forcedSupplierId?: string;
+}
+
+const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-  const [selectedSupplierId, setSelectedSupplierId] = useState<string>("");
+  const [selectedSupplierId, setSelectedSupplierId] = useState<string>(forcedSupplierId || "");
   const [products, setProducts] = useState<Product[]>([]);
   const [farmer, setFarmer] = useState<Farmer | null>(null);
   const [farmerSearch, setFarmerSearch] = useState("");
@@ -167,9 +171,17 @@ const Mosap3PayPOS = () => {
   }, [cart, farmer, kioskMode, confirmOpen, toggleFullscreen]);
 
   useEffect(() => {
+    if (forcedSupplierId) {
+      supabase.from("suppliers").select("id, name").eq("id", forcedSupplierId)
+        .then(({ data }) => {
+          setSuppliers((data as Supplier[]) || []);
+          setSelectedSupplierId(forcedSupplierId);
+        });
+      return;
+    }
     supabase.from("suppliers").select("id, name").eq("status", "Ativo").order("name")
       .then(({ data }) => setSuppliers((data as Supplier[]) || []));
-  }, []);
+  }, [forcedSupplierId]);
 
   useEffect(() => {
     if (selectedSupplierId) {
