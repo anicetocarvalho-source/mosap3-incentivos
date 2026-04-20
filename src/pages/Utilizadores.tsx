@@ -23,6 +23,7 @@ const ROLE_LABELS: Record<AppRole, string> = {
   senior_agronegocio: "Sénior Agronegócio",
   junior_agronegocio: "Júnior Agronegócio",
   tecnico_extensionista: "Técnico Extensionista",
+  fornecedor: "Fornecedor",
 };
 
 const PROVINCES = [
