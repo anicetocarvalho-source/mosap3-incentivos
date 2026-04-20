@@ -16,6 +16,7 @@ const navItems = [
   { to: "/fornecedor", icon: LayoutDashboard, label: "Dashboard" },
   { to: "/fornecedor/produtos", icon: Package, label: "Produtos" },
   { to: "/fornecedor/stock", icon: Warehouse, label: "Stock" },
+  { to: "/fornecedor/pos/venda", icon: ShoppingCart, label: "Vender (Terminal POS)" },
   { to: "/fornecedor/pos", icon: Monitor, label: "Terminais POS" },
   { to: "/fornecedor/vendas", icon: ShoppingCart, label: "Vendas" },
   { to: "/fornecedor/lojas", icon: Store, label: "Lojas" },

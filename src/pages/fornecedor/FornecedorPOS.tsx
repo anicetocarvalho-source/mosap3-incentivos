@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useOutletContext } from "react-router-dom";
+import { useOutletContext, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Monitor, Pencil } from "lucide-react";
+import { Plus, Monitor, Pencil, Play, ShoppingCart } from "lucide-react";
 import { toast } from "sonner";
 import { LoadingState } from "@/components/ui/loading-state";
 import { ErrorState } from "@/components/ui/error-state";
@@ -16,6 +16,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 
 const FornecedorPOS = () => {
   const { supplier } = useOutletContext<{ supplier: { id: string } }>();
+  const navigate = useNavigate();
   const [terminals, setTerminals] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -68,9 +69,14 @@ const FornecedorPOS = () => {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <h1 className="text-xl font-heading font-bold flex items-center gap-2"><Monitor className="h-5 w-5 text-primary" /> Terminais POS</h1>
-        <Button onClick={openNew}><Plus className="h-4 w-4 mr-1" /> Novo Terminal</Button>
+        <div className="flex gap-2">
+          <Button variant="default" onClick={() => navigate("/fornecedor/pos/venda")}>
+            <ShoppingCart className="h-4 w-4 mr-1" /> Abrir Terminal de Venda
+          </Button>
+          <Button variant="outline" onClick={openNew}><Plus className="h-4 w-4 mr-1" /> Novo Terminal</Button>
+        </div>
       </div>
 
       <Card>
@@ -107,7 +113,12 @@ const FornecedorPOS = () => {
                       <TableCell>{t.location || "—"}</TableCell>
                       <TableCell>{t.operator_name || "—"}</TableCell>
                       <TableCell><Badge variant={t.status === "Ativo" ? "default" : "outline"}>{t.status}</Badge></TableCell>
-                      <TableCell><Button variant="ghost" size="sm" onClick={() => openEdit(t)}><Pencil className="h-3 w-3" /></Button></TableCell>
+                      <TableCell className="space-x-1 text-right">
+                        <Button variant="default" size="sm" onClick={() => navigate("/fornecedor/pos/venda")}>
+                          <Play className="h-3 w-3 mr-1" /> Abrir POS
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => openEdit(t)}><Pencil className="h-3 w-3" /></Button>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
