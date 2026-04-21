@@ -700,12 +700,29 @@ const Mosap3PayFacturas = () => {
                         <span>{supplierName(s.supplier_id)}</span>
                         <span>{new Date(s.created_at).toLocaleDateString("pt-AO")}</span>
                       </div>
-                      {nc && (
-                        <Badge variant="outline" className="text-[10px] gap-1">
-                          <AlertTriangle className="h-3 w-3" />
-                          NC {nc.credit_note_number}
-                        </Badge>
-                      )}
+                      <div className="flex items-center justify-between gap-2">
+                        {nc ? (
+                          <Badge variant="outline" className="text-[10px] gap-1">
+                            <AlertTriangle className="h-3 w-3" />
+                            NC {nc.credit_note_number}
+                          </Badge>
+                        ) : (
+                          <span />
+                        )}
+                        {s.payment_status === "pago" && !nc && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 text-[10px] text-destructive border-destructive/40"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openCreditNote(s);
+                            }}
+                          >
+                            <FileText className="h-3 w-3 mr-1" /> Emitir NC
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   );
                 })
