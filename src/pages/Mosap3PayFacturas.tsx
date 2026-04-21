@@ -611,13 +611,13 @@ const Mosap3PayFacturas = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Nº Factura</TableHead>
-                    <TableHead>Data</TableHead>
-                    <TableHead>Produtor</TableHead>
-                    <TableHead>Fornecedor</TableHead>
+                    <SortHeader column="invoice_number">Nº Factura</SortHeader>
+                    <SortHeader column="created_at">Data</SortHeader>
+                    <SortHeader column="farmer_name">Produtor</SortHeader>
+                    <SortHeader column="supplier">Fornecedor</SortHeader>
                     <TableHead className="text-right">Subtotal</TableHead>
                     <TableHead className="text-right">IVA</TableHead>
-                    <TableHead className="text-right">Total</TableHead>
+                    <SortHeader column="total">Total</SortHeader>
                     <TableHead>Estado</TableHead>
                     <TableHead>NC</TableHead>
                     <TableHead className="text-right">Acções</TableHead>
