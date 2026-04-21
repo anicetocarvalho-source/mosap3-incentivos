@@ -1,47 +1,40 @@
 
 ## Problema
 
-No formulário de login do Backoffice (`/auth`), o botão de submit aparece vazio (sem texto "Entrar"). Pela captura de ecrã, vê-se a caixa do botão renderizada mas sem label visível.
+Ao clicar em "Sair" no Portal do Fornecedor, o utilizador é redireccionado para `/fornecedor/login` — uma página antiga de autenticação isolada que já não é o ponto de entrada oficial. O login de fornecedor está agora unificado em `/auth` (com toggle Backoffice/Fornecedor).
 
-## Causa provável
+## Causa
 
-Em `src/pages/Auth.tsx`, o botão de submit do formulário backoffice usa provavelmente um spinner condicional (`loading ? <Loader/> : "Entrar"`) ou tem o texto envolvido por algum elemento que não está a renderizar corretamente. Pode também ser:
-- O texto foi removido acidentalmente numa edição anterior.
-- O `Loader2` está sempre renderizado sem o texto fallback.
-- O conteúdo do botão é apenas um ícone sem `<span>Entrar</span>`.
+Em `src/components/fornecedor/FornecedorLayout.tsx`:
+- `handleLogout()` faz `navigate("/fornecedor/login")` após `signOut()`.
+- O guard de sessão (linha 36) e o caso "conta não associada" (linha 38) também redirecionam para `/fornecedor/login`.
 
-Preciso confirmar lendo `src/pages/Auth.tsx` para identificar a linha exata do botão de submit do backoffice. (Verifico no momento da execução, em modo default.)
+Existem ainda outras referências a `/fornecedor/login` que devem apontar para `/auth`:
+- `src/pages/Auth.tsx` (linha 465): botão "Registar nova empresa" navega para a página antiga.
+- `src/pages/fornecedor/FornecedorAuth.tsx`: usado no `emailRedirectTo` do signup.
 
 ## Solução
 
-Editar `src/pages/Auth.tsx` no bloco do formulário backoffice para garantir que o botão de submit mostra:
-- Estado normal: ícone (LogIn) + texto **"Entrar"**.
-- Estado loading: ícone Loader2 a girar + texto **"A entrar..."**.
+1. **`src/components/fornecedor/FornecedorLayout.tsx`** — substituir os 3 `navigate("/fornecedor/login")` por `navigate("/auth")` (logout, sessão ausente, conta sem fornecedor associado).
 
-Estrutura alvo:
-```tsx
-<Button type="submit" className="w-full" disabled={loading}>
-  {loading ? (
-    <>
-      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-      A entrar...
-    </>
-  ) : (
-    <>
-      <LogIn className="h-4 w-4 mr-2" />
-      Entrar
-    </>
-  )}
-</Button>
-```
+2. **`src/pages/Auth.tsx`** — o botão "Registar nova empresa" continua a apontar para `/fornecedor/login` (que tem o fluxo de registo de 3 passos com lojas). Manter, OU fazer scroll/abrir um diálogo a partir do `/auth`. Decisão: **manter o link para `/fornecedor/login`** porque o fluxo de registo multi-passo ainda vive lá; apenas o logout/guard é que deve voltar a `/auth`.
 
-Aplicar correção equivalente ao botão do formulário Fornecedor caso esteja com o mesmo problema.
+3. **`src/pages/fornecedor/FornecedorAuth.tsx`** — manter como está (continua a servir registo de novas empresas via link explícito). Sem alterações.
+
+### Comportamento final
+- Logout do portal do fornecedor → `/auth` (com toggle no separador Fornecedor pré-selecionado seria ideal, mas requer state; nesta primeira iteração apenas redireciona para `/auth` que abre por defeito no Backoffice — o utilizador clica no toggle "Fornecedor" se quiser voltar a entrar).
+- Sessão expirada / conta não vinculada → `/auth`.
+- "Registar nova empresa" continua a abrir `/fornecedor/login` (fluxo de registo multi-passo).
+
+### Opcional (recomendado)
+Passar `?profile=fornecedor` no `navigate("/auth?profile=fornecedor")` e ler em `Auth.tsx` via `useSearchParams` para pré-selecionar o toggle "Fornecedor" automaticamente após logout. Pequeno ajuste, melhora UX.
 
 ### Ficheiros a editar
-- `src/pages/Auth.tsx` — corrigir conteúdo do(s) botão(ões) de submit.
+- `src/components/fornecedor/FornecedorLayout.tsx` — 3 redirects.
+- `src/pages/Auth.tsx` — ler `?profile=` e definir state inicial do toggle (opcional mas recomendado).
 
 ### Sem alterações
-- Sem mudanças de BD, RLS ou outros componentes.
+- BD, RLS, `FornecedorAuth.tsx`, fluxo de registo.
 
 ### Resultado
-O botão "Entrar" do backoffice volta a mostrar o texto e ícone correctamente, com feedback visual durante o loading.
+Logout do fornecedor passa a voltar para a página de autenticação unificada `/auth`, alinhando com o fluxo actual de login. A página antiga `/fornecedor/login` permanece acessível apenas para registo de novas empresas.
