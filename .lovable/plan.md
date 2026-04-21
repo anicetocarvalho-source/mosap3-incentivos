@@ -1,60 +1,44 @@
 
+## Confirmação
 
-## Objectivo
+Sim — está correcto. As facturas (Série FT) são geradas **automaticamente** a cada venda concluída no Terminal POS, sem qualquer intervenção manual do operador ou do fornecedor.
 
-Disponibilizar uma página de **Facturas (Série FT)** no portal do Fornecedor (`/fornecedor/facturas`), espelhando o que existe no backoffice MOSAP3Pay mas filtrada apenas às vendas do próprio fornecedor, e adicionar um painel de **IVA / Imposto a liquidar** para apoiar a contabilidade.
+## Como funciona o fluxo actual
 
-## Âmbito
+```text
+[POS] Venda confirmada
+   │
+   ├─► next_invoice_number(supplier_id, ano)   ← função SQL (Postgres)
+   │     • Lê/incrementa invoice_sequences
+   │     • Devolve "FT {ano}/{NNNNN}" (sequencial por fornecedor/ano)
+   │
+   ├─► INSERT pos_sales
+   │     • invoice_number = valor devolvido acima
+   │     • subtotal, iva_total, total, payment_status, supplier_id, farmer_*
+   │
+   ├─► INSERT pos_sale_items (linhas com IVA 14%)
+   │
+   ├─► UPDATE supplier_products (stock) + INSERT stock_movements
+   │
+   └─► InvoicePDF + generateFiscalHash + buildQRContent (AGT)
+```
 
-### 1. Nova página `src/pages/fornecedor/FornecedorFacturas.tsx`
-Reutiliza a lógica de `Mosap3PayFacturas.tsx` mas adaptada ao portal do fornecedor:
+## Pontos-chave da geração automática
 
-- **Fonte de dados**: `pos_sales` filtrado por `supplier_id = supplier.id` (obtido via `useOutletContext`) e com `invoice_number IS NOT NULL`. Não permite filtro por fornecedor (não aplicável).
-- **Notas de Crédito**: `credit_notes` filtradas pelo mesmo `supplier_id`, mapeadas por `original_sale_id`.
-- **KPIs no topo (4 cards)**:
-  1. Total de Facturas emitidas
-  2. Receita Total (soma de `total`)
-  3. **IVA a Liquidar** (soma de `iva_total` das facturas pagas, descontando IVA de NC activas) — destaque visual (`accent`/`warning`)
-  4. Notas de Crédito emitidas
-- **Painel "Resumo Fiscal" (novo)**: card dedicado com:
-  - Subtotal (sem IVA)
-  - IVA Total Liquidado (taxa 14%)
-  - Total Facturado (com IVA)
-  - IVA das NC (a deduzir)
-  - **IVA Líquido a Pagar à AGT** (resultado final)
-  - Filtrável por ano e trimestre fiscal (Q1–Q4)
-- **Tabela de facturas** com colunas: Nº Factura, Data, Produtor, Subtotal, IVA, Total, Estado, NC associada, Acções (ver/PDF).
-- **Filtros**: pesquisa (Nº factura, código venda, produtor), ano, trimestre, estado (pago/pendente/cancelado).
-- **Ordenação dinâmica**: Nº Factura, Data, Produtor, Total, IVA.
-- **Paginação**: 15 por página.
-- **Exportação CSV** com coluna de IVA incluída (apoio contabilístico).
-- **Modal de impressão**: reutiliza `InvoicePDF` com `generateFiscalHash` + `buildQRContent`.
+- **Numeração fiscal**: gerada server-side pela função `next_invoice_number` (atómica via `ON CONFLICT`), garantindo sequência única por `supplier_id` + ano e impedindo saltos/duplicados.
+- **Série FT**: formato `FT {ano}/{NNNNN}` (ex.: `FT 2026/00001`), conforme exigido pela AGT Angola.
+- **Conformidade fiscal**: cada venda recebe imediatamente `invoice_number`, hash SHA-256 do documento (`generateFiscalHash`) e QR code AGT (`buildQRContent`) na pré-visualização/impressão.
+- **Visibilidade no portal**: a página `/fornecedor/facturas` lista todos os `pos_sales` com `invoice_number` preenchido do fornecedor autenticado (filtro por `supplier_id` via `useOutletContext` + RLS `Suppliers can view own sales`).
+- **Estados**: `pendente` → `pago` (após confirmação Unitel Money via `pollPaymentStatus`) ou `cancelado`. Apenas as **pagas** entram no cálculo de IVA a liquidar.
+- **Notas de Crédito**: emitidas manualmente a partir de uma factura paga (Série NC, `next_credit_note_number`), e descontadas automaticamente no painel "IVA a liquidar".
 
-### 2. Navegação no portal Fornecedor
-Editar `src/components/fornecedor/FornecedorLayout.tsx`:
-- Adicionar item "Facturas" no `navItems` (ícone `Receipt` do lucide), posicionado **entre** "Vendas" e "Lojas".
+## Onde isto está implementado
 
-### 3. Routing
-Editar `src/App.tsx`:
-- Adicionar `<Route path="facturas" element={<FornecedorFacturas />} />` dentro do bloco `<Route path="/fornecedor" element={<FornecedorLayout />}>`.
+- **Geração**: `src/pages/Mosap3PayPOS.tsx` → função `processSale()` (chama `next_invoice_number` + INSERT em `pos_sales`).
+- **Função SQL**: `next_invoice_number(supplier_id, year)` no Supabase (sequência atómica em `invoice_sequences`).
+- **Listagem fornecedor**: `src/pages/fornecedor/FornecedorFacturas.tsx` (já implementada).
+- **PDF/QR/Hash**: `src/components/InvoicePDF.tsx` (`generateFiscalHash`, `buildQRContent`).
 
-## Detalhes técnicos
+## Conclusão
 
-- **Cálculo do IVA Líquido**:
-  ```
-  IVA_liquido = Σ(iva_total das facturas com payment_status='pago')
-              − Σ(iva_total das NC com status='emitida')
-  ```
-- **RLS já cobre o caso**: `pos_sales` tem policy `Suppliers can view own sales` e `credit_notes` tem `Auth users can view credit notes`. Não são necessárias alterações de schema/RLS/edge functions.
-- **Reaproveitamento**: importar `InvoicePDF`, `generateFiscalHash`, `buildQRContent` de `@/components/InvoicePDF`; importar `LoadingState`, `ErrorState`, `EmptyState`.
-- **Conformidade AGT**: o painel fiscal segue a estrutura do que já existe em `Mosap3PayRelatorios` (secção AGT) mas restrita ao fornecedor.
-
-## Ficheiros
-
-- **Criar**: `src/pages/fornecedor/FornecedorFacturas.tsx`
-- **Editar**: `src/App.tsx`, `src/components/fornecedor/FornecedorLayout.tsx`
-
-## Resultado
-
-O fornecedor passa a ter uma vista fiscal completa das facturas emitidas pelas suas vendas, com cálculo automático do IVA a liquidar à AGT (líquido de notas de crédito), exportação CSV para contabilidade, e impressão/PDF de cada documento — totalmente isolado dos dados de outros fornecedores.
-
+Não há nada a alterar — o comportamento descrito ("facturas geradas de forma automática a cada venda do POS") **já é exactamente o que o sistema faz hoje**. O fornecedor apenas consome essas facturas no portal, sem precisar criá-las.
