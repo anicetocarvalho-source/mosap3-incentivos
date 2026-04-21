@@ -591,11 +591,13 @@ const Mosap3PayFacturas = () => {
                       return (
                         <TableRow key={s.id}>
                           <TableCell className="font-mono text-xs font-semibold text-primary">
-                            <div className="flex items-center gap-1.5">
-                              {nc && <Lock className="h-3 w-3 text-muted-foreground" />}
-                              {s.invoice_number}
-                            </div>
-                            <p className="text-[10px] text-muted-foreground font-normal">{s.sale_code}</p>
+                            <Link to={`/mosap3pay/facturas/${s.id}`} className="hover:underline">
+                              <div className="flex items-center gap-1.5">
+                                {nc && <Lock className="h-3 w-3 text-muted-foreground" />}
+                                {s.invoice_number}
+                              </div>
+                              <p className="text-[10px] text-muted-foreground font-normal">{s.sale_code}</p>
+                            </Link>
                           </TableCell>
                           <TableCell className="text-xs text-muted-foreground">
                             {new Date(s.created_at).toLocaleDateString("pt-AO")}
