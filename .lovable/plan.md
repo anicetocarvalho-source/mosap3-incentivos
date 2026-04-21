@@ -1,38 +1,47 @@
 
-
 ## Problema
 
-No POS do Portal do Fornecedor (`/fornecedor/pos/venda`), a pesquisa de produtores devolve sempre vazio. Causa: a RLS da tabela `farmers` só permite SELECT a quem tenha `has_any_backoffice_role(auth.uid())` (admin, sénior, junior, extensionista, etc). O utilizador fornecedor **não tem role de backoffice**, logo o PostgREST devolve 0 linhas (sem erro) e o POS mostra "Produtor não encontrado".
+No formulário de login do Backoffice (`/auth`), o botão de submit aparece vazio (sem texto "Entrar"). Pela captura de ecrã, vê-se a caixa do botão renderizada mas sem label visível.
+
+## Causa provável
+
+Em `src/pages/Auth.tsx`, o botão de submit do formulário backoffice usa provavelmente um spinner condicional (`loading ? <Loader/> : "Entrar"`) ou tem o texto envolvido por algum elemento que não está a renderizar corretamente. Pode também ser:
+- O texto foi removido acidentalmente numa edição anterior.
+- O `Loader2` está sempre renderizado sem o texto fallback.
+- O conteúdo do botão é apenas um ícone sem `<span>Entrar</span>`.
+
+Preciso confirmar lendo `src/pages/Auth.tsx` para identificar a linha exata do botão de submit do backoffice. (Verifico no momento da execução, em modo default.)
 
 ## Solução
 
-Adicionar uma policy SELECT em `farmers` que permita a fornecedores autenticados (utilizador dono de uma linha em `suppliers`) consultar produtores **apenas com os campos necessários para vender**: identificação, telefone, PATEC, foto, saldo. A pesquisa no POS já só pede esses campos.
+Editar `src/pages/Auth.tsx` no bloco do formulário backoffice para garantir que o botão de submit mostra:
+- Estado normal: ícone (LogIn) + texto **"Entrar"**.
+- Estado loading: ícone Loader2 a girar + texto **"A entrar..."**.
 
-### Migração SQL
-```sql
--- Permitir que fornecedores autenticados consultem produtores (necessário para POS)
-CREATE POLICY "Suppliers can view farmers for POS"
-ON public.farmers
-FOR SELECT
-TO authenticated
-USING (
-  EXISTS (
-    SELECT 1 FROM public.suppliers s
-    WHERE s.user_id = auth.uid()
-  )
-);
+Estrutura alvo:
+```tsx
+<Button type="submit" className="w-full" disabled={loading}>
+  {loading ? (
+    <>
+      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+      A entrar...
+    </>
+  ) : (
+    <>
+      <LogIn className="h-4 w-4 mr-2" />
+      Entrar
+    </>
+  )}
+</Button>
 ```
 
-### Considerações de segurança
-- Só fornecedores autenticados (com registo em `suppliers`) ganham acesso de leitura.
-- Sem acesso a INSERT/UPDATE/DELETE de produtores.
-- Os campos sensíveis (`bi`, `birth_date`, biometrias, fotos de perfil) continuam expostos por essa policy, igual ao que já acontece para staff. Aceitável porque o POS precisa identificar o produtor de forma fidedigna (BI/telefone/nome) e mostrar foto frontal para conferência presencial.
-- Se quiseres restringir mais (ex.: ocultar BI/biometrias), posso depois criar uma view `farmers_pos_public` com colunas mínimas e mover a policy para essa view, mas isso exige refactor do POS.
+Aplicar correção equivalente ao botão do formulário Fornecedor caso esteja com o mesmo problema.
 
 ### Ficheiros a editar
-- Migração SQL nova (criar policy).
-- Sem alterações ao código frontend.
+- `src/pages/Auth.tsx` — corrigir conteúdo do(s) botão(ões) de submit.
+
+### Sem alterações
+- Sem mudanças de BD, RLS ou outros componentes.
 
 ### Resultado
-Após aplicar, ao escrever "Maria" na pesquisa do POS do fornecedor, as sugestões aparecerão e a selecção do produtor passa a funcionar — incluindo carregamento de saldo, PATEC e processamento de venda.
-
+O botão "Entrar" do backoffice volta a mostrar o texto e ícone correctamente, com feedback visual durante o loading.
