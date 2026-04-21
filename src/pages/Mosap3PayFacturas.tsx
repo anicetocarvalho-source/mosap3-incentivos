@@ -13,6 +13,8 @@ import {
   AlertTriangle,
   FileText,
   Loader2,
+  ChevronUp,
+  ChevronDown,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
