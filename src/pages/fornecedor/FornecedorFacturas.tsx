@@ -395,6 +395,39 @@ const FornecedorFacturas = () => {
           </div>
         </CardHeader>
         <CardContent>
+          {/* Cards-resumo do período seleccionado */}
+          <div className="grid gap-3 grid-cols-2 lg:grid-cols-4 mb-3">
+            <div className="rounded-md border bg-card p-3">
+              <div className="flex items-center gap-2 text-muted-foreground text-[11px] uppercase tracking-wide">
+                <FileText className="h-3.5 w-3.5" /> Facturas no período
+              </div>
+              <p className="text-xl font-bold mt-1">{fiscalScope.count}</p>
+              <p className="text-[10px] text-muted-foreground">pagas</p>
+            </div>
+            <div className="rounded-md border bg-card p-3">
+              <div className="flex items-center gap-2 text-muted-foreground text-[11px] uppercase tracking-wide">
+                <TrendingUp className="h-3.5 w-3.5" /> Total Vendas
+              </div>
+              <p className="text-xl font-bold mt-1">{fmt(fiscalScope.totalFacturado)} Kz</p>
+              <p className="text-[10px] text-muted-foreground">com IVA</p>
+            </div>
+            <div className="rounded-md border bg-card p-3">
+              <div className="flex items-center gap-2 text-muted-foreground text-[11px] uppercase tracking-wide">
+                <FileText className="h-3.5 w-3.5" /> Notas de Crédito
+              </div>
+              <p className="text-xl font-bold mt-1">{fiscalScope.ncCount}</p>
+              <p className="text-[10px] text-muted-foreground">activas</p>
+            </div>
+            <div className="rounded-md border border-warning/40 bg-warning/10 p-3">
+              <div className="flex items-center gap-2 text-warning-foreground/80 text-[11px] uppercase tracking-wide">
+                <Wallet className="h-3.5 w-3.5" /> IVA a Liquidar
+              </div>
+              <p className="text-xl font-bold text-warning-foreground mt-1">{fmt(fiscalScope.ivaLiquido)} Kz</p>
+              <p className="text-[10px] text-muted-foreground">líquido</p>
+            </div>
+          </div>
+
+          {/* Detalhe fiscal */}
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
             <div className="space-y-1">
               <p className="text-[11px] text-muted-foreground uppercase tracking-wide">Subtotal (sem IVA)</p>
