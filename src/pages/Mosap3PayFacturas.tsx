@@ -162,7 +162,51 @@ const Mosap3PayFacturas = () => {
     const matchYear = filterYear === "all" || new Date(s.created_at).getFullYear().toString() === filterYear;
     const matchSupplier = filterSupplier === "all" || s.supplier_id === filterSupplier;
     return matchSearch && matchStatus && matchYear && matchSupplier;
+  }).sort((a, b) => {
+    let comparison = 0;
+    switch (sortColumn) {
+      case "invoice_number":
+        comparison = (a.invoice_number || "").localeCompare(b.invoice_number || "");
+        break;
+      case "farmer_name":
+        comparison = a.farmer_name.localeCompare(b.farmer_name);
+        break;
+      case "supplier":
+        comparison = supplierName(a.supplier_id).localeCompare(supplierName(b.supplier_id));
+        break;
+      case "total":
+        comparison = Number(a.total) - Number(b.total);
+        break;
+      case "created_at":
+        comparison = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+        break;
+    }
+    return sortDirection === "asc" ? comparison : -comparison;
   });
+
+  // Sort handler
+  const handleSort = (column: "invoice_number" | "farmer_name" | "supplier" | "total" | "created_at") => {
+    if (sortColumn === column) {
+      setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setSortColumn(column);
+      setSortDirection("asc");
+    }
+  };
+  
+  const SortHeader = ({ column, children }: { column: "invoice_number" | "farmer_name" | "supplier" | "total" | "created_at"; children: React.ReactNode }) => (
+    <TableHead
+      className="cursor-pointer hover:bg-muted/50 transition-colors"
+      onClick={() => handleSort(column)}
+    >
+      <div className="flex items-center gap-1">
+        {children}
+        {sortColumn === column && (
+          sortDirection === "asc" ? <ChevronUp className="h-3 w-3 text-primary" /> : <ChevronDown className="h-3 w-3 text-primary" />
+        )}
+      </div>
+    </TableHead>
+  );
 
   // ---- KPIs (filtered) ----
   const totalCount = filtered.length;
