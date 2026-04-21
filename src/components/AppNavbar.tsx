@@ -28,6 +28,7 @@ import {
   CreditCard,
   Store,
   Monitor,
+  Receipt,
 } from "lucide-react";
 import mosapLogo from "@/assets/mosap3-logo.png";
 import { useAuth } from "@/hooks/useAuth";
@@ -97,6 +98,7 @@ export const navItems: NavItem[] = [
       { label: "Fornecedores", path: "/mosap3pay/fornecedores", icon: Store },
       { label: "Terminal POS", path: "/mosap3pay/pos", icon: Monitor },
       { label: "Vendas", path: "/mosap3pay/vendas", icon: ShoppingCart },
+      { label: "Facturas", path: "/mosap3pay/facturas", icon: Receipt },
       { label: "Notas de Crédito", path: "/mosap3pay/notas-credito", icon: FileText },
       { label: "Stock", path: "/mosap3pay/stock", icon: Package },
       { label: "Relatórios", path: "/mosap3pay/relatorios", icon: BarChart3 },

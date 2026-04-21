@@ -18,6 +18,7 @@ const ROUTE_LABELS: Record<string, string> = {
   escolas: "Escolas de Campo",
   "escolas-campo": "Escolas de Campo",
   "notas-credito": "Notas de Crédito",
+  facturas: "Facturas",
   provincia: "Província",
   ficha: "Ficha",
   parcelas: "Parcelas",
