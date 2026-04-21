@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Outlet, useNavigate, Link, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { LayoutDashboard, Package, Monitor, ShoppingCart, LogOut, Menu, X, Warehouse, Settings, Store } from "lucide-react";
+import { LayoutDashboard, Package, Monitor, ShoppingCart, LogOut, Menu, X, Warehouse, Settings, Store, Receipt } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import mosapLogo from "@/assets/mosap3-logo.png";
 import { toast } from "sonner";
@@ -19,6 +19,7 @@ const navItems = [
   { to: "/fornecedor/pos/venda", icon: ShoppingCart, label: "Vender (Terminal POS)" },
   { to: "/fornecedor/pos", icon: Monitor, label: "Terminais POS" },
   { to: "/fornecedor/vendas", icon: ShoppingCart, label: "Vendas" },
+  { to: "/fornecedor/facturas", icon: Receipt, label: "Facturas" },
   { to: "/fornecedor/lojas", icon: Store, label: "Lojas" },
   { to: "/fornecedor/perfil", icon: Settings, label: "Perfil da Empresa" },
 ];
