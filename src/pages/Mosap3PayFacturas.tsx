@@ -89,7 +89,6 @@ const Mosap3PayFacturas = () => {
         .from("pos_sales")
         .select("*")
         .not("invoice_number", "is", null)
-        .neq("payment_status", "cancelado")
         .order("created_at", { ascending: false });
       if (error) throw error;
       return (data as Sale[]) || [];
