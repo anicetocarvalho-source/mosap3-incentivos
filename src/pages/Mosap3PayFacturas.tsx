@@ -747,6 +747,110 @@ const Mosap3PayFacturas = () => {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Credit Note dialog (pre-filled from invoice) */}
+      <Dialog open={ncOpen} onOpenChange={setNcOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-warning" /> Emitir Nota de Crédito
+            </DialogTitle>
+          </DialogHeader>
+          {ncSale && (
+            <div className="space-y-4">
+              <div className="p-3 bg-muted/50 rounded-lg flex justify-between items-start">
+                <div>
+                  <p className="font-mono font-semibold text-primary text-sm">
+                    {ncSale.invoice_number}
+                  </p>
+                  <p className="text-sm font-medium">{ncSale.farmer_name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {ncSale.farmer_code} • {new Date(ncSale.created_at).toLocaleDateString("pt-AO")}
+                  </p>
+                </div>
+                <p className="text-right text-xs text-muted-foreground">
+                  Total original
+                  <br />
+                  <span className="font-bold text-foreground text-sm">
+                    {Number(ncSale.total).toLocaleString("pt-AO")} Kz
+                  </span>
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Itens a creditar (ajuste quantidades)</Label>
+                {ncItems.map((item) => (
+                  <div key={item.id} className="flex items-center gap-3 p-2 border rounded">
+                    <div className="flex-1">
+                      <p className="text-sm font-medium">{item.product_name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        Max: {item.quantity} × {item.unit_price.toLocaleString("pt-AO")} Kz
+                      </p>
+                    </div>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={item.quantity}
+                      value={ncSelectedQty[item.id] ?? 0}
+                      onChange={(e) =>
+                        setNcSelectedQty((prev) => ({
+                          ...prev,
+                          [item.id]: Math.min(Number(e.target.value), item.quantity),
+                        }))
+                      }
+                      className="w-20 text-center"
+                    />
+                  </div>
+                ))}
+              </div>
+
+              <div className="space-y-2">
+                <Label>Motivo da Nota de Crédito *</Label>
+                <Textarea
+                  placeholder="Ex: Devolução de produto danificado, erro na facturação..."
+                  value={ncReason}
+                  onChange={(e) => setNcReason(e.target.value)}
+                  rows={3}
+                />
+              </div>
+
+              <div className="p-3 bg-destructive/5 border border-destructive/20 rounded-lg space-y-1 text-sm">
+                <div className="flex justify-between">
+                  <span>Subtotal</span>
+                  <span>{ncTotals.sub.toLocaleString("pt-AO", { maximumFractionDigits: 2 })} Kz</span>
+                </div>
+                <div className="flex justify-between text-muted-foreground">
+                  <span>IVA</span>
+                  <span>{ncTotals.iva.toLocaleString("pt-AO", { maximumFractionDigits: 2 })} Kz</span>
+                </div>
+                <Separator />
+                <div className="flex justify-between font-bold text-lg text-destructive">
+                  <span>Total NC</span>
+                  <span>{ncTotals.total.toLocaleString("pt-AO", { maximumFractionDigits: 2 })} Kz</span>
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setNcOpen(false)}>
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={submitCreditNote}
+              disabled={ncSubmitting || !ncSale || !ncReason.trim() || ncTotals.total <= 0}
+              className="gap-2"
+            >
+              {ncSubmitting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <FileText className="h-4 w-4" />
+              )}
+              {ncSubmitting ? "A emitir..." : "Emitir NC"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
