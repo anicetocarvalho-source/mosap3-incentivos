@@ -306,7 +306,7 @@ const FornecedorFacturas = () => {
 
   const fmt = (n: number) => n.toLocaleString("pt-AO", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-  if (loading) return <LoadingState message="A carregar facturas..." />;
+  if (loading) return <LoadingState label="A carregar facturas..." variant="spinner" />;
   if (loadError) return <ErrorState title="Erro ao carregar facturas" description={loadError} onRetry={() => invoicesQuery.refetch()} />;
 
   return (
