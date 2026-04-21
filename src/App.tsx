@@ -90,6 +90,7 @@ const App = () => (
               <Route path="/mosap3pay/pos" element={<Mosap3PayPOS />} />
               <Route path="/mosap3pay/vendas" element={<Mosap3PayVendas />} />
               <Route path="/mosap3pay/relatorios" element={<Mosap3PayRelatorios />} />
+              <Route path="/mosap3pay/facturas" element={<Mosap3PayFacturas />} />
               <Route path="/mosap3pay/notas-credito" element={<Mosap3PayNotasCredito />} />
               <Route path="/mosap3pay/stock" element={<Mosap3PayStock />} />
               <Route path="/mosap3pay/auditoria" element={<Mosap3PayAuditLogs />} />
