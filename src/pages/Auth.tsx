@@ -358,19 +358,19 @@ const Auth = () => {
 
                     <Button
                       type="submit"
-                      className="w-full h-11 font-semibold shadow-md"
+                      className="w-full h-11 font-semibold shadow-md text-primary-foreground"
                       disabled={loading}
                       style={{ background: "var(--gradient-primary)" }}
                     >
                       {loading ? (
                         <>
                           <Loader2 className="h-4 w-4 animate-spin" />
-                          A entrar...
+                          <span>A entrar...</span>
                         </>
                       ) : (
                         <>
                           <LogIn className="h-4 w-4" />
-                          {isOnline ? "Entrar" : "Entrar Offline"}
+                          <span>{isOnline ? "Entrar" : "Entrar Offline"}</span>
                         </>
                       )}
                     </Button>
@@ -465,19 +465,19 @@ const Auth = () => {
 
                     <Button
                       type="submit"
-                      className="w-full h-11 font-semibold shadow-md"
+                      className="w-full h-11 font-semibold shadow-md text-primary-foreground"
                       disabled={loading || !isOnline}
                       style={{ background: "var(--gradient-primary)" }}
                     >
                       {loading ? (
                         <>
                           <Loader2 className="h-4 w-4 animate-spin" />
-                          A entrar...
+                          <span>A entrar...</span>
                         </>
                       ) : (
                         <>
                           <LogIn className="h-4 w-4" />
-                          Entrar como Fornecedor
+                          <span>Entrar como Fornecedor</span>
                         </>
                       )}
                     </Button>
