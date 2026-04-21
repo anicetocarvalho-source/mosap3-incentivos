@@ -13,6 +13,8 @@ import {
   AlertTriangle,
   FileText,
   Loader2,
+  ChevronUp,
+  ChevronDown,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -68,6 +70,11 @@ const Mosap3PayFacturas = () => {
   const [filterYear, setFilterYear] = useState<string>("all");
   const [filterSupplier, setFilterSupplier] = useState<string>("all");
   const [page, setPage] = useState(1);
+  
+  // Sorting state
+  const [sortColumn, setSortColumn] = useState<"invoice_number" | "farmer_name" | "supplier" | "total" | "created_at">("created_at");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+  
   const [invoiceOpen, setInvoiceOpen] = useState(false);
   const [invoiceData, setInvoiceData] = useState<InvoiceData | null>(null);
   const [invoiceHash, setInvoiceHash] = useState("");
@@ -155,7 +162,51 @@ const Mosap3PayFacturas = () => {
     const matchYear = filterYear === "all" || new Date(s.created_at).getFullYear().toString() === filterYear;
     const matchSupplier = filterSupplier === "all" || s.supplier_id === filterSupplier;
     return matchSearch && matchStatus && matchYear && matchSupplier;
+  }).sort((a, b) => {
+    let comparison = 0;
+    switch (sortColumn) {
+      case "invoice_number":
+        comparison = (a.invoice_number || "").localeCompare(b.invoice_number || "");
+        break;
+      case "farmer_name":
+        comparison = a.farmer_name.localeCompare(b.farmer_name);
+        break;
+      case "supplier":
+        comparison = supplierName(a.supplier_id).localeCompare(supplierName(b.supplier_id));
+        break;
+      case "total":
+        comparison = Number(a.total) - Number(b.total);
+        break;
+      case "created_at":
+        comparison = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+        break;
+    }
+    return sortDirection === "asc" ? comparison : -comparison;
   });
+
+  // Sort handler
+  const handleSort = (column: "invoice_number" | "farmer_name" | "supplier" | "total" | "created_at") => {
+    if (sortColumn === column) {
+      setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setSortColumn(column);
+      setSortDirection("asc");
+    }
+  };
+  
+  const SortHeader = ({ column, children }: { column: "invoice_number" | "farmer_name" | "supplier" | "total" | "created_at"; children: React.ReactNode }) => (
+    <TableHead
+      className="cursor-pointer hover:bg-muted/50 transition-colors"
+      onClick={() => handleSort(column)}
+    >
+      <div className="flex items-center gap-1">
+        {children}
+        {sortColumn === column && (
+          sortDirection === "asc" ? <ChevronUp className="h-3 w-3 text-primary" /> : <ChevronDown className="h-3 w-3 text-primary" />
+        )}
+      </div>
+    </TableHead>
+  );
 
   // ---- KPIs (filtered) ----
   const totalCount = filtered.length;
@@ -560,13 +611,13 @@ const Mosap3PayFacturas = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Nº Factura</TableHead>
-                    <TableHead>Data</TableHead>
-                    <TableHead>Produtor</TableHead>
-                    <TableHead>Fornecedor</TableHead>
+                    <SortHeader column="invoice_number">Nº Factura</SortHeader>
+                    <SortHeader column="created_at">Data</SortHeader>
+                    <SortHeader column="farmer_name">Produtor</SortHeader>
+                    <SortHeader column="supplier">Fornecedor</SortHeader>
                     <TableHead className="text-right">Subtotal</TableHead>
                     <TableHead className="text-right">IVA</TableHead>
-                    <TableHead className="text-right">Total</TableHead>
+                    <SortHeader column="total">Total</SortHeader>
                     <TableHead>Estado</TableHead>
                     <TableHead>NC</TableHead>
                     <TableHead className="text-right">Acções</TableHead>
