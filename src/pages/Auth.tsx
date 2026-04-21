@@ -47,7 +47,9 @@ const loginSchema = z.object({
 type Profile = "backoffice" | "fornecedor";
 
 const Auth = () => {
-  const [profile, setProfile] = useState<Profile>("backoffice");
+  const [searchParams] = useSearchParams();
+  const initialProfile: Profile = searchParams.get("profile") === "fornecedor" ? "fornecedor" : "backoffice";
+  const [profile, setProfile] = useState<Profile>(initialProfile);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
