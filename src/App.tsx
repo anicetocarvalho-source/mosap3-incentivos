@@ -35,6 +35,7 @@ import Mosap3PayPOS from "@/pages/Mosap3PayPOS";
 import Mosap3PayVendas from "@/pages/Mosap3PayVendas";
 import Mosap3PayRelatorios from "@/pages/Mosap3PayRelatorios";
 import Mosap3PayNotasCredito from "@/pages/Mosap3PayNotasCredito";
+import Mosap3PayFacturas from "@/pages/Mosap3PayFacturas";
 import Mosap3PayStock from "@/pages/Mosap3PayStock";
 import Mosap3PayAuditLogs from "@/pages/Mosap3PayAuditLogs";
 import Mosap3PayConfiguracoes from "@/pages/Mosap3PayConfiguracoes";
