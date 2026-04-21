@@ -70,6 +70,11 @@ const Mosap3PayFacturas = () => {
   const [filterYear, setFilterYear] = useState<string>("all");
   const [filterSupplier, setFilterSupplier] = useState<string>("all");
   const [page, setPage] = useState(1);
+  
+  // Sorting state
+  const [sortColumn, setSortColumn] = useState<"invoice_number" | "farmer_name" | "supplier" | "total" | "created_at">("created_at");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+  
   const [invoiceOpen, setInvoiceOpen] = useState(false);
   const [invoiceData, setInvoiceData] = useState<InvoiceData | null>(null);
   const [invoiceHash, setInvoiceHash] = useState("");
