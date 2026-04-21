@@ -389,6 +389,19 @@ const Auth = () => {
                       </CollapsibleContent>
                     </Collapsible>
                   )}
+
+                  <div className="mt-4 pt-4 border-t border-border text-center">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => setProfile("fornecedor")}
+                      className="text-sm text-muted-foreground hover:text-primary"
+                    >
+                      <Store className="h-3.5 w-3.5 mr-1.5" />
+                      Voltar ao Portal do Fornecedor
+                      <ArrowRight className="h-3.5 w-3.5 ml-1" />
+                    </Button>
+                  </div>
                 </motion.div>
               ) : (
                 <motion.div
