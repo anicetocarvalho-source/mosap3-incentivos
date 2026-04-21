@@ -208,6 +208,7 @@ const FornecedorFacturas = () => {
   const withNcCount = filtered.filter((i) => ncBySaleId.has(i.id)).length;
 
   // Fiscal panel (independent year/quarter)
+  const round2 = (n: number) => Math.round(n * 100) / 100;
   const fiscalScope = useMemo(() => {
     const matchPeriod = (d: Date) => {
       if (fiscalYear !== "all" && d.getFullYear().toString() !== fiscalYear) return false;
@@ -215,17 +216,17 @@ const FornecedorFacturas = () => {
       return true;
     };
     const periodInvoices = invoices.filter((i) => matchPeriod(new Date(i.created_at)) && i.payment_status === "pago");
-    const subtotal = periodInvoices.reduce((s, i) => s + Number(i.subtotal), 0);
-    const ivaLiquidado = periodInvoices.reduce((s, i) => s + Number(i.iva_total), 0);
-    const totalFacturado = periodInvoices.reduce((s, i) => s + Number(i.total), 0);
+    const subtotal = round2(periodInvoices.reduce((s, i) => s + round2(Number(i.subtotal)), 0));
+    const ivaLiquidado = round2(periodInvoices.reduce((s, i) => s + round2(Number(i.iva_total)), 0));
+    const totalFacturado = round2(periodInvoices.reduce((s, i) => s + round2(Number(i.total)), 0));
     const periodNcs = creditNotes.filter((cn) => {
       if (cn.status !== "emitida" || !cn.original_sale_id) return false;
       const sale = invoices.find((i) => i.id === cn.original_sale_id);
       if (!sale) return false;
       return matchPeriod(new Date(sale.created_at));
     });
-    const ivaNc = periodNcs.reduce((s, cn) => s + Number(cn.iva_total), 0);
-    const ivaLiquido = Math.max(0, ivaLiquidado - ivaNc);
+    const ivaNc = round2(periodNcs.reduce((s, cn) => s + round2(Number(cn.iva_total)), 0));
+    const ivaLiquido = Math.max(0, round2(ivaLiquidado - ivaNc));
     return { subtotal, ivaLiquidado, totalFacturado, ivaNc, ivaLiquido, count: periodInvoices.length, ncCount: periodNcs.length };
   }, [invoices, creditNotes, fiscalYear, fiscalQuarter]);
 
