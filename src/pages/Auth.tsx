@@ -19,6 +19,7 @@ import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { useAuth } from "@/hooks/useAuth";
 import { classifyError } from "@/lib/errorHandling";
 import { cn } from "@/lib/utils";
+import { LoginButton } from "@/components/LoginButton";
 
 const TEST_USERS = [
   { email: "admin@mosap3.test", password: "teste123", label: "Admin", icon: Shield, color: "text-destructive" },
@@ -356,24 +357,10 @@ const Auth = () => {
                       </div>
                     </div>
 
-                    <Button
-                      type="submit"
-                      className="w-full h-11 font-semibold shadow-md text-primary-foreground"
-                      disabled={loading}
-                      style={{ background: "var(--gradient-primary)" }}
-                    >
-                      {loading ? (
-                        <>
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          <span>A entrar...</span>
-                        </>
-                      ) : (
-                        <>
-                          <LogIn className="h-4 w-4" />
-                          <span>{isOnline ? "Entrar" : "Entrar Offline"}</span>
-                        </>
-                      )}
-                    </Button>
+                    <LoginButton
+                      loading={loading}
+                      label={isOnline ? "Entrar" : "Entrar Offline"}
+                    />
                   </form>
 
                   {isOnline && (
@@ -463,24 +450,12 @@ const Auth = () => {
                       </div>
                     </div>
 
-                    <Button
-                      type="submit"
-                      className="w-full h-11 font-semibold shadow-md text-primary-foreground"
-                      disabled={loading || !isOnline}
-                      style={{ background: "var(--gradient-primary)" }}
-                    >
-                      {loading ? (
-                        <>
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          <span>A entrar...</span>
-                        </>
-                      ) : (
-                        <>
-                          <LogIn className="h-4 w-4" />
-                          <span>Entrar como Fornecedor</span>
-                        </>
-                      )}
-                    </Button>
+                    <LoginButton
+                      loading={loading}
+                      disabled={!isOnline}
+                      label="Entrar como Fornecedor"
+                      icon={Store}
+                    />
                   </form>
 
                   <div className="mt-3 text-center">
