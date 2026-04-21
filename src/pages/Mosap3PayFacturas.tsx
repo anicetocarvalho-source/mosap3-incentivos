@@ -649,6 +649,17 @@ const Mosap3PayFacturas = () => {
                               >
                                 <Eye className="h-3 w-3" />
                               </Button>
+                              {s.payment_status === "pago" && !nc && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 text-xs text-destructive hover:text-destructive"
+                                  onClick={() => openCreditNote(s)}
+                                  title="Emitir Nota de Crédito"
+                                >
+                                  <FileText className="h-3 w-3" />
+                                </Button>
+                              )}
                             </div>
                           </TableCell>
                         </TableRow>
