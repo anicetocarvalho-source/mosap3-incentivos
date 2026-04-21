@@ -62,6 +62,7 @@ interface Supplier {
 }
 
 const Mosap3PayFacturas = () => {
+  const { user } = useAuth();
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [filterYear, setFilterYear] = useState<string>("all");
@@ -71,6 +72,14 @@ const Mosap3PayFacturas = () => {
   const [invoiceData, setInvoiceData] = useState<InvoiceData | null>(null);
   const [invoiceHash, setInvoiceHash] = useState("");
   const [invoiceQR, setInvoiceQR] = useState("");
+
+  // Credit Note dialog state
+  const [ncOpen, setNcOpen] = useState(false);
+  const [ncSale, setNcSale] = useState<Sale | null>(null);
+  const [ncItems, setNcItems] = useState<Array<{ id: string; product_name: string; quantity: number; unit_price: number; iva_rate: number }>>([]);
+  const [ncSelectedQty, setNcSelectedQty] = useState<Record<string, number>>({});
+  const [ncReason, setNcReason] = useState("");
+  const [ncSubmitting, setNcSubmitting] = useState(false);
 
   // ---- Queries ----
   const invoicesQuery = useQuery({
