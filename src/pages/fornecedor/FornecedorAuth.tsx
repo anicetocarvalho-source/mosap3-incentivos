@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Loader2, Mail, Lock, UserPlus, LogIn, Store, Plus, Trash2, MapPin, User, ArrowLeft } from "lucide-react";
+import { Loader2, Mail, Lock, UserPlus, LogIn, Store, Plus, Trash2, MapPin, User, ArrowLeft, Info } from "lucide-react";
 import mosapLogo from "@/assets/mosap3-logo.png";
 
 interface StoreForm {
@@ -26,7 +26,7 @@ const emptyStore = (): StoreForm => ({
 });
 
 const FornecedorAuth = () => {
-  const [isLogin, setIsLogin] = useState(true);
+  const [isLogin, setIsLogin] = useState(false);
   const [step, setStep] = useState(1); // 1 = dados empresa, 2 = lojas, 3 = credenciais
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -150,10 +150,25 @@ const FornecedorAuth = () => {
         </div>
 
         <Card className="p-6 shadow-xl">
+          {/* Aviso de rota legada */}
+          <div className="flex items-start gap-2 bg-info/10 border border-info/20 text-info-foreground rounded-lg px-3 py-2.5 mb-4 text-xs">
+            <Info className="h-4 w-4 flex-shrink-0 mt-0.5 text-info" />
+            <div className="space-y-1">
+              <p className="font-medium text-foreground">Esta página destina-se apenas ao registo de novas empresas.</p>
+              <p className="text-muted-foreground">
+                Se já tem conta, faça login em{" "}
+                <button type="button" onClick={() => navigate("/auth?profile=fornecedor")} className="underline font-medium text-primary hover:text-primary/80">
+                  /auth (Portal do Fornecedor)
+                </button>.
+              </p>
+            </div>
+          </div>
+
           {/* Tab toggle */}
           <div className="flex rounded-lg bg-muted p-1 mb-5">
-            <button type="button" onClick={() => { setIsLogin(true); setStep(1); }}
-              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-md text-sm font-medium transition-all ${isLogin ? "bg-card shadow-sm text-foreground" : "text-muted-foreground"}`}>
+            <button type="button" onClick={() => navigate("/auth?profile=fornecedor")}
+              className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-md text-sm font-medium transition-all text-muted-foreground hover:text-foreground"
+              title="O login foi movido para /auth — clique para ir">
               <LogIn className="h-4 w-4" /> Entrar
             </button>
             <button type="button" onClick={() => { setIsLogin(false); setStep(1); }}
