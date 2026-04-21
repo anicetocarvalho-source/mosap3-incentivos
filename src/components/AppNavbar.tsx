@@ -28,6 +28,7 @@ import {
   CreditCard,
   Store,
   Monitor,
+  Receipt,
 } from "lucide-react";
 import mosapLogo from "@/assets/mosap3-logo.png";
 import { useAuth } from "@/hooks/useAuth";
