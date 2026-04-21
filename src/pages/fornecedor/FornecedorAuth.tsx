@@ -26,7 +26,7 @@ const emptyStore = (): StoreForm => ({
 });
 
 const FornecedorAuth = () => {
-  const [isLogin, setIsLogin] = useState(true);
+  const [isLogin, setIsLogin] = useState(false);
   const [step, setStep] = useState(1); // 1 = dados empresa, 2 = lojas, 3 = credenciais
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
