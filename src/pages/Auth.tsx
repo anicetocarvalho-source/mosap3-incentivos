@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
@@ -47,7 +47,9 @@ const loginSchema = z.object({
 type Profile = "backoffice" | "fornecedor";
 
 const Auth = () => {
-  const [profile, setProfile] = useState<Profile>("backoffice");
+  const [searchParams] = useSearchParams();
+  const initialProfile: Profile = searchParams.get("profile") === "fornecedor" ? "fornecedor" : "backoffice";
+  const [profile, setProfile] = useState<Profile>(initialProfile);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
