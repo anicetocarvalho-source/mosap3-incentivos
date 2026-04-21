@@ -512,6 +512,7 @@ const Mosap3PayFacturas = () => {
             <SelectItem value="all">Todos os estados</SelectItem>
             <SelectItem value="pago">Pago</SelectItem>
             <SelectItem value="pendente">Pendente</SelectItem>
+            <SelectItem value="cancelado">Cancelado</SelectItem>
           </SelectContent>
         </Select>
         <Select value={filterYear} onValueChange={setFilterYear}>
