@@ -211,7 +211,166 @@ const Mosap3PayFacturas = () => {
     setInvoiceOpen(true);
   };
 
-  // ---- CSV export ----
+  // ---- Open Credit Note dialog (pre-filled) ----
+  const openCreditNote = async (sale: Sale) => {
+    if (sale.payment_status !== "pago") {
+      toast.error("Só é possível emitir NC para facturas pagas");
+      return;
+    }
+    if (ncBySaleId.has(sale.id)) {
+      toast.error("Esta factura já tem uma Nota de Crédito activa");
+      return;
+    }
+    const { data, error } = await supabase.from("pos_sale_items").select("*").eq("sale_id", sale.id);
+    if (error) {
+      toast.error("Erro ao carregar itens da factura");
+      return;
+    }
+    const items = (data || []) as any[];
+    setNcSale(sale);
+    setNcItems(
+      items.map((i) => ({
+        id: i.id,
+        product_name: i.product_name,
+        quantity: i.quantity,
+        unit_price: Number(i.unit_price),
+        iva_rate: Number(i.iva_rate),
+      })),
+    );
+    const sel: Record<string, number> = {};
+    items.forEach((i) => { sel[i.id] = i.quantity; });
+    setNcSelectedQty(sel);
+    setNcReason("");
+    setNcOpen(true);
+  };
+
+  const ncTotals = useMemo(() => {
+    const items = ncItems.filter((i) => (ncSelectedQty[i.id] || 0) > 0);
+    const sub = items.reduce((s, i) => s + i.unit_price * (ncSelectedQty[i.id] || 0), 0);
+    const iva = items.reduce((s, i) => s + i.unit_price * (ncSelectedQty[i.id] || 0) * (i.iva_rate / 100), 0);
+    return { sub, iva, total: sub + iva };
+  }, [ncItems, ncSelectedQty]);
+
+  const submitCreditNote = async () => {
+    if (!ncSale || !ncReason.trim()) {
+      toast.error("Indique o motivo da Nota de Crédito");
+      return;
+    }
+    const itemsToCredit = ncItems.filter((i) => (ncSelectedQty[i.id] || 0) > 0);
+    if (itemsToCredit.length === 0) {
+      toast.error("Seleccione pelo menos um item para creditar");
+      return;
+    }
+    setNcSubmitting(true);
+    try {
+      let subtotal = 0;
+      let ivaTotal = 0;
+      const cnItems = itemsToCredit.map((item) => {
+        const qty = ncSelectedQty[item.id];
+        const lineNet = item.unit_price * qty;
+        const lineIva = lineNet * (item.iva_rate / 100);
+        subtotal += lineNet;
+        ivaTotal += lineIva;
+        return {
+          product_name: item.product_name,
+          quantity: qty,
+          unit_price: item.unit_price,
+          iva_rate: item.iva_rate,
+          iva_amount: Math.round(lineIva * 100) / 100,
+          line_total: Math.round((lineNet + lineIva) * 100) / 100,
+        };
+      });
+      const total = Math.round((subtotal + ivaTotal) * 100) / 100;
+      const year = new Date().getFullYear();
+      const { data: ncNumber } = await supabase.rpc("next_credit_note_number", {
+        _supplier_id: ncSale.supplier_id,
+        _year: year,
+      });
+      const { data: cn, error } = await supabase
+        .from("credit_notes")
+        .insert({
+          credit_note_number: ncNumber || `NC ${year}/00001`,
+          supplier_id: ncSale.supplier_id,
+          original_sale_id: ncSale.id,
+          farmer_code: ncSale.farmer_code,
+          farmer_name: ncSale.farmer_name,
+          reason: ncReason.trim(),
+          subtotal: Math.round(subtotal * 100) / 100,
+          iva_total: Math.round(ivaTotal * 100) / 100,
+          total,
+          created_by: user?.id,
+        })
+        .select()
+        .single();
+      if (error) throw error;
+
+      await supabase
+        .from("credit_note_items")
+        .insert(cnItems.map((i) => ({ ...i, credit_note_id: cn.id })));
+
+      // Adjust farmer balance
+      const { data: farmerData } = await supabase
+        .from("farmers")
+        .select("saldo_final, total_gasto")
+        .eq("code", ncSale.farmer_code)
+        .maybeSingle();
+      if (farmerData) {
+        const parseCurrency = (v: string | null) =>
+          parseFloat((v || "0").replace(/\s/g, "").replace(",", ".")) || 0;
+        const currentSaldo = parseCurrency(farmerData.saldo_final);
+        const currentGasto = parseCurrency(farmerData.total_gasto);
+        const newSaldo = Math.round((currentSaldo + total) * 100) / 100;
+        const newGasto = Math.round(Math.max(0, currentGasto - total) * 100) / 100;
+        await supabase
+          .from("farmers")
+          .update({
+            saldo_final: newSaldo.toFixed(2).replace(".", ","),
+            total_gasto: newGasto.toFixed(2).replace(".", ","),
+          })
+          .eq("code", ncSale.farmer_code);
+      }
+
+      await supabase.from("audit_logs").insert({
+        user_id: user?.id,
+        user_name: user?.email,
+        action: "credit_note_issued",
+        entity_type: "credit_note",
+        entity_id: cn.id,
+        details: {
+          credit_note_number: cn.credit_note_number,
+          supplier_id: ncSale.supplier_id,
+          original_sale_id: ncSale.id,
+          original_sale_code: ncSale.sale_code,
+          original_invoice_number: ncSale.invoice_number,
+          original_sale_total: Number(ncSale.total),
+          farmer_code: ncSale.farmer_code,
+          farmer_name: ncSale.farmer_name,
+          reason: ncReason.trim(),
+          subtotal: Math.round(subtotal * 100) / 100,
+          iva_total: Math.round(ivaTotal * 100) / 100,
+          total,
+          items_credited: cnItems.map((i) => ({
+            product_name: i.product_name,
+            quantity: i.quantity,
+            unit_price: i.unit_price,
+            line_total: i.line_total,
+          })),
+          balance_adjusted: true,
+          source: "facturas_page",
+        },
+      });
+
+      toast.success(`Nota de Crédito ${cn.credit_note_number} emitida`);
+      setNcOpen(false);
+      setNcSale(null);
+      creditNotesQuery.refetch();
+    } catch (e: any) {
+      toast.error("Erro ao emitir NC: " + (e.message || "desconhecido"));
+    } finally {
+      setNcSubmitting(false);
+    }
+  };
+
   const exportCSV = () => {
     if (filtered.length === 0) {
       toast.error("Sem facturas para exportar");
