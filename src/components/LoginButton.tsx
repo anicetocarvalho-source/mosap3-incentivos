@@ -46,10 +46,18 @@ export const LoginButton = forwardRef<HTMLButtonElement, LoginButtonProps>(
         disabled={disabled || loading}
         className={cn(
           "w-full h-11 font-semibold shadow-md",
-          gradient && "text-primary-foreground",
+          gradient && "bg-primary text-primary-foreground hover:bg-primary/90",
           className,
         )}
-        style={gradient ? { background: "var(--gradient-primary)", ...style } : style}
+        style={
+          gradient
+            ? {
+                backgroundImage:
+                  "var(--gradient-primary, linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.85)))",
+                ...style,
+              }
+            : style
+        }
         aria-busy={loading || undefined}
         aria-label={loading ? safeLoadingLabel : safeLabel}
         {...props}
