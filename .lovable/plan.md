@@ -1,40 +1,86 @@
 
+
 ## Problema
 
-Ao clicar em "Sair" no Portal do Fornecedor, o utilizador é redireccionado para `/fornecedor/login` — uma página antiga de autenticação isolada que já não é o ponto de entrada oficial. O login de fornecedor está agora unificado em `/auth` (com toggle Backoffice/Fornecedor).
-
-## Causa
-
-Em `src/components/fornecedor/FornecedorLayout.tsx`:
-- `handleLogout()` faz `navigate("/fornecedor/login")` após `signOut()`.
-- O guard de sessão (linha 36) e o caso "conta não associada" (linha 38) também redirecionam para `/fornecedor/login`.
-
-Existem ainda outras referências a `/fornecedor/login` que devem apontar para `/auth`:
-- `src/pages/Auth.tsx` (linha 465): botão "Registar nova empresa" navega para a página antiga.
-- `src/pages/fornecedor/FornecedorAuth.tsx`: usado no `emailRedirectTo` do signup.
+No menu **Comercial** do MOSAP3Pay existe a entrada "Notas de Crédito" mas **não existe uma página dedicada a Facturas (Série FT)**. As facturas são geradas implicitamente em cada venda POS (campo `invoice_number` em `pos_sales`) e só podem ser reimpressas a partir do histórico de Vendas. Para conformidade AGT e rastreabilidade, é preciso uma vista canónica de facturas, com a numeração oficial em destaque, filtros, exportação e ligação directa a Notas de Crédito.
 
 ## Solução
 
-1. **`src/components/fornecedor/FornecedorLayout.tsx`** — substituir os 3 `navigate("/fornecedor/login")` por `navigate("/auth")` (logout, sessão ausente, conta sem fornecedor associado).
+Criar uma nova página **Facturas (Série FT)** em `/mosap3pay/facturas`, alimentada pelas vendas existentes (`pos_sales` + `pos_sale_items`), sem alterações de schema — toda a informação fiscal já está persistida.
 
-2. **`src/pages/Auth.tsx`** — o botão "Registar nova empresa" continua a apontar para `/fornecedor/login` (que tem o fluxo de registo de 3 passos com lojas). Manter, OU fazer scroll/abrir um diálogo a partir do `/auth`. Decisão: **manter o link para `/fornecedor/login`** porque o fluxo de registo multi-passo ainda vive lá; apenas o logout/guard é que deve voltar a `/auth`.
+### 1. Nova página `src/pages/Mosap3PayFacturas.tsx`
 
-3. **`src/pages/fornecedor/FornecedorAuth.tsx`** — manter como está (continua a servir registo de novas empresas via link explícito). Sem alterações.
+Estrutura simétrica à de Notas de Crédito:
 
-### Comportamento final
-- Logout do portal do fornecedor → `/auth` (com toggle no separador Fornecedor pré-selecionado seria ideal, mas requer state; nesta primeira iteração apenas redireciona para `/auth` que abre por defeito no Backoffice — o utilizador clica no toggle "Fornecedor" se quiser voltar a entrar).
-- Sessão expirada / conta não vinculada → `/auth`.
-- "Registar nova empresa" continua a abrir `/fornecedor/login` (fluxo de registo multi-passo).
+- **Cabeçalho**: título "Facturas (Série FT)" + descrição "Documentos fiscais emitidos — conformidade AGT".
+- **KPIs (4 cartões)**: Total de Facturas no período, Receita Total (subtotal), IVA Liquidado, Facturas com NC associada.
+- **Filtros**: pesquisa (nº factura / código venda / nome ou código produtor), estado de pagamento (pago/pendente/cancelado), ano, fornecedor (admin).
+- **Tabela**:
+  | Nº Factura | Data | Produtor | Fornecedor | Subtotal | IVA | Total | Estado | NC | Acções |
+  - "Nº Factura" mostra `invoice_number` (FT YYYY/NNNNN) com ícone de cadeado se estiver associada a NC (não pode ser cancelada).
+  - "NC" mostra badge "NC emitida" com link para a NC respectiva quando existe.
+  - Acções: **Ver detalhe**, **Imprimir/PDF** (reutiliza `InvoicePDF`), **Emitir Nota de Crédito** (abre modal pré-preenchido — só quando paga e sem NC activa).
+- **Versão mobile** com cards `divide-y` (padrão do sistema).
+- **Exportação CSV** das facturas filtradas.
+- **Paginação** 15 por página (padrão `Mosap3PayVendas`).
 
-### Opcional (recomendado)
-Passar `?profile=fornecedor` no `navigate("/auth?profile=fornecedor")` e ler em `Auth.tsx` via `useSearchParams` para pré-selecionar o toggle "Fornecedor" automaticamente após logout. Pequeno ajuste, melhora UX.
+### 2. Carregamento de dados
 
-### Ficheiros a editar
-- `src/components/fornecedor/FornecedorLayout.tsx` — 3 redirects.
-- `src/pages/Auth.tsx` — ler `?profile=` e definir state inicial do toggle (opcional mas recomendado).
+Reutilizar o padrão de `Mosap3PayVendas`:
+- Query `pos_sales` filtrando apenas registos com `invoice_number IS NOT NULL` e `payment_status != 'cancelado'`.
+- Query lateral a `credit_notes` para detectar quais facturas têm NC activa (match por `original_sale_id`).
+- Cliques em "Imprimir" usam `generateFiscalHash` + `buildQRContent` (já existentes em `InvoicePDF.tsx`).
+
+### 3. Navegação `src/components/AppNavbar.tsx`
+
+Adicionar a entrada **antes** de "Notas de Crédito" no submenu MOSAP3Pay:
+
+```text
+Dashboard
+Fornecedores
+Terminal POS
+Vendas
+Facturas          ← novo
+Notas de Crédito
+Stock
+Relatórios
+Auditoria
+Configurações
+```
+
+Ícone: `Receipt` (lucide). `AppSidebar.tsx` herda automaticamente porque lê `navItems`.
+
+### 4. Routing `src/App.tsx`
+
+```tsx
+import Mosap3PayFacturas from "@/pages/Mosap3PayFacturas";
+<Route path="/mosap3pay/facturas" element={<Mosap3PayFacturas />} />
+```
+
+### 5. Breadcrumb `src/components/AppTopbar.tsx`
+
+Adicionar mapeamento `facturas: "Facturas"`.
+
+### 6. Diferenças versus página "Vendas" existente
+
+| Aspecto | Vendas (`/vendas`) | Facturas (`/facturas`) |
+|---|---|---|
+| Foco | Transação comercial | Documento fiscal AGT |
+| Identificador principal | `sale_code` | `invoice_number` (Série FT) |
+| Filtra canceladas | não | sim (excluídas por padrão) |
+| Inclui sem `invoice_number` | sim | não |
+| Acção "Emitir NC" | não | sim |
+| Coluna "NC associada" | não | sim |
+| Hash fiscal visível | não | sim (no detalhe) |
 
 ### Sem alterações
-- BD, RLS, `FornecedorAuth.tsx`, fluxo de registo.
+- BD, RLS, edge functions, schema das tabelas (`pos_sales` já tem `invoice_number`, `credit_notes` já tem `original_sale_id`).
+- Página de Vendas mantém-se como vista operacional; Facturas é a vista fiscal.
+
+### Ficheiros a editar/criar
+- **Criar**: `src/pages/Mosap3PayFacturas.tsx`
+- **Editar**: `src/App.tsx`, `src/components/AppNavbar.tsx`, `src/components/AppTopbar.tsx`
 
 ### Resultado
-Logout do fornecedor passa a voltar para a página de autenticação unificada `/auth`, alinhando com o fluxo actual de login. A página antiga `/fornecedor/login` permanece acessível apenas para registo de novas empresas.
+O menu Comercial passa a ter "Facturas" antes de "Notas de Crédito", oferecendo uma vista fiscal completa de todos os documentos da Série FT emitidos pelo MOSAP3Pay, com rastreabilidade ponta a ponta (Venda → Factura → NC) e conformidade AGT.
+
