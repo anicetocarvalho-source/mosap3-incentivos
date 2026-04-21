@@ -11,18 +11,24 @@ import {
   ChevronLeft,
   ChevronRight,
   AlertTriangle,
+  FileText,
+  Loader2,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { InvoicePDF, generateFiscalHash, buildQRContent, type InvoiceData } from "@/components/InvoicePDF";
 import { ErrorState } from "@/components/ui/error-state";
+import { useAuth } from "@/hooks/useAuth";
 
 const PAGE_SIZE = 15;
 
@@ -56,6 +62,7 @@ interface Supplier {
 }
 
 const Mosap3PayFacturas = () => {
+  const { user } = useAuth();
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [filterYear, setFilterYear] = useState<string>("all");
@@ -65,6 +72,14 @@ const Mosap3PayFacturas = () => {
   const [invoiceData, setInvoiceData] = useState<InvoiceData | null>(null);
   const [invoiceHash, setInvoiceHash] = useState("");
   const [invoiceQR, setInvoiceQR] = useState("");
+
+  // Credit Note dialog state
+  const [ncOpen, setNcOpen] = useState(false);
+  const [ncSale, setNcSale] = useState<Sale | null>(null);
+  const [ncItems, setNcItems] = useState<Array<{ id: string; product_name: string; quantity: number; unit_price: number; iva_rate: number }>>([]);
+  const [ncSelectedQty, setNcSelectedQty] = useState<Record<string, number>>({});
+  const [ncReason, setNcReason] = useState("");
+  const [ncSubmitting, setNcSubmitting] = useState(false);
 
   // ---- Queries ----
   const invoicesQuery = useQuery({
@@ -196,7 +211,166 @@ const Mosap3PayFacturas = () => {
     setInvoiceOpen(true);
   };
 
-  // ---- CSV export ----
+  // ---- Open Credit Note dialog (pre-filled) ----
+  const openCreditNote = async (sale: Sale) => {
+    if (sale.payment_status !== "pago") {
+      toast.error("Só é possível emitir NC para facturas pagas");
+      return;
+    }
+    if (ncBySaleId.has(sale.id)) {
+      toast.error("Esta factura já tem uma Nota de Crédito activa");
+      return;
+    }
+    const { data, error } = await supabase.from("pos_sale_items").select("*").eq("sale_id", sale.id);
+    if (error) {
+      toast.error("Erro ao carregar itens da factura");
+      return;
+    }
+    const items = (data || []) as any[];
+    setNcSale(sale);
+    setNcItems(
+      items.map((i) => ({
+        id: i.id,
+        product_name: i.product_name,
+        quantity: i.quantity,
+        unit_price: Number(i.unit_price),
+        iva_rate: Number(i.iva_rate),
+      })),
+    );
+    const sel: Record<string, number> = {};
+    items.forEach((i) => { sel[i.id] = i.quantity; });
+    setNcSelectedQty(sel);
+    setNcReason("");
+    setNcOpen(true);
+  };
+
+  const ncTotals = useMemo(() => {
+    const items = ncItems.filter((i) => (ncSelectedQty[i.id] || 0) > 0);
+    const sub = items.reduce((s, i) => s + i.unit_price * (ncSelectedQty[i.id] || 0), 0);
+    const iva = items.reduce((s, i) => s + i.unit_price * (ncSelectedQty[i.id] || 0) * (i.iva_rate / 100), 0);
+    return { sub, iva, total: sub + iva };
+  }, [ncItems, ncSelectedQty]);
+
+  const submitCreditNote = async () => {
+    if (!ncSale || !ncReason.trim()) {
+      toast.error("Indique o motivo da Nota de Crédito");
+      return;
+    }
+    const itemsToCredit = ncItems.filter((i) => (ncSelectedQty[i.id] || 0) > 0);
+    if (itemsToCredit.length === 0) {
+      toast.error("Seleccione pelo menos um item para creditar");
+      return;
+    }
+    setNcSubmitting(true);
+    try {
+      let subtotal = 0;
+      let ivaTotal = 0;
+      const cnItems = itemsToCredit.map((item) => {
+        const qty = ncSelectedQty[item.id];
+        const lineNet = item.unit_price * qty;
+        const lineIva = lineNet * (item.iva_rate / 100);
+        subtotal += lineNet;
+        ivaTotal += lineIva;
+        return {
+          product_name: item.product_name,
+          quantity: qty,
+          unit_price: item.unit_price,
+          iva_rate: item.iva_rate,
+          iva_amount: Math.round(lineIva * 100) / 100,
+          line_total: Math.round((lineNet + lineIva) * 100) / 100,
+        };
+      });
+      const total = Math.round((subtotal + ivaTotal) * 100) / 100;
+      const year = new Date().getFullYear();
+      const { data: ncNumber } = await supabase.rpc("next_credit_note_number", {
+        _supplier_id: ncSale.supplier_id,
+        _year: year,
+      });
+      const { data: cn, error } = await supabase
+        .from("credit_notes")
+        .insert({
+          credit_note_number: ncNumber || `NC ${year}/00001`,
+          supplier_id: ncSale.supplier_id,
+          original_sale_id: ncSale.id,
+          farmer_code: ncSale.farmer_code,
+          farmer_name: ncSale.farmer_name,
+          reason: ncReason.trim(),
+          subtotal: Math.round(subtotal * 100) / 100,
+          iva_total: Math.round(ivaTotal * 100) / 100,
+          total,
+          created_by: user?.id,
+        })
+        .select()
+        .single();
+      if (error) throw error;
+
+      await supabase
+        .from("credit_note_items")
+        .insert(cnItems.map((i) => ({ ...i, credit_note_id: cn.id })));
+
+      // Adjust farmer balance
+      const { data: farmerData } = await supabase
+        .from("farmers")
+        .select("saldo_final, total_gasto")
+        .eq("code", ncSale.farmer_code)
+        .maybeSingle();
+      if (farmerData) {
+        const parseCurrency = (v: string | null) =>
+          parseFloat((v || "0").replace(/\s/g, "").replace(",", ".")) || 0;
+        const currentSaldo = parseCurrency(farmerData.saldo_final);
+        const currentGasto = parseCurrency(farmerData.total_gasto);
+        const newSaldo = Math.round((currentSaldo + total) * 100) / 100;
+        const newGasto = Math.round(Math.max(0, currentGasto - total) * 100) / 100;
+        await supabase
+          .from("farmers")
+          .update({
+            saldo_final: newSaldo.toFixed(2).replace(".", ","),
+            total_gasto: newGasto.toFixed(2).replace(".", ","),
+          })
+          .eq("code", ncSale.farmer_code);
+      }
+
+      await supabase.from("audit_logs").insert({
+        user_id: user?.id,
+        user_name: user?.email,
+        action: "credit_note_issued",
+        entity_type: "credit_note",
+        entity_id: cn.id,
+        details: {
+          credit_note_number: cn.credit_note_number,
+          supplier_id: ncSale.supplier_id,
+          original_sale_id: ncSale.id,
+          original_sale_code: ncSale.sale_code,
+          original_invoice_number: ncSale.invoice_number,
+          original_sale_total: Number(ncSale.total),
+          farmer_code: ncSale.farmer_code,
+          farmer_name: ncSale.farmer_name,
+          reason: ncReason.trim(),
+          subtotal: Math.round(subtotal * 100) / 100,
+          iva_total: Math.round(ivaTotal * 100) / 100,
+          total,
+          items_credited: cnItems.map((i) => ({
+            product_name: i.product_name,
+            quantity: i.quantity,
+            unit_price: i.unit_price,
+            line_total: i.line_total,
+          })),
+          balance_adjusted: true,
+          source: "facturas_page",
+        },
+      });
+
+      toast.success(`Nota de Crédito ${cn.credit_note_number} emitida`);
+      setNcOpen(false);
+      setNcSale(null);
+      creditNotesQuery.refetch();
+    } catch (e: any) {
+      toast.error("Erro ao emitir NC: " + (e.message || "desconhecido"));
+    } finally {
+      setNcSubmitting(false);
+    }
+  };
+
   const exportCSV = () => {
     if (filtered.length === 0) {
       toast.error("Sem facturas para exportar");
@@ -475,6 +649,17 @@ const Mosap3PayFacturas = () => {
                               >
                                 <Eye className="h-3 w-3" />
                               </Button>
+                              {s.payment_status === "pago" && !nc && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 text-xs text-destructive hover:text-destructive"
+                                  onClick={() => openCreditNote(s)}
+                                  title="Emitir Nota de Crédito"
+                                >
+                                  <FileText className="h-3 w-3" />
+                                </Button>
+                              )}
                             </div>
                           </TableCell>
                         </TableRow>
@@ -515,12 +700,29 @@ const Mosap3PayFacturas = () => {
                         <span>{supplierName(s.supplier_id)}</span>
                         <span>{new Date(s.created_at).toLocaleDateString("pt-AO")}</span>
                       </div>
-                      {nc && (
-                        <Badge variant="outline" className="text-[10px] gap-1">
-                          <AlertTriangle className="h-3 w-3" />
-                          NC {nc.credit_note_number}
-                        </Badge>
-                      )}
+                      <div className="flex items-center justify-between gap-2">
+                        {nc ? (
+                          <Badge variant="outline" className="text-[10px] gap-1">
+                            <AlertTriangle className="h-3 w-3" />
+                            NC {nc.credit_note_number}
+                          </Badge>
+                        ) : (
+                          <span />
+                        )}
+                        {s.payment_status === "pago" && !nc && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 text-[10px] text-destructive border-destructive/40"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openCreditNote(s);
+                            }}
+                          >
+                            <FileText className="h-3 w-3 mr-1" /> Emitir NC
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   );
                 })
@@ -543,6 +745,110 @@ const Mosap3PayFacturas = () => {
           {invoiceData && (
             <InvoicePDF data={invoiceData} hash={invoiceHash} qrContent={invoiceQR} />
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Credit Note dialog (pre-filled from invoice) */}
+      <Dialog open={ncOpen} onOpenChange={setNcOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-warning" /> Emitir Nota de Crédito
+            </DialogTitle>
+          </DialogHeader>
+          {ncSale && (
+            <div className="space-y-4">
+              <div className="p-3 bg-muted/50 rounded-lg flex justify-between items-start">
+                <div>
+                  <p className="font-mono font-semibold text-primary text-sm">
+                    {ncSale.invoice_number}
+                  </p>
+                  <p className="text-sm font-medium">{ncSale.farmer_name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {ncSale.farmer_code} • {new Date(ncSale.created_at).toLocaleDateString("pt-AO")}
+                  </p>
+                </div>
+                <p className="text-right text-xs text-muted-foreground">
+                  Total original
+                  <br />
+                  <span className="font-bold text-foreground text-sm">
+                    {Number(ncSale.total).toLocaleString("pt-AO")} Kz
+                  </span>
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Itens a creditar (ajuste quantidades)</Label>
+                {ncItems.map((item) => (
+                  <div key={item.id} className="flex items-center gap-3 p-2 border rounded">
+                    <div className="flex-1">
+                      <p className="text-sm font-medium">{item.product_name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        Max: {item.quantity} × {item.unit_price.toLocaleString("pt-AO")} Kz
+                      </p>
+                    </div>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={item.quantity}
+                      value={ncSelectedQty[item.id] ?? 0}
+                      onChange={(e) =>
+                        setNcSelectedQty((prev) => ({
+                          ...prev,
+                          [item.id]: Math.min(Number(e.target.value), item.quantity),
+                        }))
+                      }
+                      className="w-20 text-center"
+                    />
+                  </div>
+                ))}
+              </div>
+
+              <div className="space-y-2">
+                <Label>Motivo da Nota de Crédito *</Label>
+                <Textarea
+                  placeholder="Ex: Devolução de produto danificado, erro na facturação..."
+                  value={ncReason}
+                  onChange={(e) => setNcReason(e.target.value)}
+                  rows={3}
+                />
+              </div>
+
+              <div className="p-3 bg-destructive/5 border border-destructive/20 rounded-lg space-y-1 text-sm">
+                <div className="flex justify-between">
+                  <span>Subtotal</span>
+                  <span>{ncTotals.sub.toLocaleString("pt-AO", { maximumFractionDigits: 2 })} Kz</span>
+                </div>
+                <div className="flex justify-between text-muted-foreground">
+                  <span>IVA</span>
+                  <span>{ncTotals.iva.toLocaleString("pt-AO", { maximumFractionDigits: 2 })} Kz</span>
+                </div>
+                <Separator />
+                <div className="flex justify-between font-bold text-lg text-destructive">
+                  <span>Total NC</span>
+                  <span>{ncTotals.total.toLocaleString("pt-AO", { maximumFractionDigits: 2 })} Kz</span>
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setNcOpen(false)}>
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={submitCreditNote}
+              disabled={ncSubmitting || !ncSale || !ncReason.trim() || ncTotals.total <= 0}
+              className="gap-2"
+            >
+              {ncSubmitting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <FileText className="h-4 w-4" />
+              )}
+              {ncSubmitting ? "A emitir..." : "Emitir NC"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
