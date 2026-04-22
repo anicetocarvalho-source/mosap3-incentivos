@@ -130,6 +130,7 @@ const Incentivos = () => {
           <p className="text-muted-foreground text-sm mt-1">Distribuição e acompanhamento de incentivos via Unitel Money</p>
         </div>
         <div className="flex items-center gap-2">
+          <ImportValoresRecebidosDialog />
           <BatchDistributionDialog />
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
