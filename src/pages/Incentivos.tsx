@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import BatchDistributionDialog from "@/components/incentivos/BatchDistributionDialog";
+import ImportValoresRecebidosDialog from "@/components/incentivos/ImportValoresRecebidosDialog";
 import { Plus, Search, Gift, Clock, CheckCircle2, XCircle, ChevronLeft, ChevronRight, TrendingUp, Building2, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
