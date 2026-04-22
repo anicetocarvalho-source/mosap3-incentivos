@@ -1639,6 +1639,10 @@ export type Database = {
         Returns: undefined
       }
       parse_ptao_numeric: { Args: { _s: string }; Returns: number }
+      recalc_farmer_totals: {
+        Args: { _farmer_code: string }
+        Returns: undefined
+      }
     }
     Enums: {
       app_role:
