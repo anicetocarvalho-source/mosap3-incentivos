@@ -1639,6 +1639,7 @@ export type Database = {
         Returns: undefined
       }
       parse_ptao_numeric: { Args: { _s: string }; Returns: number }
+      recalc_all_farmer_totals: { Args: never; Returns: number }
       recalc_farmer_totals: {
         Args: { _farmer_code: string }
         Returns: undefined
