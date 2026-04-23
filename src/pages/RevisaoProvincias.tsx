@@ -539,6 +539,10 @@ const RevisaoProvincias = () => {
         .is("linked_farmer_code", null);
 
       let orphansForProvince: Orphan[] = (allOrphans ?? []) as Orphan[];
+      // Stats de normalização aplicada aos órfãos antes do filtro
+      const orphanPhoneStats = emptyPhoneStats();
+      for (const o of orphansForProvince) accumulatePhone(orphanPhoneStats, normalizePhoneDetailed(o.phone));
+
       // If user uploaded CSVs, restrict orphans to phones appearing in those uploads
       if (filesForDiff.length > 0) {
         const allCsvPhones = new Set<string>();
@@ -554,6 +558,21 @@ const RevisaoProvincias = () => {
       }
       // Remove orphans that actually match a known farmer phone
       orphansForProvince = orphansForProvince.filter((o) => !farmerPhoneIndex.has(normalizePhone(o.phone)));
+
+      // Agregar stats de TODOS os CSVs carregados num único bloco
+      const csvPhoneStats = emptyPhoneStats();
+      for (const c of uploadedCsvs) {
+        const s = c.phoneStats;
+        csvPhoneStats.total += s.total;
+        csvPhoneStats.valid += s.valid;
+        csvPhoneStats.changed += s.changed;
+        csvPhoneStats.stripped244 += s.stripped244;
+        csvPhoneStats.strippedLeadingZero += s.strippedLeadingZero;
+        csvPhoneStats.paddedOrTrimmed += s.paddedOrTrimmed;
+        csvPhoneStats.invalidPrefix += s.invalidPrefix;
+        csvPhoneStats.tooShort += s.tooShort;
+        csvPhoneStats.empty += s.empty;
+      }
 
       const topOrphans = [...orphansForProvince].sort((a, b) => b.amount - a.amount).slice(0, 100);
       const orphanCount = orphansForProvince.length;
