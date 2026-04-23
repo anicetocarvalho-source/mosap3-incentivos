@@ -1111,6 +1111,9 @@ export type Database = {
       }
       province_reviews: {
         Row: {
+          applied_at: string | null
+          applied_by: string | null
+          applied_summary: Json | null
           confirmed_duplicates: string[]
           created_at: string
           csv_file_names: string[]
@@ -1131,6 +1134,9 @@ export type Database = {
           total_orphan_amount: number
         }
         Insert: {
+          applied_at?: string | null
+          applied_by?: string | null
+          applied_summary?: Json | null
           confirmed_duplicates?: string[]
           created_at?: string
           csv_file_names?: string[]
@@ -1151,6 +1157,9 @@ export type Database = {
           total_orphan_amount?: number
         }
         Update: {
+          applied_at?: string | null
+          applied_by?: string | null
+          applied_summary?: Json | null
           confirmed_duplicates?: string[]
           created_at?: string
           csv_file_names?: string[]
@@ -1787,6 +1796,11 @@ export type Database = {
       recalc_all_farmer_totals: { Args: never; Returns: number }
       recalc_farmer_totals: {
         Args: { _farmer_code: string }
+        Returns: undefined
+      }
+      recalc_school_farmer_counts: { Args: never; Returns: number }
+      recalc_school_for_name: {
+        Args: { _province_name: string; _school_name: string }
         Returns: undefined
       }
       test_parse_ptao_numeric: {

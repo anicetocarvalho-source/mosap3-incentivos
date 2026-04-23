@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { Progress } from "@/components/ui/progress";
 import PageHeader from "@/components/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -37,6 +39,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   AlertTriangle,
   CheckCircle2,
+  Database,
   Download,
   FileSpreadsheet,
   History,
@@ -430,6 +433,8 @@ type FullReview = {
 /* ───────────────────────── page ───────────────────────── */
 
 const RevisaoProvincias = () => {
+  const { hasRole, isAdmin } = useAuth();
+  const canApply = isAdmin || hasRole("gestor_incentivos");
   const [provinces, setProvinces] = useState<string[]>([]);
   const [province, setProvince] = useState<string>("Cuando Cubango");
   const [running, setRunning] = useState(false);
@@ -442,6 +447,13 @@ const RevisaoProvincias = () => {
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [confirmText, setConfirmText] = useState("");
   const [writeUnlocked, setWriteUnlocked] = useState(false);
+  // Apply-to-DB state
+  const [currentReviewId, setCurrentReviewId] = useState<string | null>(null);
+  const [currentReviewAppliedAt, setCurrentReviewAppliedAt] = useState<string | null>(null);
+  const [applyDialogOpen, setApplyDialogOpen] = useState(false);
+  const [applyConfirmText, setApplyConfirmText] = useState("");
+  const [applying, setApplying] = useState(false);
+  const [applyProgress, setApplyProgress] = useState({ done: 0, total: 0 });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   /* History (saved reviews) */
@@ -462,6 +474,9 @@ const RevisaoProvincias = () => {
     phones_normalized: number;
     notes: string | null;
     payload: any;
+    applied_at: string | null;
+    applied_by: string | null;
+    applied_summary: any;
   };
   const [historyOpen, setHistoryOpen] = useState(false);
   const [history, setHistory] = useState<SavedReviewRow[]>([]);
@@ -511,7 +526,7 @@ const RevisaoProvincias = () => {
         (s, r: any) => s + (r.csvAmount ?? r.amountCsv ?? 0),
         0,
       );
-      const { error } = await supabase.from("province_reviews").insert({
+      const { data: inserted, error } = await supabase.from("province_reviews").insert({
         province: review.province,
         generated_at: review.generatedAt,
         generated_by: userId,
@@ -528,8 +543,10 @@ const RevisaoProvincias = () => {
         phones_normalized: phonesNormalized,
         notes: saveNotes.trim() || null,
         payload: review as any,
-      });
+      }).select("id").single();
       if (error) throw error;
+      setCurrentReviewId(inserted?.id ?? null);
+      setCurrentReviewAppliedAt(null);
       toast.success("Revisão guardada no histórico");
       setSaveDialogOpen(false);
       setSaveNotes("");
@@ -552,6 +569,8 @@ const RevisaoProvincias = () => {
       setUploadedCsvs(restored.uploadedFiles ?? []);
       setConfirmedDuplicates(new Set(row.confirmed_duplicates ?? []));
       setAppliedDuplicateDecisions(new Set(row.confirmed_duplicates ?? []));
+      setCurrentReviewId(row.id);
+      setCurrentReviewAppliedAt(row.applied_at ?? null);
       setHistoryOpen(false);
       toast.success(
         `Revisão de ${restored.province} reaberta (${new Date(row.generated_at).toLocaleString("pt-PT")})`,
@@ -688,6 +707,8 @@ const RevisaoProvincias = () => {
     setRunning(true);
     setReview(null);
     setWriteUnlocked(false);
+    setCurrentReviewId(null);
+    setCurrentReviewAppliedAt(null);
     try {
       // 1. Load farmers (paginated)
       setProgress(`A carregar agricultores de ${province}…`);
@@ -988,6 +1009,174 @@ const RevisaoProvincias = () => {
     toast.success("Pré-validação aprovada. Escrita desbloqueada (aguarda endpoint de importação).");
   };
 
+  /* ─────────── Aplicar valores Unitel à BD ─────────── */
+  const applyExpected = "APLICAR";
+  const canApplyConfirm = applyConfirmText.trim().toUpperCase() === applyExpected;
+
+  const applyToDb = async () => {
+    if (!review) return;
+    if (!canApply) {
+      toast.error("Sem permissão para aplicar valores na BD.");
+      return;
+    }
+    if (!currentReviewId) {
+      toast.error("Guarde a revisão antes de aplicar.");
+      return;
+    }
+    if (currentReviewAppliedAt) {
+      toast.error("Esta revisão já foi aplicada anteriormente.");
+      return;
+    }
+
+    setApplying(true);
+    try {
+      // 1) Reconstruir mapa fone→agricultor para a província
+      setApplyProgress({ done: 0, total: 0 });
+      toast.info("A carregar agricultores da província…");
+      const farmers: { code: string; phone: string | null; valor_recebido: string | null }[] = [];
+      const pageSize = 1000;
+      let from = 0;
+      while (true) {
+        const { data, error } = await supabase
+          .from("farmers")
+          .select("code, phone, valor_recebido")
+          .eq("province", review.province)
+          .range(from, from + pageSize - 1);
+        if (error) throw error;
+        if (!data || data.length === 0) break;
+        farmers.push(...data);
+        if (data.length < pageSize) break;
+        from += pageSize;
+      }
+      const phoneToFarmer = new Map<string, { code: string; valor_recebido: string | null }>();
+      const codeToFarmer = new Map<string, { valor_recebido: string | null }>();
+      for (const f of farmers) {
+        codeToFarmer.set(f.code, { valor_recebido: f.valor_recebido });
+        const np = normalizePhone(f.phone);
+        if (np) phoneToFarmer.set(np, { code: f.code, valor_recebido: f.valor_recebido });
+      }
+
+      // 2) Agregar valores por agricultor (somando todos os CSVs incluídos)
+      const filesIncluded = review.uploadedFiles.filter((c) => {
+        const isFlaggedDup = review.duplicateChecks.some(
+          (d) => d.fileB.fileName === c.fileName && d.isDuplicate,
+        );
+        return !isFlaggedDup || confirmedDuplicates.has(c.fileName);
+      });
+
+      const farmerCredits = new Map<string, number>();
+      const orphanAmounts = new Map<string, number>();
+      let matchedAmount = 0;
+      let orphanAmount = 0;
+
+      for (const c of filesIncluded) {
+        for (const r of c.successRows) {
+          const match = phoneToFarmer.get(r.phone);
+          if (match) {
+            farmerCredits.set(match.code, (farmerCredits.get(match.code) ?? 0) + r.amount);
+            matchedAmount += r.amount;
+          } else {
+            orphanAmounts.set(r.phone, (orphanAmounts.get(r.phone) ?? 0) + r.amount);
+            orphanAmount += r.amount;
+          }
+        }
+      }
+
+      const farmerEntries = Array.from(farmerCredits.entries());
+      setApplyProgress({ done: 0, total: farmerEntries.length });
+
+      // 3) Atualizar valor_recebido em chunks de 50
+      const formatPtao = (n: number): string => {
+        const sign = n < 0 ? "-" : "";
+        const abs = Math.abs(n);
+        return sign + abs.toLocaleString("pt-PT", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      };
+
+      const chunkSize = 50;
+      let okCount = 0;
+      let failCount = 0;
+      const failed: string[] = [];
+
+      for (let i = 0; i < farmerEntries.length; i += chunkSize) {
+        const slice = farmerEntries.slice(i, i + chunkSize);
+        await Promise.all(
+          slice.map(async ([code, credit]) => {
+            const cur = codeToFarmer.get(code);
+            const currentVal = parsePtao(cur?.valor_recebido ?? "0");
+            const newVal = currentVal + credit;
+            const { error } = await supabase
+              .from("farmers")
+              .update({ valor_recebido: formatPtao(newVal) })
+              .eq("code", code);
+            if (error) {
+              failCount += 1;
+              failed.push(`${code}: ${error.message}`);
+            } else {
+              okCount += 1;
+            }
+          }),
+        );
+        setApplyProgress({ done: Math.min(i + chunkSize, farmerEntries.length), total: farmerEntries.length });
+      }
+
+      // 4) Inserir telefones órfãos
+      let orphansInserted = 0;
+      if (orphanAmounts.size > 0) {
+        const orphanArray = Array.from(orphanAmounts.entries()).map(([phone, amount]) => ({
+          phone,
+          amount,
+        }));
+        const { data: orphanResult, error: orphanErr } = await (supabase.rpc as any)(
+          "bulk_insert_orphan_phones",
+          { _data: orphanArray },
+        );
+        if (orphanErr) {
+          toast.warning(`Órfãos: ${orphanErr.message}`);
+        } else {
+          orphansInserted = (orphanResult as number) ?? orphanArray.length;
+        }
+      }
+
+      // 5) Marcar revisão como aplicada
+      const summary = {
+        files_included: filesIncluded.map((f) => f.fileName),
+        farmers_updated: okCount,
+        farmers_failed: failCount,
+        matched_amount: matchedAmount,
+        orphans_inserted: orphansInserted,
+        orphans_amount: orphanAmount,
+        failed_codes: failed.slice(0, 20),
+      };
+      const { data: u } = await supabase.auth.getUser();
+      const appliedAtIso = new Date().toISOString();
+      const { error: markErr } = await supabase
+        .from("province_reviews")
+        .update({
+          applied_at: appliedAtIso,
+          applied_by: u?.user?.id ?? null,
+          applied_summary: summary,
+        })
+        .eq("id", currentReviewId);
+      if (markErr) {
+        toast.warning(`Aplicado, mas falha a marcar revisão: ${markErr.message}`);
+      } else {
+        setCurrentReviewAppliedAt(appliedAtIso);
+      }
+
+      setApplyDialogOpen(false);
+      setApplyConfirmText("");
+      toast.success(
+        `Aplicado: ${okCount} agricultores creditados (${fmt(matchedAmount)} Kz), ${orphansInserted} órfãos guardados${failCount > 0 ? `, ${failCount} falhas` : ""}.`,
+        { duration: 10000 },
+      );
+    } catch (e: any) {
+      toast.error(`Falha na aplicação: ${e?.message ?? e}`);
+    } finally {
+      setApplying(false);
+      setApplyProgress({ done: 0, total: 0 });
+    }
+  };
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -1131,6 +1320,23 @@ const RevisaoProvincias = () => {
                   <Save className="h-4 w-4" />
                   Guardar revisão
                 </Button>
+                {canApply && (
+                  <Button
+                    variant="destructive"
+                    onClick={() => setApplyDialogOpen(true)}
+                    disabled={applying || !currentReviewId || !!currentReviewAppliedAt}
+                    title={
+                      !currentReviewId
+                        ? "Guarde a revisão primeiro"
+                        : currentReviewAppliedAt
+                          ? "Esta revisão já foi aplicada"
+                          : "Aplicar valores Unitel à BD"
+                    }
+                  >
+                    {applying ? <Loader2 className="h-4 w-4 animate-spin" /> : <Database className="h-4 w-4" />}
+                    {currentReviewAppliedAt ? "Já aplicada" : "Aplicar valores na BD"}
+                  </Button>
+                )}
               </>
             )}
             <Button
@@ -1638,7 +1844,67 @@ const RevisaoProvincias = () => {
         </>
       )}
 
-      {/* Dialog de confirmação final */}
+      {/* Dialog: Aplicar valores Unitel à BD */}
+      <AlertDialog open={applyDialogOpen} onOpenChange={(open) => { if (!applying) setApplyDialogOpen(open); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Database className="h-5 w-5 text-destructive" />
+              Aplicar valores Unitel na BD
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3 text-sm">
+                <p>
+                  Esta ação é <strong>irreversível</strong>. Vai somar os valores dos CSVs incluídos ao
+                  <code className="mx-1 font-mono text-xs">valor_recebido</code>
+                  de cada agricultor correspondente em <strong>{review?.province}</strong>, e gravar telefones sem match
+                  como órfãos.
+                </p>
+                {validationSummary && (
+                  <div className="rounded-md border border-border bg-muted/30 p-3 text-xs space-y-1">
+                    <p>• Agricultores a creditar: <b>{validationSummary.totalMatched}</b> ({fmt(validationSummary.totalMatchedAmount)} Kz)</p>
+                    <p>• Telefones órfãos a guardar: <b>{validationSummary.totalOrphans}</b> ({fmt(validationSummary.totalOrphansAmount)} Kz)</p>
+                    <p>• Ficheiros incluídos: {validationSummary.filesIncluded}{validationSummary.filesExcluded > 0 ? ` (${validationSummary.filesExcluded} excluídos como duplicados)` : ""}</p>
+                  </div>
+                )}
+                {applying && applyProgress.total > 0 && (
+                  <div className="space-y-1">
+                    <Progress value={(applyProgress.done / applyProgress.total) * 100} />
+                    <p className="text-[11px] text-muted-foreground text-center">
+                      {applyProgress.done} / {applyProgress.total} agricultores
+                    </p>
+                  </div>
+                )}
+                <div className="space-y-1.5">
+                  <Label htmlFor="apply-input" className="text-xs">
+                    Escreva <strong className="font-mono">{applyExpected}</strong> para confirmar:
+                  </Label>
+                  <Input
+                    id="apply-input"
+                    value={applyConfirmText}
+                    onChange={(e) => setApplyConfirmText(e.target.value)}
+                    placeholder={applyExpected}
+                    autoComplete="off"
+                    disabled={applying}
+                  />
+                </div>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={applying} onClick={() => setApplyConfirmText("")}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); applyToDb(); }}
+              disabled={!canApplyConfirm || applying}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {applying ? <Loader2 className="h-4 w-4 animate-spin" /> : <Database className="h-4 w-4" />}
+              Aplicar agora
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <AlertDialog open={confirmDialogOpen} onOpenChange={setConfirmDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
