@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Plus, Search, Download, Eye, Edit, Package, ChevronLeft, ChevronRight, Trash2, RotateCcw, MoreHorizontal } from "lucide-react";
+import { Plus, Search, Download, Eye, Edit, Package, ChevronLeft, ChevronRight, Trash2, RotateCcw, MoreHorizontal, Wallet } from "lucide-react";
 import FarmerAvatar from "@/components/FarmerAvatar";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import FarmerRegistrationForm from "@/components/FarmerRegistrationForm";
+import FarmerFinancialSummaryDialog from "@/components/FarmerFinancialSummaryDialog";
 import BulkImportDialog from "@/components/agricultores/BulkImportDialog";
 import { useFarmersList } from "@/hooks/useFarmersList";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -50,6 +51,7 @@ const Agricultores = () => {
   const [editingFarmer, setEditingFarmer] = useState<any>(null);
   const [page, setPage] = useState(1);
   const [deleteTarget, setDeleteTarget] = useState<any>(null);
+  const [summaryTarget, setSummaryTarget] = useState<any>(null);
   const { farmers, loading, error: farmersError, refetch: refetchFarmers } = useFarmersList();
   const queryClient = useQueryClient();
 
@@ -321,6 +323,9 @@ const Agricultores = () => {
                               <DropdownMenuItem onClick={() => handleEdit(f)}>
                                 <Edit className="h-4 w-4 mr-2" /> Editar
                               </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => setSummaryTarget(f)}>
+                                <Wallet className="h-4 w-4 mr-2" /> Resumo financeiro
+                              </DropdownMenuItem>
                               <DropdownMenuSeparator />
                               {f.status === "Removido" ? (
                                 <DropdownMenuItem onClick={() => handleRestore(f)} className="text-success focus:text-success">
@@ -375,6 +380,7 @@ const Agricultores = () => {
                     <Button variant="ghost" size="icon" className="h-8 w-8"><Eye className="h-4 w-4" /></Button>
                   </Link>
                   <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(f)}><Edit className="h-4 w-4" /></Button>
+                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setSummaryTarget(f)} title="Resumo financeiro"><Wallet className="h-4 w-4" /></Button>
                   {f.status === "Removido" ? (
                     <Button variant="ghost" size="icon" className="h-8 w-8 text-success hover:text-success" onClick={() => handleRestore(f)} title="Restaurar"><RotateCcw className="h-4 w-4" /></Button>
                   ) : (
@@ -413,6 +419,12 @@ const Agricultores = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <FarmerFinancialSummaryDialog
+        farmer={summaryTarget}
+        open={!!summaryTarget}
+        onOpenChange={(o) => !o && setSummaryTarget(null)}
+      />
     </div>
   );
 };
