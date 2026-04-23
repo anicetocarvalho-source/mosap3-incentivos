@@ -54,6 +54,7 @@ import FornecedorStock from "@/pages/fornecedor/FornecedorStock";
 import FornecedorPerfil from "@/pages/fornecedor/FornecedorPerfil";
 import FornecedorLojas from "@/pages/fornecedor/FornecedorLojas";
 import NotFound from "@/pages/NotFound";
+import Diagnostico from "@/pages/Diagnostico";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -88,6 +89,7 @@ const App = () => (
               <Route path="/parcelas" element={<Parcelas />} />
               <Route path="/producao" element={<Producao />} />
               <Route path="/instalar" element={<Instalar />} />
+              <Route path="/diagnostico" element={<Diagnostico />} />
               <Route path="/patec" element={<Patec />} />
               <Route path="/mosap3pay" element={<Mosap3Pay />} />
               <Route path="/mosap3pay/fornecedores" element={<Mosap3PayFornecedores />} />
