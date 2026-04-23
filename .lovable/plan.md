@@ -1,72 +1,59 @@
 
-## Importação dos 10 ficheiros Unitel Money para `valor_recebido`
 
-Recebi 10 ficheiros CSV (formato Unitel Money Bulk Report) com os pagamentos efectivamente creditados aos agricultores via telefone. Vou consolidá-los e carregá-los como `valor_recebido` na base de dados, fazendo a correspondência por número de telemóvel.
+## Revisão dos valores recebidos — Cuando Cubango
 
-## Ficheiros recebidos
+### O que está nos ficheiros Unitel (já carregados)
 
-| Ficheiro | Plano | Registos | Valor (Kz) |
-|---|---|---|---|
-| Mosap3_ECA_Omahano.csv | ECA Omahano | 2 | 1.628.160 |
-| Mosap3_ECA_CUNENE.csv | ECA Cunene | 2.261 | 1.840.634.880 |
-| CUNENA_CONTA_1.csv | Cunene Conta 1 | 2.261 | 230.079.360 |
-| BulkReport_125646.csv | Huíla ECAS Kusseteca | 39 | 7.200.000 |
-| Huila-ECAS-Kusseteca-Tchongolomatemba.csv | Huíla Conta 1 | 39 | 3.900.000 |
-| CUANDO_CUBANGO.csv | Cuando Cubango 200k | 2.279 | 433.000.000 |
-| CUANDO_CUBANGO_CONTA_1_50.csv | Cuando Cubango Conta 1 | 2.279 | 226.823.040 |
-| NAMIBE.csv | Namibe 200k | 568 | 111.200.000 |
-| HUÍLA.csv | Huíla 200k | 2.895 | 564.000.000 |
-| BulkReport_126002.csv | Benguela 200k | 6.630 | 1.279.000.000 |
-| **Total bruto estimado** | | ~19.253 linhas | **~4.697 milhões Kz** |
+| Ficheiro | Plano | Linhas Success | Valor unit. | Total Kz |
+|---|---|---|---|---|
+| `CUANDO_CUBANGO.csv` | "200k Cuando Cubango" | 2.279 | 200.000,00 | 433.000.000 (estimado) |
+| `CUANDO_CUBANGO_CONTA_1_50.csv` | "Carregamento 50% Cont1 Cuando Cubango" | 2.229 (50 falharam) | 101.760,00 | 226.823.040 |
+| **`CUANDO_CUBANGO_CONTA_1_50-2.csv` (novo upload)** | Mesmo plano que o anterior, mesmo Bulk Plan ID `812184` | 2.229 | 101.760,00 | 226.823.040 |
 
-> Apenas linhas com `Status = Completed` / `Validation Result = Success` serão contabilizadas. As falhadas são ignoradas.
+**Observação crítica:** o ficheiro novo (`-2`) é uma **reedição do mesmo bulk** (`Bulk Plan ID 812184`) — **não é um novo pagamento**. Mesma data (11-09-2025 15:39), mesmo valor total (231.911.040 plano / 226.823.040 sucesso), mesmos 50 falhados, mesmos operadores. Re-importá-lo somando seria duplicar saldos.
 
-## O que vou fazer
+### O que está na BD agora (Cuando Cubango)
 
-### 1. Consolidação dos CSVs (script Python local, sem alterar BD)
-- Ler os 10 ficheiros, extrair linhas a partir do cabeçalho `Record No,...`.
-- Filtrar `Status = Completed`.
-- Normalizar `Credit Msisdn` para os **últimos 9 dígitos** (remove o prefixo `244`), igual à lógica do `ImportValoresRecebidosDialog`.
-- Agregar por telefone: `SUM(Amount)` quando o mesmo número aparece em vários ficheiros (ex: ECA Cunene + Cunene Conta 1 do mesmo agricultor).
-- Gerar um único ficheiro consolidado `valores_recebidos_consolidado.xlsx` em `/mnt/documents/` com colunas `telefone | valor` (compatível com o template do diálogo).
+| Métrica | Valor |
+|---|---|
+| Agricultores totais na província | 1.921 |
+| Com `valor_recebido > 0` | 1.921 (100%) |
+| Soma `valor_recebido` | 579.680.960,00 Kz |
+| Soma `total_gasto` | 391.854.695,00 Kz |
+| Soma `saldo_final` | −391.275.014,04 Kz |
+| **Distribuição de `valor_recebido`** | **Todos com 301.760,00 Kz** (200.000 + 101.760) |
 
-### 2. Validação prévia contra a base de dados
-- Cruzar telefones do consolidado com `farmers.phone` (via `supabase--read_query`).
-- Reportar:
-   - Nº de telefones com correspondência (match)
-   - Nº de telefones sem agricultor associado
-   - Total Kz que será efectivamente creditado vs. total Kz órfão
-   - Top 10 agricultores por valor recebido
-- Gerar `relatorio_validacao.xlsx` em `/mnt/documents/` com 2 folhas: `Match` e `Sem_Match`.
+Ou seja: a importação anterior somou correctamente os dois ficheiros (200k + 50%). Não há grupos diferentes — o Cuando Cubango está **uniforme**. Os 1.921 agricultores na BD vs. 2.279 telefones no ficheiro = **358 telefones do Unitel sem agricultor associado** (já estão em `orphan_phones`).
 
-### 3. Aplicação na base de dados
-- Migração SQL (UPSERT em `farmers.valor_recebido`) que actualiza apenas as linhas com match, em batches.
-- O trigger `farmers_recalc_on_recebido` (já criado) recalcula automaticamente `saldo_final = valor_recebido − total_gasto` para cada agricultor afectado.
-- Registar entrada em `audit_logs` (acção `bulk_import_valores_recebidos`, com totais).
+### Plano de revisão por grupos
 
-### 4. Verificação pós-importação
-- Re-executar query de totais (`SUM(parse_ptao_numeric(valor_recebido))`) e comparar com o total consolidado.
-- Confirmar que `saldo_final` deixou de ser 0 nos agricultores carregados.
-- Mostrar amostra de 10 agricultores com `valor_recebido > 0` e `saldo_final` resultante.
+Quando passar para modo execução, faço:
 
-## Detalhes técnicos
+**1. Confirmar que o `-2.csv` é duplicado**
+   - Comparar linha-a-linha (`Credit Msisdn` + `TransactionID`) entre `CUANDO_CUBANGO_CONTA_1_50.csv` original e o novo.
+   - Se `TransactionID` 100% coincidirem → ignorar, não importar (o saldo já está reflectido).
+   - Se houver diferenças → mostrar diff antes de qualquer write.
 
-- **Formato CSV Unitel**: cabeçalhos têm tabs/espaços extra (`"\tCompleted"`, `"\t1"`); o parser fará `trim()` em cada campo.
-- **Normalização telefone**: `244976102804` → `976102804` (9 dígitos). A coluna `farmers.phone` na BD tem maioritariamente 9 dígitos; o matching faz `RIGHT(phone, 9)` em ambos os lados.
-- **Agregação multi-ficheiro**: o agricultor `244976096393` aparece em ECA Cunene (814.080) + Cunene Conta 1 (101.760) = 915.840 Kz total recebido. Esta soma é o que entra em `valor_recebido`.
-- **Formato BD**: `valor_recebido` é `text` em formato pt-AO (`'915.840,00'`); usar `to_char(valor, 'FM999G999G990D00')` na migração.
-- **Idempotência**: a migração faz `SET valor_recebido = <novo>` (substitui, não soma), portanto pode ser re-executada sem duplicar.
-- **Saldo negativo esperado**: agricultores com `total_gasto > valor_recebido` ficarão com `saldo_final` negativo — isto é correcto e será sinalizado a vermelho na ficha (já implementado no plano anterior).
+**2. Listar grupos do Cuando Cubango por escola/ECA**
+   ```text
+   SELECT school, COUNT(*), SUM(parse_ptao_numeric(valor_recebido)),
+          SUM(parse_ptao_numeric(saldo_final))
+   FROM farmers WHERE province='Cuando Cubango' GROUP BY school;
+   ```
+   - Entrega um quadro: ECA | nº agricultores | total recebido | total gasto | saldo (positivo / negativo).
 
-## Entregáveis
+**3. Comparar contra ficheiros Unitel**
+   - Para cada ficheiro Unitel do Cuando Cubango, contar quantos telefones bateram com agricultores existentes vs órfãos.
+   - Top 10 órfãos por valor (potenciais agricultores em falta no cadastro).
 
-1. `/mnt/documents/valores_recebidos_consolidado.xlsx` — ficheiro consolidado pronto a usar também via UI.
-2. `/mnt/documents/relatorio_validacao.xlsx` — match vs. sem-match para revisão.
-3. Migração SQL aplicada à BD.
-4. Resumo final em chat: total carregado, nº de agricultores actualizados, nº de órfãos, top 10.
+**4. Entregáveis** (em `/mnt/documents/`):
+   - `cuando_cubango_por_eca.xlsx` — totais por ECA.
+   - `cuando_cubango_diff_unitel.xlsx` — match vs órfãos por ficheiro.
+   - `cuando_cubango_duplicado_check.xlsx` — comparação dos dois CSVs Conta 1 50% para confirmar duplicação.
 
-## Confirmações necessárias
+**5. Decisão sua antes de qualquer write**
+   - Confirmar que `-2.csv` é duplicado (não importar).
+   - Decidir se quer associar manualmente os órfãos do Cuando Cubango a agricultores existentes (via `/telefones-orfaos`).
 
-- Avanço com **soma agregada por telefone** quando o mesmo número aparece em vários ficheiros (ex: ECA + Conta 1)? Sim por defeito.
-- Telefones presentes nos CSVs mas **sem agricultor** na BD: ignorar e listar no relatório (não criar agricultores novos).
-- `valor_recebido` actual será **substituído** (não somado) pelo total consolidado dos ficheiros — esta é a fonte oficial passa a ser estes 10 CSVs.
+Não vou alterar `valor_recebido` nem `saldo_final` sem aprovação explícita após ver os relatórios.
+
