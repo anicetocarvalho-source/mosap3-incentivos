@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Plus, Search, Download, Eye, Edit, Package, ChevronLeft, ChevronRight, Trash2, RotateCcw, MoreHorizontal, Wallet } from "lucide-react";
+import { Plus, Search, Download, Eye, Edit, Package, ChevronLeft, ChevronRight, Trash2, RotateCcw, MoreHorizontal, Wallet, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
 import FarmerAvatar from "@/components/FarmerAvatar";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -52,6 +52,8 @@ const Agricultores = () => {
   const [page, setPage] = useState(1);
   const [deleteTarget, setDeleteTarget] = useState<any>(null);
   const [summaryTarget, setSummaryTarget] = useState<any>(null);
+  const [sortBy, setSortBy] = useState<"name" | "recebido" | "usado" | null>(null);
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const { farmers, loading, error: farmersError, refetch: refetchFarmers } = useFarmersList();
   const queryClient = useQueryClient();
 
@@ -63,7 +65,21 @@ const Agricultores = () => {
     },
   });
 
-  useEffect(() => { setPage(1); }, [search, filterPatec, filterStatus, filterProvince]);
+  useEffect(() => { setPage(1); }, [search, filterPatec, filterStatus, filterProvince, sortBy, sortDir]);
+
+  const handleSort = (col: "name" | "recebido" | "usado") => {
+    if (sortBy === col) {
+      setSortDir(sortDir === "asc" ? "desc" : "asc");
+    } else {
+      setSortBy(col);
+      setSortDir(col === "name" ? "asc" : "desc");
+    }
+  };
+
+  const SortIcon = ({ col }: { col: "name" | "recebido" | "usado" }) => {
+    if (sortBy !== col) return <ArrowUpDown className="h-3 w-3 opacity-40" />;
+    return sortDir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />;
+  };
 
   const filtered = farmers.filter((f) => {
     const matchesSearch =
@@ -83,8 +99,28 @@ const Agricultores = () => {
     return matchesSearch && matchesPatec && matchesStatus && matchesProvince;
   });
 
-  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
-  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const sorted = sortBy
+    ? [...filtered].sort((a, b) => {
+        let av: number | string = 0;
+        let bv: number | string = 0;
+        if (sortBy === "name") {
+          av = (a.full_name || "").toLowerCase();
+          bv = (b.full_name || "").toLowerCase();
+        } else if (sortBy === "recebido") {
+          av = parsePtAo(a.valor_recebido);
+          bv = parsePtAo(b.valor_recebido);
+        } else if (sortBy === "usado") {
+          av = parsePtAo(a.total_gasto);
+          bv = parsePtAo(b.total_gasto);
+        }
+        if (av < bv) return sortDir === "asc" ? -1 : 1;
+        if (av > bv) return sortDir === "asc" ? 1 : -1;
+        return 0;
+      })
+    : filtered;
+
+  const totalPages = Math.ceil(sorted.length / PAGE_SIZE);
+  const paginated = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const handleEdit = (farmer: any) => {
     setEditingFarmer({
@@ -107,7 +143,7 @@ const Agricultores = () => {
 
   const handleExportCSV = () => {
     const headers = ["Código", "Nome", "BI", "Telefone", "Província", "Município", "Escola", "PATEC", "Estado", "Recebido", "Usado"];
-    const rows = filtered.map(f => [f.code, f.full_name, f.bi || "", f.phone || "", f.province || "", f.municipality || "", f.school || "", f.patec || "", f.status, f.valor_recebido || "", f.total_gasto || ""]);
+    const rows = sorted.map(f => [f.code, f.full_name, f.bi || "", f.phone || "", f.province || "", f.municipality || "", f.school || "", f.patec || "", f.status, f.valor_recebido || "", f.total_gasto || ""]);
     const csv = [headers, ...rows].map(r => r.map(c => `"${c}"`).join(",")).join("\n");
     const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
@@ -253,13 +289,25 @@ const Agricultores = () => {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border bg-muted/50">
-                  <th className="text-left px-6 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Agricultor</th>
+                  <th className="text-left px-6 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">
+                    <button onClick={() => handleSort("name")} className="inline-flex items-center gap-1 hover:text-foreground transition-colors uppercase">
+                      Agricultor <SortIcon col="name" />
+                    </button>
+                  </th>
                   <th className="text-left px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Telefone</th>
                   <th className="text-left px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Província</th>
                   <th className="text-left px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Escola</th>
                   <th className="text-left px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">PATEC</th>
-                  <th className="text-right px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Recebido</th>
-                  <th className="text-right px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Usado</th>
+                  <th className="text-right px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">
+                    <button onClick={() => handleSort("recebido")} className="inline-flex items-center gap-1 hover:text-foreground transition-colors uppercase ml-auto">
+                      Recebido <SortIcon col="recebido" />
+                    </button>
+                  </th>
+                  <th className="text-right px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">
+                    <button onClick={() => handleSort("usado")} className="inline-flex items-center gap-1 hover:text-foreground transition-colors uppercase ml-auto">
+                      Usado <SortIcon col="usado" />
+                    </button>
+                  </th>
                   <th className="text-right px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider w-12">Ações</th>
                 </tr>
               </thead>
@@ -392,7 +440,7 @@ const Agricultores = () => {
           </div>
 
           <div className="px-4 md:px-6 py-3 border-t border-border flex items-center justify-between text-xs md:text-sm text-muted-foreground">
-            <span>{filtered.length > 0 ? (page - 1) * PAGE_SIZE + 1 : 0}–{Math.min(page * PAGE_SIZE, filtered.length)} de {filtered.length} agricultores</span>
+            <span>{sorted.length > 0 ? (page - 1) * PAGE_SIZE + 1 : 0}–{Math.min(page * PAGE_SIZE, sorted.length)} de {sorted.length} agricultores</span>
             <div className="flex items-center gap-2">
               <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)}><ChevronLeft className="h-4 w-4" /></Button>
               <span className="text-sm font-medium">{page} / {totalPages || 1}</span>
