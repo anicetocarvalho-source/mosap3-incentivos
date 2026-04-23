@@ -1697,6 +1697,140 @@ const RevisaoProvincias = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Save review dialog */}
+      <Dialog open={saveDialogOpen} onOpenChange={setSaveDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Guardar revisão no histórico</DialogTitle>
+            <DialogDescription>
+              Vai guardar uma cópia completa desta revisão (incluindo decisões de duplicados, métricas e dados detalhados) para poder reabrir mais tarde sem recalcular.
+            </DialogDescription>
+          </DialogHeader>
+          {review && (
+            <div className="space-y-3">
+              <div className="rounded-md border border-border bg-muted/30 p-3 text-xs space-y-1">
+                <p><b>Província:</b> {review.province}</p>
+                <p><b>Agricultores:</b> {review.farmersCount}</p>
+                <p><b>CSVs:</b> {review.uploadedFiles.length} ficheiros</p>
+                <p><b>Matches:</b> {review.diffRows.length} • <b>Órfãos:</b> {review.orphanCount} ({fmt(review.orphanAmount)} Kz)</p>
+                <p><b>Duplicados:</b> {review.duplicateChecks.length} pares ({confirmedDuplicates.size} a importar)</p>
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="save-notes">Notas (opcional)</Label>
+                <Textarea
+                  id="save-notes"
+                  placeholder="Ex.: Revisão final antes da importação de Janeiro 2026"
+                  value={saveNotes}
+                  onChange={(e) => setSaveNotes(e.target.value)}
+                  rows={3}
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSaveDialogOpen(false)} disabled={saving}>
+              Cancelar
+            </Button>
+            <Button onClick={saveReview} disabled={saving}>
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              Guardar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* History dialog */}
+      <Dialog open={historyOpen} onOpenChange={setHistoryOpen}>
+        <DialogContent className="max-w-5xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <History className="h-4 w-4" />
+              Histórico de revisões
+            </DialogTitle>
+            <DialogDescription>
+              Reabra qualquer revisão anteriormente guardada sem recalcular. Mostra as 100 mais recentes.
+            </DialogDescription>
+          </DialogHeader>
+
+          {historyLoading ? (
+            <div className="space-y-2">
+              <Skeleton className="h-12 w-full" />
+              <Skeleton className="h-12 w-full" />
+              <Skeleton className="h-12 w-full" />
+            </div>
+          ) : history.length === 0 ? (
+            <EmptyState
+              icon={History}
+              title="Sem revisões guardadas"
+              description="Gere uma revisão e clique em 'Guardar revisão' para começar o histórico."
+            />
+          ) : (
+            <div className="max-h-[60vh] overflow-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Província</TableHead>
+                    <TableHead>Data</TableHead>
+                    <TableHead>Por</TableHead>
+                    <TableHead className="text-right">Agricultores</TableHead>
+                    <TableHead className="text-right">Matches</TableHead>
+                    <TableHead className="text-right">Órfãos</TableHead>
+                    <TableHead className="text-right">Kz órfãos</TableHead>
+                    <TableHead className="text-right">Tel. norm.</TableHead>
+                    <TableHead className="text-right">Acções</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {history.map((row) => (
+                    <TableRow key={row.id}>
+                      <TableCell className="font-medium">{row.province}</TableCell>
+                      <TableCell className="text-xs">
+                        {new Date(row.generated_at).toLocaleString("pt-PT")}
+                        {row.notes && (
+                          <p className="text-[11px] text-muted-foreground truncate max-w-[200px]" title={row.notes}>
+                            {row.notes}
+                          </p>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-xs">{row.generated_by_name ?? "—"}</TableCell>
+                      <TableCell className="text-right">{row.total_farmers}</TableCell>
+                      <TableCell className="text-right">{row.matched_count}</TableCell>
+                      <TableCell className="text-right">{row.orphan_count}</TableCell>
+                      <TableCell className="text-right text-xs">{fmt(Number(row.total_orphan_amount ?? 0))}</TableCell>
+                      <TableCell className="text-right">{row.phones_normalized}</TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-1">
+                          <Button size="sm" variant="outline" onClick={() => reopenFromHistory(row)}>
+                            <PlayCircle className="h-3.5 w-3.5" />
+                            Reabrir
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => deleteHistoryRow(row.id)}
+                            title="Remover do histórico"
+                          >
+                            <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={loadHistory} disabled={historyLoading}>
+              <RefreshCw className={cn("h-4 w-4", historyLoading && "animate-spin")} />
+              Atualizar
+            </Button>
+            <Button variant="outline" onClick={() => setHistoryOpen(false)}>Fechar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
