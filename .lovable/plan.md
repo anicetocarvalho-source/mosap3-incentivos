@@ -1,47 +1,45 @@
 
 
-## Plano: Sincronizar valores Unitel + contagem de Escolas de Campo
+## Plano: ECAs com lista de agricultores + página da província organizada
 
-### Problema 1 — Valor recebido / saldo desatualizado
-A página `/revisao-provincias` já cruza CSVs Unitel com `farmers` por telefone, deteta duplicados e gera relatório, **mas nunca escreve na tabela `farmers`**. Por isso a coluna `valor_recebido` (e o `saldo_final` derivado) não reflete o que está nos ficheiros.
+### Problema 1 — Lista de agricultores vazia em `/escolas/:id`
+O hook `useSchoolDetail` carrega a escola mas devolve sempre `farmers: []` e `visits: []`. Como `farmers.school` já contém o nome da escola para os 10 905 produtores, basta cruzar.
 
-### Problema 2 — Escolas de Campo a zero
-A tabela `schools.total_farmers` está sempre `0` para as 733 escolas, apesar de `farmers.school` ter dados consistentes (todos os nomes em `farmers` correspondem a uma escola em `schools`). Por isso `/escolas` mostra "0 produtores" em todas as ECAs.
+### Problema 2 — `/escolas/provincia/:slug` muito extensa
+A página lista, em sequência, todos os municípios com todas as ECAs em grids — para províncias como Benguela isto produz uma página enorme. Faltam abas/accordion.
 
 ---
 
 ### O que vou implementar
 
-**1. Aplicar valores Unitel à BD (a partir de `/revisao-provincias`)**
+**1. Carregar agricultores reais na ficha da ECA (`useSchoolDetail.ts`)**
+- Após carregar `schools` + `provinces` + `municipalities`, faz uma 2ª query em `farmers` com `LOWER(TRIM(school)) = nome da escola` e `LOWER(TRIM(province)) = província` e `status <> 'Removido'`, ordenado por `full_name`.
+- Mapeia cada `farmer` para a interface `FarmerTracking`:
+  - `id` ← `farmer.code` (para o link `/agricultores/:code` funcionar — confirmado pelo padrão usado na tabela)
+  - `name` ← `full_name`
+  - `culture`, `area`, `currentPhase`, `startDate`, `expectedHarvest`, `status`, `visits`, `lastVisit`, `notes` → valores por defeito ("—", "Preparação", "No Prazo", 0, "—", "")
+  - `parcels: []` (não há ligação direta agricultor↔parcela GPS na BD por ECA neste momento — só seria preenchido se quisermos cruzar com `farmer_parcels`).
+- Mantém `visits: []` (visitas não estão modeladas em BD).
 
-Adicionar na revisão já gerada um botão **"Aplicar valores na BD"** (visível só para Admin/Gestor de Incentivos), que:
-- Mostra dialog de confirmação com: nº de produtores afetados, total Kz a creditar, lista de duplicados que serão **ignorados** (conforme decisão do utilizador no painel de duplicados).
-- Para cada agricultor com match, faz `UPDATE farmers SET valor_recebido = <novo total>` — o trigger `trg_recalc_on_farmer_recebido` recalcula `total_gasto` e `saldo_final` automaticamente, e `log_farmer_balance_change` regista o histórico.
-- Define `SET LOCAL app.import_source = 'unitel_csv:<filename>'` antes do UPDATE para que `farmer_balance_history` registe a fonte correta (em vez de `edicao_manual`).
-- Marca a revisão guardada com flag `applied_at` (nova coluna em `province_reviews`) para indicar que já foi materializada — previne reaplicação acidental.
-- Telefones órfãos (sem agricultor associado) são gravados em `orphan_phones` via a função `bulk_insert_orphan_phones` que já existe.
+**2. Adaptar `EscolaDetalhe.tsx` para o caso "sem dados de produção"**
+- O resumo "Distribuição por Fase" e contadores (No Prazo / Atrasados / Concluídos) continuam a calcular a partir dos defaults — vão refletir corretamente "todos em Preparação / No Prazo".
+- Adicionar pesquisa por nome/código + paginação simples (50/página) para escolas com muitos produtores.
+- Recalcular `totalFarmers` localmente a partir do array carregado (caso `schools.total_farmers` fique stale entre runs do trigger).
+- Os botões "Fase" e "Problema" continuam a abrir os diálogos existentes (regista in-memory). Sem mudanças funcionais aqui.
 
-**2. Recálculo de `schools.total_farmers`**
-
-- Criar função SQL `recalc_school_farmer_counts()` que faz `UPDATE schools SET total_farmers = (SELECT COUNT(*) FROM farmers f WHERE LOWER(TRIM(f.school)) = LOWER(TRIM(schools.name)) AND f.province = (SELECT name FROM provinces WHERE id = schools.province_id) AND f.status <> 'Removido')`.
-- Criar trigger em `farmers` (AFTER INSERT/UPDATE/DELETE de `school` ou `status`) que recalcula automaticamente as escolas afetadas — mantém o número sempre certo dali em diante.
-- Executar a função uma vez na migração para preencher os 733 registos atuais.
+**3. Reorganizar `/escolas/provincia/:slug` (`ProvinciaEscolas.tsx`)**
+- Substituir a sequência de blocos por **Tabs**:
+  - Tab 1: **Visão por Município** (pré-selecionada) — cada município é um item de **Accordion** (`@/components/ui/accordion`) que mostra o nº de escolas no header e expande para a grid de cards.
+  - Tab 2: **Todas as escolas** — uma grid plana com pesquisa (nome / aldeia / técnico) e filtro por status (Ativa/Inativa), útil para procurar rapidamente sem saber o município.
+  - Tab 3: **Municípios sem escolas** — apenas a lista de badges.
+- Por defeito, o accordion tem o primeiro município expandido; os restantes colapsados → página fica curta logo à entrada.
+- O bloco de "Summary" (4 cards no topo) e o cabeçalho com voltar/título mantêm-se inalterados.
 
 ### Detalhes técnicos
-
-- Migração SQL nova:
-  - `ALTER TABLE province_reviews ADD COLUMN applied_at timestamptz, applied_by uuid, applied_summary jsonb;` + policy de UPDATE para Admin/Gestor.
-  - `CREATE FUNCTION recalc_school_farmer_counts()` + trigger `trg_school_count_on_farmer`.
-  - `SELECT recalc_school_farmer_counts();` (one-shot).
-- Frontend `src/pages/RevisaoProvincias.tsx`:
-  - Novo botão **"Aplicar valores na BD"** (badge "irreversível"), só ativo após gerar revisão e quando `applied_at IS NULL`.
-  - Dialog de confirmação com texto livre obrigatório (escrever "APLICAR") para destravar.
-  - Loop de UPDATEs em chunks de 50 (consistente com a regra existente para batch operations) com barra de progresso.
-  - Após sucesso: `toast` com totais aplicados, atualiza estado local com `applied_at`, invalida queries `["farmers_list"]`, `["farmer_incentives"]`.
-- Frontend Escolas: nenhuma alteração necessária — `useProvincesData` já lê `schools.total_farmers`, vai passar a mostrar números reais assim que a função correr.
-
-### Segurança
-- Aplicação dos valores restrita a `is_admin OR has_role('gestor_incentivos')`, igual à política existente em `province_reviews`.
-- Cada UPDATE deixa rasto em `farmer_balance_history` (trigger já existe).
-- Uma revisão só pode ser aplicada **uma vez** (verificação `applied_at IS NULL`).
+- Ficheiros a alterar:
+  - `src/hooks/useSchoolDetail.ts` — adicionar query `farmers` e mapeamento.
+  - `src/pages/EscolaDetalhe.tsx` — adicionar pesquisa + paginação na tab "Acompanhamento"; mostrar `Empty state` se `school.farmers.length === 0`.
+  - `src/pages/ProvinciaEscolas.tsx` — refactor com `Tabs` + `Accordion`.
+- Sem alterações de BD nem de RLS — a política `Backoffice can view farmers` já permite o SELECT necessário.
+- Mantém o link existente `Link to={'/agricultores/' + farmer.id}` (passa a apontar para o `farmer.code` — `Agricultores.tsx` já trata isso através do `FarmerProfile`).
 
