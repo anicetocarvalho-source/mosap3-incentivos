@@ -380,6 +380,7 @@ const Agricultores = () => {
                     <Button variant="ghost" size="icon" className="h-8 w-8"><Eye className="h-4 w-4" /></Button>
                   </Link>
                   <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(f)}><Edit className="h-4 w-4" /></Button>
+                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setSummaryTarget(f)} title="Resumo financeiro"><Wallet className="h-4 w-4" /></Button>
                   {f.status === "Removido" ? (
                     <Button variant="ghost" size="icon" className="h-8 w-8 text-success hover:text-success" onClick={() => handleRestore(f)} title="Restaurar"><RotateCcw className="h-4 w-4" /></Button>
                   ) : (
