@@ -1844,7 +1844,67 @@ const RevisaoProvincias = () => {
         </>
       )}
 
-      {/* Dialog de confirmação final */}
+      {/* Dialog: Aplicar valores Unitel à BD */}
+      <AlertDialog open={applyDialogOpen} onOpenChange={(open) => { if (!applying) setApplyDialogOpen(open); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Database className="h-5 w-5 text-destructive" />
+              Aplicar valores Unitel na BD
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3 text-sm">
+                <p>
+                  Esta ação é <strong>irreversível</strong>. Vai somar os valores dos CSVs incluídos ao
+                  <code className="mx-1 font-mono text-xs">valor_recebido</code>
+                  de cada agricultor correspondente em <strong>{review?.province}</strong>, e gravar telefones sem match
+                  como órfãos.
+                </p>
+                {validationSummary && (
+                  <div className="rounded-md border border-border bg-muted/30 p-3 text-xs space-y-1">
+                    <p>• Agricultores a creditar: <b>{validationSummary.totalMatched}</b> ({fmt(validationSummary.totalMatchedAmount)} Kz)</p>
+                    <p>• Telefones órfãos a guardar: <b>{validationSummary.totalOrphans}</b> ({fmt(validationSummary.totalOrphansAmount)} Kz)</p>
+                    <p>• Ficheiros incluídos: {validationSummary.filesIncluded}{validationSummary.filesExcluded > 0 ? ` (${validationSummary.filesExcluded} excluídos como duplicados)` : ""}</p>
+                  </div>
+                )}
+                {applying && applyProgress.total > 0 && (
+                  <div className="space-y-1">
+                    <Progress value={(applyProgress.done / applyProgress.total) * 100} />
+                    <p className="text-[11px] text-muted-foreground text-center">
+                      {applyProgress.done} / {applyProgress.total} agricultores
+                    </p>
+                  </div>
+                )}
+                <div className="space-y-1.5">
+                  <Label htmlFor="apply-input" className="text-xs">
+                    Escreva <strong className="font-mono">{applyExpected}</strong> para confirmar:
+                  </Label>
+                  <Input
+                    id="apply-input"
+                    value={applyConfirmText}
+                    onChange={(e) => setApplyConfirmText(e.target.value)}
+                    placeholder={applyExpected}
+                    autoComplete="off"
+                    disabled={applying}
+                  />
+                </div>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={applying} onClick={() => setApplyConfirmText("")}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); applyToDb(); }}
+              disabled={!canApplyConfirm || applying}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {applying ? <Loader2 className="h-4 w-4 animate-spin" /> : <Database className="h-4 w-4" />}
+              Aplicar agora
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <AlertDialog open={confirmDialogOpen} onOpenChange={setConfirmDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
