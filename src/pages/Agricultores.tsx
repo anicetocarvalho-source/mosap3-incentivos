@@ -65,7 +65,21 @@ const Agricultores = () => {
     },
   });
 
-  useEffect(() => { setPage(1); }, [search, filterPatec, filterStatus, filterProvince]);
+  useEffect(() => { setPage(1); }, [search, filterPatec, filterStatus, filterProvince, sortBy, sortDir]);
+
+  const handleSort = (col: "name" | "recebido" | "usado") => {
+    if (sortBy === col) {
+      setSortDir(sortDir === "asc" ? "desc" : "asc");
+    } else {
+      setSortBy(col);
+      setSortDir(col === "name" ? "asc" : "desc");
+    }
+  };
+
+  const SortIcon = ({ col }: { col: "name" | "recebido" | "usado" }) => {
+    if (sortBy !== col) return <ArrowUpDown className="h-3 w-3 opacity-40" />;
+    return sortDir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />;
+  };
 
   const filtered = farmers.filter((f) => {
     const matchesSearch =
