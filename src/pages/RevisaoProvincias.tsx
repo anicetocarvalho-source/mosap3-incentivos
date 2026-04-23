@@ -950,6 +950,46 @@ const RevisaoProvincias = () => {
                   </div>
                 </div>
 
+                {/* Normalização de telefones */}
+                {review?.phoneStats && (() => {
+                  const ps = review.phoneStats;
+                  const Block = ({ label, s }: { label: string; s: PhoneNormStats }) => {
+                    const changedPct = s.total > 0 ? Math.round((s.changed / s.total) * 100) : 0;
+                    const validPct = s.total > 0 ? Math.round((s.valid / s.total) * 100) : 0;
+                    return (
+                      <div className="rounded-md border border-border bg-muted/30 p-2.5">
+                        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
+                        <p className="mt-0.5 text-sm font-bold">
+                          {s.changed.toLocaleString("pt-AO")}{" "}
+                          <span className="text-[11px] font-normal text-muted-foreground">/ {s.total.toLocaleString("pt-AO")}</span>
+                        </p>
+                        <p className="text-[10px] text-muted-foreground">
+                          {changedPct}% normalizados • {validPct}% válidos
+                        </p>
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {s.stripped244 > 0 && <Badge variant="secondary" className="text-[9px] px-1 py-0">+244 ×{s.stripped244}</Badge>}
+                          {s.strippedLeadingZero > 0 && <Badge variant="secondary" className="text-[9px] px-1 py-0">0… ×{s.strippedLeadingZero}</Badge>}
+                          {s.paddedOrTrimmed > 0 && <Badge variant="secondary" className="text-[9px] px-1 py-0">trim ×{s.paddedOrTrimmed}</Badge>}
+                          {s.invalidPrefix > 0 && <Badge variant="destructive" className="text-[9px] px-1 py-0">prefixo ×{s.invalidPrefix}</Badge>}
+                          {s.tooShort > 0 && <Badge variant="destructive" className="text-[9px] px-1 py-0">curto ×{s.tooShort}</Badge>}
+                        </div>
+                      </div>
+                    );
+                  };
+                  return (
+                    <div>
+                      <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                        Normalização de telefones (244 / 0… / comprimento)
+                      </p>
+                      <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
+                        <Block label="CSVs Unitel" s={ps.csv} />
+                        <Block label="Agricultores" s={ps.farmers} />
+                        <Block label="Órfãos (BD)" s={ps.orphans} />
+                      </div>
+                    </div>
+                  );
+                })()}
+
                 {/* Veredito */}
                 {validationSummary.dupCount > 0 && validationSummary.unresolvedDups > 0 && (
                   <Alert variant="destructive">
