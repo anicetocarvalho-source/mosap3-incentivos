@@ -824,6 +824,45 @@ export type Database = {
         }
         Relationships: []
       }
+      orphan_phones: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          linked_at: string | null
+          linked_by: string | null
+          linked_farmer_code: string | null
+          notes: string | null
+          phone: string
+          source_files: string[] | null
+          updated_at: string
+        }
+        Insert: {
+          amount?: number
+          created_at?: string
+          id?: string
+          linked_at?: string | null
+          linked_by?: string | null
+          linked_farmer_code?: string | null
+          notes?: string | null
+          phone: string
+          source_files?: string[] | null
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          linked_at?: string | null
+          linked_by?: string | null
+          linked_farmer_code?: string | null
+          notes?: string | null
+          phone?: string
+          source_files?: string[] | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       patec_items: {
         Row: {
           base_quantity: number | null
