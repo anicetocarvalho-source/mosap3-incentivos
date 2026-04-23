@@ -23,6 +23,7 @@ import ParcelRegistrationForm from "@/components/ParcelRegistrationForm";
 import DependentRegistrationForm from "@/components/DependentRegistrationForm";
 import TransactionRegistrationForm from "@/components/TransactionRegistrationForm";
 import FarmerDocuments from "@/components/FarmerDocuments";
+import FarmerBalanceHistory from "@/components/FarmerBalanceHistory";
 import { supabase } from "@/integrations/supabase/client";
 
 const allPhases = ["Preparação", "Sementeira", "Crescimento", "Floração", "Colheita", "Pós-Colheita"];
@@ -915,6 +916,9 @@ const FarmerProfile = () => {
                 </>
               );
             })()}
+
+            {/* Histórico de saldos (valor_recebido / total_gasto / saldo_final) */}
+            <FarmerBalanceHistory farmerCode={farmerInfo.id} />
           </TabsContent>
 
           <TabsContent value="patec" className="mt-4 space-y-4">
