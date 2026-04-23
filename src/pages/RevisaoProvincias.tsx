@@ -12,6 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 import * as XLSX from "xlsx";
 import {
   AlertDialog,
@@ -210,6 +211,74 @@ const findCol = (row: CsvRow, candidates: string[]): string | null => {
   return null;
 };
 
+/* ───── Schema validation dos CSVs Unitel ───── */
+export type CsvSchemaIssue = {
+  level: "error" | "warning";
+  field: "phone" | "amount" | "transactionId" | "bulkPlanId" | "rows" | "successRows";
+  message: string;
+};
+
+export type CsvSchemaReport = {
+  valid: boolean;          // false se houver pelo menos 1 erro
+  issues: CsvSchemaIssue[];
+  detected: {
+    phoneCol: string | null;
+    amountCol: string | null;
+    statusCol: string | null;
+    txCol: string | null;
+    bulkCol: string | null;
+    planNameCol: string | null;
+  };
+};
+
+const validateCsvSchema = (rows: CsvRow[]): CsvSchemaReport => {
+  const issues: CsvSchemaIssue[] = [];
+  const sample = rows[0] ?? {};
+  const phoneCol = findCol(sample, ["Credit Msisdn", "Msisdn", "Phone", "Telefone"]);
+  const amountCol = findCol(sample, ["Amount", "Valor", "Credit Amount"]);
+  const statusCol = findCol(sample, ["Status", "Estado", "Result"]);
+  const txCol = findCol(sample, ["TransactionID", "Transaction Id", "Trx", "Reference"]);
+  const bulkCol = findCol(sample, ["Bulk Plan ID", "BulkPlanId", "Plan ID"]);
+  const planNameCol = findCol(sample, ["Plan Name", "Bulk Plan Name", "Description"]);
+
+  if (rows.length === 0) {
+    issues.push({ level: "error", field: "rows", message: "Ficheiro vazio (0 linhas)." });
+  }
+  if (!phoneCol) {
+    issues.push({
+      level: "error",
+      field: "phone",
+      message: "Coluna de telefone em falta. Esperado: 'Credit Msisdn', 'Msisdn', 'Phone' ou 'Telefone'.",
+    });
+  }
+  if (!amountCol) {
+    issues.push({
+      level: "error",
+      field: "amount",
+      message: "Coluna de valor em falta. Esperado: 'Amount', 'Valor' ou 'Credit Amount'.",
+    });
+  }
+  if (!txCol) {
+    issues.push({
+      level: "warning",
+      field: "transactionId",
+      message: "Coluna de identificador (TransactionID) em falta. A deteção de duplicados ficará mais fraca.",
+    });
+  }
+  if (!bulkCol) {
+    issues.push({
+      level: "warning",
+      field: "bulkPlanId",
+      message: "Coluna 'Bulk Plan ID' em falta. Não será possível detetar reedições do mesmo bulk.",
+    });
+  }
+  return {
+    valid: issues.every((i) => i.level !== "error"),
+    issues,
+    detected: { phoneCol, amountCol, statusCol, txCol, bulkCol, planNameCol },
+  };
+};
+
 type ParsedCsv = {
   fileName: string;
   rows: CsvRow[];
@@ -220,16 +289,12 @@ type ParsedCsv = {
   unitAmount: number | null;
   successRows: { phone: string; amount: number; transactionId: string }[];
   phoneStats: PhoneNormStats;
+  schema: CsvSchemaReport;
 };
 
 const analyzeCsv = (fileName: string, rows: CsvRow[]): ParsedCsv => {
-  const sample = rows[0] ?? {};
-  const phoneCol = findCol(sample, ["Credit Msisdn", "Msisdn", "Phone", "Telefone"]);
-  const amountCol = findCol(sample, ["Amount", "Valor", "Credit Amount"]);
-  const statusCol = findCol(sample, ["Status", "Estado", "Result"]);
-  const txCol = findCol(sample, ["TransactionID", "Transaction Id", "Trx", "Reference"]);
-  const bulkCol = findCol(sample, ["Bulk Plan ID", "BulkPlanId", "Plan ID"]);
-  const planNameCol = findCol(sample, ["Plan Name", "Bulk Plan Name", "Description"]);
+  const schema = validateCsvSchema(rows);
+  const { phoneCol, amountCol, statusCol, txCol, bulkCol, planNameCol } = schema.detected;
 
   const successRows: ParsedCsv["successRows"] = [];
   let totalAmount = 0;
@@ -238,19 +303,30 @@ const analyzeCsv = (fileName: string, rows: CsvRow[]): ParsedCsv => {
   const amountSet = new Set<number>();
   const phoneStats = emptyPhoneStats();
 
-  for (const r of rows) {
-    if (bulkCol && !bulkPlanId) bulkPlanId = (r[bulkCol] ?? "").trim() || null;
-    if (planNameCol && !planName) planName = (r[planNameCol] ?? "").trim() || null;
-    const status = statusCol ? (r[statusCol] ?? "").toLowerCase() : "success";
-    if (statusCol && !status.includes("success") && !status.includes("ok")) continue;
-    const norm = normalizePhoneDetailed(phoneCol ? r[phoneCol] : "");
-    accumulatePhone(phoneStats, norm);
-    const amount = parsePtao(amountCol ? r[amountCol] : "0");
-    const transactionId = txCol ? (r[txCol] ?? "").trim() : "";
-    if (!norm.phone) continue;
-    successRows.push({ phone: norm.phone, amount, transactionId });
-    totalAmount += amount;
-    if (amount > 0) amountSet.add(amount);
+  // Se não há coluna de telefone ou valor, não vale a pena tentar parse — schema irá bloquear.
+  if (schema.valid) {
+    for (const r of rows) {
+      if (bulkCol && !bulkPlanId) bulkPlanId = (r[bulkCol] ?? "").trim() || null;
+      if (planNameCol && !planName) planName = (r[planNameCol] ?? "").trim() || null;
+      const status = statusCol ? (r[statusCol] ?? "").toLowerCase() : "success";
+      if (statusCol && !status.includes("success") && !status.includes("ok")) continue;
+      const norm = normalizePhoneDetailed(phoneCol ? r[phoneCol] : "");
+      accumulatePhone(phoneStats, norm);
+      const amount = parsePtao(amountCol ? r[amountCol] : "0");
+      const transactionId = txCol ? (r[txCol] ?? "").trim() : "";
+      if (!norm.phone) continue;
+      successRows.push({ phone: norm.phone, amount, transactionId });
+      totalAmount += amount;
+      if (amount > 0) amountSet.add(amount);
+    }
+    if (successRows.length === 0) {
+      schema.issues.push({
+        level: "error",
+        field: "successRows",
+        message: "Nenhuma linha com sucesso após normalização (telefones inválidos ou status≠success).",
+      });
+      schema.valid = false;
+    }
   }
 
   const unitAmount = amountSet.size === 1 ? Array.from(amountSet)[0] : null;
@@ -265,6 +341,7 @@ const analyzeCsv = (fileName: string, rows: CsvRow[]): ParsedCsv => {
     unitAmount,
     successRows,
     phoneStats,
+    schema,
   };
 };
 
@@ -384,7 +461,26 @@ const RevisaoProvincias = () => {
       }
     }
     setUploadedCsvs((prev) => [...prev, ...parsed]);
-    toast.success(`${parsed.length} ficheiro(s) carregado(s)`);
+
+    // Resumo de validação por ficheiro
+    const invalid = parsed.filter((p) => !p.schema.valid);
+    const withWarnings = parsed.filter(
+      (p) => p.schema.valid && p.schema.issues.some((i) => i.level === "warning"),
+    );
+    if (invalid.length > 0) {
+      for (const p of invalid) {
+        const errs = p.schema.issues.filter((i) => i.level === "error").map((i) => i.message).join(" • ");
+        toast.error(`${p.fileName}: schema inválido — ${errs}`, { duration: 8000 });
+      }
+    }
+    if (withWarnings.length > 0) {
+      for (const p of withWarnings) {
+        const warns = p.schema.issues.filter((i) => i.level === "warning").map((i) => i.message).join(" • ");
+        toast.warning(`${p.fileName}: ${warns}`, { duration: 6000 });
+      }
+    }
+    const ok = parsed.length - invalid.length;
+    if (ok > 0) toast.success(`${ok} ficheiro(s) válido(s) carregado(s)`);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -437,8 +533,15 @@ const RevisaoProvincias = () => {
   };
 
   /* Main: generate full review */
+  const hasInvalidCsvs = uploadedCsvs.some((c) => !c.schema.valid);
+
   const generateReview = async () => {
     if (!province) return;
+    if (hasInvalidCsvs) {
+      const bad = uploadedCsvs.filter((c) => !c.schema.valid).map((c) => c.fileName).join(", ");
+      toast.error(`Não é possível gerar: ficheiros com schema inválido — ${bad}. Remova-os ou substitua.`, { duration: 8000 });
+      return;
+    }
     setRunning(true);
     setReview(null);
     setWriteUnlocked(false);
@@ -812,28 +915,63 @@ const RevisaoProvincias = () => {
                 Ficheiros carregados ({uploadedCsvs.length})
               </p>
               <div className="space-y-1.5">
-                {uploadedCsvs.map((c, i) => (
-                  <div key={i} className="flex items-center justify-between gap-2 rounded border border-border bg-card px-2 py-1.5 text-xs">
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate font-medium">{c.fileName}</p>
-                      <p className="text-muted-foreground">
-                        Bulk {c.bulkPlanId ?? "—"} • {c.successCount} success • {fmt(c.totalAmount)} Kz
-                        {c.unitAmount ? ` • unit. ${fmt(c.unitAmount)}` : ""}
-                      </p>
+                {uploadedCsvs.map((c, i) => {
+                  const errs = c.schema.issues.filter((x) => x.level === "error");
+                  const warns = c.schema.issues.filter((x) => x.level === "warning");
+                  return (
+                    <div
+                      key={i}
+                      className={cn(
+                        "flex items-start justify-between gap-2 rounded border px-2 py-1.5 text-xs",
+                        errs.length > 0
+                          ? "border-destructive/40 bg-destructive/5"
+                          : warns.length > 0
+                            ? "border-warning/40 bg-warning/5"
+                            : "border-border bg-card",
+                      )}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <p className="truncate font-medium">{c.fileName}</p>
+                          {errs.length > 0 && (
+                            <Badge variant="destructive" className="text-[9px] px-1 py-0">Schema inválido</Badge>
+                          )}
+                          {errs.length === 0 && warns.length > 0 && (
+                            <Badge variant="secondary" className="text-[9px] px-1 py-0">Avisos</Badge>
+                          )}
+                          {errs.length === 0 && warns.length === 0 && (
+                            <Badge variant="outline" className="text-[9px] px-1 py-0">OK</Badge>
+                          )}
+                        </div>
+                        <p className="text-muted-foreground">
+                          Bulk {c.bulkPlanId ?? "—"} • {c.successCount} success • {fmt(c.totalAmount)} Kz
+                          {c.unitAmount ? ` • unit. ${fmt(c.unitAmount)}` : ""}
+                        </p>
+                        {(errs.length > 0 || warns.length > 0) && (
+                          <ul className="mt-1 space-y-0.5">
+                            {errs.map((iss, k) => (
+                              <li key={`e${k}`} className="text-[11px] text-destructive">• {iss.message}</li>
+                            ))}
+                            {warns.map((iss, k) => (
+                              <li key={`w${k}`} className="text-[11px] text-warning-foreground/80">• {iss.message}</li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                      <Button size="sm" variant="ghost" onClick={() => removeCsv(i)}>
+                        <XCircle className="h-3.5 w-3.5" />
+                      </Button>
                     </div>
-                    <Button size="sm" variant="ghost" onClick={() => removeCsv(i)}>
-                      <XCircle className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
 
           <div className="flex items-center gap-2">
-            <Button onClick={generateReview} disabled={running || !province}>
+            <Button onClick={generateReview} disabled={running || !province || hasInvalidCsvs}>
               {running ? <Loader2 className="h-4 w-4 animate-spin" /> : <PlayCircle className="h-4 w-4" />}
-              {running ? "A gerar…" : "Gerar revisão completa"}
+              {running ? "A gerar…" : hasInvalidCsvs ? "Corrija os CSVs inválidos" : "Gerar revisão completa"}
             </Button>
             {review && (
               <>
