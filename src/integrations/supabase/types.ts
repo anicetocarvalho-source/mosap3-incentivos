@@ -14,21 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      _tmp_valores_recebidos: {
-        Row: {
-          telefone: string
-          valor: number
-        }
-        Insert: {
-          telefone: string
-          valor: number
-        }
-        Update: {
-          telefone?: string
-          valor?: number
-        }
-        Relationships: []
-      }
       audit_logs: {
         Row: {
           action: string
@@ -1658,6 +1643,16 @@ export type Database = {
       recalc_farmer_totals: {
         Args: { _farmer_code: string }
         Returns: undefined
+      }
+      test_parse_ptao_numeric: {
+        Args: never
+        Returns: {
+          expected: number
+          got: number
+          input_text: string
+          label: string
+          ok: boolean
+        }[]
       }
     }
     Enums: {
