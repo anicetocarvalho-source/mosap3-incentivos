@@ -700,6 +700,7 @@ const RevisaoProvincias = () => {
         phoneStats: { csv: csvPhoneStats, farmers: farmerPhoneStats, orphans: orphanPhoneStats },
       };
       setReview(result);
+      setAppliedDuplicateDecisions(new Set(confirmedDuplicates));
       setProgress("");
       toast.success(`Revisão de ${province} gerada`);
     } catch (e: any) {
