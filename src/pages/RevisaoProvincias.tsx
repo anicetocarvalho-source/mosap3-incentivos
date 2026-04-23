@@ -1347,8 +1347,9 @@ const RevisaoProvincias = () => {
                     );
                   })}
                 </CardContent>
-            </Card>
-          )}
+              </Card>
+            );
+          })()}
 
           {/* Diff Unitel */}
           {review.diffRows.length > 0 && (
