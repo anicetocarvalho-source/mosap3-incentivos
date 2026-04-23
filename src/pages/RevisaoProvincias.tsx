@@ -433,6 +433,8 @@ type FullReview = {
 /* ───────────────────────── page ───────────────────────── */
 
 const RevisaoProvincias = () => {
+  const { hasRole, isAdmin } = useAuth();
+  const canApply = isAdmin || hasRole("gestor_incentivos");
   const [provinces, setProvinces] = useState<string[]>([]);
   const [province, setProvince] = useState<string>("Cuando Cubango");
   const [running, setRunning] = useState(false);
@@ -445,6 +447,13 @@ const RevisaoProvincias = () => {
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [confirmText, setConfirmText] = useState("");
   const [writeUnlocked, setWriteUnlocked] = useState(false);
+  // Apply-to-DB state
+  const [currentReviewId, setCurrentReviewId] = useState<string | null>(null);
+  const [currentReviewAppliedAt, setCurrentReviewAppliedAt] = useState<string | null>(null);
+  const [applyDialogOpen, setApplyDialogOpen] = useState(false);
+  const [applyConfirmText, setApplyConfirmText] = useState("");
+  const [applying, setApplying] = useState(false);
+  const [applyProgress, setApplyProgress] = useState({ done: 0, total: 0 });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   /* History (saved reviews) */
