@@ -357,7 +357,13 @@ const EscolaDetalhe = () => {
             </div>
           </div>
 
-          {filteredFarmers.length === 0 ? (
+          {isFiltering ? (
+            <div className="rounded-md border p-4 space-y-2">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <Skeleton key={i} className="h-10 w-full" />
+              ))}
+            </div>
+          ) : filteredFarmers.length === 0 ? (
             <Card className="p-12 text-center">
               <Users className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
               <p className="font-medium">
