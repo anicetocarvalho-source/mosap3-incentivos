@@ -47,6 +47,7 @@ const Agricultores = () => {
   const [filterPatec, setFilterPatec] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterProvince, setFilterProvince] = useState("all");
+  const [filterMunicipality, setFilterMunicipality] = useState("all");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingFarmer, setEditingFarmer] = useState<any>(null);
   const [page, setPage] = useState(1);
