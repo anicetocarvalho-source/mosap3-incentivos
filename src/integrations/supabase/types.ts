@@ -157,6 +157,48 @@ export type Database = {
           },
         ]
       }
+      farmer_balance_history: {
+        Row: {
+          changed_by: string | null
+          created_at: string
+          delta: number | null
+          farmer_code: string
+          field: string
+          id: string
+          new_value: string | null
+          notes: string | null
+          old_value: string | null
+          source: string
+          source_ref: string | null
+        }
+        Insert: {
+          changed_by?: string | null
+          created_at?: string
+          delta?: number | null
+          farmer_code: string
+          field: string
+          id?: string
+          new_value?: string | null
+          notes?: string | null
+          old_value?: string | null
+          source?: string
+          source_ref?: string | null
+        }
+        Update: {
+          changed_by?: string | null
+          created_at?: string
+          delta?: number | null
+          farmer_code?: string
+          field?: string
+          id?: string
+          new_value?: string | null
+          notes?: string | null
+          old_value?: string | null
+          source?: string
+          source_ref?: string | null
+        }
+        Relationships: []
+      }
       farmer_dependents: {
         Row: {
           age: number | null
