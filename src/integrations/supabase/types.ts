@@ -824,6 +824,45 @@ export type Database = {
         }
         Relationships: []
       }
+      orphan_phones: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          linked_at: string | null
+          linked_by: string | null
+          linked_farmer_code: string | null
+          notes: string | null
+          phone: string
+          source_files: string[] | null
+          updated_at: string
+        }
+        Insert: {
+          amount?: number
+          created_at?: string
+          id?: string
+          linked_at?: string | null
+          linked_by?: string | null
+          linked_farmer_code?: string | null
+          notes?: string | null
+          phone: string
+          source_files?: string[] | null
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          linked_at?: string | null
+          linked_by?: string | null
+          linked_farmer_code?: string | null
+          notes?: string | null
+          phone?: string
+          source_files?: string[] | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       patec_items: {
         Row: {
           base_quantity: number | null
@@ -1579,6 +1618,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      bulk_insert_orphan_phones: { Args: { _data: Json }; Returns: number }
       dashboard_charts: {
         Args: { p_ecas?: string[]; p_provinces?: string[]; p_scope: string }
         Returns: Json
