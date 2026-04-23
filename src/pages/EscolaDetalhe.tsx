@@ -1,5 +1,6 @@
 import { useParams, Link } from "react-router-dom";
-import { useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useState } from "react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Loader2, Search } from "lucide-react";
 import { motion } from "framer-motion";
 import { ArrowLeft, MapPin, User, Users, Sprout, Droplets, Sun, Wheat, CheckCircle2, AlertTriangle, Plus, ClipboardEdit, AlertCircle, Camera, X, Send, FileText, Printer, ChevronLeft, ChevronRight } from "lucide-react";
