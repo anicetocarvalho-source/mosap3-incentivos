@@ -1,14 +1,63 @@
+import { useMemo, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ArrowLeft, MapPin, Users, User, Loader2 } from "lucide-react";
+import { ArrowLeft, MapPin, Users, User, Loader2, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { EmptyState } from "@/components/ui/empty-state";
 import { useProvincesData } from "@/hooks/useProvincesData";
+
+const SchoolCard = ({ school, index }: { school: any; index: number }) => (
+  <motion.div
+    initial={{ opacity: 0, y: 12 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ delay: Math.min(index * 0.03, 0.3) }}
+  >
+    <Link to={`/escolas/${school.id}`}>
+      <Card className="p-5 hover:shadow-md transition-shadow cursor-pointer hover:border-primary/40 h-full">
+        <div className="flex items-start justify-between mb-3">
+          <div className="min-w-0">
+            <h3 className="font-heading font-semibold text-base truncate">{school.name}</h3>
+            <div className="flex items-center gap-1 text-muted-foreground text-xs mt-1">
+              <MapPin className="h-3 w-3" />
+              <span className="truncate">{school.village || "—"}</span>
+            </div>
+          </div>
+          <Badge variant={school.status === "Ativa" ? "default" : "secondary"} className="text-xs shrink-0">
+            {school.status}
+          </Badge>
+        </div>
+        <div className="flex items-center gap-4 pt-3 border-t border-border">
+          <div className="flex items-center gap-1.5 text-sm">
+            <Users className="h-4 w-4 text-primary" />
+            <span className="font-semibold">{school.total_farmers}</span>
+            <span className="text-muted-foreground text-xs">produtores</span>
+          </div>
+          <div className="flex items-center gap-1.5 text-sm min-w-0">
+            <User className="h-4 w-4 text-muted-foreground shrink-0" />
+            <span className="text-muted-foreground text-xs truncate">{school.technician || "—"}</span>
+          </div>
+        </div>
+      </Card>
+    </Link>
+  </motion.div>
+);
 
 const ProvinciaEscolas = () => {
   const { slug } = useParams();
-  const { provinces, municipalities, schools, loading, getMunicipalitiesByProvince, getSchoolsByProvince } = useProvincesData();
+  const { provinces, loading, getMunicipalitiesByProvince, getSchoolsByProvince } = useProvincesData();
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
 
   if (loading) {
     return (
@@ -45,9 +94,30 @@ const ProvinciaEscolas = () => {
     byMunicipality[s.municipality_id].schools.push(s);
   });
 
-  // Municipalities without schools
+  // Sort municipalities alphabetically
+  const sortedMunicipalities = Object.entries(byMunicipality).sort((a, b) =>
+    a[1].name.localeCompare(b[1].name)
+  );
+
   const municipalityIdsWithSchools = new Set(Object.keys(byMunicipality));
   const municipalitiesWithout = provMunicipalities.filter((m) => !municipalityIdsWithSchools.has(m.id));
+
+  // Filtered list for "Todas as escolas"
+  const filteredSchools = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+    return provSchools.filter((s) => {
+      if (statusFilter !== "all" && s.status !== statusFilter) return false;
+      if (!term) return true;
+      return (
+        s.name.toLowerCase().includes(term) ||
+        (s.village || "").toLowerCase().includes(term) ||
+        (s.technician || "").toLowerCase().includes(term)
+      );
+    });
+  }, [provSchools, searchTerm, statusFilter]);
+
+  // Default first municipality expanded
+  const defaultOpen = sortedMunicipalities.length > 0 ? [sortedMunicipalities[0][0]] : [];
 
   return (
     <div className="space-y-6">
@@ -84,66 +154,119 @@ const ProvinciaEscolas = () => {
         </Card>
       </div>
 
-      {/* Municipalities with schools */}
-      {Object.entries(byMunicipality).map(([munId, { name, schools: municipalitySchools }]) => (
-        <div key={munId} className="space-y-3">
-          <div className="flex items-center gap-2">
-            <MapPin className="h-4 w-4 text-primary" />
-            <h2 className="font-heading font-semibold text-lg">{name}</h2>
-            <Badge variant="outline" className="text-xs">{municipalitySchools.length} escola(s)</Badge>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {municipalitySchools.map((school, i) => (
-              <motion.div
-                key={school.id}
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.05 }}
-              >
-                <Link to={`/escolas/${school.id}`}>
-                  <Card className="p-5 hover:shadow-md transition-shadow cursor-pointer hover:border-primary/40">
-                    <div className="flex items-start justify-between mb-3">
-                      <div>
-                        <h3 className="font-heading font-semibold text-base">{school.name}</h3>
-                        <div className="flex items-center gap-1 text-muted-foreground text-xs mt-1">
-                          <MapPin className="h-3 w-3" />
-                          <span>{school.village || "—"}</span>
-                        </div>
-                      </div>
-                      <Badge variant={school.status === "Ativa" ? "default" : "secondary"} className="text-xs">
-                        {school.status}
+      {/* Tabs */}
+      <Tabs defaultValue="por-municipio" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="por-municipio">Visão por Município ({sortedMunicipalities.length})</TabsTrigger>
+          <TabsTrigger value="todas">Todas as Escolas ({provSchools.length})</TabsTrigger>
+          <TabsTrigger value="sem-escolas">Sem Escolas ({municipalitiesWithout.length})</TabsTrigger>
+        </TabsList>
+
+        {/* Tab 1: Por Município com Accordion */}
+        <TabsContent value="por-municipio" className="space-y-2">
+          {sortedMunicipalities.length === 0 ? (
+            <EmptyState
+              icon={MapPin}
+              title="Nenhum município com escolas"
+              description="Esta província ainda não tem escolas de campo registadas."
+            />
+          ) : (
+            <Accordion type="multiple" defaultValue={defaultOpen} className="space-y-2">
+              {sortedMunicipalities.map(([munId, { name, schools: municipalitySchools }]) => (
+                <AccordionItem
+                  key={munId}
+                  value={munId}
+                  className="border rounded-lg px-4 bg-card"
+                >
+                  <AccordionTrigger className="hover:no-underline">
+                    <div className="flex items-center gap-3 flex-1">
+                      <MapPin className="h-4 w-4 text-primary shrink-0" />
+                      <span className="font-heading font-semibold text-base">{name}</span>
+                      <Badge variant="outline" className="text-xs ml-auto mr-2">
+                        {municipalitySchools.length} escola(s) • {municipalitySchools.reduce((s, sc) => s + sc.total_farmers, 0)} produtores
                       </Badge>
                     </div>
-                    <div className="flex items-center gap-4 pt-3 border-t border-border">
-                      <div className="flex items-center gap-1.5 text-sm">
-                        <Users className="h-4 w-4 text-primary" />
-                        <span className="font-semibold">{school.total_farmers}</span>
-                        <span className="text-muted-foreground text-xs">produtores</span>
-                      </div>
-                      <div className="flex items-center gap-1.5 text-sm">
-                        <User className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-muted-foreground text-xs">{school.technician || "—"}</span>
-                      </div>
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-2">
+                      {municipalitySchools.map((school, i) => (
+                        <SchoolCard key={school.id} school={school} index={i} />
+                      ))}
                     </div>
-                  </Card>
-                </Link>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      ))}
+                  </AccordionContent>
+                </AccordionItem>
+              ))}
+            </Accordion>
+          )}
+        </TabsContent>
 
-      {/* Municipalities without schools */}
-      {municipalitiesWithout.length > 0 && (
-        <div className="space-y-3">
-          <h2 className="font-heading font-semibold text-lg text-muted-foreground">Municípios sem Escolas de Campo</h2>
-          <div className="flex flex-wrap gap-2">
-            {municipalitiesWithout.map((m) => (
-              <Badge key={m.id} variant="outline" className="text-xs text-muted-foreground">{m.name}</Badge>
-            ))}
+        {/* Tab 2: Todas as escolas com pesquisa */}
+        <TabsContent value="todas" className="space-y-4">
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Pesquisar por nome, aldeia ou técnico..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-full sm:w-[180px]">
+                <SelectValue placeholder="Estado" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os estados</SelectItem>
+                <SelectItem value="Ativa">Ativa</SelectItem>
+                <SelectItem value="Inativa">Inativa</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
-        </div>
-      )}
+          {filteredSchools.length === 0 ? (
+            <EmptyState
+              icon={Search}
+              title="Nenhuma escola encontrada"
+              description="Tente ajustar a pesquisa ou o filtro de estado."
+            />
+          ) : (
+            <>
+              <p className="text-xs text-muted-foreground">
+                A mostrar {filteredSchools.length} de {provSchools.length} escolas.
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {filteredSchools.map((school, i) => (
+                  <SchoolCard key={school.id} school={school} index={i} />
+                ))}
+              </div>
+            </>
+          )}
+        </TabsContent>
+
+        {/* Tab 3: Municípios sem escolas */}
+        <TabsContent value="sem-escolas">
+          {municipalitiesWithout.length === 0 ? (
+            <EmptyState
+              icon={MapPin}
+              title="Todos os municípios têm escolas"
+              description="Não há municípios sem escolas de campo nesta província."
+            />
+          ) : (
+            <Card className="p-5">
+              <h2 className="font-heading font-semibold text-base text-muted-foreground mb-3">
+                {municipalitiesWithout.length} município(s) sem escolas de campo
+              </h2>
+              <div className="flex flex-wrap gap-2">
+                {municipalitiesWithout.map((m) => (
+                  <Badge key={m.id} variant="outline" className="text-xs text-muted-foreground">
+                    {m.name}
+                  </Badge>
+                ))}
+              </div>
+            </Card>
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
