@@ -30,6 +30,7 @@ import {
   Monitor,
   Receipt,
   PhoneOff,
+  Wand2,
 } from "lucide-react";
 import mosapLogo from "@/assets/mosap3-logo.png";
 import { useAuth } from "@/hooks/useAuth";
@@ -86,6 +87,7 @@ export const navItems: NavItem[] = [
       { label: "Incentivos", path: "/incentivos", icon: Gift },
       { label: "Transações", path: "/transacoes", icon: ArrowLeftRight },
       { label: "Telefones Órfãos", path: "/telefones-orfaos", icon: PhoneOff },
+      { label: "Revisão por Província", path: "/revisao-provincias", icon: Wand2 },
     ],
   },
   { icon: MapPin, label: "Parcelas", path: "/parcelas", moduleName: "Parcelas" },
