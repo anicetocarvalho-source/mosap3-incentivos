@@ -1,5 +1,6 @@
 import { useParams, Link } from "react-router-dom";
-import { useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useState } from "react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Loader2, Search } from "lucide-react";
 import { motion } from "framer-motion";
 import { ArrowLeft, MapPin, User, Users, Sprout, Droplets, Sun, Wheat, CheckCircle2, AlertTriangle, Plus, ClipboardEdit, AlertCircle, Camera, X, Send, FileText, Printer, ChevronLeft, ChevronRight } from "lucide-react";
@@ -110,19 +111,26 @@ const EscolaDetalhe = () => {
   const [farmerSearch, setFarmerSearch] = useState("");
   const [farmerPage, setFarmerPage] = useState(1);
   const PAGE_SIZE = 50;
+  const deferredSearch = useDeferredValue(farmerSearch);
+  const isFiltering = deferredSearch !== farmerSearch;
 
   const filteredFarmers = useMemo(() => {
     if (!school) return [];
-    const term = farmerSearch.trim().toLowerCase();
+    const term = deferredSearch.trim().toLowerCase();
     if (!term) return school.farmers;
     return school.farmers.filter(
       (f) => f.name.toLowerCase().includes(term) || f.id.toLowerCase().includes(term)
     );
-  }, [school, farmerSearch]);
+  }, [school, deferredSearch]);
 
   const totalPages = Math.max(1, Math.ceil(filteredFarmers.length / PAGE_SIZE));
   const currentPage = Math.min(farmerPage, totalPages);
   const pagedFarmers = filteredFarmers.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
+  // Clamp the stored page if filtering reduced totalPages, preserving the page otherwise.
+  useEffect(() => {
+    if (farmerPage > totalPages) setFarmerPage(totalPages);
+  }, [totalPages, farmerPage]);
 
   if (loading) {
     return (
@@ -343,13 +351,19 @@ const EscolaDetalhe = () => {
               <Input
                 placeholder="Pesquisar por nome ou código..."
                 value={farmerSearch}
-                onChange={(e) => { setFarmerSearch(e.target.value); setFarmerPage(1); }}
+                onChange={(e) => setFarmerSearch(e.target.value)}
                 className="pl-9 h-9"
               />
             </div>
           </div>
 
-          {filteredFarmers.length === 0 ? (
+          {isFiltering ? (
+            <div className="rounded-md border p-4 space-y-2">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <Skeleton key={i} className="h-10 w-full" />
+              ))}
+            </div>
+          ) : filteredFarmers.length === 0 ? (
             <Card className="p-12 text-center">
               <Users className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
               <p className="font-medium">
