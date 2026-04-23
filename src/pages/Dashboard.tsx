@@ -11,6 +11,7 @@ import HeroHeader from "@/components/dashboard/HeroHeader";
 import KpiCard from "@/components/dashboard/KpiCard";
 import ChartCard from "@/components/dashboard/ChartCard";
 import PeriodFilter, { type PeriodValue } from "@/components/dashboard/PeriodFilter";
+import EcaBalanceTable from "@/components/dashboard/EcaBalanceTable";
 import { ErrorState } from "@/components/ui/error-state";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -363,6 +364,9 @@ const Dashboard = () => {
           </ResponsiveContainer>
         )}
       </ChartCard>
+
+      {/* Saldos por ECA (filtrável + export XLSX) */}
+      <EcaBalanceTable />
 
       {/* Empty state */}
       {stats.totalFarmers === 0 && (
