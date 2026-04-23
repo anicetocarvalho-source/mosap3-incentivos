@@ -60,12 +60,101 @@ const parsePtao = (s: string | number | null | undefined): number => {
 const fmt = (n: number) =>
   n.toLocaleString("pt-AO", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-const normalizePhone = (raw: string | null | undefined): string => {
-  if (!raw) return "";
-  const digits = raw.toString().replace(/\D/g, "");
-  if (!digits) return "";
-  if (digits.startsWith("244") && digits.length >= 12) return digits.slice(-9);
-  return digits.slice(-9);
+/* ───── Phone normalization ─────
+ * Angola mobile: 9 dígitos começando por 9 (ex.: 9XXXXXXXX).
+ * Aceita variantes: +244 9..., 00244 9..., 244 9..., espaços, hífens, parênteses.
+ * Retorna { phone: '9XXXXXXXX' | '', reason } com classificação para auditoria.
+ */
+type PhoneNormReason =
+  | "ok"                  // já estava em formato 9XXXXXXXX
+  | "stripped_244"        // tinha código país 244 (com ou sem +/00)
+  | "stripped_leading_zero" // tinha 0 à frente (ex.: 0923456789)
+  | "padded_or_trimmed"   // tinha comprimento diferente mas extraímos os últimos 9
+  | "invalid_prefix"      // não começa por 9 após normalizar
+  | "too_short"           // menos de 9 dígitos
+  | "empty";
+
+export type NormalizedPhone = {
+  phone: string;          // resultado canónico (9XXXXXXXX) ou ""
+  reason: PhoneNormReason;
+  changed: boolean;       // true se diferente do input original (ignorando whitespace)
+};
+
+const normalizePhoneDetailed = (raw: string | null | undefined): NormalizedPhone => {
+  if (!raw) return { phone: "", reason: "empty", changed: false };
+  const original = raw.toString().trim();
+  if (!original) return { phone: "", reason: "empty", changed: false };
+
+  let digits = original.replace(/\D/g, "");
+  if (!digits) return { phone: "", reason: "empty", changed: false };
+
+  let reason: PhoneNormReason = "ok";
+
+  // Remove código de país 244 (com ou sem 00)
+  if (digits.startsWith("00244")) {
+    digits = digits.slice(5);
+    reason = "stripped_244";
+  } else if (digits.startsWith("244") && digits.length >= 12) {
+    digits = digits.slice(3);
+    reason = "stripped_244";
+  } else if (digits.startsWith("0") && digits.length === 10) {
+    // Variante local com 0 à frente (0923456789)
+    digits = digits.slice(1);
+    reason = "stripped_leading_zero";
+  }
+
+  if (digits.length < 9) return { phone: "", reason: "too_short", changed: true };
+
+  // Se ainda for >9, ficar com os últimos 9 (defensivo contra prefixos exóticos)
+  if (digits.length > 9) {
+    digits = digits.slice(-9);
+    if (reason === "ok") reason = "padded_or_trimmed";
+  }
+
+  // Em Angola números móveis começam por 9
+  if (!digits.startsWith("9")) {
+    return { phone: "", reason: "invalid_prefix", changed: true };
+  }
+
+  const changed = digits !== original.replace(/\s/g, "");
+  return { phone: digits, reason: changed && reason === "ok" ? "padded_or_trimmed" : reason, changed };
+};
+
+// Wrapper retro-compatível (apenas devolve a string)
+const normalizePhone = (raw: string | null | undefined): string =>
+  normalizePhoneDetailed(raw).phone;
+
+/* Acumulador de estatísticas de normalização por origem (csv / farmers / orphans) */
+export type PhoneNormStats = {
+  total: number;
+  valid: number;
+  changed: number;
+  stripped244: number;
+  strippedLeadingZero: number;
+  paddedOrTrimmed: number;
+  invalidPrefix: number;
+  tooShort: number;
+  empty: number;
+};
+
+const emptyPhoneStats = (): PhoneNormStats => ({
+  total: 0, valid: 0, changed: 0,
+  stripped244: 0, strippedLeadingZero: 0, paddedOrTrimmed: 0,
+  invalidPrefix: 0, tooShort: 0, empty: 0,
+});
+
+const accumulatePhone = (stats: PhoneNormStats, n: NormalizedPhone) => {
+  stats.total += 1;
+  if (n.phone) stats.valid += 1;
+  if (n.changed) stats.changed += 1;
+  switch (n.reason) {
+    case "stripped_244": stats.stripped244 += 1; break;
+    case "stripped_leading_zero": stats.strippedLeadingZero += 1; break;
+    case "padded_or_trimmed": stats.paddedOrTrimmed += 1; break;
+    case "invalid_prefix": stats.invalidPrefix += 1; break;
+    case "too_short": stats.tooShort += 1; break;
+    case "empty": stats.empty += 1; break;
+  }
 };
 
 /* ───── CSV parsing (Unitel format) ───── */
