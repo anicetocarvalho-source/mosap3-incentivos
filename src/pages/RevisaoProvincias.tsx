@@ -210,6 +210,74 @@ const findCol = (row: CsvRow, candidates: string[]): string | null => {
   return null;
 };
 
+/* ───── Schema validation dos CSVs Unitel ───── */
+export type CsvSchemaIssue = {
+  level: "error" | "warning";
+  field: "phone" | "amount" | "transactionId" | "bulkPlanId" | "rows" | "successRows";
+  message: string;
+};
+
+export type CsvSchemaReport = {
+  valid: boolean;          // false se houver pelo menos 1 erro
+  issues: CsvSchemaIssue[];
+  detected: {
+    phoneCol: string | null;
+    amountCol: string | null;
+    statusCol: string | null;
+    txCol: string | null;
+    bulkCol: string | null;
+    planNameCol: string | null;
+  };
+};
+
+const validateCsvSchema = (rows: CsvRow[]): CsvSchemaReport => {
+  const issues: CsvSchemaIssue[] = [];
+  const sample = rows[0] ?? {};
+  const phoneCol = findCol(sample, ["Credit Msisdn", "Msisdn", "Phone", "Telefone"]);
+  const amountCol = findCol(sample, ["Amount", "Valor", "Credit Amount"]);
+  const statusCol = findCol(sample, ["Status", "Estado", "Result"]);
+  const txCol = findCol(sample, ["TransactionID", "Transaction Id", "Trx", "Reference"]);
+  const bulkCol = findCol(sample, ["Bulk Plan ID", "BulkPlanId", "Plan ID"]);
+  const planNameCol = findCol(sample, ["Plan Name", "Bulk Plan Name", "Description"]);
+
+  if (rows.length === 0) {
+    issues.push({ level: "error", field: "rows", message: "Ficheiro vazio (0 linhas)." });
+  }
+  if (!phoneCol) {
+    issues.push({
+      level: "error",
+      field: "phone",
+      message: "Coluna de telefone em falta. Esperado: 'Credit Msisdn', 'Msisdn', 'Phone' ou 'Telefone'.",
+    });
+  }
+  if (!amountCol) {
+    issues.push({
+      level: "error",
+      field: "amount",
+      message: "Coluna de valor em falta. Esperado: 'Amount', 'Valor' ou 'Credit Amount'.",
+    });
+  }
+  if (!txCol) {
+    issues.push({
+      level: "warning",
+      field: "transactionId",
+      message: "Coluna de identificador (TransactionID) em falta. A deteção de duplicados ficará mais fraca.",
+    });
+  }
+  if (!bulkCol) {
+    issues.push({
+      level: "warning",
+      field: "bulkPlanId",
+      message: "Coluna 'Bulk Plan ID' em falta. Não será possível detetar reedições do mesmo bulk.",
+    });
+  }
+  return {
+    valid: issues.every((i) => i.level !== "error"),
+    issues,
+    detected: { phoneCol, amountCol, statusCol, txCol, bulkCol, planNameCol },
+  };
+};
+
 type ParsedCsv = {
   fileName: string;
   rows: CsvRow[];
@@ -220,16 +288,12 @@ type ParsedCsv = {
   unitAmount: number | null;
   successRows: { phone: string; amount: number; transactionId: string }[];
   phoneStats: PhoneNormStats;
+  schema: CsvSchemaReport;
 };
 
 const analyzeCsv = (fileName: string, rows: CsvRow[]): ParsedCsv => {
-  const sample = rows[0] ?? {};
-  const phoneCol = findCol(sample, ["Credit Msisdn", "Msisdn", "Phone", "Telefone"]);
-  const amountCol = findCol(sample, ["Amount", "Valor", "Credit Amount"]);
-  const statusCol = findCol(sample, ["Status", "Estado", "Result"]);
-  const txCol = findCol(sample, ["TransactionID", "Transaction Id", "Trx", "Reference"]);
-  const bulkCol = findCol(sample, ["Bulk Plan ID", "BulkPlanId", "Plan ID"]);
-  const planNameCol = findCol(sample, ["Plan Name", "Bulk Plan Name", "Description"]);
+  const schema = validateCsvSchema(rows);
+  const { phoneCol, amountCol, statusCol, txCol, bulkCol, planNameCol } = schema.detected;
 
   const successRows: ParsedCsv["successRows"] = [];
   let totalAmount = 0;
@@ -238,19 +302,30 @@ const analyzeCsv = (fileName: string, rows: CsvRow[]): ParsedCsv => {
   const amountSet = new Set<number>();
   const phoneStats = emptyPhoneStats();
 
-  for (const r of rows) {
-    if (bulkCol && !bulkPlanId) bulkPlanId = (r[bulkCol] ?? "").trim() || null;
-    if (planNameCol && !planName) planName = (r[planNameCol] ?? "").trim() || null;
-    const status = statusCol ? (r[statusCol] ?? "").toLowerCase() : "success";
-    if (statusCol && !status.includes("success") && !status.includes("ok")) continue;
-    const norm = normalizePhoneDetailed(phoneCol ? r[phoneCol] : "");
-    accumulatePhone(phoneStats, norm);
-    const amount = parsePtao(amountCol ? r[amountCol] : "0");
-    const transactionId = txCol ? (r[txCol] ?? "").trim() : "";
-    if (!norm.phone) continue;
-    successRows.push({ phone: norm.phone, amount, transactionId });
-    totalAmount += amount;
-    if (amount > 0) amountSet.add(amount);
+  // Se não há coluna de telefone ou valor, não vale a pena tentar parse — schema irá bloquear.
+  if (schema.valid) {
+    for (const r of rows) {
+      if (bulkCol && !bulkPlanId) bulkPlanId = (r[bulkCol] ?? "").trim() || null;
+      if (planNameCol && !planName) planName = (r[planNameCol] ?? "").trim() || null;
+      const status = statusCol ? (r[statusCol] ?? "").toLowerCase() : "success";
+      if (statusCol && !status.includes("success") && !status.includes("ok")) continue;
+      const norm = normalizePhoneDetailed(phoneCol ? r[phoneCol] : "");
+      accumulatePhone(phoneStats, norm);
+      const amount = parsePtao(amountCol ? r[amountCol] : "0");
+      const transactionId = txCol ? (r[txCol] ?? "").trim() : "";
+      if (!norm.phone) continue;
+      successRows.push({ phone: norm.phone, amount, transactionId });
+      totalAmount += amount;
+      if (amount > 0) amountSet.add(amount);
+    }
+    if (successRows.length === 0) {
+      schema.issues.push({
+        level: "error",
+        field: "successRows",
+        message: "Nenhuma linha com sucesso após normalização (telefones inválidos ou status≠success).",
+      });
+      schema.valid = false;
+    }
   }
 
   const unitAmount = amountSet.size === 1 ? Array.from(amountSet)[0] : null;
@@ -265,6 +340,7 @@ const analyzeCsv = (fileName: string, rows: CsvRow[]): ParsedCsv => {
     unitAmount,
     successRows,
     phoneStats,
+    schema,
   };
 };
 
