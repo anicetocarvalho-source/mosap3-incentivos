@@ -526,7 +526,7 @@ const RevisaoProvincias = () => {
         (s, r: any) => s + (r.csvAmount ?? r.amountCsv ?? 0),
         0,
       );
-      const { error } = await supabase.from("province_reviews").insert({
+      const { data: inserted, error } = await supabase.from("province_reviews").insert({
         province: review.province,
         generated_at: review.generatedAt,
         generated_by: userId,
@@ -543,8 +543,10 @@ const RevisaoProvincias = () => {
         phones_normalized: phonesNormalized,
         notes: saveNotes.trim() || null,
         payload: review as any,
-      });
+      }).select("id").single();
       if (error) throw error;
+      setCurrentReviewId(inserted?.id ?? null);
+      setCurrentReviewAppliedAt(null);
       toast.success("Revisão guardada no histórico");
       setSaveDialogOpen(false);
       setSaveNotes("");
