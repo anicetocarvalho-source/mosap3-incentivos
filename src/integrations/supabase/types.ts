@@ -1618,6 +1618,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      bulk_insert_orphan_phones: { Args: { _data: Json }; Returns: number }
       dashboard_charts: {
         Args: { p_ecas?: string[]; p_provinces?: string[]; p_scope: string }
         Returns: Json
