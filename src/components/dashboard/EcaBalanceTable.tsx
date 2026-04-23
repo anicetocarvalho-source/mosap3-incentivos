@@ -19,27 +19,9 @@ type Row = {
   saldo: number;
 };
 
-const parsePtao = (s: string | null): number => {
-  if (!s) return 0;
-  const str = s.toString().trim().replace(/[^0-9.,-]/g, "");
-  if (!str) return 0;
-  const lastComma = str.lastIndexOf(",");
-  const lastDot = str.lastIndexOf(".");
-  let normalized = str;
-  if (lastComma > lastDot) {
-    normalized = str.replace(/\./g, "").replace(",", ".");
-  } else if (lastDot > -1 && lastComma === -1) {
-    const parts = str.split(".");
-    if (parts.length > 2 && parts.slice(1).every((p) => p.length === 3)) {
-      normalized = parts.join("");
-    }
-  }
-  const n = Number(normalized);
-  return isNaN(n) ? 0 : n;
-};
+import { parseAmount as parsePtao, formatKz } from "@/lib/numberFormat";
 
-const fmt = (n: number) =>
-  n.toLocaleString("pt-AO", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmt = (n: number) => formatKz(n, false);
 
 type SortKey = "school" | "n" | "recebido" | "gasto" | "saldo";
 

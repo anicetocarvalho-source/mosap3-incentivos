@@ -31,17 +31,7 @@ const PAGE_SIZE = 15;
 // Parser unificado (suporta formato EN-US "200,000.00" e PT "200.000,00")
 import { parseAmount as parsePtAo, formatKzCompact } from "@/lib/numberFormat";
 
-const _unusedParse = (s: string | null | undefined): number => {
-  if (!s) return 0;
-  const cleaned = String(s).replace(/\./g, "").replace(",", ".").replace(/[^0-9.\-]/g, "");
-  const n = parseFloat(cleaned);
-  return isNaN(n) ? 0 : n;
-};
-
-const fmtKz = (s: string | null | undefined): string => {
-  const n = parsePtAo(s);
-  return new Intl.NumberFormat("pt-AO", { maximumFractionDigits: 0 }).format(n) + " Kz";
-};
+const fmtKz = (s: string | null | undefined): string => formatKzCompact(s);
 
 const statusDotClass = (status: string): string => {
   const s = status?.toLowerCase();

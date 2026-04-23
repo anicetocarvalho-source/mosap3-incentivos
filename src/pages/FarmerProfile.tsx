@@ -694,10 +694,11 @@ const FarmerProfile = () => {
           {/* Financeiro Tab — incentivos + compras POS + transações manuais (substitui as antigas abas Incentivos e Conformação) */}
           <TabsContent value="financeiro" className="mt-4 space-y-6">
             {(() => {
-              // Parser pt-AO: "198.700,00" → 198700
+              // Parser unificado (suporta EN-US e PT) — ver src/lib/numberFormat.ts
               const parsePtAo = (s: string | null | undefined) => {
-                if (!s) return 0;
-                return parseFloat(String(s).replace(/\./g, "").replace(",", ".")) || 0;
+                // eslint-disable-next-line @typescript-eslint/no-var-requires
+                const { parseAmount } = require("@/lib/numberFormat");
+                return parseAmount(s);
               };
 
               // Incentivos: novos (farmer_incentives) + legado (farmers.valor_recebido) como fallback
