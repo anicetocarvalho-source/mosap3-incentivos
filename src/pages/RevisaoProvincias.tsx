@@ -1009,6 +1009,174 @@ const RevisaoProvincias = () => {
     toast.success("Pré-validação aprovada. Escrita desbloqueada (aguarda endpoint de importação).");
   };
 
+  /* ─────────── Aplicar valores Unitel à BD ─────────── */
+  const applyExpected = "APLICAR";
+  const canApplyConfirm = applyConfirmText.trim().toUpperCase() === applyExpected;
+
+  const applyToDb = async () => {
+    if (!review) return;
+    if (!canApply) {
+      toast.error("Sem permissão para aplicar valores na BD.");
+      return;
+    }
+    if (!currentReviewId) {
+      toast.error("Guarde a revisão antes de aplicar.");
+      return;
+    }
+    if (currentReviewAppliedAt) {
+      toast.error("Esta revisão já foi aplicada anteriormente.");
+      return;
+    }
+
+    setApplying(true);
+    try {
+      // 1) Reconstruir mapa fone→agricultor para a província
+      setApplyProgress({ done: 0, total: 0 });
+      toast.info("A carregar agricultores da província…");
+      const farmers: { code: string; phone: string | null; valor_recebido: string | null }[] = [];
+      const pageSize = 1000;
+      let from = 0;
+      while (true) {
+        const { data, error } = await supabase
+          .from("farmers")
+          .select("code, phone, valor_recebido")
+          .eq("province", review.province)
+          .range(from, from + pageSize - 1);
+        if (error) throw error;
+        if (!data || data.length === 0) break;
+        farmers.push(...data);
+        if (data.length < pageSize) break;
+        from += pageSize;
+      }
+      const phoneToFarmer = new Map<string, { code: string; valor_recebido: string | null }>();
+      const codeToFarmer = new Map<string, { valor_recebido: string | null }>();
+      for (const f of farmers) {
+        codeToFarmer.set(f.code, { valor_recebido: f.valor_recebido });
+        const np = normalizePhone(f.phone);
+        if (np) phoneToFarmer.set(np, { code: f.code, valor_recebido: f.valor_recebido });
+      }
+
+      // 2) Agregar valores por agricultor (somando todos os CSVs incluídos)
+      const filesIncluded = review.uploadedFiles.filter((c) => {
+        const isFlaggedDup = review.duplicateChecks.some(
+          (d) => d.fileB.fileName === c.fileName && d.isDuplicate,
+        );
+        return !isFlaggedDup || confirmedDuplicates.has(c.fileName);
+      });
+
+      const farmerCredits = new Map<string, number>();
+      const orphanAmounts = new Map<string, number>();
+      let matchedAmount = 0;
+      let orphanAmount = 0;
+
+      for (const c of filesIncluded) {
+        for (const r of c.successRows) {
+          const match = phoneToFarmer.get(r.phone);
+          if (match) {
+            farmerCredits.set(match.code, (farmerCredits.get(match.code) ?? 0) + r.amount);
+            matchedAmount += r.amount;
+          } else {
+            orphanAmounts.set(r.phone, (orphanAmounts.get(r.phone) ?? 0) + r.amount);
+            orphanAmount += r.amount;
+          }
+        }
+      }
+
+      const farmerEntries = Array.from(farmerCredits.entries());
+      setApplyProgress({ done: 0, total: farmerEntries.length });
+
+      // 3) Atualizar valor_recebido em chunks de 50
+      const formatPtao = (n: number): string => {
+        const sign = n < 0 ? "-" : "";
+        const abs = Math.abs(n);
+        return sign + abs.toLocaleString("pt-PT", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      };
+
+      const chunkSize = 50;
+      let okCount = 0;
+      let failCount = 0;
+      const failed: string[] = [];
+
+      for (let i = 0; i < farmerEntries.length; i += chunkSize) {
+        const slice = farmerEntries.slice(i, i + chunkSize);
+        await Promise.all(
+          slice.map(async ([code, credit]) => {
+            const cur = codeToFarmer.get(code);
+            const currentVal = parsePtao(cur?.valor_recebido ?? "0");
+            const newVal = currentVal + credit;
+            const { error } = await supabase
+              .from("farmers")
+              .update({ valor_recebido: formatPtao(newVal) })
+              .eq("code", code);
+            if (error) {
+              failCount += 1;
+              failed.push(`${code}: ${error.message}`);
+            } else {
+              okCount += 1;
+            }
+          }),
+        );
+        setApplyProgress({ done: Math.min(i + chunkSize, farmerEntries.length), total: farmerEntries.length });
+      }
+
+      // 4) Inserir telefones órfãos
+      let orphansInserted = 0;
+      if (orphanAmounts.size > 0) {
+        const orphanArray = Array.from(orphanAmounts.entries()).map(([phone, amount]) => ({
+          phone,
+          amount,
+        }));
+        const { data: orphanResult, error: orphanErr } = await (supabase.rpc as any)(
+          "bulk_insert_orphan_phones",
+          { _data: orphanArray },
+        );
+        if (orphanErr) {
+          toast.warning(`Órfãos: ${orphanErr.message}`);
+        } else {
+          orphansInserted = (orphanResult as number) ?? orphanArray.length;
+        }
+      }
+
+      // 5) Marcar revisão como aplicada
+      const summary = {
+        files_included: filesIncluded.map((f) => f.fileName),
+        farmers_updated: okCount,
+        farmers_failed: failCount,
+        matched_amount: matchedAmount,
+        orphans_inserted: orphansInserted,
+        orphans_amount: orphanAmount,
+        failed_codes: failed.slice(0, 20),
+      };
+      const { data: u } = await supabase.auth.getUser();
+      const appliedAtIso = new Date().toISOString();
+      const { error: markErr } = await supabase
+        .from("province_reviews")
+        .update({
+          applied_at: appliedAtIso,
+          applied_by: u?.user?.id ?? null,
+          applied_summary: summary,
+        })
+        .eq("id", currentReviewId);
+      if (markErr) {
+        toast.warning(`Aplicado, mas falha a marcar revisão: ${markErr.message}`);
+      } else {
+        setCurrentReviewAppliedAt(appliedAtIso);
+      }
+
+      setApplyDialogOpen(false);
+      setApplyConfirmText("");
+      toast.success(
+        `Aplicado: ${okCount} agricultores creditados (${fmt(matchedAmount)} Kz), ${orphansInserted} órfãos guardados${failCount > 0 ? `, ${failCount} falhas` : ""}.`,
+        { duration: 10000 },
+      );
+    } catch (e: any) {
+      toast.error(`Falha na aplicação: ${e?.message ?? e}`);
+    } finally {
+      setApplying(false);
+      setApplyProgress({ done: 0, total: 0 });
+    }
+  };
+
   return (
     <div className="space-y-6">
       <PageHeader
