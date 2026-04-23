@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Plus, Search, Download, Eye, Edit, Package, ChevronLeft, ChevronRight, Trash2, RotateCcw, MoreHorizontal, Wallet, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
+import { Plus, Search, Download, Eye, Edit, Package, ChevronLeft, ChevronRight, Trash2, RotateCcw, MoreHorizontal, Wallet, ArrowUp, ArrowDown, ArrowUpDown, AlertTriangle } from "lucide-react";
 import FarmerAvatar from "@/components/FarmerAvatar";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -352,8 +352,34 @@ const Agricultores = () => {
                         <td className="px-4 py-3">
                           {f.patec ? <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary">PATEC {f.patec}</span> : "—"}
                         </td>
-                        <td className="px-4 py-3 text-right font-medium text-success tabular-nums">{fmtKz(f.valor_recebido)}</td>
-                        <td className="px-4 py-3 text-right font-medium text-warning tabular-nums">{fmtKz(f.total_gasto)}</td>
+                        {(() => {
+                          const recebido = parsePtAo(f.valor_recebido);
+                          const usado = parsePtAo(f.total_gasto);
+                          const semRecebido = usado > 0 && recebido === 0;
+                          const excede = recebido > 0 && usado > recebido;
+                          const inconsistente = semRecebido || excede;
+                          const motivo = semRecebido
+                            ? "Tem valor usado mas não tem recebido registado"
+                            : `Usado excede o recebido em ${formatKzCompact(String(usado - recebido))}`;
+                          return (
+                            <>
+                              <td className="px-4 py-3 text-right font-medium text-success tabular-nums">{fmtKz(f.valor_recebido)}</td>
+                              <td className={`px-4 py-3 text-right font-medium tabular-nums ${inconsistente ? "text-destructive" : "text-warning"}`}>
+                                <span className="inline-flex items-center gap-1.5 justify-end">
+                                  {inconsistente && (
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <AlertTriangle className="h-3.5 w-3.5 text-destructive flex-shrink-0" aria-label="Inconsistência" />
+                                      </TooltipTrigger>
+                                      <TooltipContent>{motivo}</TooltipContent>
+                                    </Tooltip>
+                                  )}
+                                  {fmtKz(f.total_gasto)}
+                                </span>
+                              </td>
+                            </>
+                          );
+                        })()}
                         <td className="px-4 py-3 text-right">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
