@@ -28,8 +28,10 @@ import { ErrorState } from "@/components/ui/error-state";
 
 const PAGE_SIZE = 15;
 
-// Parse pt-AO numeric strings like "1.234,56" or "1234,56"
-const parsePtAo = (s: string | null | undefined): number => {
+// Parser unificado (suporta formato EN-US "200,000.00" e PT "200.000,00")
+import { parseAmount as parsePtAo, formatKzCompact } from "@/lib/numberFormat";
+
+const _unusedParse = (s: string | null | undefined): number => {
   if (!s) return 0;
   const cleaned = String(s).replace(/\./g, "").replace(",", ".").replace(/[^0-9.\-]/g, "");
   const n = parseFloat(cleaned);
