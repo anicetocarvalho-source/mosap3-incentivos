@@ -14,6 +14,21 @@ export type Database = {
   }
   public: {
     Tables: {
+      _tmp_valores_recebidos: {
+        Row: {
+          telefone: string
+          valor: number
+        }
+        Insert: {
+          telefone: string
+          valor: number
+        }
+        Update: {
+          telefone?: string
+          valor?: number
+        }
+        Relationships: []
+      }
       audit_logs: {
         Row: {
           action: string
