@@ -592,6 +592,7 @@ const RevisaoProvincias = () => {
         topOrphans,
         orphanCount,
         orphanAmount,
+        phoneStats: { csv: csvPhoneStats, farmers: farmerPhoneStats, orphans: orphanPhoneStats },
       };
       setReview(result);
       setProgress("");
