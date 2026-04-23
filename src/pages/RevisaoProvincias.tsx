@@ -219,6 +219,7 @@ type ParsedCsv = {
   totalAmount: number;
   unitAmount: number | null;
   successRows: { phone: string; amount: number; transactionId: string }[];
+  phoneStats: PhoneNormStats;
 };
 
 const analyzeCsv = (fileName: string, rows: CsvRow[]): ParsedCsv => {
@@ -235,17 +236,19 @@ const analyzeCsv = (fileName: string, rows: CsvRow[]): ParsedCsv => {
   let bulkPlanId: string | null = null;
   let planName: string | null = null;
   const amountSet = new Set<number>();
+  const phoneStats = emptyPhoneStats();
 
   for (const r of rows) {
     if (bulkCol && !bulkPlanId) bulkPlanId = (r[bulkCol] ?? "").trim() || null;
     if (planNameCol && !planName) planName = (r[planNameCol] ?? "").trim() || null;
     const status = statusCol ? (r[statusCol] ?? "").toLowerCase() : "success";
     if (statusCol && !status.includes("success") && !status.includes("ok")) continue;
-    const phone = normalizePhone(phoneCol ? r[phoneCol] : "");
+    const norm = normalizePhoneDetailed(phoneCol ? r[phoneCol] : "");
+    accumulatePhone(phoneStats, norm);
     const amount = parsePtao(amountCol ? r[amountCol] : "0");
     const transactionId = txCol ? (r[txCol] ?? "").trim() : "";
-    if (!phone) continue;
-    successRows.push({ phone, amount, transactionId });
+    if (!norm.phone) continue;
+    successRows.push({ phone: norm.phone, amount, transactionId });
     totalAmount += amount;
     if (amount > 0) amountSet.add(amount);
   }
@@ -261,6 +264,7 @@ const analyzeCsv = (fileName: string, rows: CsvRow[]): ParsedCsv => {
     totalAmount,
     unitAmount,
     successRows,
+    phoneStats,
   };
 };
 
