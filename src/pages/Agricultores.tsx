@@ -66,7 +66,18 @@ const Agricultores = () => {
     },
   });
 
-  useEffect(() => { setPage(1); }, [search, filterPatec, filterStatus, filterProvince, sortBy, sortDir]);
+  // Municípios únicos derivados dos próprios agricultores da província selecionada
+  const availableMunicipalities = Array.from(new Set(
+    farmers
+      .filter(f => filterProvince === "all" || (f.province || "").toLowerCase() === filterProvince.toLowerCase())
+      .map(f => f.municipality)
+      .filter((m): m is string => !!m && m.trim() !== "")
+  )).sort((a, b) => a.localeCompare(b));
+
+  // Reset município quando muda a província
+  useEffect(() => { setFilterMunicipality("all"); }, [filterProvince]);
+
+  useEffect(() => { setPage(1); }, [search, filterPatec, filterStatus, filterProvince, filterMunicipality, sortBy, sortDir]);
 
   const handleSort = (col: "name" | "recebido" | "usado") => {
     if (sortBy === col) {
