@@ -365,6 +365,9 @@ const Dashboard = () => {
         )}
       </ChartCard>
 
+      {/* Saldos por ECA (filtrável + export XLSX) */}
+      <EcaBalanceTable />
+
       {/* Empty state */}
       {stats.totalFarmers === 0 && (
         <div className="rounded-xl border border-dashed border-border bg-card">
