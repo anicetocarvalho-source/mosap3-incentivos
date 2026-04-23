@@ -343,6 +343,7 @@ const RevisaoProvincias = () => {
     if (!province) return;
     setRunning(true);
     setReview(null);
+    setWriteUnlocked(false);
     try {
       // 1. Load farmers (paginated)
       setProgress(`A carregar agricultores de ${province}…`);
