@@ -532,8 +532,15 @@ const RevisaoProvincias = () => {
   };
 
   /* Main: generate full review */
+  const hasInvalidCsvs = uploadedCsvs.some((c) => !c.schema.valid);
+
   const generateReview = async () => {
     if (!province) return;
+    if (hasInvalidCsvs) {
+      const bad = uploadedCsvs.filter((c) => !c.schema.valid).map((c) => c.fileName).join(", ");
+      toast.error(`Não é possível gerar: ficheiros com schema inválido — ${bad}. Remova-os ou substitua.`, { duration: 8000 });
+      return;
+    }
     setRunning(true);
     setReview(null);
     setWriteUnlocked(false);
