@@ -143,7 +143,7 @@ const Agricultores = () => {
 
   const handleExportCSV = () => {
     const headers = ["Código", "Nome", "BI", "Telefone", "Província", "Município", "Escola", "PATEC", "Estado", "Recebido", "Usado"];
-    const rows = filtered.map(f => [f.code, f.full_name, f.bi || "", f.phone || "", f.province || "", f.municipality || "", f.school || "", f.patec || "", f.status, f.valor_recebido || "", f.total_gasto || ""]);
+    const rows = sorted.map(f => [f.code, f.full_name, f.bi || "", f.phone || "", f.province || "", f.municipality || "", f.school || "", f.patec || "", f.status, f.valor_recebido || "", f.total_gasto || ""]);
     const csv = [headers, ...rows].map(r => r.map(c => `"${c}"`).join(",")).join("\n");
     const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
