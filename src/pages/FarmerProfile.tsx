@@ -25,6 +25,7 @@ import TransactionRegistrationForm from "@/components/TransactionRegistrationFor
 import FarmerDocuments from "@/components/FarmerDocuments";
 import FarmerBalanceHistory from "@/components/FarmerBalanceHistory";
 import { supabase } from "@/integrations/supabase/client";
+import { parseAmount } from "@/lib/numberFormat";
 
 const allPhases = ["Preparação", "Sementeira", "Crescimento", "Floração", "Colheita", "Pós-Colheita"];
 
@@ -694,11 +695,8 @@ const FarmerProfile = () => {
           {/* Financeiro Tab — incentivos + compras POS + transações manuais (substitui as antigas abas Incentivos e Conformação) */}
           <TabsContent value="financeiro" className="mt-4 space-y-6">
             {(() => {
-              // Parser pt-AO: "198.700,00" → 198700
-              const parsePtAo = (s: string | null | undefined) => {
-                if (!s) return 0;
-                return parseFloat(String(s).replace(/\./g, "").replace(",", ".")) || 0;
-              };
+              // Parser unificado (suporta EN-US "200,000.00" e PT "200.000,00")
+              const parsePtAo = (s: string | null | undefined) => parseAmount(s);
 
               // Incentivos: novos (farmer_incentives) + legado (farmers.valor_recebido) como fallback
               const totalIncentivosNovos = incentives.reduce((sum, inc) => sum + parseFloat(inc.amount || "0"), 0);
