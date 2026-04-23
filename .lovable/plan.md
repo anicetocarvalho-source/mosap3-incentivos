@@ -1,38 +1,37 @@
 
 
-## Diagnóstico — “200 Kz” em vez de “200 000 Kz”
+## Plano: Renomear "Disponível" para "Usado" na tabela de Agricultores
 
-Confirmei na base de dados: os 10 903 valores importados estão guardados em **formato EN-US** (`"200,000.00"`, `"915,840.00"`, `"101,760.00"` — exactamente como aparecem no anexo da Unitel).
+### Problema
+Na tabela em `/agricultores` a coluna que mostra `f.saldo_final` está rotulada como **"Disponível"**, mas conceptualmente o que se quer mostrar é o **valor já gasto/usado** pelo produtor (não o que sobra).
 
-O bug está nos **parsers do front-end**, que assumem formato PT (ponto = milhar, vírgula = decimal) e por isso interpretam `"200,000.00"` como `200,00` Kz em vez de `200.000,00` Kz. A unidade está correcta na BD — só o ecrã divide tudo por 1000.
+### Verificação de fonte
+- `farmers.valor_recebido` → total recebido da Unitel Money (correto, fica como "Recebido")
+- `farmers.total_gasto` → soma das transações em POS (este é o "Usado")
+- `farmers.saldo_final` → `valor_recebido − total_gasto` (este é o "Disponível", e era o que estava a ser mostrado por engano)
 
-### Locais afectados
+Logo, além do label, a coluna deve ler **`f.total_gasto`**, não `f.saldo_final`.
 
-| Ficheiro | Função | Sintoma |
-|---|---|---|
-| `src/pages/Agricultores.tsx` | `parsePtAo` | Coluna “Recebido / Saldo” mostra 200 Kz |
-| `src/pages/FarmerProfile.tsx` | `parsePtAo` (linha 698) | Resumo financeiro do produtor errado |
-| `src/components/dashboard/EcaBalanceTable.tsx` | `parsePtao` | Tabela de saldos por ECA → soma 0 Kz |
-| `src/pages/RevisaoProvincias.tsx` | `parsePtao` (helper global) | Totais da revisão Unitel ficam ÷1000 |
+### Alterações em `src/pages/Agricultores.tsx`
 
-### O que vou implementar
+**1. Cabeçalho da tabela desktop**
+- Coluna 7 muda de `Disponível` → `Usado`.
 
-**1. Criar parser único e robusto em `src/lib/numberFormat.ts`** que aceita os dois formatos sem ambiguidade:
-- Se a string casa `^-?\d{1,3}(,\d{3})+(\.\d+)?$` → EN-US (vírgula = milhar)
-- Se casa `^-?\d{1,3}(\.\d{3})+(,\d+)?$` → PT (ponto = milhar)
-- Caso simples (só um separador): heurística pelo nº de dígitos depois do separador (3 → milhar; 1-2 → decimal)
-- Exporta também `formatKz(n)` consistente, sempre em pt-AO com `Intl.NumberFormat`
+**2. Célula de dados desktop**
+- Trocar `{fmtKz(f.saldo_final)}` por `{fmtKz(f.total_gasto)}`.
+- Manter a classe `text-warning` (semanticamente continua a indicar "consumo").
 
-**2. Substituir os 4 `parsePtAo`/`parsePtao` locais por `parseAmount` do novo módulo** — apaga as 4 implementações duplicadas, deixa um único ponto de verdade.
+**3. Export CSV (`handleExportCSV`)**
+- Atualmente o CSV exporta apenas campos identificativos — não inclui valores. Adicionar duas colunas no fim: **"Recebido"** e **"Usado"** com `f.valor_recebido` e `f.total_gasto` (valores brutos para a folha de cálculo).
 
-**3. Padronizar a escrita futura na BD** em `RevisaoProvincias.tsx` (`formatPtao`, linhas 1089-1093) e em `ImportValoresRecebidosDialog.tsx` (linha 195) para gravarem sempre em **EN-US** (`"200000.00"` simples, sem separadores de milhar) — formato menos ambíguo, fácil de parsear, compatível com `Number()`. Não toco no que já está na BD; o novo parser lê os dois formatos.
-
-**4. Verificação visual** após a correcção: abrir `/agricultores` e confirmar que os 5 produtores do anexo passam a mostrar `200 000 Kz` / `915 840 Kz` / `101 760 Kz` / `100 000 Kz` / `814 080 Kz`.
+**4. Mobile**
+- O cartão mobile não mostra valores monetários, sem alteração necessária.
 
 ### Detalhes técnicos
+- Tipo `Farmer` em `useFarmersList` já expõe `total_gasto` (mesma forma que `saldo_final`), portanto não há alterações no hook.
+- `fmtKz` (já a usar `formatKzCompact` do parser unificado) trata correctamente os formatos legados EN-US/PT na BD.
+- Sem migrações nem alterações de RLS.
 
-- **Sem migração de dados**: os valores na BD já estão correctos em magnitude; só o display é que estava errado. Não preciso reescrever os 10 903 registos.
-- **Sem mudanças de schema**: as colunas continuam `text`.
-- **Compatibilidade**: o novo parser continua a aceitar os dois formatos legados (`"200,000.00"` e `"200.000,00"`), portanto qualquer importação antiga continua a funcionar.
-- **Triggers da BD**: `trg_recalc_on_farmer_recebido` e `log_farmer_balance_change` operam sobre o texto guardado; como vou continuar a guardar texto numérico válido, não há impacto.
+### Ficheiro afectado
+- `src/pages/Agricultores.tsx`
 
