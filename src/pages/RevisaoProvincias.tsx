@@ -474,6 +474,9 @@ const RevisaoProvincias = () => {
     phones_normalized: number;
     notes: string | null;
     payload: any;
+    applied_at: string | null;
+    applied_by: string | null;
+    applied_summary: any;
   };
   const [historyOpen, setHistoryOpen] = useState(false);
   const [history, setHistory] = useState<SavedReviewRow[]>([]);
