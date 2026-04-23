@@ -629,6 +629,23 @@ const RevisaoProvincias = () => {
         icon={Wand2}
       />
 
+      {/* Banner permanente: modo pré-validação */}
+      <Alert className={writeUnlocked ? "border-success/40 bg-success/5" : "border-warning/40 bg-warning/5"}>
+        {writeUnlocked ? (
+          <ShieldCheck className="h-4 w-4 text-success" />
+        ) : (
+          <ShieldAlert className="h-4 w-4 text-warning" />
+        )}
+        <AlertTitle className="text-sm">
+          {writeUnlocked ? "Escrita desbloqueada para esta sessão" : "Modo pré-validação — sem escrita na BD"}
+        </AlertTitle>
+        <AlertDescription className="text-xs">
+          {writeUnlocked
+            ? "Confirmação registada. Qualquer importação subsequente seguirá os parâmetros revistos abaixo."
+            : "Esta tela só lê dados e gera relatórios. Nenhuma alteração é gravada nas tabelas farmers, orphan_phones ou farmer_balance_history sem confirmação explícita."}
+        </AlertDescription>
+      </Alert>
+
       {/* Configuração */}
       <Card>
         <CardHeader>
