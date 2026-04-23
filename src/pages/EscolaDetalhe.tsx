@@ -106,6 +106,24 @@ const EscolaDetalhe = () => {
   // Phase logs
   const [phaseLogs, setPhaseLogs] = useState<PhaseLog[]>([]);
 
+  // Search + pagination for farmers list
+  const [farmerSearch, setFarmerSearch] = useState("");
+  const [farmerPage, setFarmerPage] = useState(1);
+  const PAGE_SIZE = 50;
+
+  const filteredFarmers = useMemo(() => {
+    if (!school) return [];
+    const term = farmerSearch.trim().toLowerCase();
+    if (!term) return school.farmers;
+    return school.farmers.filter(
+      (f) => f.name.toLowerCase().includes(term) || f.id.toLowerCase().includes(term)
+    );
+  }, [school, farmerSearch]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredFarmers.length / PAGE_SIZE));
+  const currentPage = Math.min(farmerPage, totalPages);
+  const pagedFarmers = filteredFarmers.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
