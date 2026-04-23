@@ -1,8 +1,8 @@
 import { useParams, Link } from "react-router-dom";
-import { useState } from "react";
-import { Loader2 } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Loader2, Search } from "lucide-react";
 import { motion } from "framer-motion";
-import { ArrowLeft, MapPin, User, Users, Sprout, Droplets, Sun, Wheat, CheckCircle2, AlertTriangle, Plus, ClipboardEdit, AlertCircle, Camera, X, Send, FileText, Printer } from "lucide-react";
+import { ArrowLeft, MapPin, User, Users, Sprout, Droplets, Sun, Wheat, CheckCircle2, AlertTriangle, Plus, ClipboardEdit, AlertCircle, Camera, X, Send, FileText, Printer, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -105,6 +105,24 @@ const EscolaDetalhe = () => {
 
   // Phase logs
   const [phaseLogs, setPhaseLogs] = useState<PhaseLog[]>([]);
+
+  // Search + pagination for farmers list
+  const [farmerSearch, setFarmerSearch] = useState("");
+  const [farmerPage, setFarmerPage] = useState(1);
+  const PAGE_SIZE = 50;
+
+  const filteredFarmers = useMemo(() => {
+    if (!school) return [];
+    const term = farmerSearch.trim().toLowerCase();
+    if (!term) return school.farmers;
+    return school.farmers.filter(
+      (f) => f.name.toLowerCase().includes(term) || f.id.toLowerCase().includes(term)
+    );
+  }, [school, farmerSearch]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredFarmers.length / PAGE_SIZE));
+  const currentPage = Math.min(farmerPage, totalPages);
+  const pagedFarmers = filteredFarmers.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   if (loading) {
     return (
@@ -314,67 +332,123 @@ const EscolaDetalhe = () => {
 
         {/* Acompanhamento Tab */}
         <TabsContent value="acompanhamento" className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3 text-sm">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+            <div className="flex items-center gap-3 text-sm flex-wrap">
               <Badge variant="outline" className="gap-1"><CheckCircle2 className="h-3 w-3 text-green-600" />{noPrazo} No Prazo</Badge>
               <Badge variant="outline" className="gap-1"><AlertTriangle className="h-3 w-3 text-yellow-600" />{atrasados} Atrasados</Badge>
               <Badge variant="outline" className="gap-1"><CheckCircle2 className="h-3 w-3 text-primary" />{concluidos} Concluídos</Badge>
             </div>
+            <div className="relative w-full md:w-72">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Pesquisar por nome ou código..."
+                value={farmerSearch}
+                onChange={(e) => { setFarmerSearch(e.target.value); setFarmerPage(1); }}
+                className="pl-9 h-9"
+              />
+            </div>
           </div>
-          <div className="rounded-md border overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Produtor</TableHead>
-                  <TableHead>Cultura</TableHead>
-                  <TableHead>Área</TableHead>
-                  <TableHead>Fase Actual</TableHead>
-                  <TableHead>Progresso</TableHead>
-                  <TableHead>Estado</TableHead>
-                  <TableHead>Visitas</TableHead>
-                  <TableHead>Observações</TableHead>
-                  <TableHead className="text-center">Acções</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {school.farmers.map((farmer, i) => (
-                  <motion.tr key={farmer.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.03 }} className="border-b transition-colors hover:bg-muted/50">
-                    <TableCell>
-                      <Link to={`/agricultores/${farmer.id}`} className="font-medium text-primary hover:underline">{farmer.name}</Link>
-                    </TableCell>
-                    <TableCell>{farmer.culture}</TableCell>
-                    <TableCell>{farmer.area}</TableCell>
-                    <TableCell>
-                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${phaseColors[farmer.currentPhase]}`}>{farmer.currentPhase}</span>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2 min-w-[120px]">
-                        <Progress value={getPhaseProgress(farmer.currentPhase)} className="h-2" />
-                        <span className="text-xs text-muted-foreground">{Math.round(getPhaseProgress(farmer.currentPhase))}%</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1">{statusIcon(farmer.status)}<span className="text-xs">{farmer.status}</span></div>
-                    </TableCell>
-                    <TableCell className="text-center">{farmer.visits}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground max-w-[180px] truncate">{farmer.notes}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1 justify-center">
-                        <Button size="sm" variant="outline" className="h-8 gap-1 text-xs" onClick={() => openPhaseDialog(farmer)}>
-                          <ClipboardEdit className="h-3.5 w-3.5" />
-                          Fase
-                        </Button>
-                        <Button size="sm" variant="outline" className="h-8 gap-1 text-xs border-destructive/40 text-destructive hover:bg-destructive/10" onClick={() => openIssueDialog(farmer)}>
-                          <AlertCircle className="h-3.5 w-3.5" />
-                          Problema
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </motion.tr>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+
+          {filteredFarmers.length === 0 ? (
+            <Card className="p-12 text-center">
+              <Users className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+              <p className="font-medium">
+                {school.farmers.length === 0
+                  ? "Esta escola ainda não tem agricultores associados"
+                  : "Nenhum agricultor encontrado"}
+              </p>
+              <p className="text-sm text-muted-foreground mt-1">
+                {school.farmers.length === 0
+                  ? "Os agricultores aparecem aqui quando registados com esta escola no perfil."
+                  : "Tente ajustar a pesquisa."}
+              </p>
+            </Card>
+          ) : (
+            <>
+              <div className="rounded-md border overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Produtor</TableHead>
+                      <TableHead>Cultura</TableHead>
+                      <TableHead>Área</TableHead>
+                      <TableHead>Fase Actual</TableHead>
+                      <TableHead>Progresso</TableHead>
+                      <TableHead>Estado</TableHead>
+                      <TableHead>Visitas</TableHead>
+                      <TableHead>Observações</TableHead>
+                      <TableHead className="text-center">Acções</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {pagedFarmers.map((farmer, i) => (
+                      <motion.tr key={farmer.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: Math.min(i * 0.02, 0.2) }} className="border-b transition-colors hover:bg-muted/50">
+                        <TableCell>
+                          <Link to={`/agricultores/${farmer.id}`} className="font-medium text-primary hover:underline">{farmer.name}</Link>
+                          <div className="text-xs text-muted-foreground">{farmer.id}</div>
+                        </TableCell>
+                        <TableCell>{farmer.culture}</TableCell>
+                        <TableCell>{farmer.area}</TableCell>
+                        <TableCell>
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${phaseColors[farmer.currentPhase]}`}>{farmer.currentPhase}</span>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2 min-w-[120px]">
+                            <Progress value={getPhaseProgress(farmer.currentPhase)} className="h-2" />
+                            <span className="text-xs text-muted-foreground">{Math.round(getPhaseProgress(farmer.currentPhase))}%</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1">{statusIcon(farmer.status)}<span className="text-xs">{farmer.status}</span></div>
+                        </TableCell>
+                        <TableCell className="text-center">{farmer.visits}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground max-w-[180px] truncate">{farmer.notes}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1 justify-center">
+                            <Button size="sm" variant="outline" className="h-8 gap-1 text-xs" onClick={() => openPhaseDialog(farmer)}>
+                              <ClipboardEdit className="h-3.5 w-3.5" />
+                              Fase
+                            </Button>
+                            <Button size="sm" variant="outline" className="h-8 gap-1 text-xs border-destructive/40 text-destructive hover:bg-destructive/10" onClick={() => openIssueDialog(farmer)}>
+                              <AlertCircle className="h-3.5 w-3.5" />
+                              Problema
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </motion.tr>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between text-sm">
+                  <p className="text-muted-foreground">
+                    A mostrar {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, filteredFarmers.length)} de {filteredFarmers.length}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setFarmerPage((p) => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                    >
+                      <ChevronLeft className="h-4 w-4" /> Anterior
+                    </Button>
+                    <span className="text-xs text-muted-foreground">Pág. {currentPage} de {totalPages}</span>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setFarmerPage((p) => Math.min(totalPages, p + 1))}
+                      disabled={currentPage === totalPages}
+                    >
+                      Seguinte <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
         </TabsContent>
 
         {/* Registos do Técnico Tab */}
