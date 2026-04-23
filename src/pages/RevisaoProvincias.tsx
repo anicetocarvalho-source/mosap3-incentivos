@@ -460,7 +460,26 @@ const RevisaoProvincias = () => {
       }
     }
     setUploadedCsvs((prev) => [...prev, ...parsed]);
-    toast.success(`${parsed.length} ficheiro(s) carregado(s)`);
+
+    // Resumo de validação por ficheiro
+    const invalid = parsed.filter((p) => !p.schema.valid);
+    const withWarnings = parsed.filter(
+      (p) => p.schema.valid && p.schema.issues.some((i) => i.level === "warning"),
+    );
+    if (invalid.length > 0) {
+      for (const p of invalid) {
+        const errs = p.schema.issues.filter((i) => i.level === "error").map((i) => i.message).join(" • ");
+        toast.error(`${p.fileName}: schema inválido — ${errs}`, { duration: 8000 });
+      }
+    }
+    if (withWarnings.length > 0) {
+      for (const p of withWarnings) {
+        const warns = p.schema.issues.filter((i) => i.level === "warning").map((i) => i.message).join(" • ");
+        toast.warning(`${p.fileName}: ${warns}`, { duration: 6000 });
+      }
+    }
+    const ok = parsed.length - invalid.length;
+    if (ok > 0) toast.success(`${ok} ficheiro(s) válido(s) carregado(s)`);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
