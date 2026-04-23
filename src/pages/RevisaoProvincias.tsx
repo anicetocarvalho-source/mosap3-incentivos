@@ -249,6 +249,9 @@ const RevisaoProvincias = () => {
   const [review, setReview] = useState<FullReview | null>(null);
   const [uploadedCsvs, setUploadedCsvs] = useState<ParsedCsv[]>([]);
   const [confirmedDuplicates, setConfirmedDuplicates] = useState<Set<string>>(new Set());
+  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+  const [confirmText, setConfirmText] = useState("");
+  const [writeUnlocked, setWriteUnlocked] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   /* Load provinces */
