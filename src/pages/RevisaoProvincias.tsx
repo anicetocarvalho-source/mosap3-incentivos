@@ -424,6 +424,8 @@ const RevisaoProvincias = () => {
   const [review, setReview] = useState<FullReview | null>(null);
   const [uploadedCsvs, setUploadedCsvs] = useState<ParsedCsv[]>([]);
   const [confirmedDuplicates, setConfirmedDuplicates] = useState<Set<string>>(new Set());
+  // Snapshot das decisões aplicadas no último generateReview — detecta mudanças pendentes
+  const [appliedDuplicateDecisions, setAppliedDuplicateDecisions] = useState<Set<string>>(new Set());
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [confirmText, setConfirmText] = useState("");
   const [writeUnlocked, setWriteUnlocked] = useState(false);
@@ -698,6 +700,7 @@ const RevisaoProvincias = () => {
         phoneStats: { csv: csvPhoneStats, farmers: farmerPhoneStats, orphans: orphanPhoneStats },
       };
       setReview(result);
+      setAppliedDuplicateDecisions(new Set(confirmedDuplicates));
       setProgress("");
       toast.success(`Revisão de ${province} gerada`);
     } catch (e: any) {
@@ -1168,68 +1171,185 @@ const RevisaoProvincias = () => {
           )}
 
           {/* Duplicados */}
-          {review.duplicateChecks.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <AlertTriangle className="h-4 w-4 text-warning" />
-                  Duplicados detectados ({review.duplicateChecks.length})
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {review.duplicateChecks.map((d, i) => {
-                  const confirmed = confirmedDuplicates.has(d.fileB.fileName);
-                  return (
-                    <Alert key={i} variant={confirmed ? "default" : "destructive"}>
+          {review.duplicateChecks.length > 0 && (() => {
+            // Detetar se há mudanças entre as decisões actuais e as aplicadas no último generate
+            const hasPendingChanges =
+              confirmedDuplicates.size !== appliedDuplicateDecisions.size ||
+              Array.from(confirmedDuplicates).some((k) => !appliedDuplicateDecisions.has(k)) ||
+              Array.from(appliedDuplicateDecisions).some((k) => !confirmedDuplicates.has(k));
+
+            // Totais agregados de risco
+            const totalAtRisk = review.duplicateChecks.reduce(
+              (s, d) => s + d.fileB.totalAmount,
+              0,
+            );
+            const totalConfirmedIn = review.duplicateChecks
+              .filter((d) => confirmedDuplicates.has(d.fileB.fileName))
+              .reduce((s, d) => s + d.fileB.totalAmount, 0);
+
+            return (
+              <Card className="border-warning/40">
+                <CardHeader className="pb-3">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div>
+                      <CardTitle className="flex items-center gap-2 text-base">
+                        <AlertTriangle className="h-4 w-4 text-warning" />
+                        Suspeitas de duplicado ({review.duplicateChecks.length})
+                      </CardTitle>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Decida ficheiro a ficheiro o que entra na revisão. Por defeito, suspeitas são <b>excluídas</b>.
+                      </p>
+                    </div>
+                    {hasPendingChanges && (
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          generateReview();
+                          toast.success("A regerar com as novas decisões…");
+                        }}
+                        disabled={running}
+                      >
+                        <RefreshCw className={cn("h-3.5 w-3.5", running && "animate-spin")} />
+                        Confirmar decisões e regerar
+                      </Button>
+                    )}
+                  </div>
+
+                  {/* Resumo de totais */}
+                  <div className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-4">
+                    <div className="rounded-md border border-border bg-muted/30 p-2">
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Pares</p>
+                      <p className="text-sm font-bold">{review.duplicateChecks.length}</p>
+                    </div>
+                    <div className="rounded-md border border-border bg-muted/30 p-2">
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Excluídos</p>
+                      <p className="text-sm font-bold">
+                        {review.duplicateChecks.length - confirmedDuplicates.size}
+                      </p>
+                    </div>
+                    <div className="rounded-md border border-border bg-muted/30 p-2">
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">A importar</p>
+                      <p className="text-sm font-bold">{confirmedDuplicates.size}</p>
+                    </div>
+                    <div className="rounded-md border border-warning/40 bg-warning/5 p-2">
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Kz em risco</p>
+                      <p className="text-sm font-bold">{fmt(totalAtRisk - totalConfirmedIn)}</p>
+                    </div>
+                  </div>
+                </CardHeader>
+
+                <CardContent className="space-y-2">
+                  {hasPendingChanges && (
+                    <Alert>
                       <AlertTriangle className="h-4 w-4" />
-                      <AlertTitle className="flex items-center gap-2">
-                        {d.fileA.fileName} ↔ {d.fileB.fileName}
-                        <Badge variant={confirmed ? "default" : "destructive"}>
-                          {confirmed ? "Confirmado p/ importação" : "Excluído da revisão"}
-                        </Badge>
-                      </AlertTitle>
-                      <AlertDescription className="space-y-2">
-                        <p className="text-xs">{d.reason}</p>
-                        <p className="text-xs">
-                          A: {d.totalA} linhas, {fmt(d.fileA.totalAmount)} Kz • B: {d.totalB} linhas, {fmt(d.fileB.totalAmount)} Kz
-                        </p>
-                        <div className="flex gap-2 pt-1">
-                          {!confirmed ? (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => {
-                                setConfirmedDuplicates((s) => new Set(s).add(d.fileB.fileName));
-                                toast.message(`${d.fileB.fileName} marcado para incluir. Clique 'Regerar' para refazer o diff.`);
-                              }}
-                            >
-                              <CheckCircle2 className="h-3.5 w-3.5" />
-                              Importar mesmo assim
-                            </Button>
-                          ) : (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => {
-                                setConfirmedDuplicates((s) => {
-                                  const n = new Set(s);
-                                  n.delete(d.fileB.fileName);
-                                  return n;
-                                });
-                              }}
-                            >
-                              <XCircle className="h-3.5 w-3.5" />
-                              Reverter
-                            </Button>
-                          )}
-                        </div>
+                      <AlertDescription className="text-xs">
+                        Há decisões pendentes não aplicadas. Clique em <b>"Confirmar decisões e regerar"</b> acima para refazer apenas o que muda.
                       </AlertDescription>
                     </Alert>
-                  );
-                })}
-              </CardContent>
-            </Card>
-          )}
+                  )}
+
+                  {review.duplicateChecks.map((d, i) => {
+                    const confirmed = confirmedDuplicates.has(d.fileB.fileName);
+                    const wasAppliedAsExcluded = !appliedDuplicateDecisions.has(d.fileB.fileName);
+                    const stateChanged = confirmed === wasAppliedAsExcluded; // mudou desde último generate
+                    const overlap = d.matchingTxIds;
+                    const overlapPct =
+                      d.totalA > 0 ? Math.round((overlap / Math.min(d.totalA, d.totalB)) * 100) : 0;
+
+                    return (
+                      <div
+                        key={i}
+                        className={cn(
+                          "rounded-lg border p-3 transition-colors",
+                          confirmed
+                            ? "border-success/40 bg-success/5"
+                            : "border-destructive/30 bg-destructive/5",
+                          stateChanged && "ring-2 ring-primary/40",
+                        )}
+                      >
+                        <div className="flex flex-wrap items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <p className="text-sm font-semibold">
+                                {d.fileA.fileName} <span className="text-muted-foreground">↔</span> {d.fileB.fileName}
+                              </p>
+                              <Badge variant={confirmed ? "default" : "destructive"} className="text-[10px]">
+                                {confirmed ? "Será importado" : "Excluído da revisão"}
+                              </Badge>
+                              {stateChanged && (
+                                <Badge variant="outline" className="text-[10px]">Pendente</Badge>
+                              )}
+                            </div>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              <b>Motivo:</b> {d.reason}
+                            </p>
+                          </div>
+
+                          <div className="flex shrink-0 gap-1">
+                            {!confirmed ? (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() =>
+                                  setConfirmedDuplicates((s) => new Set(s).add(d.fileB.fileName))
+                                }
+                              >
+                                <CheckCircle2 className="h-3.5 w-3.5" />
+                                Importar mesmo assim
+                              </Button>
+                            ) : (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() =>
+                                  setConfirmedDuplicates((s) => {
+                                    const n = new Set(s);
+                                    n.delete(d.fileB.fileName);
+                                    return n;
+                                  })
+                                }
+                              >
+                                <XCircle className="h-3.5 w-3.5" />
+                                Reverter (excluir)
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Resumo de totais por par */}
+                        <div className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-4">
+                          <div className="rounded border border-border bg-card p-1.5">
+                            <p className="text-[9px] uppercase text-muted-foreground">Ficheiro A</p>
+                            <p className="text-xs font-medium">{d.totalA} linhas</p>
+                            <p className="text-[11px] text-muted-foreground">{fmt(d.fileA.totalAmount)} Kz</p>
+                          </div>
+                          <div className="rounded border border-border bg-card p-1.5">
+                            <p className="text-[9px] uppercase text-muted-foreground">Ficheiro B</p>
+                            <p className="text-xs font-medium">{d.totalB} linhas</p>
+                            <p className="text-[11px] text-muted-foreground">{fmt(d.fileB.totalAmount)} Kz</p>
+                          </div>
+                          <div className="rounded border border-border bg-card p-1.5">
+                            <p className="text-[9px] uppercase text-muted-foreground">Sobreposição</p>
+                            <p className="text-xs font-medium">{overlap}</p>
+                            <p className="text-[11px] text-muted-foreground">{overlapPct}% min(A,B)</p>
+                          </div>
+                          <div className="rounded border border-border bg-card p-1.5">
+                            <p className="text-[9px] uppercase text-muted-foreground">Bulk Plan</p>
+                            <p className="text-xs font-medium">
+                              {d.fileA.bulkPlanId === d.fileB.bulkPlanId ? "Idêntico" : "Diferente"}
+                            </p>
+                            <p className="text-[11px] text-muted-foreground">
+                              {d.fileB.bulkPlanId ?? "—"}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </CardContent>
+              </Card>
+            );
+          })()}
 
           {/* Diff Unitel */}
           {review.diffRows.length > 0 && (
