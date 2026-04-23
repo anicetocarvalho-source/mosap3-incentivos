@@ -303,7 +303,7 @@ const Agricultores = () => {
                           {f.patec ? <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary">PATEC {f.patec}</span> : "—"}
                         </td>
                         <td className="px-4 py-3 text-right font-medium text-success tabular-nums">{fmtKz(f.valor_recebido)}</td>
-                        <td className="px-4 py-3 text-right font-medium text-warning tabular-nums">{fmtKz(f.saldo_final)}</td>
+                        <td className="px-4 py-3 text-right font-medium text-warning tabular-nums">{fmtKz(f.total_gasto)}</td>
                         <td className="px-4 py-3 text-right">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
