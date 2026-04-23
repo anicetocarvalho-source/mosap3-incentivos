@@ -351,7 +351,7 @@ const EscolaDetalhe = () => {
               <Input
                 placeholder="Pesquisar por nome ou código..."
                 value={farmerSearch}
-                onChange={(e) => { setFarmerSearch(e.target.value); setFarmerPage(1); }}
+                onChange={(e) => setFarmerSearch(e.target.value)}
                 className="pl-9 h-9"
               />
             </div>
