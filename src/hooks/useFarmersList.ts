@@ -16,6 +16,7 @@ export interface FarmerListItem {
   patec: number | null;
   valor_recebido: string | null;
   saldo_final: string | null;
+  total_gasto: string | null;
   created_at: string;
 }
 
@@ -32,7 +33,7 @@ export function useFarmersList() {
         supabase
           .from("farmers")
           .select(
-            "id, code, full_name, bi, phone, province, municipality, school, status, photo_frontal_url, patec, valor_recebido, saldo_final, created_at",
+            "id, code, full_name, bi, phone, province, municipality, school, status, photo_frontal_url, patec, valor_recebido, saldo_final, total_gasto, created_at",
             { count: "exact" }
           )
           .order("created_at", { ascending: false })

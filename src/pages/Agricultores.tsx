@@ -104,8 +104,8 @@ const Agricultores = () => {
   };
 
   const handleExportCSV = () => {
-    const headers = ["Código", "Nome", "BI", "Telefone", "Província", "Município", "Escola", "PATEC", "Estado"];
-    const rows = filtered.map(f => [f.code, f.full_name, f.bi || "", f.phone || "", f.province || "", f.municipality || "", f.school || "", f.patec || "", f.status]);
+    const headers = ["Código", "Nome", "BI", "Telefone", "Província", "Município", "Escola", "PATEC", "Estado", "Recebido", "Usado"];
+    const rows = filtered.map(f => [f.code, f.full_name, f.bi || "", f.phone || "", f.province || "", f.municipality || "", f.school || "", f.patec || "", f.status, f.valor_recebido || "", f.total_gasto || ""]);
     const csv = [headers, ...rows].map(r => r.map(c => `"${c}"`).join(",")).join("\n");
     const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
@@ -257,7 +257,7 @@ const Agricultores = () => {
                   <th className="text-left px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Escola</th>
                   <th className="text-left px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">PATEC</th>
                   <th className="text-right px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Recebido</th>
-                  <th className="text-right px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Disponível</th>
+                  <th className="text-right px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Usado</th>
                   <th className="text-right px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider w-12">Ações</th>
                 </tr>
               </thead>
@@ -303,7 +303,7 @@ const Agricultores = () => {
                           {f.patec ? <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary">PATEC {f.patec}</span> : "—"}
                         </td>
                         <td className="px-4 py-3 text-right font-medium text-success tabular-nums">{fmtKz(f.valor_recebido)}</td>
-                        <td className="px-4 py-3 text-right font-medium text-warning tabular-nums">{fmtKz(f.saldo_final)}</td>
+                        <td className="px-4 py-3 text-right font-medium text-warning tabular-nums">{fmtKz(f.total_gasto)}</td>
                         <td className="px-4 py-3 text-right">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
