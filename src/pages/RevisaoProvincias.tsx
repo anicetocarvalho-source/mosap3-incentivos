@@ -57,25 +57,9 @@ import {
 
 /* ───────────────────────── helpers ───────────────────────── */
 
-const parsePtao = (s: string | number | null | undefined): number => {
-  if (s === null || s === undefined) return 0;
-  if (typeof s === "number") return isNaN(s) ? 0 : s;
-  const str = s.toString().trim().replace(/[^0-9.,-]/g, "");
-  if (!str) return 0;
-  const lastComma = str.lastIndexOf(",");
-  const lastDot = str.lastIndexOf(".");
-  let normalized = str;
-  if (lastComma > lastDot) normalized = str.replace(/\./g, "").replace(",", ".");
-  else if (lastDot > -1 && lastComma === -1) {
-    const parts = str.split(".");
-    if (parts.length > 2 && parts.slice(1).every((p) => p.length === 3)) normalized = parts.join("");
-  }
-  const n = Number(normalized);
-  return isNaN(n) ? 0 : n;
-};
+import { parseAmount as parsePtao, formatKz as fmtKzShared, serializeAmount } from "@/lib/numberFormat";
 
-const fmt = (n: number) =>
-  n.toLocaleString("pt-AO", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmt = (n: number) => fmtKzShared(n, false);
 
 /* ───── Phone normalization ─────
  * Angola mobile: 9 dígitos começando por 9 (ex.: 9XXXXXXXX).
@@ -1085,12 +1069,9 @@ const RevisaoProvincias = () => {
       const farmerEntries = Array.from(farmerCredits.entries());
       setApplyProgress({ done: 0, total: farmerEntries.length });
 
-      // 3) Atualizar valor_recebido em chunks de 50
-      const formatPtao = (n: number): string => {
-        const sign = n < 0 ? "-" : "";
-        const abs = Math.abs(n);
-        return sign + abs.toLocaleString("pt-PT", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-      };
+      // 3) Atualizar valor_recebido em chunks de 50.
+      // Guardamos em formato canónico EN-US "200000.00" (ver src/lib/numberFormat.ts).
+      const formatPtao = (n: number): string => serializeAmount(n);
 
       const chunkSize = 50;
       let okCount = 0;

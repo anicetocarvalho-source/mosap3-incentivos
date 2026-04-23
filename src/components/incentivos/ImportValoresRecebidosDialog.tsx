@@ -192,9 +192,8 @@ export default function ImportValoresRecebidosDialog() {
 
     for (let i = 0; i < entries.length; i++) {
       const [code, amount] = entries[i];
-      const valor_recebido = amount.toLocaleString("pt-AO", {
-        minimumFractionDigits: 2, maximumFractionDigits: 2,
-      });
+      // Formato canónico EN-US "200000.00" (sem separadores de milhar)
+      const valor_recebido = amount.toFixed(2);
       const { error } = await supabase
         .from("farmers")
         .update({ valor_recebido })
