@@ -969,9 +969,9 @@ const RevisaoProvincias = () => {
           )}
 
           <div className="flex items-center gap-2">
-            <Button onClick={generateReview} disabled={running || !province}>
+            <Button onClick={generateReview} disabled={running || !province || hasInvalidCsvs}>
               {running ? <Loader2 className="h-4 w-4 animate-spin" /> : <PlayCircle className="h-4 w-4" />}
-              {running ? "A gerar…" : "Gerar revisão completa"}
+              {running ? "A gerar…" : hasInvalidCsvs ? "Corrija os CSVs inválidos" : "Gerar revisão completa"}
             </Button>
             {review && (
               <>
