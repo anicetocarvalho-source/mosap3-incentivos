@@ -25,15 +25,28 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import {
   AlertTriangle,
   CheckCircle2,
   Download,
   FileSpreadsheet,
+  History,
   Loader2,
   PlayCircle,
   RefreshCw,
+  Save,
   ShieldCheck,
   ShieldAlert,
+  Trash2,
   Upload,
   Wand2,
   XCircle,
