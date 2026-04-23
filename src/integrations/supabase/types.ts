@@ -1109,6 +1109,69 @@ export type Database = {
         }
         Relationships: []
       }
+      province_reviews: {
+        Row: {
+          confirmed_duplicates: string[]
+          created_at: string
+          csv_file_names: string[]
+          duplicate_pairs_count: number
+          generated_at: string
+          generated_by: string | null
+          generated_by_name: string | null
+          id: string
+          matched_count: number
+          notes: string | null
+          orphan_count: number
+          payload: Json
+          phones_normalized: number
+          province: string
+          total_csv_amount: number
+          total_farmers: number
+          total_matched_amount: number
+          total_orphan_amount: number
+        }
+        Insert: {
+          confirmed_duplicates?: string[]
+          created_at?: string
+          csv_file_names?: string[]
+          duplicate_pairs_count?: number
+          generated_at?: string
+          generated_by?: string | null
+          generated_by_name?: string | null
+          id?: string
+          matched_count?: number
+          notes?: string | null
+          orphan_count?: number
+          payload?: Json
+          phones_normalized?: number
+          province: string
+          total_csv_amount?: number
+          total_farmers?: number
+          total_matched_amount?: number
+          total_orphan_amount?: number
+        }
+        Update: {
+          confirmed_duplicates?: string[]
+          created_at?: string
+          csv_file_names?: string[]
+          duplicate_pairs_count?: number
+          generated_at?: string
+          generated_by?: string | null
+          generated_by_name?: string | null
+          id?: string
+          matched_count?: number
+          notes?: string | null
+          orphan_count?: number
+          payload?: Json
+          phones_normalized?: number
+          province?: string
+          total_csv_amount?: number
+          total_farmers?: number
+          total_matched_amount?: number
+          total_orphan_amount?: number
+        }
+        Relationships: []
+      }
       provinces: {
         Row: {
           capital: string
