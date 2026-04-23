@@ -1320,6 +1320,23 @@ const RevisaoProvincias = () => {
                   <Save className="h-4 w-4" />
                   Guardar revisão
                 </Button>
+                {canApply && (
+                  <Button
+                    variant="destructive"
+                    onClick={() => setApplyDialogOpen(true)}
+                    disabled={applying || !currentReviewId || !!currentReviewAppliedAt}
+                    title={
+                      !currentReviewId
+                        ? "Guarde a revisão primeiro"
+                        : currentReviewAppliedAt
+                          ? "Esta revisão já foi aplicada"
+                          : "Aplicar valores Unitel à BD"
+                    }
+                  >
+                    {applying ? <Loader2 className="h-4 w-4 animate-spin" /> : <Database className="h-4 w-4" />}
+                    {currentReviewAppliedAt ? "Já aplicada" : "Aplicar valores na BD"}
+                  </Button>
+                )}
               </>
             )}
             <Button
