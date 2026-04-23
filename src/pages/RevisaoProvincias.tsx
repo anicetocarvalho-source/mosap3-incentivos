@@ -60,12 +60,101 @@ const parsePtao = (s: string | number | null | undefined): number => {
 const fmt = (n: number) =>
   n.toLocaleString("pt-AO", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-const normalizePhone = (raw: string | null | undefined): string => {
-  if (!raw) return "";
-  const digits = raw.toString().replace(/\D/g, "");
-  if (!digits) return "";
-  if (digits.startsWith("244") && digits.length >= 12) return digits.slice(-9);
-  return digits.slice(-9);
+/* ───── Phone normalization ─────
+ * Angola mobile: 9 dígitos começando por 9 (ex.: 9XXXXXXXX).
+ * Aceita variantes: +244 9..., 00244 9..., 244 9..., espaços, hífens, parênteses.
+ * Retorna { phone: '9XXXXXXXX' | '', reason } com classificação para auditoria.
+ */
+type PhoneNormReason =
+  | "ok"                  // já estava em formato 9XXXXXXXX
+  | "stripped_244"        // tinha código país 244 (com ou sem +/00)
+  | "stripped_leading_zero" // tinha 0 à frente (ex.: 0923456789)
+  | "padded_or_trimmed"   // tinha comprimento diferente mas extraímos os últimos 9
+  | "invalid_prefix"      // não começa por 9 após normalizar
+  | "too_short"           // menos de 9 dígitos
+  | "empty";
+
+export type NormalizedPhone = {
+  phone: string;          // resultado canónico (9XXXXXXXX) ou ""
+  reason: PhoneNormReason;
+  changed: boolean;       // true se diferente do input original (ignorando whitespace)
+};
+
+const normalizePhoneDetailed = (raw: string | null | undefined): NormalizedPhone => {
+  if (!raw) return { phone: "", reason: "empty", changed: false };
+  const original = raw.toString().trim();
+  if (!original) return { phone: "", reason: "empty", changed: false };
+
+  let digits = original.replace(/\D/g, "");
+  if (!digits) return { phone: "", reason: "empty", changed: false };
+
+  let reason: PhoneNormReason = "ok";
+
+  // Remove código de país 244 (com ou sem 00)
+  if (digits.startsWith("00244")) {
+    digits = digits.slice(5);
+    reason = "stripped_244";
+  } else if (digits.startsWith("244") && digits.length >= 12) {
+    digits = digits.slice(3);
+    reason = "stripped_244";
+  } else if (digits.startsWith("0") && digits.length === 10) {
+    // Variante local com 0 à frente (0923456789)
+    digits = digits.slice(1);
+    reason = "stripped_leading_zero";
+  }
+
+  if (digits.length < 9) return { phone: "", reason: "too_short", changed: true };
+
+  // Se ainda for >9, ficar com os últimos 9 (defensivo contra prefixos exóticos)
+  if (digits.length > 9) {
+    digits = digits.slice(-9);
+    if (reason === "ok") reason = "padded_or_trimmed";
+  }
+
+  // Em Angola números móveis começam por 9
+  if (!digits.startsWith("9")) {
+    return { phone: "", reason: "invalid_prefix", changed: true };
+  }
+
+  const changed = digits !== original.replace(/\s/g, "");
+  return { phone: digits, reason: changed && reason === "ok" ? "padded_or_trimmed" : reason, changed };
+};
+
+// Wrapper retro-compatível (apenas devolve a string)
+const normalizePhone = (raw: string | null | undefined): string =>
+  normalizePhoneDetailed(raw).phone;
+
+/* Acumulador de estatísticas de normalização por origem (csv / farmers / orphans) */
+export type PhoneNormStats = {
+  total: number;
+  valid: number;
+  changed: number;
+  stripped244: number;
+  strippedLeadingZero: number;
+  paddedOrTrimmed: number;
+  invalidPrefix: number;
+  tooShort: number;
+  empty: number;
+};
+
+const emptyPhoneStats = (): PhoneNormStats => ({
+  total: 0, valid: 0, changed: 0,
+  stripped244: 0, strippedLeadingZero: 0, paddedOrTrimmed: 0,
+  invalidPrefix: 0, tooShort: 0, empty: 0,
+});
+
+const accumulatePhone = (stats: PhoneNormStats, n: NormalizedPhone) => {
+  stats.total += 1;
+  if (n.phone) stats.valid += 1;
+  if (n.changed) stats.changed += 1;
+  switch (n.reason) {
+    case "stripped_244": stats.stripped244 += 1; break;
+    case "stripped_leading_zero": stats.strippedLeadingZero += 1; break;
+    case "padded_or_trimmed": stats.paddedOrTrimmed += 1; break;
+    case "invalid_prefix": stats.invalidPrefix += 1; break;
+    case "too_short": stats.tooShort += 1; break;
+    case "empty": stats.empty += 1; break;
+  }
 };
 
 /* ───── CSV parsing (Unitel format) ───── */
@@ -130,6 +219,7 @@ type ParsedCsv = {
   totalAmount: number;
   unitAmount: number | null;
   successRows: { phone: string; amount: number; transactionId: string }[];
+  phoneStats: PhoneNormStats;
 };
 
 const analyzeCsv = (fileName: string, rows: CsvRow[]): ParsedCsv => {
@@ -146,17 +236,19 @@ const analyzeCsv = (fileName: string, rows: CsvRow[]): ParsedCsv => {
   let bulkPlanId: string | null = null;
   let planName: string | null = null;
   const amountSet = new Set<number>();
+  const phoneStats = emptyPhoneStats();
 
   for (const r of rows) {
     if (bulkCol && !bulkPlanId) bulkPlanId = (r[bulkCol] ?? "").trim() || null;
     if (planNameCol && !planName) planName = (r[planNameCol] ?? "").trim() || null;
     const status = statusCol ? (r[statusCol] ?? "").toLowerCase() : "success";
     if (statusCol && !status.includes("success") && !status.includes("ok")) continue;
-    const phone = normalizePhone(phoneCol ? r[phoneCol] : "");
+    const norm = normalizePhoneDetailed(phoneCol ? r[phoneCol] : "");
+    accumulatePhone(phoneStats, norm);
     const amount = parsePtao(amountCol ? r[amountCol] : "0");
     const transactionId = txCol ? (r[txCol] ?? "").trim() : "";
-    if (!phone) continue;
-    successRows.push({ phone, amount, transactionId });
+    if (!norm.phone) continue;
+    successRows.push({ phone: norm.phone, amount, transactionId });
     totalAmount += amount;
     if (amount > 0) amountSet.add(amount);
   }
@@ -172,6 +264,7 @@ const analyzeCsv = (fileName: string, rows: CsvRow[]): ParsedCsv => {
     totalAmount,
     unitAmount,
     successRows,
+    phoneStats,
   };
 };
 
@@ -237,6 +330,11 @@ type FullReview = {
   topOrphans: Orphan[];
   orphanCount: number;
   orphanAmount: number;
+  phoneStats: {
+    csv: PhoneNormStats;
+    farmers: PhoneNormStats;
+    orphans: PhoneNormStats;
+  };
 };
 
 /* ───────────────────────── page ───────────────────────── */
@@ -382,11 +480,13 @@ const RevisaoProvincias = () => {
       }
       const ecaRows = Array.from(ecaMap.values()).sort((a, b) => b.n - a.n);
 
-      // 3. Phone index of farmers
+      // 3. Phone index of farmers (com stats de normalização)
       const farmerPhoneIndex = new Map<string, Farmer>();
+      const farmerPhoneStats = emptyPhoneStats();
       for (const f of farmers) {
-        const p = normalizePhone(f.phone);
-        if (p) farmerPhoneIndex.set(p, f);
+        const norm = normalizePhoneDetailed(f.phone);
+        accumulatePhone(farmerPhoneStats, norm);
+        if (norm.phone) farmerPhoneIndex.set(norm.phone, f);
       }
 
       // 4. Duplicate checks among uploaded CSVs
@@ -439,6 +539,10 @@ const RevisaoProvincias = () => {
         .is("linked_farmer_code", null);
 
       let orphansForProvince: Orphan[] = (allOrphans ?? []) as Orphan[];
+      // Stats de normalização aplicada aos órfãos antes do filtro
+      const orphanPhoneStats = emptyPhoneStats();
+      for (const o of orphansForProvince) accumulatePhone(orphanPhoneStats, normalizePhoneDetailed(o.phone));
+
       // If user uploaded CSVs, restrict orphans to phones appearing in those uploads
       if (filesForDiff.length > 0) {
         const allCsvPhones = new Set<string>();
@@ -454,6 +558,21 @@ const RevisaoProvincias = () => {
       }
       // Remove orphans that actually match a known farmer phone
       orphansForProvince = orphansForProvince.filter((o) => !farmerPhoneIndex.has(normalizePhone(o.phone)));
+
+      // Agregar stats de TODOS os CSVs carregados num único bloco
+      const csvPhoneStats = emptyPhoneStats();
+      for (const c of uploadedCsvs) {
+        const s = c.phoneStats;
+        csvPhoneStats.total += s.total;
+        csvPhoneStats.valid += s.valid;
+        csvPhoneStats.changed += s.changed;
+        csvPhoneStats.stripped244 += s.stripped244;
+        csvPhoneStats.strippedLeadingZero += s.strippedLeadingZero;
+        csvPhoneStats.paddedOrTrimmed += s.paddedOrTrimmed;
+        csvPhoneStats.invalidPrefix += s.invalidPrefix;
+        csvPhoneStats.tooShort += s.tooShort;
+        csvPhoneStats.empty += s.empty;
+      }
 
       const topOrphans = [...orphansForProvince].sort((a, b) => b.amount - a.amount).slice(0, 100);
       const orphanCount = orphansForProvince.length;
@@ -473,6 +592,7 @@ const RevisaoProvincias = () => {
         topOrphans,
         orphanCount,
         orphanAmount,
+        phoneStats: { csv: csvPhoneStats, farmers: farmerPhoneStats, orphans: orphanPhoneStats },
       };
       setReview(result);
       setProgress("");
@@ -829,6 +949,46 @@ const RevisaoProvincias = () => {
                     <p className="text-[10px] text-muted-foreground">{fmt(validationSummary.totalOrphansAmount)} Kz</p>
                   </div>
                 </div>
+
+                {/* Normalização de telefones */}
+                {review?.phoneStats && (() => {
+                  const ps = review.phoneStats;
+                  const Block = ({ label, s }: { label: string; s: PhoneNormStats }) => {
+                    const changedPct = s.total > 0 ? Math.round((s.changed / s.total) * 100) : 0;
+                    const validPct = s.total > 0 ? Math.round((s.valid / s.total) * 100) : 0;
+                    return (
+                      <div className="rounded-md border border-border bg-muted/30 p-2.5">
+                        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
+                        <p className="mt-0.5 text-sm font-bold">
+                          {s.changed.toLocaleString("pt-AO")}{" "}
+                          <span className="text-[11px] font-normal text-muted-foreground">/ {s.total.toLocaleString("pt-AO")}</span>
+                        </p>
+                        <p className="text-[10px] text-muted-foreground">
+                          {changedPct}% normalizados • {validPct}% válidos
+                        </p>
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {s.stripped244 > 0 && <Badge variant="secondary" className="text-[9px] px-1 py-0">+244 ×{s.stripped244}</Badge>}
+                          {s.strippedLeadingZero > 0 && <Badge variant="secondary" className="text-[9px] px-1 py-0">0… ×{s.strippedLeadingZero}</Badge>}
+                          {s.paddedOrTrimmed > 0 && <Badge variant="secondary" className="text-[9px] px-1 py-0">trim ×{s.paddedOrTrimmed}</Badge>}
+                          {s.invalidPrefix > 0 && <Badge variant="destructive" className="text-[9px] px-1 py-0">prefixo ×{s.invalidPrefix}</Badge>}
+                          {s.tooShort > 0 && <Badge variant="destructive" className="text-[9px] px-1 py-0">curto ×{s.tooShort}</Badge>}
+                        </div>
+                      </div>
+                    );
+                  };
+                  return (
+                    <div>
+                      <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                        Normalização de telefones (244 / 0… / comprimento)
+                      </p>
+                      <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
+                        <Block label="CSVs Unitel" s={ps.csv} />
+                        <Block label="Agricultores" s={ps.farmers} />
+                        <Block label="Órfãos (BD)" s={ps.orphans} />
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 {/* Veredito */}
                 {validationSummary.dupCount > 0 && validationSummary.unresolvedDups > 0 && (
