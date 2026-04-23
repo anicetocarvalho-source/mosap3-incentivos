@@ -326,6 +326,11 @@ type FullReview = {
   topOrphans: Orphan[];
   orphanCount: number;
   orphanAmount: number;
+  phoneStats: {
+    csv: PhoneNormStats;
+    farmers: PhoneNormStats;
+    orphans: PhoneNormStats;
+  };
 };
 
 /* ───────────────────────── page ───────────────────────── */
