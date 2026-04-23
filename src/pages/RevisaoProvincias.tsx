@@ -569,6 +569,8 @@ const RevisaoProvincias = () => {
       setUploadedCsvs(restored.uploadedFiles ?? []);
       setConfirmedDuplicates(new Set(row.confirmed_duplicates ?? []));
       setAppliedDuplicateDecisions(new Set(row.confirmed_duplicates ?? []));
+      setCurrentReviewId(row.id);
+      setCurrentReviewAppliedAt(row.applied_at ?? null);
       setHistoryOpen(false);
       toast.success(
         `Revisão de ${restored.province} reaberta (${new Date(row.generated_at).toLocaleString("pt-PT")})`,
