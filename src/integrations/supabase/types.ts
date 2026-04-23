@@ -1649,7 +1649,7 @@ export type Database = {
         Returns: {
           expected: number
           got: number
-          input: string
+          input_text: string
           label: string
           ok: boolean
         }[]
