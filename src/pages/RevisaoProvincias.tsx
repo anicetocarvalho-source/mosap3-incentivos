@@ -1112,7 +1112,7 @@ const RevisaoProvincias = () => {
             </div>
           )}
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button onClick={generateReview} disabled={running || !province || hasInvalidCsvs}>
               {running ? <Loader2 className="h-4 w-4 animate-spin" /> : <PlayCircle className="h-4 w-4" />}
               {running ? "A gerar…" : hasInvalidCsvs ? "Corrija os CSVs inválidos" : "Gerar revisão completa"}
@@ -1127,8 +1127,22 @@ const RevisaoProvincias = () => {
                   <Download className="h-4 w-4" />
                   Exportar XLSX
                 </Button>
+                <Button variant="default" onClick={() => setSaveDialogOpen(true)}>
+                  <Save className="h-4 w-4" />
+                  Guardar revisão
+                </Button>
               </>
             )}
+            <Button
+              variant="outline"
+              onClick={() => {
+                setHistoryOpen(true);
+                loadHistory();
+              }}
+            >
+              <History className="h-4 w-4" />
+              Histórico
+            </Button>
             {progress && <span className="text-xs text-muted-foreground">{progress}</span>}
           </div>
         </CardContent>
