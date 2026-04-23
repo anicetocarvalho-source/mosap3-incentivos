@@ -47,6 +47,7 @@ const Agricultores = () => {
   const [filterPatec, setFilterPatec] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterProvince, setFilterProvince] = useState("all");
+  const [filterMunicipality, setFilterMunicipality] = useState("all");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingFarmer, setEditingFarmer] = useState<any>(null);
   const [page, setPage] = useState(1);
@@ -65,7 +66,18 @@ const Agricultores = () => {
     },
   });
 
-  useEffect(() => { setPage(1); }, [search, filterPatec, filterStatus, filterProvince, sortBy, sortDir]);
+  // Municípios únicos derivados dos próprios agricultores da província selecionada
+  const availableMunicipalities = Array.from(new Set(
+    farmers
+      .filter(f => filterProvince === "all" || (f.province || "").toLowerCase() === filterProvince.toLowerCase())
+      .map(f => f.municipality)
+      .filter((m): m is string => !!m && m.trim() !== "")
+  )).sort((a, b) => a.localeCompare(b));
+
+  // Reset município quando muda a província
+  useEffect(() => { setFilterMunicipality("all"); }, [filterProvince]);
+
+  useEffect(() => { setPage(1); }, [search, filterPatec, filterStatus, filterProvince, filterMunicipality, sortBy, sortDir]);
 
   const handleSort = (col: "name" | "recebido" | "usado") => {
     if (sortBy === col) {
@@ -96,7 +108,10 @@ const Agricultores = () => {
     const matchesProvince =
       filterProvince === "all" ||
       (f.province || "").toLowerCase() === filterProvince.toLowerCase();
-    return matchesSearch && matchesPatec && matchesStatus && matchesProvince;
+    const matchesMunicipality =
+      filterMunicipality === "all" ||
+      (f.municipality || "").toLowerCase() === filterMunicipality.toLowerCase();
+    return matchesSearch && matchesPatec && matchesStatus && matchesProvince && matchesMunicipality;
   });
 
   const sorted = sortBy
@@ -241,20 +256,35 @@ const Agricultores = () => {
               );
             })()}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Select value={filterProvince} onValueChange={setFilterProvince}>
               <SelectTrigger className="w-full sm:w-36 text-xs md:text-sm"><SelectValue placeholder="Província" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Todas</SelectItem>
+                <SelectItem value="all">Todas províncias</SelectItem>
                 {provinces.map((p: any) => (
                   <SelectItem key={p.id} value={p.name.toLowerCase()}>{p.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select
+              value={filterMunicipality}
+              onValueChange={setFilterMunicipality}
+              disabled={availableMunicipalities.length === 0}
+            >
+              <SelectTrigger className="w-full sm:w-40 text-xs md:text-sm">
+                <SelectValue placeholder="Município" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos municípios</SelectItem>
+                {availableMunicipalities.map((m) => (
+                  <SelectItem key={m} value={m.toLowerCase()}>{m}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
             <Select value={filterStatus} onValueChange={setFilterStatus}>
               <SelectTrigger className="w-full sm:w-32 text-xs md:text-sm"><SelectValue placeholder="Estado" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="all">Todos estados</SelectItem>
                 <SelectItem value="ativo">Ativo</SelectItem>
                 <SelectItem value="pendente">Pendente</SelectItem>
                 <SelectItem value="suspenso">Suspenso</SelectItem>
@@ -274,7 +304,22 @@ const Agricultores = () => {
                 <SelectItem value="none">Sem PATEC</SelectItem>
               </SelectContent>
             </Select>
-            <Button variant="outline" size="icon" className="flex-shrink-0" onClick={handleExportCSV} title="Exportar CSV">
+            {(filterProvince !== "all" || filterMunicipality !== "all" || filterStatus !== "all" || filterPatec !== "all") && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-xs h-9"
+                onClick={() => {
+                  setFilterProvince("all");
+                  setFilterMunicipality("all");
+                  setFilterStatus("all");
+                  setFilterPatec("all");
+                }}
+              >
+                Limpar filtros
+              </Button>
+            )}
+            <Button variant="outline" size="icon" className="flex-shrink-0 ml-auto" onClick={handleExportCSV} title="Exportar CSV (respeita filtros)">
               <Download className="h-4 w-4" />
             </Button>
           </div>
