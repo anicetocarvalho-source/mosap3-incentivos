@@ -480,11 +480,13 @@ const RevisaoProvincias = () => {
       }
       const ecaRows = Array.from(ecaMap.values()).sort((a, b) => b.n - a.n);
 
-      // 3. Phone index of farmers
+      // 3. Phone index of farmers (com stats de normalização)
       const farmerPhoneIndex = new Map<string, Farmer>();
+      const farmerPhoneStats = emptyPhoneStats();
       for (const f of farmers) {
-        const p = normalizePhone(f.phone);
-        if (p) farmerPhoneIndex.set(p, f);
+        const norm = normalizePhoneDetailed(f.phone);
+        accumulatePhone(farmerPhoneStats, norm);
+        if (norm.phone) farmerPhoneIndex.set(norm.phone, f);
       }
 
       // 4. Duplicate checks among uploaded CSVs
