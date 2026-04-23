@@ -914,20 +914,55 @@ const RevisaoProvincias = () => {
                 Ficheiros carregados ({uploadedCsvs.length})
               </p>
               <div className="space-y-1.5">
-                {uploadedCsvs.map((c, i) => (
-                  <div key={i} className="flex items-center justify-between gap-2 rounded border border-border bg-card px-2 py-1.5 text-xs">
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate font-medium">{c.fileName}</p>
-                      <p className="text-muted-foreground">
-                        Bulk {c.bulkPlanId ?? "—"} • {c.successCount} success • {fmt(c.totalAmount)} Kz
-                        {c.unitAmount ? ` • unit. ${fmt(c.unitAmount)}` : ""}
-                      </p>
+                {uploadedCsvs.map((c, i) => {
+                  const errs = c.schema.issues.filter((x) => x.level === "error");
+                  const warns = c.schema.issues.filter((x) => x.level === "warning");
+                  return (
+                    <div
+                      key={i}
+                      className={cn(
+                        "flex items-start justify-between gap-2 rounded border px-2 py-1.5 text-xs",
+                        errs.length > 0
+                          ? "border-destructive/40 bg-destructive/5"
+                          : warns.length > 0
+                            ? "border-warning/40 bg-warning/5"
+                            : "border-border bg-card",
+                      )}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <p className="truncate font-medium">{c.fileName}</p>
+                          {errs.length > 0 && (
+                            <Badge variant="destructive" className="text-[9px] px-1 py-0">Schema inválido</Badge>
+                          )}
+                          {errs.length === 0 && warns.length > 0 && (
+                            <Badge variant="secondary" className="text-[9px] px-1 py-0">Avisos</Badge>
+                          )}
+                          {errs.length === 0 && warns.length === 0 && (
+                            <Badge variant="outline" className="text-[9px] px-1 py-0">OK</Badge>
+                          )}
+                        </div>
+                        <p className="text-muted-foreground">
+                          Bulk {c.bulkPlanId ?? "—"} • {c.successCount} success • {fmt(c.totalAmount)} Kz
+                          {c.unitAmount ? ` • unit. ${fmt(c.unitAmount)}` : ""}
+                        </p>
+                        {(errs.length > 0 || warns.length > 0) && (
+                          <ul className="mt-1 space-y-0.5">
+                            {errs.map((iss, k) => (
+                              <li key={`e${k}`} className="text-[11px] text-destructive">• {iss.message}</li>
+                            ))}
+                            {warns.map((iss, k) => (
+                              <li key={`w${k}`} className="text-[11px] text-warning-foreground/80">• {iss.message}</li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                      <Button size="sm" variant="ghost" onClick={() => removeCsv(i)}>
+                        <XCircle className="h-3.5 w-3.5" />
+                      </Button>
                     </div>
-                    <Button size="sm" variant="ghost" onClick={() => removeCsv(i)}>
-                      <XCircle className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
