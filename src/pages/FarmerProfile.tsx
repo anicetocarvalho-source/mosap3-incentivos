@@ -916,6 +916,9 @@ const FarmerProfile = () => {
                 </>
               );
             })()}
+
+            {/* Histórico de saldos (valor_recebido / total_gasto / saldo_final) */}
+            <FarmerBalanceHistory farmerCode={farmerInfo.id} />
           </TabsContent>
 
           <TabsContent value="patec" className="mt-4 space-y-4">
