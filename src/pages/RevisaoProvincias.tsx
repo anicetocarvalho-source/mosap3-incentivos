@@ -577,6 +577,50 @@ const RevisaoProvincias = () => {
     return set;
   }, [review]);
 
+  /* Pre-validation summary: aggregates everything the user must approve before any DB write */
+  const validationSummary = useMemo(() => {
+    if (!review) return null;
+    const totalMatched = review.diffRows.reduce((s, d) => s + d.matched, 0);
+    const totalMatchedAmount = review.diffRows.reduce((s, d) => s + d.matchedAmount, 0);
+    const totalOrphans = review.diffRows.reduce((s, d) => s + d.orphans, 0);
+    const totalOrphansAmount = review.diffRows.reduce((s, d) => s + d.orphansAmount, 0);
+    const dupCount = review.duplicateChecks.length;
+    const unresolvedDups = review.duplicateChecks.filter(
+      (d) => !confirmedDuplicates.has(d.fileB.fileName)
+    ).length;
+    const bulkPlanIds = Array.from(
+      new Set(
+        review.uploadedFiles
+          .map((f) => f.bulkPlanId)
+          .filter((b): b is string => !!b)
+      )
+    );
+    const filesIncluded = review.diffRows.length;
+    const filesExcluded = review.uploadedFiles.length - filesIncluded;
+    return {
+      totalMatched,
+      totalMatchedAmount,
+      totalOrphans,
+      totalOrphansAmount,
+      dupCount,
+      unresolvedDups,
+      bulkPlanIds,
+      filesIncluded,
+      filesExcluded,
+      hasBlockers: unresolvedDups > 0 && filesExcluded > 0,
+    };
+  }, [review, confirmedDuplicates]);
+
+  const expectedConfirmText = "CONFIRMAR";
+  const canConfirm = confirmText.trim().toUpperCase() === expectedConfirmText;
+
+  const handleConfirmWrite = () => {
+    setWriteUnlocked(true);
+    setConfirmDialogOpen(false);
+    setConfirmText("");
+    toast.success("Pré-validação aprovada. Escrita desbloqueada (aguarda endpoint de importação).");
+  };
+
   return (
     <div className="space-y-6">
       <PageHeader
