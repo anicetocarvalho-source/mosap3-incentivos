@@ -707,6 +707,8 @@ const RevisaoProvincias = () => {
     setRunning(true);
     setReview(null);
     setWriteUnlocked(false);
+    setCurrentReviewId(null);
+    setCurrentReviewAppliedAt(null);
     try {
       // 1. Load farmers (paginated)
       setProgress(`A carregar agricultores de ${province}…`);
