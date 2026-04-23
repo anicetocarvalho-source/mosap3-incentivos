@@ -108,7 +108,10 @@ const Agricultores = () => {
     const matchesProvince =
       filterProvince === "all" ||
       (f.province || "").toLowerCase() === filterProvince.toLowerCase();
-    return matchesSearch && matchesPatec && matchesStatus && matchesProvince;
+    const matchesMunicipality =
+      filterMunicipality === "all" ||
+      (f.municipality || "").toLowerCase() === filterMunicipality.toLowerCase();
+    return matchesSearch && matchesPatec && matchesStatus && matchesProvince && matchesMunicipality;
   });
 
   const sorted = sortBy
