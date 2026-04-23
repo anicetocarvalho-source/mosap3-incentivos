@@ -1,59 +1,38 @@
 
 
-## Revisão dos valores recebidos — Cuando Cubango
+## Investigação: Plataforma "sem dados"
 
-### O que está nos ficheiros Unitel (já carregados)
+### Resultado
 
-| Ficheiro | Plano | Linhas Success | Valor unit. | Total Kz |
-|---|---|---|---|---|
-| `CUANDO_CUBANGO.csv` | "200k Cuando Cubango" | 2.279 | 200.000,00 | 433.000.000 (estimado) |
-| `CUANDO_CUBANGO_CONTA_1_50.csv` | "Carregamento 50% Cont1 Cuando Cubango" | 2.229 (50 falharam) | 101.760,00 | 226.823.040 |
-| **`CUANDO_CUBANGO_CONTA_1_50-2.csv` (novo upload)** | Mesmo plano que o anterior, mesmo Bulk Plan ID `812184` | 2.229 | 101.760,00 | 226.823.040 |
+A base de dados **não está vazia** — tem 10 905 agricultores, 70 394 transações e ~3 mil milhões Kz de incentivos recebidos. Se vê tudo a zero no ecrã, **o problema é de visibilidade no front-end**, não de ausência de dados.
 
-**Observação crítica:** o ficheiro novo (`-2`) é uma **reedição do mesmo bulk** (`Bulk Plan ID 812184`) — **não é um novo pagamento**. Mesma data (11-09-2025 15:39), mesmo valor total (231.911.040 plano / 226.823.040 sucesso), mesmos 50 falhados, mesmos operadores. Re-importá-lo somando seria duplicar saldos.
+### Tabelas com dados vs vazias
 
-### O que está na BD agora (Cuando Cubango)
-
-| Métrica | Valor |
+| Tem dados | Vazia |
 |---|---|
-| Agricultores totais na província | 1.921 |
-| Com `valor_recebido > 0` | 1.921 (100%) |
-| Soma `valor_recebido` | 579.680.960,00 Kz |
-| Soma `total_gasto` | 391.854.695,00 Kz |
-| Soma `saldo_final` | −391.275.014,04 Kz |
-| **Distribuição de `valor_recebido`** | **Todos com 301.760,00 Kz** (200.000 + 101.760) |
+| farmers (10 905) | farmer_incentives |
+| farmer_transactions (70 394) | farmer_parcels |
+| schools (733) | farmer_production (apenas 1) |
+| suppliers (13) | livestock |
+| orphan_phones (3 399) | pos_sales |
 
-Ou seja: a importação anterior somou correctamente os dois ficheiros (200k + 50%). Não há grupos diferentes — o Cuando Cubango está **uniforme**. Os 1.921 agricultores na BD vs. 2.279 telefones no ficheiro = **358 telefones do Unitel sem agricultor associado** (já estão em `orphan_phones`).
+### Causa mais provável (a confirmar consigo)
 
-### Plano de revisão por grupos
+1. **Sessão / role**: o seu utilizador tem que ter um `user_role` de backoffice (admin, gestor_incentivos, etc.). Se a sessão expirou ou não tem role, **todas as RLS bloqueiam o SELECT** e a UI mostra zero. — **Mais provável**.
+2. **Filtros geográficos ativos**: o dashboard filtra por província/ECA do utilizador. Se o seu utilizador estiver associado a uma província **sem** dados, vê tudo vazio.
+3. **Fluxo histórico**: incentivos foram registados em `farmers.valor_recebido` (não em `farmer_incentives`), e POS/Parcelas/Pecuária nunca foram usados em produção. Isto é **real** — precisa de ser preenchido ou a UI ajustada para refletir esse modelo.
 
-Quando passar para modo execução, faço:
+### Próximos passos propostos
 
-**1. Confirmar que o `-2.csv` é duplicado**
-   - Comparar linha-a-linha (`Credit Msisdn` + `TransactionID`) entre `CUANDO_CUBANGO_CONTA_1_50.csv` original e o novo.
-   - Se `TransactionID` 100% coincidirem → ignorar, não importar (o saldo já está reflectido).
-   - Se houver diferenças → mostrar diff antes de qualquer write.
+A. **Confirmar a causa imediata** — diga-me:
+   - Está autenticado? Que email/role?
+   - Em que página(s) específica(s) vê "sem dados"? (/, /agricultores, /incentivos, /transacoes…)
+   - Vê erro na consola do browser?
 
-**2. Listar grupos do Cuando Cubango por escola/ECA**
-   ```text
-   SELECT school, COUNT(*), SUM(parse_ptao_numeric(valor_recebido)),
-          SUM(parse_ptao_numeric(saldo_final))
-   FROM farmers WHERE province='Cuando Cubango' GROUP BY school;
-   ```
-   - Entrega um quadro: ECA | nº agricultores | total recebido | total gasto | saldo (positivo / negativo).
+B. Conforme a resposta, corrigirei uma destas coisas:
+   - **Se for sessão/RLS**: validar `user_roles` e re-login.
+   - **Se for filtro geográfico**: rever associações em `user_provinces`.
+   - **Se for "incentivos não migrados"**: criar uma migração que materializa um registo em `farmer_incentives` por cada bloco importado (a partir de `farmer_balance_history` que já regista a fonte), ou ajustar a UI de /incentivos para ler de `farmers.valor_recebido` + `farmer_balance_history` em vez de `farmer_incentives`.
 
-**3. Comparar contra ficheiros Unitel**
-   - Para cada ficheiro Unitel do Cuando Cubango, contar quantos telefones bateram com agricultores existentes vs órfãos.
-   - Top 10 órfãos por valor (potenciais agricultores em falta no cadastro).
-
-**4. Entregáveis** (em `/mnt/documents/`):
-   - `cuando_cubango_por_eca.xlsx` — totais por ECA.
-   - `cuando_cubango_diff_unitel.xlsx` — match vs órfãos por ficheiro.
-   - `cuando_cubango_duplicado_check.xlsx` — comparação dos dois CSVs Conta 1 50% para confirmar duplicação.
-
-**5. Decisão sua antes de qualquer write**
-   - Confirmar que `-2.csv` é duplicado (não importar).
-   - Decidir se quer associar manualmente os órfãos do Cuando Cubango a agricultores existentes (via `/telefones-orfaos`).
-
-Não vou alterar `valor_recebido` nem `saldo_final` sem aprovação explícita após ver os relatórios.
+Sem este passo de confirmação não faço alterações — quero evitar inserir dados ou mexer em RLS sem saber qual é o cenário real.
 
