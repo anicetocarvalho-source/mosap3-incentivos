@@ -444,6 +444,134 @@ const RevisaoProvincias = () => {
   const [writeUnlocked, setWriteUnlocked] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  /* History (saved reviews) */
+  type SavedReviewRow = {
+    id: string;
+    province: string;
+    generated_at: string;
+    generated_by_name: string | null;
+    csv_file_names: string[];
+    confirmed_duplicates: string[];
+    total_farmers: number;
+    total_csv_amount: number;
+    total_matched_amount: number;
+    total_orphan_amount: number;
+    matched_count: number;
+    orphan_count: number;
+    duplicate_pairs_count: number;
+    phones_normalized: number;
+    notes: string | null;
+    payload: any;
+  };
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [history, setHistory] = useState<SavedReviewRow[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [saveDialogOpen, setSaveDialogOpen] = useState(false);
+  const [saveNotes, setSaveNotes] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const loadHistory = async () => {
+    setHistoryLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("province_reviews")
+        .select("*")
+        .order("generated_at", { ascending: false })
+        .limit(100);
+      if (error) throw error;
+      setHistory((data ?? []) as SavedReviewRow[]);
+    } catch (e: any) {
+      toast.error(`Falha a carregar histórico: ${e?.message ?? e}`);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  const saveReview = async () => {
+    if (!review) return;
+    setSaving(true);
+    try {
+      const { data: u } = await supabase.auth.getUser();
+      const userId = u?.user?.id ?? null;
+      let userName: string | null = null;
+      if (userId) {
+        const { data: prof } = await supabase
+          .from("profiles")
+          .select("full_name")
+          .eq("user_id", userId)
+          .maybeSingle();
+        userName = prof?.full_name ?? null;
+      }
+      const phonesNormalized =
+        ((review.phoneStats.csv as any)?.changed ?? 0) +
+        ((review.phoneStats.farmers as any)?.changed ?? 0) +
+        ((review.phoneStats.orphans as any)?.changed ?? 0);
+      const totalCsvAmount = review.uploadedFiles.reduce((s, f) => s + (f.totalAmount ?? 0), 0);
+      const totalMatchedAmount = review.diffRows.reduce(
+        (s, r: any) => s + (r.csvAmount ?? r.amountCsv ?? 0),
+        0,
+      );
+      const { error } = await supabase.from("province_reviews").insert({
+        province: review.province,
+        generated_at: review.generatedAt,
+        generated_by: userId,
+        generated_by_name: userName,
+        csv_file_names: review.uploadedFiles.map((f) => f.fileName),
+        confirmed_duplicates: Array.from(confirmedDuplicates),
+        total_farmers: review.farmersCount,
+        total_csv_amount: totalCsvAmount,
+        total_matched_amount: totalMatchedAmount,
+        total_orphan_amount: review.orphanAmount,
+        matched_count: review.diffRows.length,
+        orphan_count: review.orphanCount,
+        duplicate_pairs_count: review.duplicateChecks.length,
+        phones_normalized: phonesNormalized,
+        notes: saveNotes.trim() || null,
+        payload: review as any,
+      });
+      if (error) throw error;
+      toast.success("Revisão guardada no histórico");
+      setSaveDialogOpen(false);
+      setSaveNotes("");
+    } catch (e: any) {
+      toast.error(`Falha a guardar: ${e?.message ?? e}`);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const reopenFromHistory = (row: SavedReviewRow) => {
+    try {
+      const restored = row.payload as FullReview;
+      if (!restored || !restored.province) {
+        toast.error("Payload inválido — não é possível reabrir.");
+        return;
+      }
+      setProvince(restored.province);
+      setReview(restored);
+      setUploadedCsvs(restored.uploadedFiles ?? []);
+      setConfirmedDuplicates(new Set(row.confirmed_duplicates ?? []));
+      setAppliedDuplicateDecisions(new Set(row.confirmed_duplicates ?? []));
+      setHistoryOpen(false);
+      toast.success(
+        `Revisão de ${restored.province} reaberta (${new Date(row.generated_at).toLocaleString("pt-PT")})`,
+      );
+    } catch (e: any) {
+      toast.error(`Falha a reabrir: ${e?.message ?? e}`);
+    }
+  };
+
+  const deleteHistoryRow = async (id: string) => {
+    try {
+      const { error } = await supabase.from("province_reviews").delete().eq("id", id);
+      if (error) throw error;
+      setHistory((h) => h.filter((r) => r.id !== id));
+      toast.success("Revisão removida do histórico");
+    } catch (e: any) {
+      toast.error(`Falha a remover: ${e?.message ?? e}`);
+    }
+  };
+
   /* Load provinces */
   useEffect(() => {
     (async () => {
