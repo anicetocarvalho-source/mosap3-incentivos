@@ -1644,6 +1644,16 @@ export type Database = {
         Args: { _farmer_code: string }
         Returns: undefined
       }
+      test_parse_ptao_numeric: {
+        Args: never
+        Returns: {
+          expected: number
+          got: number
+          input: string
+          label: string
+          ok: boolean
+        }[]
+      }
     }
     Enums: {
       app_role:
