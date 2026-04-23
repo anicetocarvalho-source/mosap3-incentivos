@@ -52,6 +52,8 @@ const Agricultores = () => {
   const [page, setPage] = useState(1);
   const [deleteTarget, setDeleteTarget] = useState<any>(null);
   const [summaryTarget, setSummaryTarget] = useState<any>(null);
+  const [sortBy, setSortBy] = useState<"name" | "recebido" | "usado" | null>(null);
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const { farmers, loading, error: farmersError, refetch: refetchFarmers } = useFarmersList();
   const queryClient = useQueryClient();
 
