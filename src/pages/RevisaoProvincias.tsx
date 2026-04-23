@@ -1064,6 +1064,66 @@ const RevisaoProvincias = () => {
           </Card>
         </>
       )}
+
+      {/* Dialog de confirmação final */}
+      <AlertDialog open={confirmDialogOpen} onOpenChange={setConfirmDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <ShieldAlert className="h-5 w-5 text-warning" />
+              Confirmar importação na BD
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3 text-sm">
+                <p>
+                  Está prestes a autorizar a escrita destes dados nas tabelas{" "}
+                  <code className="font-mono text-xs">farmers</code>,{" "}
+                  <code className="font-mono text-xs">orphan_phones</code> e{" "}
+                  <code className="font-mono text-xs">farmer_balance_history</code> para a província{" "}
+                  <strong>{review?.province ?? "—"}</strong>.
+                </p>
+                {validationSummary && (
+                  <div className="rounded-md border border-border bg-muted/30 p-3 text-xs">
+                    <ul className="space-y-1">
+                      <li>• Bulk Plan IDs: {validationSummary.bulkPlanIds.join(", ") || "—"}</li>
+                      <li>• Ficheiros incluídos: {validationSummary.filesIncluded}</li>
+                      {validationSummary.filesExcluded > 0 && (
+                        <li className="text-warning">
+                          • Ficheiros excluídos (duplicados): {validationSummary.filesExcluded}
+                        </li>
+                      )}
+                      <li>
+                        • Match: {validationSummary.totalMatched} agricultores ({fmt(validationSummary.totalMatchedAmount)} Kz)
+                      </li>
+                      <li>
+                        • Órfãos: {validationSummary.totalOrphans} telefones ({fmt(validationSummary.totalOrphansAmount)} Kz)
+                      </li>
+                    </ul>
+                  </div>
+                )}
+                <div className="space-y-1.5">
+                  <Label htmlFor="confirm-input" className="text-xs">
+                    Escreva <strong className="font-mono">{expectedConfirmText}</strong> para autorizar:
+                  </Label>
+                  <Input
+                    id="confirm-input"
+                    value={confirmText}
+                    onChange={(e) => setConfirmText(e.target.value)}
+                    placeholder={expectedConfirmText}
+                    autoComplete="off"
+                  />
+                </div>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setConfirmText("")}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmWrite} disabled={!canConfirm}>
+              Autorizar escrita
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
