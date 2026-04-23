@@ -16,6 +16,7 @@ export interface FarmerListItem {
   patec: number | null;
   valor_recebido: string | null;
   saldo_final: string | null;
+  total_gasto: string | null;
   created_at: string;
 }
 
