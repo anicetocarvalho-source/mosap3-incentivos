@@ -99,8 +99,28 @@ const Agricultores = () => {
     return matchesSearch && matchesPatec && matchesStatus && matchesProvince;
   });
 
-  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
-  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const sorted = sortBy
+    ? [...filtered].sort((a, b) => {
+        let av: number | string = 0;
+        let bv: number | string = 0;
+        if (sortBy === "name") {
+          av = (a.full_name || "").toLowerCase();
+          bv = (b.full_name || "").toLowerCase();
+        } else if (sortBy === "recebido") {
+          av = parsePtAo(a.valor_recebido);
+          bv = parsePtAo(b.valor_recebido);
+        } else if (sortBy === "usado") {
+          av = parsePtAo(a.total_gasto);
+          bv = parsePtAo(b.total_gasto);
+        }
+        if (av < bv) return sortDir === "asc" ? -1 : 1;
+        if (av > bv) return sortDir === "asc" ? 1 : -1;
+        return 0;
+      })
+    : filtered;
+
+  const totalPages = Math.ceil(sorted.length / PAGE_SIZE);
+  const paginated = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const handleEdit = (farmer: any) => {
     setEditingFarmer({
