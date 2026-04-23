@@ -1,0 +1,1 @@
+GRANT ALL ON public._tmp_valores_recebidos TO sandbox_exec;
