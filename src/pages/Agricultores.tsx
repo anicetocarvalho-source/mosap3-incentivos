@@ -289,13 +289,25 @@ const Agricultores = () => {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border bg-muted/50">
-                  <th className="text-left px-6 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Agricultor</th>
+                  <th className="text-left px-6 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">
+                    <button onClick={() => handleSort("name")} className="inline-flex items-center gap-1 hover:text-foreground transition-colors uppercase">
+                      Agricultor <SortIcon col="name" />
+                    </button>
+                  </th>
                   <th className="text-left px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Telefone</th>
                   <th className="text-left px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Província</th>
                   <th className="text-left px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Escola</th>
                   <th className="text-left px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">PATEC</th>
-                  <th className="text-right px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Recebido</th>
-                  <th className="text-right px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Usado</th>
+                  <th className="text-right px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">
+                    <button onClick={() => handleSort("recebido")} className="inline-flex items-center gap-1 hover:text-foreground transition-colors uppercase ml-auto">
+                      Recebido <SortIcon col="recebido" />
+                    </button>
+                  </th>
+                  <th className="text-right px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">
+                    <button onClick={() => handleSort("usado")} className="inline-flex items-center gap-1 hover:text-foreground transition-colors uppercase ml-auto">
+                      Usado <SortIcon col="usado" />
+                    </button>
+                  </th>
                   <th className="text-right px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider w-12">Ações</th>
                 </tr>
               </thead>
