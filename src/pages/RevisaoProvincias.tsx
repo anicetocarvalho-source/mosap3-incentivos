@@ -766,6 +766,109 @@ const RevisaoProvincias = () => {
             ))}
           </div>
 
+          {/* Resumo de Pré-Validação + Confirmação */}
+          {validationSummary && (
+            <Card className="border-primary/30">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <ShieldAlert className="h-4 w-4 text-primary" />
+                  Resumo de Pré-Validação
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Bulk Plan IDs */}
+                <div>
+                  <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    Bulk Plan IDs detectados ({validationSummary.bulkPlanIds.length})
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {validationSummary.bulkPlanIds.length === 0 ? (
+                      <span className="text-xs text-muted-foreground">Nenhum CSV carregado.</span>
+                    ) : (
+                      validationSummary.bulkPlanIds.map((id) => (
+                        <Badge key={id} variant="outline" className="font-mono text-[11px]">
+                          {id}
+                        </Badge>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                {/* Grelha de contadores */}
+                <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+                  <div className="rounded-md border border-border bg-muted/30 p-2.5">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Ficheiros</p>
+                    <p className="mt-0.5 text-sm font-bold">
+                      {validationSummary.filesIncluded} <span className="text-muted-foreground font-normal">incl.</span>
+                      {validationSummary.filesExcluded > 0 && (
+                        <span className="ml-1 text-warning">/ {validationSummary.filesExcluded} excl.</span>
+                      )}
+                    </p>
+                  </div>
+                  <div className="rounded-md border border-border bg-muted/30 p-2.5">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Duplicados</p>
+                    <p className={`mt-0.5 text-sm font-bold ${validationSummary.dupCount > 0 ? "text-warning" : "text-success"}`}>
+                      {validationSummary.dupCount}
+                      {validationSummary.unresolvedDups > 0 && (
+                        <span className="ml-1 text-[11px] font-normal">({validationSummary.unresolvedDups} bloqueados)</span>
+                      )}
+                    </p>
+                  </div>
+                  <div className="rounded-md border border-border bg-muted/30 p-2.5">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Match Agricultores</p>
+                    <p className="mt-0.5 text-sm font-bold text-success">
+                      {validationSummary.totalMatched.toLocaleString("pt-AO")}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">{fmt(validationSummary.totalMatchedAmount)} Kz</p>
+                  </div>
+                  <div className="rounded-md border border-border bg-muted/30 p-2.5">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Órfãos no Diff</p>
+                    <p className="mt-0.5 text-sm font-bold text-warning">
+                      {validationSummary.totalOrphans.toLocaleString("pt-AO")}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">{fmt(validationSummary.totalOrphansAmount)} Kz</p>
+                  </div>
+                </div>
+
+                {/* Veredito */}
+                {validationSummary.dupCount > 0 && validationSummary.unresolvedDups > 0 && (
+                  <Alert variant="destructive">
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertTitle className="text-sm">Duplicados não resolvidos</AlertTitle>
+                    <AlertDescription className="text-xs">
+                      {validationSummary.unresolvedDups} ficheiro(s) ainda marcados como duplicados serão excluídos da
+                      importação. Reveja a secção "Duplicados detectados" abaixo e confirme manualmente os que quer incluir.
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                {/* Botão de confirmação final */}
+                <div className="flex flex-col gap-2 border-t border-border pt-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="text-xs">
+                    {writeUnlocked ? (
+                      <span className="flex items-center gap-1.5 font-medium text-success">
+                        <ShieldCheck className="h-3.5 w-3.5" />
+                        Pré-validação aprovada — escrita desbloqueada
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground">
+                        Após rever, confirme para autorizar a importação na BD.
+                      </span>
+                    )}
+                  </div>
+                  <Button
+                    onClick={() => setConfirmDialogOpen(true)}
+                    disabled={writeUnlocked}
+                    variant={writeUnlocked ? "outline" : "default"}
+                  >
+                    <ShieldCheck className="h-4 w-4" />
+                    {writeUnlocked ? "Confirmado" : "Confirmar e prosseguir"}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Duplicados */}
           {review.duplicateChecks.length > 0 && (
             <Card>
