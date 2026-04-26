@@ -59,50 +59,41 @@ const ProvinciaEscolas = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-6 w-6 animate-spin text-primary" />
-      </div>
-    );
-  }
-
-  const province = provinces.find((p) => p.slug === slug);
-
-  if (!province) {
-    return (
-      <div className="space-y-6">
-        <Link to="/escolas">
-          <Button variant="ghost" className="gap-2"><ArrowLeft className="h-4 w-4" />Voltar</Button>
-        </Link>
-        <p className="text-muted-foreground">Província não encontrada.</p>
-      </div>
-    );
-  }
-
-  const provSchools = getSchoolsByProvince(province.id);
-  const provMunicipalities = getMunicipalitiesByProvince(province.id);
-
-  // Group schools by municipality
-  const byMunicipality: Record<string, { name: string; schools: typeof provSchools }> = {};
-  provSchools.forEach((s) => {
-    const mun = provMunicipalities.find((m) => m.id === s.municipality_id);
-    const munName = mun?.name || "Desconhecido";
-    if (!byMunicipality[s.municipality_id]) {
-      byMunicipality[s.municipality_id] = { name: munName, schools: [] };
-    }
-    byMunicipality[s.municipality_id].schools.push(s);
-  });
-
-  // Sort municipalities alphabetically
-  const sortedMunicipalities = Object.entries(byMunicipality).sort((a, b) =>
-    a[1].name.localeCompare(b[1].name)
+  // ⚠️ Todos os hooks têm de ser chamados antes de qualquer early return,
+  // caso contrário o React lança o erro #310 ("Rendered more hooks than during the previous render").
+  const province = useMemo(
+    () => provinces.find((p) => p.slug === slug) || null,
+    [provinces, slug]
   );
 
-  const municipalityIdsWithSchools = new Set(Object.keys(byMunicipality));
-  const municipalitiesWithout = provMunicipalities.filter((m) => !municipalityIdsWithSchools.has(m.id));
+  const provSchools = useMemo(
+    () => (province ? getSchoolsByProvince(province.id) : []),
+    [province, getSchoolsByProvince]
+  );
 
-  // Filtered list for "Todas as escolas"
+  const provMunicipalities = useMemo(
+    () => (province ? getMunicipalitiesByProvince(province.id) : []),
+    [province, getMunicipalitiesByProvince]
+  );
+
+  const sortedMunicipalities = useMemo(() => {
+    const byMun: Record<string, { name: string; schools: typeof provSchools }> = {};
+    provSchools.forEach((s) => {
+      const mun = provMunicipalities.find((m) => m.id === s.municipality_id);
+      const munName = mun?.name || "Desconhecido";
+      if (!byMun[s.municipality_id]) {
+        byMun[s.municipality_id] = { name: munName, schools: [] };
+      }
+      byMun[s.municipality_id].schools.push(s);
+    });
+    return Object.entries(byMun).sort((a, b) => a[1].name.localeCompare(b[1].name));
+  }, [provSchools, provMunicipalities]);
+
+  const municipalitiesWithout = useMemo(() => {
+    const idsWith = new Set(sortedMunicipalities.map(([id]) => id));
+    return provMunicipalities.filter((m) => !idsWith.has(m.id));
+  }, [provMunicipalities, sortedMunicipalities]);
+
   const filteredSchools = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
     return provSchools.filter((s) => {
@@ -116,8 +107,27 @@ const ProvinciaEscolas = () => {
     });
   }, [provSchools, searchTerm, statusFilter]);
 
-  // Default first municipality expanded
   const defaultOpen = sortedMunicipalities.length > 0 ? [sortedMunicipalities[0][0]] : [];
+
+  // Early returns só DEPOIS de todos os hooks acima.
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!province) {
+    return (
+      <div className="space-y-6">
+        <Link to="/escolas">
+          <Button variant="ghost" className="gap-2"><ArrowLeft className="h-4 w-4" />Voltar</Button>
+        </Link>
+        <p className="text-muted-foreground">Província não encontrada.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
