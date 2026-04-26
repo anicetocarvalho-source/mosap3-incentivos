@@ -1,37 +1,39 @@
+## Diagnóstico
 
+Ao navegar para `/escolas/provincia/benguela` o ErrorBoundary apanha o **Minified React error #310** ("Rendered more hooks than during the previous render"). A página fica em branco com a mensagem "Ocorreu um erro inesperado".
 
-## Plano: Renomear "Disponível" para "Usado" na tabela de Agricultores
+### Causa raiz
 
-### Problema
-Na tabela em `/agricultores` a coluna que mostra `f.saldo_final` está rotulada como **"Disponível"**, mas conceptualmente o que se quer mostrar é o **valor já gasto/usado** pelo produtor (não o que sobra).
+Em `src/pages/ProvinciaEscolas.tsx` o hook `useMemo` (linha 106, cálculo de `filteredSchools`) é chamado **depois** de dois `return` condicionais:
 
-### Verificação de fonte
-- `farmers.valor_recebido` → total recebido da Unitel Money (correto, fica como "Recebido")
-- `farmers.total_gasto` → soma das transações em POS (este é o "Usado")
-- `farmers.saldo_final` → `valor_recebido − total_gasto` (este é o "Disponível", e era o que estava a ser mostrado por engano)
+1. Linha 62-68: `if (loading) return <Loader2 />` 
+2. Linha 72-81: `if (!province) return <...Província não encontrada />`
 
-Logo, além do label, a coluna deve ler **`f.total_gasto`**, não `f.saldo_final`.
+No primeiro render `loading=true` → React executa apenas `useParams`, `useProvincesData`, `useState x2` (4 hooks) e sai pelo early return.  
+No segundo render `loading=false` e `province` existe → React tenta executar também o `useMemo` (5º hook). A contagem muda e o React rebenta. É exactamente o que acontece em Benguela porque a província existe e tem dados.
 
-### Alterações em `src/pages/Agricultores.tsx`
+Isto viola a primeira [Rule of Hooks](https://react.dev/reference/rules/rules-of-hooks): hooks têm de ser chamados sempre na mesma ordem, no topo do componente, antes de qualquer `return` condicional.
 
-**1. Cabeçalho da tabela desktop**
-- Coluna 7 muda de `Disponível` → `Usado`.
+## Correção
 
-**2. Célula de dados desktop**
-- Trocar `{fmtKz(f.saldo_final)}` por `{fmtKz(f.total_gasto)}`.
-- Manter a classe `text-warning` (semanticamente continua a indicar "consumo").
+Reorganizar `ProvinciaEscolas.tsx` para que **todos os hooks sejam chamados antes dos early returns**:
 
-**3. Export CSV (`handleExportCSV`)**
-- Atualmente o CSV exporta apenas campos identificativos — não inclui valores. Adicionar duas colunas no fim: **"Recebido"** e **"Usado"** com `f.valor_recebido` e `f.total_gasto` (valores brutos para a folha de cálculo).
+1. Mover a procura de `province` (`provinces.find`) para um `useMemo` no topo (depende de `provinces` e `slug`).
+2. Mover o cálculo de `provSchools`, `provMunicipalities`, `byMunicipality`, `sortedMunicipalities`, `municipalitiesWithout` para `useMemo`s no topo, todos a tratar o caso `province == null` devolvendo arrays/objectos vazios.
+3. Manter o `useMemo` de `filteredSchools` igualmente no topo.
+4. Só **depois** de todos os hooks declarados, fazer os early returns para `loading` e `!province`.
 
-**4. Mobile**
-- O cartão mobile não mostra valores monetários, sem alteração necessária.
+Isto garante contagem estável de hooks em todos os renders e elimina o crash.
 
-### Detalhes técnicos
-- Tipo `Farmer` em `useFarmersList` já expõe `total_gasto` (mesma forma que `saldo_final`), portanto não há alterações no hook.
-- `fmtKz` (já a usar `formatKzCompact` do parser unificado) trata correctamente os formatos legados EN-US/PT na BD.
-- Sem migrações nem alterações de RLS.
+### Verificação adicional
 
-### Ficheiro afectado
-- `src/pages/Agricultores.tsx`
+- Confirmar que `getMunicipalitiesByProvince` e `getSchoolsByProvince` (de `useProvincesData`) aceitam ser chamados com qualquer string sem erro — já aceitam, fazem só `filter`.
+- Sem alterações de schema, RLS, hooks ou outras páginas.
 
+## Ficheiros afectados
+
+- `src/pages/ProvinciaEscolas.tsx` (única alteração)
+
+## Resultado esperado
+
+A página `/escolas/provincia/:slug` carrega normalmente em qualquer província (incluindo Benguela), sem disparar o ErrorBoundary.
