@@ -136,8 +136,50 @@ const EscolasCampo = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="space-y-5 md:space-y-6">
+        <div>
+          <Skeleton className="h-7 w-56" />
+          <Skeleton className="h-4 w-80 mt-2" />
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Card key={i} className="p-3 md:p-4 flex items-center gap-3">
+              <Skeleton className="h-10 w-10 rounded-xl" />
+              <div className="flex-1 space-y-2">
+                <Skeleton className="h-5 w-12" />
+                <Skeleton className="h-3 w-20" />
+              </div>
+            </Card>
+          ))}
+        </div>
+        <Card className="overflow-hidden">
+          <div className="px-4 py-3 border-b border-border">
+            <Skeleton className="h-4 w-48" />
+          </div>
+          <Skeleton className="h-[280px] md:h-[360px] w-full rounded-none" />
+        </Card>
+        <div className="flex flex-col sm:flex-row gap-3">
+          <Skeleton className="h-10 flex-1" />
+          <Skeleton className="h-10 w-full sm:w-[200px]" />
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <Card key={i} className="p-4 md:p-5 h-full flex flex-col border-2 border-transparent">
+              <div className="flex items-start justify-between gap-2 mb-3">
+                <div className="flex-1 space-y-2">
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-3 w-16" />
+                </div>
+                <Skeleton className="h-5 w-16 rounded-full" />
+              </div>
+              <Skeleton className="h-2 w-full mb-3" />
+              <div className="flex items-center gap-4 pt-3 border-t border-border mt-auto">
+                <Skeleton className="h-4 w-16" />
+                <Skeleton className="h-4 w-20" />
+              </div>
+            </Card>
+          ))}
+        </div>
       </div>
     );
   }
