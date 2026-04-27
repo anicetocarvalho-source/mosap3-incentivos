@@ -26,6 +26,8 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { useProvincesData } from "@/hooks/useProvincesData";
+import { useFinancialSummary } from "@/hooks/useFinancialSummary";
+import { FinancialSummaryCards } from "@/components/FinancialSummaryCards";
 
 const SchoolCard = ({ school, index }: { school: any; index: number }) => (
   <motion.div
