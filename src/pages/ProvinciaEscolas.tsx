@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ArrowLeft, MapPin, Users, User, Search } from "lucide-react";
+import { ArrowLeft, MapPin, Users, User, Search, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +17,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { EmptyState } from "@/components/ui/empty-state";
 import { LoadingState } from "@/components/ui/loading-state";
 import { ErrorState } from "@/components/ui/error-state";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
 import { useProvincesData } from "@/hooks/useProvincesData";
 
 const SchoolCard = ({ school, index }: { school: any; index: number }) => (
@@ -25,11 +33,13 @@ const SchoolCard = ({ school, index }: { school: any; index: number }) => (
     animate={{ opacity: 1, y: 0 }}
     transition={{ delay: Math.min(index * 0.03, 0.3) }}
   >
-    <Link to={`/escolas/${school.id}`}>
-      <Card className="p-5 hover:shadow-md transition-shadow cursor-pointer hover:border-primary/40 h-full">
-        <div className="flex items-start justify-between mb-3">
-          <div className="min-w-0">
-            <h3 className="font-heading font-semibold text-base truncate">{school.name}</h3>
+    <Link to={`/escolas/${school.id}`} aria-label={`Abrir perfil da escola ${school.name}`}>
+      <Card className="group p-5 hover:shadow-md transition-all cursor-pointer hover:border-primary/40 h-full">
+        <div className="flex items-start justify-between mb-3 gap-2">
+          <div className="min-w-0 flex-1">
+            <h3 className="font-heading font-semibold text-base truncate group-hover:text-primary transition-colors">
+              {school.name}
+            </h3>
             <div className="flex items-center gap-1 text-muted-foreground text-xs mt-1">
               <MapPin className="h-3 w-3" />
               <span className="truncate">{school.village || "—"}</span>
@@ -45,10 +55,11 @@ const SchoolCard = ({ school, index }: { school: any; index: number }) => (
             <span className="font-semibold">{school.total_farmers}</span>
             <span className="text-muted-foreground text-xs">produtores</span>
           </div>
-          <div className="flex items-center gap-1.5 text-sm min-w-0">
+          <div className="flex items-center gap-1.5 text-sm min-w-0 flex-1">
             <User className="h-4 w-4 text-muted-foreground shrink-0" />
             <span className="text-muted-foreground text-xs truncate">{school.technician || "—"}</span>
           </div>
+          <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0 transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
         </div>
       </Card>
     </Link>
@@ -148,10 +159,25 @@ const ProvinciaEscolas = () => {
 
   return (
     <div className="space-y-6">
+      {/* Breadcrumbs */}
+      <Breadcrumb>
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbLink asChild>
+              <Link to="/escolas">Escolas de Campo</Link>
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbPage>{province.name}</BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
+
       {/* Header */}
       <div className="flex items-center gap-4">
         <Link to="/escolas">
-          <Button variant="ghost" size="icon"><ArrowLeft className="h-4 w-4" /></Button>
+          <Button variant="ghost" size="icon" aria-label="Voltar"><ArrowLeft className="h-4 w-4" /></Button>
         </Link>
         <div>
           <h1 className="page-title">{province.name}</h1>
