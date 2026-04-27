@@ -19,6 +19,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { phaseOrder, type ProductionPhase, type FarmerTracking } from "@/data/escolasData";
 import { useSchoolDetail } from "@/hooks/useSchoolDetail";
 import { toast } from "@/hooks/use-toast";
+import { useFinancialSummary } from "@/hooks/useFinancialSummary";
+import { FinancialSummaryCards } from "@/components/FinancialSummaryCards";
 import {
   Breadcrumb,
   BreadcrumbItem,
