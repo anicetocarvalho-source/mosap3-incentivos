@@ -19,6 +19,14 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { phaseOrder, type ProductionPhase, type FarmerTracking } from "@/data/escolasData";
 import { useSchoolDetail } from "@/hooks/useSchoolDetail";
 import { toast } from "@/hooks/use-toast";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
 
 const phaseIcons: Record<ProductionPhase, any> = {
   "Preparação": Sprout,
