@@ -113,9 +113,20 @@ const ProvinciaEscolas = () => {
 
   // Early returns só DEPOIS de todos os hooks acima.
   if (loading) {
+    return <LoadingState variant="spinner" label="A carregar escolas..." />;
+  }
+
+  if (error) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+      <div className="space-y-6">
+        <Link to="/escolas">
+          <Button variant="ghost" className="gap-2"><ArrowLeft className="h-4 w-4" />Voltar</Button>
+        </Link>
+        <ErrorState
+          title="Não foi possível carregar as escolas"
+          description="Ocorreu um erro ao obter as províncias e escolas. Verifique a sua ligação e tente novamente."
+          onRetry={refetch}
+        />
       </div>
     );
   }
@@ -126,7 +137,11 @@ const ProvinciaEscolas = () => {
         <Link to="/escolas">
           <Button variant="ghost" className="gap-2"><ArrowLeft className="h-4 w-4" />Voltar</Button>
         </Link>
-        <p className="text-muted-foreground">Província não encontrada.</p>
+        <EmptyState
+          icon={MapPin}
+          title="Província não encontrada"
+          description="A província pedida não existe ou ainda não foi sincronizada."
+        />
       </div>
     );
   }
