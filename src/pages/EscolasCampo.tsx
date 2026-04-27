@@ -239,11 +239,11 @@ const EscolasCampo = () => {
                     </p>
                   </div>
                   {province.schoolCount > 0 ? (
-                    <Badge variant="secondary" className="bg-primary/10 text-primary border-0 text-[10px] font-semibold whitespace-nowrap shrink-0">
+                    <Badge variant="default" className="text-xs whitespace-nowrap shrink-0">
                       {province.activeSchoolCount} ativas
                     </Badge>
                   ) : (
-                    <Badge variant="outline" className="text-muted-foreground text-[10px] whitespace-nowrap shrink-0">
+                    <Badge variant="secondary" className="text-xs whitespace-nowrap shrink-0">
                       Sem escolas
                     </Badge>
                   )}
