@@ -51,7 +51,7 @@ export function useFinancialSummary(filters: FinancialSummaryFilters) {
       const rows = await fetchAllPages<FarmerRow>(() => {
         let q = supabase
           .from("farmers")
-          .select("code, valor_recebido, total_gasto, saldo_final", { count: "exact" })
+          .select("code, valor_recebido, total_gasto", { count: "exact" })
           .neq("status", "Removido");
         if (province) q = q.eq("province", province);
         if (school) q = q.ilike("school", school);
@@ -62,18 +62,17 @@ export function useFinancialSummary(filters: FinancialSummaryFilters) {
 
       let recebido = 0;
       let gasto = 0;
-      let saldo = 0;
       let beneficiarios = 0;
       for (const r of rows) {
         const vr = parseAmount(r.valor_recebido);
         const tg = parseAmount(r.total_gasto);
-        const sf = parseAmount(r.saldo_final);
         recebido += vr;
         gasto += tg;
-        saldo += sf;
         if (vr > 0) beneficiarios += 1;
       }
 
+      // Saldo derivado: recebido − gasto, nunca negativo
+      const saldo = Math.max(0, recebido - gasto);
       const utilizationPct = recebido > 0 ? (gasto / recebido) * 100 : 0;
 
       return {
