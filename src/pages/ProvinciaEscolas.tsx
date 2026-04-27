@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/accordion";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { EmptyState } from "@/components/ui/empty-state";
-import { LoadingState } from "@/components/ui/loading-state";
+import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorState } from "@/components/ui/error-state";
 import {
   Breadcrumb,
@@ -141,7 +141,68 @@ const ProvinciaEscolas = () => {
 
   // Early returns só DEPOIS de todos os hooks acima.
   if (loading) {
-    return <LoadingState variant="spinner" label="A carregar escolas..." />;
+    return (
+      <div className="space-y-6">
+        {/* Breadcrumb skeleton */}
+        <Skeleton className="h-4 w-64" />
+
+        {/* Header skeleton */}
+        <div className="flex items-center gap-4">
+          <Skeleton className="h-10 w-10 rounded-md" />
+          <div className="space-y-2">
+            <Skeleton className="h-7 w-48" />
+            <Skeleton className="h-4 w-72" />
+          </div>
+        </div>
+
+        {/* Summary cards skeleton */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Card key={i} className="p-4 space-y-2">
+              <Skeleton className="h-3 w-24" />
+              <Skeleton className="h-7 w-16" />
+            </Card>
+          ))}
+        </div>
+
+        {/* Financial summary skeleton */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Card key={i} className="p-4 space-y-2">
+              <Skeleton className="h-3 w-28" />
+              <Skeleton className="h-7 w-32" />
+              <Skeleton className="h-3 w-20" />
+            </Card>
+          ))}
+        </div>
+
+        {/* Tabs skeleton */}
+        <div className="flex gap-2">
+          <Skeleton className="h-9 w-44" />
+          <Skeleton className="h-9 w-40" />
+          <Skeleton className="h-9 w-36" />
+        </div>
+
+        {/* School cards skeleton */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Card key={i} className="p-5 space-y-3">
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex-1 space-y-2">
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-3 w-24" />
+                </div>
+                <Skeleton className="h-5 w-12 rounded-full" />
+              </div>
+              <div className="flex items-center gap-4 pt-3 border-t border-border">
+                <Skeleton className="h-4 w-20" />
+                <Skeleton className="h-4 w-24" />
+              </div>
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
   }
 
   if (error) {
