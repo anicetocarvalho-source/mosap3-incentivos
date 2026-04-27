@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ArrowLeft, MapPin, Users, User, Loader2, Search } from "lucide-react";
+import { ArrowLeft, MapPin, Users, User, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +15,8 @@ import {
 } from "@/components/ui/accordion";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { EmptyState } from "@/components/ui/empty-state";
+import { LoadingState } from "@/components/ui/loading-state";
+import { ErrorState } from "@/components/ui/error-state";
 import { useProvincesData } from "@/hooks/useProvincesData";
 
 const SchoolCard = ({ school, index }: { school: any; index: number }) => (
@@ -55,7 +57,7 @@ const SchoolCard = ({ school, index }: { school: any; index: number }) => (
 
 const ProvinciaEscolas = () => {
   const { slug } = useParams();
-  const { provinces, loading, getMunicipalitiesByProvince, getSchoolsByProvince } = useProvincesData();
+  const { provinces, loading, error, refetch, getMunicipalitiesByProvince, getSchoolsByProvince } = useProvincesData();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
@@ -111,9 +113,20 @@ const ProvinciaEscolas = () => {
 
   // Early returns só DEPOIS de todos os hooks acima.
   if (loading) {
+    return <LoadingState variant="spinner" label="A carregar escolas..." />;
+  }
+
+  if (error) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+      <div className="space-y-6">
+        <Link to="/escolas">
+          <Button variant="ghost" className="gap-2"><ArrowLeft className="h-4 w-4" />Voltar</Button>
+        </Link>
+        <ErrorState
+          title="Não foi possível carregar as escolas"
+          description="Ocorreu um erro ao obter as províncias e escolas. Verifique a sua ligação e tente novamente."
+          onRetry={refetch}
+        />
       </div>
     );
   }
@@ -124,7 +137,11 @@ const ProvinciaEscolas = () => {
         <Link to="/escolas">
           <Button variant="ghost" className="gap-2"><ArrowLeft className="h-4 w-4" />Voltar</Button>
         </Link>
-        <p className="text-muted-foreground">Província não encontrada.</p>
+        <EmptyState
+          icon={MapPin}
+          title="Província não encontrada"
+          description="A província pedida não existe ou ainda não foi sincronizada."
+        />
       </div>
     );
   }

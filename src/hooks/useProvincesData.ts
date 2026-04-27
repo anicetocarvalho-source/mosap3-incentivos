@@ -37,8 +37,11 @@ export function useProvincesData() {
   const [municipalities, setMunicipalities] = useState<DbMunicipality[]>([]);
   const [schools, setSchools] = useState<DbSchool[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
 
   const fetchAll = useCallback(async () => {
+    setLoading(true);
+    setError(null);
     try {
       const [prov, mun, sch] = await Promise.all([
         fetchAllPages<DbProvince>(() => supabase.from("provinces").select("*", { count: "exact" }).order("name")),
@@ -48,6 +51,9 @@ export function useProvincesData() {
       setProvinces(prov);
       setMunicipalities(mun);
       setSchools(sch);
+    } catch (err) {
+      console.error("[useProvincesData] Failed to load:", err);
+      setError(err instanceof Error ? err : new Error(String(err)));
     } finally {
       setLoading(false);
     }
@@ -175,6 +181,7 @@ export function useProvincesData() {
     municipalities,
     schools,
     loading,
+    error,
     getMunicipalitiesByProvince,
     getSchoolsByProvince,
     addMunicipality,
