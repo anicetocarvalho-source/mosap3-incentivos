@@ -33,11 +33,13 @@ const SchoolCard = ({ school, index }: { school: any; index: number }) => (
     animate={{ opacity: 1, y: 0 }}
     transition={{ delay: Math.min(index * 0.03, 0.3) }}
   >
-    <Link to={`/escolas/${school.id}`}>
-      <Card className="p-5 hover:shadow-md transition-shadow cursor-pointer hover:border-primary/40 h-full">
-        <div className="flex items-start justify-between mb-3">
-          <div className="min-w-0">
-            <h3 className="font-heading font-semibold text-base truncate">{school.name}</h3>
+    <Link to={`/escolas/${school.id}`} aria-label={`Abrir perfil da escola ${school.name}`}>
+      <Card className="group p-5 hover:shadow-md transition-all cursor-pointer hover:border-primary/40 h-full">
+        <div className="flex items-start justify-between mb-3 gap-2">
+          <div className="min-w-0 flex-1">
+            <h3 className="font-heading font-semibold text-base truncate group-hover:text-primary transition-colors">
+              {school.name}
+            </h3>
             <div className="flex items-center gap-1 text-muted-foreground text-xs mt-1">
               <MapPin className="h-3 w-3" />
               <span className="truncate">{school.village || "—"}</span>
@@ -53,10 +55,11 @@ const SchoolCard = ({ school, index }: { school: any; index: number }) => (
             <span className="font-semibold">{school.total_farmers}</span>
             <span className="text-muted-foreground text-xs">produtores</span>
           </div>
-          <div className="flex items-center gap-1.5 text-sm min-w-0">
+          <div className="flex items-center gap-1.5 text-sm min-w-0 flex-1">
             <User className="h-4 w-4 text-muted-foreground shrink-0" />
             <span className="text-muted-foreground text-xs truncate">{school.technician || "—"}</span>
           </div>
+          <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0 transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
         </div>
       </Card>
     </Link>
