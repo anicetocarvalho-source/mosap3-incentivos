@@ -224,6 +224,14 @@ const ProvinciaEscolas = () => {
         </Card>
       </div>
 
+      {/* Resumo Financeiro da Província */}
+      <FinancialSummaryCards
+        title={`Resumo Financeiro — ${province.name}`}
+        data={financial.data}
+        loading={financial.isLoading}
+        error={financial.error as Error | null}
+      />
+
       {/* Conteúdo principal: empty state amigável OU tabs */}
       {provSchools.length === 0 ? (
         <Card className="p-8 md:p-12">
