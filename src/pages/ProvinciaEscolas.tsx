@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/accordion";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { EmptyState } from "@/components/ui/empty-state";
-import { LoadingState } from "@/components/ui/loading-state";
+import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorState } from "@/components/ui/error-state";
 import {
   Breadcrumb,
