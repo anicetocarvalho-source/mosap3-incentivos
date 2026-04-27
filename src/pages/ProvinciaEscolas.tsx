@@ -380,6 +380,7 @@ const ProvinciaEscolas = () => {
           )}
         </TabsContent>
       </Tabs>
+      )}
     </div>
   );
 };
