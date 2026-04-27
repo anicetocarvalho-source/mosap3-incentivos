@@ -1,59 +1,29 @@
+# Corrigir layout dos cards na página Escolas de Campo
 
-## Objectivo
+## Problema identificado
 
-Mostrar, nas páginas `/escolas/provincia/:slug` (Província) e `/escolas/:id` (ECA), um bloco de **Resumo Financeiro** consolidado com os totais dos agricultores dessa província/ECA:
+No grid de províncias da página `/escolas` (`src/pages/EscolasCampo.tsx`), o card de **Cuando Cubango** (e outros nomes longos) apresenta:
 
-- **Total Recebido** (soma de `farmers.valor_recebido`)
-- **Total Gasto** (soma de `farmers.total_gasto`)
-- **Saldo Final** (soma de `farmers.saldo_final`)
-- **Nº de produtores com incentivo** (com `valor_recebido > 0`)
-- **Taxa de Utilização** (`gasto / recebido * 100`)
+1. O badge **"135 ativas"** quebra em duas linhas (`135` em cima, `ativas` em baixo) — falta `whitespace-nowrap`.
+2. Quando o título ocupa duas linhas, o badge compete por espaço com o título e empurra a barra de progresso e a linha de estatísticas para baixo, desalinhando este card em relação aos vizinhos da mesma linha.
+3. Os cards vizinhos parecem "vazios em baixo" porque não têm altura uniforme.
 
-Usa-se `parseAmount` / `formatKz` (PT-AO) já existentes em `src/lib/numberFormat.ts`, consistentes com `EcaBalanceTable` e `Agricultores`.
+## Alterações propostas
 
----
+**Ficheiro único: `src/pages/EscolasCampo.tsx`** — bloco do card de província dentro do grid final.
 
-## 1. Novo hook `src/hooks/useFinancialSummary.ts`
+1. **Badge "X ativas" / "Sem escolas"**: adicionar `whitespace-nowrap shrink-0` para nunca partir o texto.
+2. **Header do card**: adicionar `gap-2` e envolver o bloco do título num wrapper `min-w-0 flex-1` para permitir quebra controlada sem comprimir o badge.
+3. **Altura uniforme**: aplicar `h-full flex flex-col` no `<Card>` e propagar `h-full` no `<motion.div>` e `<Link>` para todos os cards da mesma linha terem a mesma altura.
+4. **Footer (escolas + produtores)**: usar `mt-auto` para encostar o footer à base do card, e `gap-x-4 gap-y-1 flex-wrap` para tolerar números grandes em viewports apertados.
 
-Hook reutilizável que recebe um filtro (`{ province?: string }` ou `{ school?: string; province?: string }`) e devolve `{ recebido, gasto, saldo, beneficiarios, totalFarmers, utilizationPct, loading, error }`.
+## Fora do âmbito
 
-- Usa `fetchAllPages` (já existe) para contornar o limite de 1000 linhas.
-- `SELECT code, valor_recebido, total_gasto, saldo_final FROM farmers` filtrado por `province` (e opcionalmente `school` via `.ilike`), excluindo `status = 'Removido'`.
-- Agrega no cliente com `parseAmount` (suporta formato PT-AO `915.840,00`).
-- `staleTime` razoável (2 min) — usar `useQuery` do React Query para coerência com `useReportData`.
+- Sem alterações ao cabeçalho da página, KPIs, filtros, mapa Leaflet, tokens globais (`index.css`, `tailwind.config.ts`), nem às páginas `ProvinciaEscolas.tsx` / `EscolaDetalhe.tsx`.
 
-## 2. `src/pages/ProvinciaEscolas.tsx`
+## Resultado esperado
 
-- Chamar `useFinancialSummary({ province: province.name })` (depois dos restantes hooks, para respeitar Rules of Hooks já corrigidas).
-- Adicionar um novo bloco **logo abaixo do grid de "Summary"** (linha 220) com título **"Resumo Financeiro da Província"** e 4 cartões:
-  - Total Recebido (verde — `text-success`)
-  - Total Gasto (âmbar — `text-warning`)
-  - Saldo Final (cor condicional: verde se ≥0, vermelho se <0)
-  - Beneficiários / Taxa de Utilização (`%`)
-- Usar `formatKz()` para valores monetários e `formatKzCompact()` em ecrãs estreitos quando aplicável.
-- Estado de loading: skeleton dentro dos cartões; estado de erro: mensagem discreta `text-destructive`.
-
-## 3. `src/pages/EscolaDetalhe.tsx`
-
-- Chamar `useFinancialSummary({ province: school.province, school: school.name })` após o early-return de `!school`.
-- Adicionar novo `Card` **"Resumo Financeiro da ECA"** entre o "Summary Cards" (linha 342) e o "Phase Overview" (linha 344), com os mesmos 4 KPIs.
-- Mesma formatação `formatKz` e tratamento de loading/erro.
-
-## 4. Permissões / RLS
-
-A tabela `farmers` já tem política `Backoffice can view farmers` (`has_any_backoffice_role(auth.uid())`) — qualquer utilizador autenticado de back-office vê os totais. Não são necessárias migrações.
-
-Nota: o filtro é aplicado no cliente por `province`/`school` (texto livre nos farmers). Coerente com `EcaBalanceTable` e `dashboard_kpis` que usam exactamente o mesmo padrão.
-
-## 5. Memória
-
-Actualizar `mem://features/escolas-campo-dashboard` para incluir: "Páginas de Província e ECA mostram resumo financeiro (recebido, gasto, saldo, beneficiários, taxa de utilização) usando `useFinancialSummary` + `parseAmount`/`formatKz`".
-
-## Ficheiros a criar/editar
-
-- **Novo**: `src/hooks/useFinancialSummary.ts`
-- `src/pages/ProvinciaEscolas.tsx` — adicionar bloco de KPIs financeiros
-- `src/pages/EscolaDetalhe.tsx` — adicionar bloco de KPIs financeiros
-- `mem://features/escolas-campo-dashboard` — actualização
-
-Sem alterações de schema, sem migrações.
+- Badge sempre numa única linha (ex.: "135 ativas").
+- Cards com altura uniforme dentro da mesma linha do grid.
+- Footer (escolas/produtores) alinhado horizontalmente entre cards vizinhos.
+- Títulos longos como "Cuando Cubango" continuam totalmente legíveis sem quebrar o layout dos cartões adjacentes.
