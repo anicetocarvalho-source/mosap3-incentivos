@@ -142,6 +142,13 @@ const EscolaDetalhe = () => {
     if (farmerPage > totalPages) setFarmerPage(totalPages);
   }, [totalPages, farmerPage]);
 
+  // Resumo financeiro da ECA — hook tem de ser chamado antes do early return
+  const financial = useFinancialSummary({
+    province: school?.province,
+    school: school?.name,
+    enabled: !!school?.name,
+  });
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
