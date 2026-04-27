@@ -55,16 +55,8 @@ export function FinancialSummaryCards({ title, data, loading, error }: Financial
             label="Saldo Final"
             value={loading ? null : formatKz(data?.saldo ?? 0)}
             icon={<PiggyBank className="h-5 w-5 text-primary" />}
-            valueClass={
-              (data?.saldo ?? 0) < 0 ? "text-destructive" : "text-foreground"
-            }
-            hint={
-              loading || !data
-                ? undefined
-                : (data.saldo ?? 0) < 0
-                ? "Saldo negativo"
-                : "Disponível"
-            }
+            valueClass="text-foreground"
+            hint={loading || !data ? undefined : "Disponível"}
           />
           <KpiCard
             label="Beneficiários"
