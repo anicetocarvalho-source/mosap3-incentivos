@@ -122,6 +122,18 @@ const ProvinciaEscolas = () => {
 
   const defaultOpen = sortedMunicipalities.length > 0 ? [sortedMunicipalities[0][0]] : [];
 
+  // Outras províncias (com escolas) para sugerir quando esta está vazia
+  const suggestedProvinces = useMemo(() => {
+    if (!province) return [];
+    const counts = new Map<string, number>();
+    schools.forEach((s) => counts.set(s.province_id, (counts.get(s.province_id) || 0) + 1));
+    return provinces
+      .filter((p) => p.id !== province.id && (counts.get(p.id) || 0) > 0)
+      .map((p) => ({ ...p, schoolCount: counts.get(p.id) || 0 }))
+      .sort((a, b) => b.schoolCount - a.schoolCount)
+      .slice(0, 6);
+  }, [provinces, schools, province]);
+
   // Early returns só DEPOIS de todos os hooks acima.
   if (loading) {
     return <LoadingState variant="spinner" label="A carregar escolas..." />;
