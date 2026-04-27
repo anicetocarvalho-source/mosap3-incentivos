@@ -219,8 +219,56 @@ const ProvinciaEscolas = () => {
         </Card>
       </div>
 
-      {/* Tabs */}
-      <Tabs defaultValue="por-municipio" className="space-y-4">
+      {/* Conteúdo principal: empty state amigável OU tabs */}
+      {provSchools.length === 0 ? (
+        <Card className="p-8 md:p-12">
+          <div className="flex flex-col items-center text-center max-w-xl mx-auto">
+            <div className="mb-5 h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center">
+              <School className="h-10 w-10 text-primary" />
+            </div>
+            <h2 className="text-xl font-heading font-semibold text-foreground mb-2">
+              Sem escolas de campo em {province.name}
+            </h2>
+            <p className="text-sm text-muted-foreground mb-6">
+              Esta província ainda não tem escolas de campo registadas
+              {provMunicipalities.length > 0
+                ? ` em nenhum dos seus ${provMunicipalities.length} municípios.`
+                : "."}{" "}
+              Volte à lista geral ou escolha outra província para continuar.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-2 mb-8">
+              <Link to="/escolas">
+                <Button variant="default" className="gap-2">
+                  <ArrowLeft className="h-4 w-4" />
+                  Voltar a Escolas de Campo
+                </Button>
+              </Link>
+            </div>
+
+            {suggestedProvinces.length > 0 && (
+              <div className="w-full">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3">
+                  Outras províncias com escolas
+                </p>
+                <div className="flex flex-wrap justify-center gap-2">
+                  {suggestedProvinces.map((p) => (
+                    <Link key={p.id} to={`/escolas/provincia/${p.slug}`}>
+                      <Button variant="outline" size="sm" className="gap-2">
+                        <MapPin className="h-3.5 w-3.5 text-primary" />
+                        {p.name}
+                        <Badge variant="secondary" className="text-xs ml-1">
+                          {p.schoolCount}
+                        </Badge>
+                      </Button>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </Card>
+      ) : (
+        <Tabs defaultValue="por-municipio" className="space-y-4">
         <TabsList>
           <TabsTrigger value="por-municipio">Visão por Município ({sortedMunicipalities.length})</TabsTrigger>
           <TabsTrigger value="todas">Todas as Escolas ({provSchools.length})</TabsTrigger>
