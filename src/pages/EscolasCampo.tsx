@@ -224,25 +224,26 @@ const EscolasCampo = () => {
             transition={{ delay: i * 0.025 }}
             onMouseEnter={() => setHoveredProvince(province.slug)}
             onMouseLeave={() => setHoveredProvince(null)}
+            className="h-full"
           >
-            <Link to={`/escolas/provincia/${province.slug}`}>
-              <Card className={`p-4 md:p-5 hover:shadow-lg transition-all cursor-pointer border-2 ${
+            <Link to={`/escolas/provincia/${province.slug}`} className="block h-full">
+              <Card className={`p-4 md:p-5 h-full flex flex-col hover:shadow-lg transition-all cursor-pointer border-2 ${
                 hoveredProvince === province.slug ? "border-primary shadow-md" : "border-transparent hover:border-primary/30"
               }`}>
-                <div className="flex items-start justify-between mb-3">
-                  <div>
-                    <h3 className="font-heading font-bold text-sm md:text-base">{province.name}</h3>
+                <div className="flex items-start justify-between gap-2 mb-3">
+                  <div className="min-w-0 flex-1">
+                    <h3 className="font-heading font-bold text-sm md:text-base leading-tight break-words">{province.name}</h3>
                     <p className="text-[10px] md:text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
-                      <MapPin className="h-3 w-3" />
-                      {province.capital}
+                      <MapPin className="h-3 w-3 shrink-0" />
+                      <span className="truncate">{province.capital}</span>
                     </p>
                   </div>
                   {province.schoolCount > 0 ? (
-                    <Badge variant="secondary" className="bg-primary/10 text-primary border-0 text-[10px] font-semibold">
+                    <Badge variant="secondary" className="bg-primary/10 text-primary border-0 text-[10px] font-semibold whitespace-nowrap shrink-0">
                       {province.activeSchoolCount} ativas
                     </Badge>
                   ) : (
-                    <Badge variant="outline" className="text-muted-foreground text-[10px]">
+                    <Badge variant="outline" className="text-muted-foreground text-[10px] whitespace-nowrap shrink-0">
                       Sem escolas
                     </Badge>
                   )}
@@ -266,14 +267,14 @@ const EscolasCampo = () => {
                   </div>
                 )}
 
-                <div className="flex items-center gap-4 pt-3 border-t border-border">
+                <div className="flex items-center gap-x-4 gap-y-1 flex-wrap pt-3 border-t border-border mt-auto">
                   <div className="flex items-center gap-1.5 text-xs md:text-sm">
-                    <School className="h-4 w-4 text-primary" />
+                    <School className="h-4 w-4 text-primary shrink-0" />
                     <span className="font-bold">{province.schoolCount}</span>
                     <span className="text-muted-foreground text-[10px] md:text-xs">escolas</span>
                   </div>
                   <div className="flex items-center gap-1.5 text-xs md:text-sm">
-                    <Users className="h-4 w-4 text-muted-foreground" />
+                    <Users className="h-4 w-4 text-muted-foreground shrink-0" />
                     <span className="font-bold">{province.farmerCount}</span>
                     <span className="text-muted-foreground text-[10px] md:text-xs">produtores</span>
                   </div>
