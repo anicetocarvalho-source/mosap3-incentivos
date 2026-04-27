@@ -181,6 +181,7 @@ export function useProvincesData() {
     municipalities,
     schools,
     loading,
+    error,
     getMunicipalitiesByProvince,
     getSchoolsByProvince,
     addMunicipality,
