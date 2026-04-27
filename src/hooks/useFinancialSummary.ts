@@ -22,7 +22,6 @@ type FarmerRow = {
   code: string;
   valor_recebido: string | null;
   total_gasto: string | null;
-  saldo_final: string | null;
 };
 
 const EMPTY: FinancialSummary = {
