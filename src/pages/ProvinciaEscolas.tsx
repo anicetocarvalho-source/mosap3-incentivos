@@ -26,6 +26,8 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { useProvincesData } from "@/hooks/useProvincesData";
+import { useFinancialSummary } from "@/hooks/useFinancialSummary";
+import { FinancialSummaryCards } from "@/components/FinancialSummaryCards";
 
 const SchoolCard = ({ school, index }: { school: any; index: number }) => (
   <motion.div
@@ -134,6 +136,9 @@ const ProvinciaEscolas = () => {
       .slice(0, 6);
   }, [provinces, schools, province]);
 
+  // Resumo financeiro da província (todos os hooks ANTES dos early returns)
+  const financial = useFinancialSummary({ province: province?.name, enabled: !!province });
+
   // Early returns só DEPOIS de todos os hooks acima.
   if (loading) {
     return <LoadingState variant="spinner" label="A carregar escolas..." />;
@@ -218,6 +223,14 @@ const ProvinciaEscolas = () => {
           <p className="text-2xl font-bold">{provSchools.filter((s) => s.status === "Ativa").length}</p>
         </Card>
       </div>
+
+      {/* Resumo Financeiro da Província */}
+      <FinancialSummaryCards
+        title={`Resumo Financeiro — ${province.name}`}
+        data={financial.data}
+        loading={financial.isLoading}
+        error={financial.error as Error | null}
+      />
 
       {/* Conteúdo principal: empty state amigável OU tabs */}
       {provSchools.length === 0 ? (

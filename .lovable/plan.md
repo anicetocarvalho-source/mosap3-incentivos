@@ -1,39 +1,59 @@
-## Diagnóstico
 
-Ao navegar para `/escolas/provincia/benguela` o ErrorBoundary apanha o **Minified React error #310** ("Rendered more hooks than during the previous render"). A página fica em branco com a mensagem "Ocorreu um erro inesperado".
+## Objectivo
 
-### Causa raiz
+Mostrar, nas páginas `/escolas/provincia/:slug` (Província) e `/escolas/:id` (ECA), um bloco de **Resumo Financeiro** consolidado com os totais dos agricultores dessa província/ECA:
 
-Em `src/pages/ProvinciaEscolas.tsx` o hook `useMemo` (linha 106, cálculo de `filteredSchools`) é chamado **depois** de dois `return` condicionais:
+- **Total Recebido** (soma de `farmers.valor_recebido`)
+- **Total Gasto** (soma de `farmers.total_gasto`)
+- **Saldo Final** (soma de `farmers.saldo_final`)
+- **Nº de produtores com incentivo** (com `valor_recebido > 0`)
+- **Taxa de Utilização** (`gasto / recebido * 100`)
 
-1. Linha 62-68: `if (loading) return <Loader2 />` 
-2. Linha 72-81: `if (!province) return <...Província não encontrada />`
+Usa-se `parseAmount` / `formatKz` (PT-AO) já existentes em `src/lib/numberFormat.ts`, consistentes com `EcaBalanceTable` e `Agricultores`.
 
-No primeiro render `loading=true` → React executa apenas `useParams`, `useProvincesData`, `useState x2` (4 hooks) e sai pelo early return.  
-No segundo render `loading=false` e `province` existe → React tenta executar também o `useMemo` (5º hook). A contagem muda e o React rebenta. É exactamente o que acontece em Benguela porque a província existe e tem dados.
+---
 
-Isto viola a primeira [Rule of Hooks](https://react.dev/reference/rules/rules-of-hooks): hooks têm de ser chamados sempre na mesma ordem, no topo do componente, antes de qualquer `return` condicional.
+## 1. Novo hook `src/hooks/useFinancialSummary.ts`
 
-## Correção
+Hook reutilizável que recebe um filtro (`{ province?: string }` ou `{ school?: string; province?: string }`) e devolve `{ recebido, gasto, saldo, beneficiarios, totalFarmers, utilizationPct, loading, error }`.
 
-Reorganizar `ProvinciaEscolas.tsx` para que **todos os hooks sejam chamados antes dos early returns**:
+- Usa `fetchAllPages` (já existe) para contornar o limite de 1000 linhas.
+- `SELECT code, valor_recebido, total_gasto, saldo_final FROM farmers` filtrado por `province` (e opcionalmente `school` via `.ilike`), excluindo `status = 'Removido'`.
+- Agrega no cliente com `parseAmount` (suporta formato PT-AO `915.840,00`).
+- `staleTime` razoável (2 min) — usar `useQuery` do React Query para coerência com `useReportData`.
 
-1. Mover a procura de `province` (`provinces.find`) para um `useMemo` no topo (depende de `provinces` e `slug`).
-2. Mover o cálculo de `provSchools`, `provMunicipalities`, `byMunicipality`, `sortedMunicipalities`, `municipalitiesWithout` para `useMemo`s no topo, todos a tratar o caso `province == null` devolvendo arrays/objectos vazios.
-3. Manter o `useMemo` de `filteredSchools` igualmente no topo.
-4. Só **depois** de todos os hooks declarados, fazer os early returns para `loading` e `!province`.
+## 2. `src/pages/ProvinciaEscolas.tsx`
 
-Isto garante contagem estável de hooks em todos os renders e elimina o crash.
+- Chamar `useFinancialSummary({ province: province.name })` (depois dos restantes hooks, para respeitar Rules of Hooks já corrigidas).
+- Adicionar um novo bloco **logo abaixo do grid de "Summary"** (linha 220) com título **"Resumo Financeiro da Província"** e 4 cartões:
+  - Total Recebido (verde — `text-success`)
+  - Total Gasto (âmbar — `text-warning`)
+  - Saldo Final (cor condicional: verde se ≥0, vermelho se <0)
+  - Beneficiários / Taxa de Utilização (`%`)
+- Usar `formatKz()` para valores monetários e `formatKzCompact()` em ecrãs estreitos quando aplicável.
+- Estado de loading: skeleton dentro dos cartões; estado de erro: mensagem discreta `text-destructive`.
 
-### Verificação adicional
+## 3. `src/pages/EscolaDetalhe.tsx`
 
-- Confirmar que `getMunicipalitiesByProvince` e `getSchoolsByProvince` (de `useProvincesData`) aceitam ser chamados com qualquer string sem erro — já aceitam, fazem só `filter`.
-- Sem alterações de schema, RLS, hooks ou outras páginas.
+- Chamar `useFinancialSummary({ province: school.province, school: school.name })` após o early-return de `!school`.
+- Adicionar novo `Card` **"Resumo Financeiro da ECA"** entre o "Summary Cards" (linha 342) e o "Phase Overview" (linha 344), com os mesmos 4 KPIs.
+- Mesma formatação `formatKz` e tratamento de loading/erro.
 
-## Ficheiros afectados
+## 4. Permissões / RLS
 
-- `src/pages/ProvinciaEscolas.tsx` (única alteração)
+A tabela `farmers` já tem política `Backoffice can view farmers` (`has_any_backoffice_role(auth.uid())`) — qualquer utilizador autenticado de back-office vê os totais. Não são necessárias migrações.
 
-## Resultado esperado
+Nota: o filtro é aplicado no cliente por `province`/`school` (texto livre nos farmers). Coerente com `EcaBalanceTable` e `dashboard_kpis` que usam exactamente o mesmo padrão.
 
-A página `/escolas/provincia/:slug` carrega normalmente em qualquer província (incluindo Benguela), sem disparar o ErrorBoundary.
+## 5. Memória
+
+Actualizar `mem://features/escolas-campo-dashboard` para incluir: "Páginas de Província e ECA mostram resumo financeiro (recebido, gasto, saldo, beneficiários, taxa de utilização) usando `useFinancialSummary` + `parseAmount`/`formatKz`".
+
+## Ficheiros a criar/editar
+
+- **Novo**: `src/hooks/useFinancialSummary.ts`
+- `src/pages/ProvinciaEscolas.tsx` — adicionar bloco de KPIs financeiros
+- `src/pages/EscolaDetalhe.tsx` — adicionar bloco de KPIs financeiros
+- `mem://features/escolas-campo-dashboard` — actualização
+
+Sem alterações de schema, sem migrações.

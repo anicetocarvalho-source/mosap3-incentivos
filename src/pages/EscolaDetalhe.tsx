@@ -19,6 +19,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { phaseOrder, type ProductionPhase, type FarmerTracking } from "@/data/escolasData";
 import { useSchoolDetail } from "@/hooks/useSchoolDetail";
 import { toast } from "@/hooks/use-toast";
+import { useFinancialSummary } from "@/hooks/useFinancialSummary";
+import { FinancialSummaryCards } from "@/components/FinancialSummaryCards";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -139,6 +141,13 @@ const EscolaDetalhe = () => {
   useEffect(() => {
     if (farmerPage > totalPages) setFarmerPage(totalPages);
   }, [totalPages, farmerPage]);
+
+  // Resumo financeiro da ECA — hook tem de ser chamado antes do early return
+  const financial = useFinancialSummary({
+    province: school?.province,
+    school: school?.name,
+    enabled: !!school?.name,
+  });
 
   if (loading) {
     return (
@@ -340,6 +349,14 @@ const EscolaDetalhe = () => {
         <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Ciclos Activos</p><p className="text-2xl font-bold">{school.activeCycles}</p></CardContent></Card>
         <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Visitas do Mês</p><p className="text-2xl font-bold">{school.visits.filter((v) => v.date.startsWith("2026-02")).length}</p></CardContent></Card>
       </div>
+
+      {/* Resumo Financeiro da ECA */}
+      <FinancialSummaryCards
+        title={`Resumo Financeiro — ${school.name}`}
+        data={financial.data}
+        loading={financial.isLoading}
+        error={financial.error as Error | null}
+      />
 
       {/* Phase Overview */}
       <Card>
