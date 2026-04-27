@@ -249,23 +249,25 @@ const EscolasCampo = () => {
                   )}
                 </div>
 
-                {/* Mini bar chart */}
-                {province.schoolCount > 0 && (
-                  <div className="mb-3">
-                    <div className="flex gap-1 h-2 rounded-full overflow-hidden bg-muted">
-                      <div
-                        className="bg-primary rounded-full transition-all"
-                        style={{ width: `${(province.activeSchoolCount / Math.max(province.schoolCount, 1)) * 100}%` }}
-                      />
-                      {province.inactiveSchoolCount > 0 && (
+                {/* Mini bar chart — sempre presente para manter altura consistente */}
+                <div className="mb-3">
+                  <div className="flex gap-1 h-2 rounded-full overflow-hidden bg-muted">
+                    {province.schoolCount > 0 && (
+                      <>
                         <div
-                          className="bg-destructive/40 rounded-full"
-                          style={{ width: `${(province.inactiveSchoolCount / Math.max(province.schoolCount, 1)) * 100}%` }}
+                          className="bg-primary rounded-full transition-all"
+                          style={{ width: `${(province.activeSchoolCount / Math.max(province.schoolCount, 1)) * 100}%` }}
                         />
-                      )}
-                    </div>
+                        {province.inactiveSchoolCount > 0 && (
+                          <div
+                            className="bg-destructive/40 rounded-full"
+                            style={{ width: `${(province.inactiveSchoolCount / Math.max(province.schoolCount, 1)) * 100}%` }}
+                          />
+                        )}
+                      </>
+                    )}
                   </div>
-                )}
+                </div>
 
                 <div className="flex items-center gap-x-4 gap-y-1 flex-wrap pt-3 border-t border-border mt-auto">
                   <div className="flex items-center gap-1.5 text-xs md:text-sm">
