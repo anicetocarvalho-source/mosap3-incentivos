@@ -68,7 +68,7 @@ const SchoolCard = ({ school, index }: { school: any; index: number }) => (
 
 const ProvinciaEscolas = () => {
   const { slug } = useParams();
-  const { provinces, loading, error, refetch, getMunicipalitiesByProvince, getSchoolsByProvince } = useProvincesData();
+  const { provinces, schools, loading, error, refetch, getMunicipalitiesByProvince, getSchoolsByProvince } = useProvincesData();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
