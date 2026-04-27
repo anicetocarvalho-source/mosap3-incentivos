@@ -350,6 +350,14 @@ const EscolaDetalhe = () => {
         <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Visitas do Mês</p><p className="text-2xl font-bold">{school.visits.filter((v) => v.date.startsWith("2026-02")).length}</p></CardContent></Card>
       </div>
 
+      {/* Resumo Financeiro da ECA */}
+      <FinancialSummaryCards
+        title={`Resumo Financeiro — ${school.name}`}
+        data={financial.data}
+        loading={financial.isLoading}
+        error={financial.error as Error | null}
+      />
+
       {/* Phase Overview */}
       <Card>
         <CardHeader className="pb-3"><CardTitle className="text-base">Distribuição por Fase de Produção</CardTitle></CardHeader>
