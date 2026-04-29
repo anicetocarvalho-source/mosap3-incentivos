@@ -55,7 +55,7 @@ const EcaBalanceTable = () => {
     (async () => {
       const pageSize = 1000;
       let from = 0;
-      const all: { school: string | null; municipality: string | null; valor_recebido: string | null; total_gasto: string | null; saldo_final: string | null }[] = [];
+      const all: { school: string | null; municipality: string | null; valor_recebido: string | null; total_gasto: string | null }[] = [];
       while (true) {
         const { data, error } = await supabase
           .from("farmers")
