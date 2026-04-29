@@ -57,7 +57,7 @@ import {
 
 /* ───────────────────────── helpers ───────────────────────── */
 
-import { parseAmount as parsePtao, formatKz as fmtKzShared, serializeAmount } from "@/lib/numberFormat";
+import { parseAmount as parsePtao, formatKz as fmtKzShared, serializeAmount, computeSaldoFinal } from "@/lib/numberFormat";
 
 const fmt = (n: number) => fmtKzShared(n, false);
 
