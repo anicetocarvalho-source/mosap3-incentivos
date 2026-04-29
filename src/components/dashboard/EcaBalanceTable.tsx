@@ -104,16 +104,17 @@ const EcaBalanceTable = () => {
   }, [rows, search, sortKey, sortDir]);
 
   const totals = useMemo(
-    () =>
-      filteredSorted.reduce(
-        (acc, r) => ({
-          n: acc.n + r.n,
-          recebido: acc.recebido + r.recebido,
-          gasto: acc.gasto + r.gasto,
-          saldo: acc.saldo + r.saldo,
+    () => {
+      const acc = filteredSorted.reduce(
+        (a, r) => ({
+          n: a.n + r.n,
+          recebido: a.recebido + r.recebido,
+          gasto: a.gasto + r.gasto,
         }),
-        { n: 0, recebido: 0, gasto: 0, saldo: 0 }
-      ),
+        { n: 0, recebido: 0, gasto: 0 }
+      );
+      return { ...acc, saldo: computeSaldoFinal(acc.recebido, acc.gasto) };
+    },
     [filteredSorted]
   );
 
