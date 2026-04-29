@@ -82,7 +82,7 @@ const EcaBalanceTable = () => {
         existing.n += 1;
         existing.recebido += parsePtao(f.valor_recebido);
         existing.gasto += parsePtao(f.total_gasto);
-        existing.saldo += parsePtao(f.saldo_final);
+        existing.saldo = computeSaldoFinal(existing.recebido, existing.gasto);
         byEca.set(key, existing);
       }
       setRows(Array.from(byEca.values()));
