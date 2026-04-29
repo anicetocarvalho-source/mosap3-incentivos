@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllPages } from "@/lib/supabaseFetchAll";
-import { parseAmount } from "@/lib/numberFormat";
+import { parseAmount, computeSaldoFinal } from "@/lib/numberFormat";
 
 export interface FinancialSummary {
   recebido: number;
