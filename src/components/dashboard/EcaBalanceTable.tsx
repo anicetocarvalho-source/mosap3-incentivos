@@ -19,7 +19,7 @@ type Row = {
   saldo: number;
 };
 
-import { parseAmount as parsePtao, formatKz } from "@/lib/numberFormat";
+import { parseAmount as parsePtao, formatKz, computeSaldoFinal } from "@/lib/numberFormat";
 
 const fmt = (n: number) => formatKz(n, false);
 
