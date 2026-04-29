@@ -59,7 +59,7 @@ const EcaBalanceTable = () => {
       while (true) {
         const { data, error } = await supabase
           .from("farmers")
-          .select("school, municipality, valor_recebido, total_gasto, saldo_final")
+          .select("school, municipality, valor_recebido, total_gasto")
           .eq("province", province)
           .range(from, from + pageSize - 1);
         if (error || !data || data.length === 0) break;
