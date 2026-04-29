@@ -68,7 +68,8 @@ const FichaProdutor = () => {
 
   const valorRecebido = farmerRaw?.valor_recebido || "0,00";
   const totalGasto = farmerRaw?.total_gasto || "0,00";
-  const saldoFinal = farmerRaw?.saldo_final || "0,00";
+  // Saldo Final canónico: max(0, recebido − gasto). Nunca usar saldo_final da BD.
+  const saldoFinal = formatKz(computeSaldoFinal(valorRecebido, totalGasto), false);
   const patecValue = farmerRaw?.patec;
 
   const patecData: Record<number, { title: string; items: { category: string; items: string[] }[] }> = {
