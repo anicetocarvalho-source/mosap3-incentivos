@@ -1355,13 +1355,12 @@ const RevisaoProvincias = () => {
               {
                 label: "Saldo Final",
                 value: `${fmt(review.totalSaldo)} Kz`,
-                negative: review.totalSaldo < 0,
               },
             ].map((k) => (
               <Card key={k.label}>
                 <CardContent className="p-4">
                   <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{k.label}</p>
-                  <p className={`mt-1 text-lg font-bold tracking-tight ${k.negative ? "text-destructive" : "text-foreground"}`}>
+                  <p className="mt-1 text-lg font-bold tracking-tight text-foreground">
                     {k.value}
                   </p>
                 </CardContent>
