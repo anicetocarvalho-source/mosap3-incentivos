@@ -54,8 +54,8 @@ const FarmerFinancialSummaryDialog = ({ farmer, open, onOpenChange }: Props) => 
 
   const recebido = parseAmount(farmer.valor_recebido);
   const usado = parseAmount(farmer.total_gasto);
-  const saldoCalculado = recebido - usado;
-  const saldoFinal = farmer.saldo_final != null ? parseAmount(farmer.saldo_final) : saldoCalculado;
+  // Saldo Final canónico: max(0, recebido − gasto). Ignora saldo_final da BD.
+  const saldoFinal = computeSaldoFinal(recebido, usado);
   const totalTxs = txs.reduce((acc, t) => acc + parseAmount(t.valor), 0);
   const desvio = totalTxs - usado;
 
