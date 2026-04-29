@@ -7,7 +7,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
-import { parseAmount, formatKz } from "@/lib/numberFormat";
+import { parseAmount, formatKz, computeSaldoFinal } from "@/lib/numberFormat";
 
 interface Farmer {
   code: string;
