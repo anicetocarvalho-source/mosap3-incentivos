@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { useFarmerFromDb } from "@/hooks/useFarmerFromDb";
 import { useFarmerEnrichedData } from "@/hooks/useFarmerEnrichedData";
 import { supabase } from "@/integrations/supabase/client";
+import { computeSaldoFinal, formatKz } from "@/lib/numberFormat";
 
 const FichaProdutor = () => {
   const { id } = useParams();
