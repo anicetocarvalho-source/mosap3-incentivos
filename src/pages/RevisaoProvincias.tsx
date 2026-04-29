@@ -57,7 +57,7 @@ import {
 
 /* ───────────────────────── helpers ───────────────────────── */
 
-import { parseAmount as parsePtao, formatKz as fmtKzShared, serializeAmount } from "@/lib/numberFormat";
+import { parseAmount as parsePtao, formatKz as fmtKzShared, serializeAmount, computeSaldoFinal } from "@/lib/numberFormat";
 
 const fmt = (n: number) => fmtKzShared(n, false);
 
@@ -716,7 +716,7 @@ const RevisaoProvincias = () => {
       setProgress("A agregar saldos por ECA…");
       const totalRecebido = farmers.reduce((s, f) => s + parsePtao(f.valor_recebido), 0);
       const totalGasto = farmers.reduce((s, f) => s + parsePtao(f.total_gasto), 0);
-      const totalSaldo = farmers.reduce((s, f) => s + parsePtao(f.saldo_final), 0);
+      const totalSaldo = computeSaldoFinal(totalRecebido, totalGasto);
       const ecaMap = new Map<string, EcaRow>();
       for (const f of farmers) {
         const key = f.school?.trim() || "(sem escola)";
@@ -726,7 +726,7 @@ const RevisaoProvincias = () => {
         ex.n += 1;
         ex.recebido += parsePtao(f.valor_recebido);
         ex.gasto += parsePtao(f.total_gasto);
-        ex.saldo += parsePtao(f.saldo_final);
+        ex.saldo = computeSaldoFinal(ex.recebido, ex.gasto);
         ecaMap.set(key, ex);
       }
       const ecaRows = Array.from(ecaMap.values()).sort((a, b) => b.n - a.n);
@@ -1355,13 +1355,12 @@ const RevisaoProvincias = () => {
               {
                 label: "Saldo Final",
                 value: `${fmt(review.totalSaldo)} Kz`,
-                negative: review.totalSaldo < 0,
               },
             ].map((k) => (
               <Card key={k.label}>
                 <CardContent className="p-4">
                   <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{k.label}</p>
-                  <p className={`mt-1 text-lg font-bold tracking-tight ${k.negative ? "text-destructive" : "text-foreground"}`}>
+                  <p className="mt-1 text-lg font-bold tracking-tight text-foreground">
                     {k.value}
                   </p>
                 </CardContent>
@@ -1767,7 +1766,7 @@ const RevisaoProvincias = () => {
                           <TableCell className="text-right tabular-nums">{r.n}</TableCell>
                           <TableCell className="text-right tabular-nums">{fmt(r.recebido)}</TableCell>
                           <TableCell className="text-right tabular-nums">{fmt(r.gasto)}</TableCell>
-                          <TableCell className={`text-right tabular-nums font-medium ${r.saldo < 0 ? "text-destructive" : "text-success"}`}>
+                          <TableCell className="text-right tabular-nums font-medium text-success">
                             {fmt(r.saldo)}
                           </TableCell>
                         </TableRow>

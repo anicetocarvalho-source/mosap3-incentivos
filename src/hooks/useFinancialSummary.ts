@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllPages } from "@/lib/supabaseFetchAll";
-import { parseAmount } from "@/lib/numberFormat";
+import { parseAmount, computeSaldoFinal } from "@/lib/numberFormat";
 
 export interface FinancialSummary {
   recebido: number;
@@ -71,8 +71,8 @@ export function useFinancialSummary(filters: FinancialSummaryFilters) {
         if (vr > 0) beneficiarios += 1;
       }
 
-      // Saldo derivado: recebido − gasto, nunca negativo
-      const saldo = Math.max(0, recebido - gasto);
+      // Saldo derivado canónico: max(0, recebido − gasto)
+      const saldo = computeSaldoFinal(recebido, gasto);
       const utilizationPct = recebido > 0 ? (gasto / recebido) * 100 : 0;
 
       return {

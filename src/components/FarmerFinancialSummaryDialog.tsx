@@ -7,7 +7,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
-import { parseAmount, formatKz } from "@/lib/numberFormat";
+import { parseAmount, formatKz, computeSaldoFinal } from "@/lib/numberFormat";
 
 interface Farmer {
   code: string;
@@ -54,8 +54,8 @@ const FarmerFinancialSummaryDialog = ({ farmer, open, onOpenChange }: Props) => 
 
   const recebido = parseAmount(farmer.valor_recebido);
   const usado = parseAmount(farmer.total_gasto);
-  const saldoCalculado = recebido - usado;
-  const saldoFinal = farmer.saldo_final != null ? parseAmount(farmer.saldo_final) : saldoCalculado;
+  // Saldo Final canónico: max(0, recebido − gasto). Ignora saldo_final da BD.
+  const saldoFinal = computeSaldoFinal(recebido, usado);
   const totalTxs = txs.reduce((acc, t) => acc + parseAmount(t.valor), 0);
   const desvio = totalTxs - usado;
 
@@ -86,7 +86,7 @@ const FarmerFinancialSummaryDialog = ({ farmer, open, onOpenChange }: Props) => 
             <div className="flex items-center gap-2 text-muted-foreground text-xs uppercase tracking-wider mb-1">
               <Wallet className="h-3.5 w-3.5" /> Saldo
             </div>
-            <p className={`text-xl font-semibold tabular-nums ${saldoFinal < 0 ? "text-destructive" : ""}`}>{formatKz(saldoFinal)}</p>
+            <p className="text-xl font-semibold tabular-nums text-foreground">{formatKz(saldoFinal)}</p>
           </div>
         </div>
 

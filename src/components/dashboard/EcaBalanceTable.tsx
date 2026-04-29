@@ -19,7 +19,7 @@ type Row = {
   saldo: number;
 };
 
-import { parseAmount as parsePtao, formatKz } from "@/lib/numberFormat";
+import { parseAmount as parsePtao, formatKz, computeSaldoFinal } from "@/lib/numberFormat";
 
 const fmt = (n: number) => formatKz(n, false);
 
@@ -55,11 +55,11 @@ const EcaBalanceTable = () => {
     (async () => {
       const pageSize = 1000;
       let from = 0;
-      const all: { school: string | null; municipality: string | null; valor_recebido: string | null; total_gasto: string | null; saldo_final: string | null }[] = [];
+      const all: { school: string | null; municipality: string | null; valor_recebido: string | null; total_gasto: string | null }[] = [];
       while (true) {
         const { data, error } = await supabase
           .from("farmers")
-          .select("school, municipality, valor_recebido, total_gasto, saldo_final")
+          .select("school, municipality, valor_recebido, total_gasto")
           .eq("province", province)
           .range(from, from + pageSize - 1);
         if (error || !data || data.length === 0) break;
@@ -82,7 +82,7 @@ const EcaBalanceTable = () => {
         existing.n += 1;
         existing.recebido += parsePtao(f.valor_recebido);
         existing.gasto += parsePtao(f.total_gasto);
-        existing.saldo += parsePtao(f.saldo_final);
+        existing.saldo = computeSaldoFinal(existing.recebido, existing.gasto);
         byEca.set(key, existing);
       }
       setRows(Array.from(byEca.values()));
@@ -104,16 +104,17 @@ const EcaBalanceTable = () => {
   }, [rows, search, sortKey, sortDir]);
 
   const totals = useMemo(
-    () =>
-      filteredSorted.reduce(
-        (acc, r) => ({
-          n: acc.n + r.n,
-          recebido: acc.recebido + r.recebido,
-          gasto: acc.gasto + r.gasto,
-          saldo: acc.saldo + r.saldo,
+    () => {
+      const acc = filteredSorted.reduce(
+        (a, r) => ({
+          n: a.n + r.n,
+          recebido: a.recebido + r.recebido,
+          gasto: a.gasto + r.gasto,
         }),
-        { n: 0, recebido: 0, gasto: 0, saldo: 0 }
-      ),
+        { n: 0, recebido: 0, gasto: 0 }
+      );
+      return { ...acc, saldo: computeSaldoFinal(acc.recebido, acc.gasto) };
+    },
     [filteredSorted]
   );
 
@@ -229,7 +230,7 @@ const EcaBalanceTable = () => {
                     <TableCell className="text-right tabular-nums">{r.n}</TableCell>
                     <TableCell className="text-right tabular-nums">{fmt(r.recebido)}</TableCell>
                     <TableCell className="text-right tabular-nums">{fmt(r.gasto)}</TableCell>
-                    <TableCell className={`text-right tabular-nums font-medium ${r.saldo < 0 ? "text-destructive" : "text-success"}`}>
+                    <TableCell className="text-right tabular-nums font-medium text-success">
                       {fmt(r.saldo)}
                     </TableCell>
                   </TableRow>
