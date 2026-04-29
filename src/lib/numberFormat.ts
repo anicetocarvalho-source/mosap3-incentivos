@@ -89,6 +89,27 @@ export const formatKzCompact = (value: number | string | null | undefined): stri
 };
 
 /**
+ * Cálculo canónico do "Saldo Final" usado em todo o sistema.
+ *
+ * Regra de negócio (definida pelo cliente):
+ *   saldo = max(0, total_recebido − total_gasto)
+ *
+ * Nunca devolve valores negativos, mesmo que existam inconsistências na BD
+ * (ex.: gasto > recebido por correcções manuais ou imports antigos).
+ *
+ * Aceita números ou strings em qualquer formato suportado por `parseAmount`.
+ */
+export const computeSaldoFinal = (
+  recebido: number | string | null | undefined,
+  gasto: number | string | null | undefined,
+): number => {
+  const r = typeof recebido === "number" ? recebido : parseAmount(recebido);
+  const g = typeof gasto === "number" ? gasto : parseAmount(gasto);
+  const diff = r - g;
+  return diff > 0 && isFinite(diff) ? diff : 0;
+};
+
+/**
  * Serializa um número para guardar na BD (texto), em formato canónico
  * EN-US sem separadores de milhar: "200000.00".
  * Fácil de parsear em qualquer ferramenta e compatível com `Number()`.
