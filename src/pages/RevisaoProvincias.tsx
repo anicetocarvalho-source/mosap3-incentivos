@@ -716,7 +716,7 @@ const RevisaoProvincias = () => {
       setProgress("A agregar saldos por ECA…");
       const totalRecebido = farmers.reduce((s, f) => s + parsePtao(f.valor_recebido), 0);
       const totalGasto = farmers.reduce((s, f) => s + parsePtao(f.total_gasto), 0);
-      const totalSaldo = farmers.reduce((s, f) => s + parsePtao(f.saldo_final), 0);
+      const totalSaldo = computeSaldoFinal(totalRecebido, totalGasto);
       const ecaMap = new Map<string, EcaRow>();
       for (const f of farmers) {
         const key = f.school?.trim() || "(sem escola)";
@@ -726,7 +726,7 @@ const RevisaoProvincias = () => {
         ex.n += 1;
         ex.recebido += parsePtao(f.valor_recebido);
         ex.gasto += parsePtao(f.total_gasto);
-        ex.saldo += parsePtao(f.saldo_final);
+        ex.saldo = computeSaldoFinal(ex.recebido, ex.gasto);
         ecaMap.set(key, ex);
       }
       const ecaRows = Array.from(ecaMap.values()).sort((a, b) => b.n - a.n);
