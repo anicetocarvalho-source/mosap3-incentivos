@@ -86,7 +86,7 @@ const FarmerFinancialSummaryDialog = ({ farmer, open, onOpenChange }: Props) => 
             <div className="flex items-center gap-2 text-muted-foreground text-xs uppercase tracking-wider mb-1">
               <Wallet className="h-3.5 w-3.5" /> Saldo
             </div>
-            <p className={`text-xl font-semibold tabular-nums ${saldoFinal < 0 ? "text-destructive" : ""}`}>{formatKz(saldoFinal)}</p>
+            <p className="text-xl font-semibold tabular-nums text-foreground">{formatKz(saldoFinal)}</p>
           </div>
         </div>
 
