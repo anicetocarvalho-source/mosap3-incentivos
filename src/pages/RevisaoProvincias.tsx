@@ -1766,7 +1766,7 @@ const RevisaoProvincias = () => {
                           <TableCell className="text-right tabular-nums">{r.n}</TableCell>
                           <TableCell className="text-right tabular-nums">{fmt(r.recebido)}</TableCell>
                           <TableCell className="text-right tabular-nums">{fmt(r.gasto)}</TableCell>
-                          <TableCell className={`text-right tabular-nums font-medium ${r.saldo < 0 ? "text-destructive" : "text-success"}`}>
+                          <TableCell className="text-right tabular-nums font-medium text-success">
                             {fmt(r.saldo)}
                           </TableCell>
                         </TableRow>
