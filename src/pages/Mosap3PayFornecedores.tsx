@@ -395,6 +395,46 @@ const Mosap3PayFornecedores = () => {
           </CardContent>
         </Card>
 
+        {/* Financial KPIs */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+          {supplierSalesQuery.isLoading ? (
+            Array.from({ length: 4 }).map((_, i) => (
+              <Card key={i} className="p-4"><Skeleton className="h-12 w-full" /></Card>
+            ))
+          ) : (
+            <>
+              <StatCard
+                title="Total Vendido"
+                value={formatKz(supplierSalesQuery.data?.totalVendido ?? 0)}
+                icon={TrendingUp}
+                iconBg="hsl(142 71% 45%)"
+              />
+              <StatCard
+                title="Nº de Transações"
+                value={String(supplierSalesQuery.data?.numTransacoes ?? 0)}
+                icon={Receipt}
+                iconBg="hsl(262 83% 58%)"
+              />
+              <StatCard
+                title="Ticket Médio"
+                value={formatKz(supplierSalesQuery.data?.ticketMedio ?? 0)}
+                icon={ShoppingCart}
+                iconBg="hsl(25 95% 53%)"
+              />
+              <StatCard
+                title="Última Venda"
+                value={
+                  supplierSalesQuery.data?.ultimaVenda
+                    ? new Date(supplierSalesQuery.data.ultimaVenda).toLocaleDateString("pt-AO")
+                    : "Sem vendas"
+                }
+                icon={CalendarClock}
+                iconBg="hsl(var(--primary))"
+              />
+            </>
+          )}
+        </div>
+
         <Tabs defaultValue="produtos">
           <TabsList>
             <TabsTrigger value="produtos"><Package className="h-3 w-3 mr-1" /> Produtos ({products.length})</TabsTrigger>
