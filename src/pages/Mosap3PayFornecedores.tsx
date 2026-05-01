@@ -153,6 +153,24 @@ const Mosap3PayFornecedores = () => {
     },
   });
 
+  const supplierSalesQuery = useQuery({
+    queryKey: ["mosap3pay", "supplier-sales-kpi", selectedSupplier?.id],
+    enabled: !!selectedSupplier,
+    queryFn: async () => {
+      const supplierId = selectedSupplier!.id;
+      const rows = await fetchAllPages<{ total: number; created_at: string }>(() =>
+        supabase.from("pos_sales").select("total, created_at", { count: "exact" }).eq("supplier_id", supplierId)
+      );
+      const totalVendido = rows.reduce((s, r) => s + Number(r.total), 0);
+      const numTransacoes = rows.length;
+      const ticketMedio = numTransacoes > 0 ? totalVendido / numTransacoes : 0;
+      const ultimaVenda = rows.length > 0
+        ? rows.reduce((latest, r) => r.created_at > latest ? r.created_at : latest, rows[0].created_at)
+        : null;
+      return { totalVendido, numTransacoes, ticketMedio, ultimaVenda };
+    },
+  });
+
   const suppliers = suppliersQuery.data?.suppliers ?? [];
   const totalProducts = suppliersQuery.data?.totalProducts ?? 0;
   const totalPos = suppliersQuery.data?.totalPos ?? 0;
