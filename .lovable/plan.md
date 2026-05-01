@@ -1,22 +1,27 @@
 
 ## Objectivo
 
-Adicionar cartões de KPI financeiros na vista de detalhe de cada fornecedor na página de Fornecedores (`/mosap3pay/fornecedores`), entre o cabeçalho e os tabs existentes.
+Adicionar 4 cartões KPI na vista de detalhe de cada fornecedor em `/mosap3pay/fornecedores`, alimentados pela tabela `farmer_transactions` (que contém dados reais), fazendo match pelo nome do fornecedor (`suppliers.name` = `farmer_transactions.empresa`).
+
+## Porquê `farmer_transactions` e não `pos_sales`
+
+A tabela `pos_sales` está vazia (0 registos). Os dados de compras dos agricultores estão em `farmer_transactions`, onde a coluna `empresa` contém o nome do fornecedor. Os nomes coincidem com `suppliers.name`.
 
 ## KPIs a apresentar
 
-1. **Total Vendido** — soma de `pos_sales.total` filtrado por `supplier_id`
-2. **Nº de Transações** — contagem de `pos_sales` filtrado por `supplier_id`
+1. **Total Vendido** — soma de `valor` (parseado com `parseAmount`) filtrado por `empresa = supplier.name`
+2. **Nº de Transações** — contagem de registos
 3. **Ticket Médio** — Total Vendido ÷ Nº de Transações
-4. **Última Venda** — data da venda mais recente
+4. **Última Transação** — data da transação mais recente
 
 ## Alterações técnicas
 
 ### `src/pages/Mosap3PayFornecedores.tsx`
 
-- Após seleccionar um fornecedor, fazer uma query adicional a `pos_sales` para obter a soma do `total`, contagem de registos e data da última venda (`max(created_at)`)
-- Inserir uma grelha de 4 `StatCard` (componente já existente) entre o cabeçalho do fornecedor e os `Tabs`, mostrando os 4 KPIs
+- Adicionar um `useQuery` que, quando um fornecedor está seleccionado, busca todas as `farmer_transactions` onde `empresa = selectedSupplier.name`
+- Calcular os 4 KPIs no `queryFn` usando `parseAmount` para converter os valores
+- Renderizar uma grelha de 4 `StatCard` entre o cabeçalho do fornecedor e os tabs existentes
 - Usar `formatKz` para valores monetários
-- Mostrar skeleton enquanto carrega
+- Mostrar `Skeleton` enquanto carrega
 
-Nenhuma alteração de base de dados é necessária — os dados já existem na tabela `pos_sales`.
+Nenhuma alteração de base de dados necessária — os dados já existem.
