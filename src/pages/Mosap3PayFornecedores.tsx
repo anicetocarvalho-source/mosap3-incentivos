@@ -157,15 +157,18 @@ const Mosap3PayFornecedores = () => {
     queryKey: ["mosap3pay", "supplier-sales-kpi", selectedSupplier?.id],
     enabled: !!selectedSupplier,
     queryFn: async () => {
-      const supplierId = selectedSupplier!.id;
-      const rows = await fetchAllPages<{ total: number; created_at: string }>(() =>
-        supabase.from("pos_sales").select("total, created_at", { count: "exact" }).eq("supplier_id", supplierId)
+      const supplierName = selectedSupplier!.name;
+      const rows = await fetchAllPages<{ valor: string; created_at: string; transaction_date: string | null }>(() =>
+        supabase.from("farmer_transactions").select("valor, created_at, transaction_date").eq("empresa", supplierName)
       );
-      const totalVendido = rows.reduce((s, r) => s + Number(r.total), 0);
+      const totalVendido = rows.reduce((s, r) => s + parseAmount(r.valor), 0);
       const numTransacoes = rows.length;
       const ticketMedio = numTransacoes > 0 ? totalVendido / numTransacoes : 0;
       const ultimaVenda = rows.length > 0
-        ? rows.reduce((latest, r) => r.created_at > latest ? r.created_at : latest, rows[0].created_at)
+        ? rows.reduce((latest, r) => {
+            const d = r.transaction_date || r.created_at;
+            return d > latest ? d : latest;
+          }, rows[0].transaction_date || rows[0].created_at)
         : null;
       return { totalVendido, numTransacoes, ticketMedio, ultimaVenda };
     },
