@@ -1,24 +1,22 @@
-# Corrigir cálculo do Saldo Final no resumo financeiro
 
-## Problema
+## Objectivo
 
-O "Saldo Final" no resumo financeiro de Províncias e ECAs é atualmente obtido somando o campo `saldo_final` da tabela `farmers`, que pode trazer valores negativos.
+Adicionar cartões de KPI financeiros na vista de detalhe de cada fornecedor na página de Fornecedores (`/mosap3pay/fornecedores`), entre o cabeçalho e os tabs existentes.
 
-Pretende-se que o Saldo Final seja **sempre** calculado como `Total Recebido − Total Gasto` e **nunca** negativo (mínimo 0).
+## KPIs a apresentar
 
-## Alterações propostas
+1. **Total Vendido** — soma de `pos_sales.total` filtrado por `supplier_id`
+2. **Nº de Transações** — contagem de `pos_sales` filtrado por `supplier_id`
+3. **Ticket Médio** — Total Vendido ÷ Nº de Transações
+4. **Última Venda** — data da venda mais recente
 
-### 1. `src/hooks/useFinancialSummary.ts`
-- Deixar de acumular `saldo_final` da BD.
-- Calcular o saldo derivado: `saldo = Math.max(0, recebido - gasto)`.
-- Remover `saldo_final` do `select` e do tipo `FarmerRow`.
-- Manter `recebido`, `gasto`, `beneficiarios`, `totalFarmers` e `utilizationPct` como estão.
+## Alterações técnicas
 
-### 2. `src/components/FinancialSummaryCards.tsx`
-- Remover a lógica de "saldo negativo":
-  - `valueClass` do cartão Saldo Final passa a ser sempre `"text-foreground"`.
-  - `hint` passa a ser sempre `"Disponível"`.
+### `src/pages/Mosap3PayFornecedores.tsx`
 
-## Resultado esperado
+- Após seleccionar um fornecedor, fazer uma query adicional a `pos_sales` para obter a soma do `total`, contagem de registos e data da última venda (`max(created_at)`)
+- Inserir uma grelha de 4 `StatCard` (componente já existente) entre o cabeçalho do fornecedor e os `Tabs`, mostrando os 4 KPIs
+- Usar `formatKz` para valores monetários
+- Mostrar skeleton enquanto carrega
 
-Em Província e ECA, o cartão **Saldo Final** mostra exatamente `Total Recebido − Total Gasto`, com mínimo de 0 Kz.
+Nenhuma alteração de base de dados é necessária — os dados já existem na tabela `pos_sales`.

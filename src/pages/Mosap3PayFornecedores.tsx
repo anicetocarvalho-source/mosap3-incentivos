@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Store, Plus, Search, Edit2, Package, Monitor, Trash2, Eye, MapPin, X, CheckCircle, LayoutGrid, List, Filter, ChevronLeft, ChevronRight, Download } from "lucide-react";
+import { Store, Plus, Search, Edit2, Package, Monitor, Trash2, Eye, MapPin, X, CheckCircle, LayoutGrid, List, Filter, ChevronLeft, ChevronRight, Download, ShoppingCart, TrendingUp, Receipt, CalendarClock } from "lucide-react";
+import { formatKz } from "@/lib/numberFormat";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -148,6 +150,24 @@ const Mosap3PayFornecedores = () => {
         products: (prodRes.data as Product[]) || [],
         posTerminals: (posRes.data as PosTerminal[]) || [],
       };
+    },
+  });
+
+  const supplierSalesQuery = useQuery({
+    queryKey: ["mosap3pay", "supplier-sales-kpi", selectedSupplier?.id],
+    enabled: !!selectedSupplier,
+    queryFn: async () => {
+      const supplierId = selectedSupplier!.id;
+      const rows = await fetchAllPages<{ total: number; created_at: string }>(() =>
+        supabase.from("pos_sales").select("total, created_at", { count: "exact" }).eq("supplier_id", supplierId)
+      );
+      const totalVendido = rows.reduce((s, r) => s + Number(r.total), 0);
+      const numTransacoes = rows.length;
+      const ticketMedio = numTransacoes > 0 ? totalVendido / numTransacoes : 0;
+      const ultimaVenda = rows.length > 0
+        ? rows.reduce((latest, r) => r.created_at > latest ? r.created_at : latest, rows[0].created_at)
+        : null;
+      return { totalVendido, numTransacoes, ticketMedio, ultimaVenda };
     },
   });
 
@@ -374,6 +394,46 @@ const Mosap3PayFornecedores = () => {
             </div>
           </CardContent>
         </Card>
+
+        {/* Financial KPIs */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+          {supplierSalesQuery.isLoading ? (
+            Array.from({ length: 4 }).map((_, i) => (
+              <Card key={i} className="p-4"><Skeleton className="h-12 w-full" /></Card>
+            ))
+          ) : (
+            <>
+              <StatCard
+                title="Total Vendido"
+                value={formatKz(supplierSalesQuery.data?.totalVendido ?? 0)}
+                icon={TrendingUp}
+                iconBg="hsl(142 71% 45%)"
+              />
+              <StatCard
+                title="Nº de Transações"
+                value={String(supplierSalesQuery.data?.numTransacoes ?? 0)}
+                icon={Receipt}
+                iconBg="hsl(262 83% 58%)"
+              />
+              <StatCard
+                title="Ticket Médio"
+                value={formatKz(supplierSalesQuery.data?.ticketMedio ?? 0)}
+                icon={ShoppingCart}
+                iconBg="hsl(25 95% 53%)"
+              />
+              <StatCard
+                title="Última Venda"
+                value={
+                  supplierSalesQuery.data?.ultimaVenda
+                    ? new Date(supplierSalesQuery.data.ultimaVenda).toLocaleDateString("pt-AO")
+                    : "Sem vendas"
+                }
+                icon={CalendarClock}
+                iconBg="hsl(var(--primary))"
+              />
+            </>
+          )}
+        </div>
 
         <Tabs defaultValue="produtos">
           <TabsList>
