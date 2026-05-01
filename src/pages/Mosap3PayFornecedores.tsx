@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Store, Plus, Search, Edit2, Package, Monitor, Trash2, Eye, MapPin, X, CheckCircle, LayoutGrid, List, Filter, ChevronLeft, ChevronRight, Download, ShoppingCart, TrendingUp, Receipt, CalendarClock } from "lucide-react";
+import { Store, Plus, Search, Edit2, Package, Monitor, Trash2, Eye, MapPin, X, CheckCircle, LayoutGrid, List, Filter, ChevronLeft, ChevronRight, Download, ShoppingCart, TrendingUp, Receipt, CalendarClock, BarChart3 } from "lucide-react";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { formatKz, parseAmount } from "@/lib/numberFormat";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -170,7 +171,33 @@ const Mosap3PayFornecedores = () => {
             return d > latest ? d : latest;
           }, rows[0].transaction_date || rows[0].created_at)
         : null;
-      return { totalVendido, numTransacoes, ticketMedio, ultimaVenda };
+
+      // Monthly trend (last 12 months)
+      const monthMap = new Map<string, { valor: number; count: number }>();
+      const now = new Date();
+      for (let i = 11; i >= 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+        monthMap.set(key, { valor: 0, count: 0 });
+      }
+      for (const r of rows) {
+        const raw = r.transaction_date || r.created_at;
+        if (!raw) continue;
+        const dt = new Date(raw);
+        const key = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}`;
+        const entry = monthMap.get(key);
+        if (entry) {
+          entry.valor += parseAmount(r.valor);
+          entry.count += 1;
+        }
+      }
+      const monthlyTrend = Array.from(monthMap.entries()).map(([key, v]) => {
+        const [y, m] = key.split("-");
+        const label = new Date(Number(y), Number(m) - 1).toLocaleDateString("pt-AO", { month: "short", year: "2-digit" });
+        return { month: label, valor: Math.round(v.valor), vendas: v.count };
+      });
+
+      return { totalVendido, numTransacoes, ticketMedio, ultimaVenda, monthlyTrend };
     },
   });
 
@@ -437,6 +464,35 @@ const Mosap3PayFornecedores = () => {
             </>
           )}
         </div>
+
+        {/* Monthly Sales Chart */}
+        {supplierSalesQuery.data?.monthlyTrend && supplierSalesQuery.data.monthlyTrend.some(m => m.valor > 0) && (
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                <BarChart3 className="h-4 w-4 text-primary" />
+                Evolução Mensal de Compras
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[260px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={supplierSalesQuery.data.monthlyTrend} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                    <XAxis dataKey="month" tick={{ fontSize: 11 }} className="fill-muted-foreground" />
+                    <YAxis tickFormatter={(v: number) => v >= 1_000_000 ? `${(v / 1_000_000).toFixed(1)}M` : v >= 1_000 ? `${(v / 1_000).toFixed(0)}k` : String(v)} tick={{ fontSize: 11 }} className="fill-muted-foreground" width={55} />
+                    <Tooltip
+                      formatter={(value: number) => [formatKz(value), "Valor"]}
+                      labelFormatter={(label: string) => `Mês: ${label}`}
+                      contentStyle={{ borderRadius: "8px", border: "1px solid hsl(var(--border))", background: "hsl(var(--popover))", color: "hsl(var(--popover-foreground))" }}
+                    />
+                    <Bar dataKey="valor" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} name="Valor" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         <Tabs defaultValue="produtos">
           <TabsList>
