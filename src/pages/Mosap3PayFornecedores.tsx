@@ -465,6 +465,35 @@ const Mosap3PayFornecedores = () => {
           )}
         </div>
 
+        {/* Monthly Sales Chart */}
+        {supplierSalesQuery.data?.monthlyTrend && supplierSalesQuery.data.monthlyTrend.some(m => m.valor > 0) && (
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                <BarChart3 className="h-4 w-4 text-primary" />
+                Evolução Mensal de Compras
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[260px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={supplierSalesQuery.data.monthlyTrend} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                    <XAxis dataKey="month" tick={{ fontSize: 11 }} className="fill-muted-foreground" />
+                    <YAxis tickFormatter={(v: number) => v >= 1_000_000 ? `${(v / 1_000_000).toFixed(1)}M` : v >= 1_000 ? `${(v / 1_000).toFixed(0)}k` : String(v)} tick={{ fontSize: 11 }} className="fill-muted-foreground" width={55} />
+                    <Tooltip
+                      formatter={(value: number) => [formatKz(value), "Valor"]}
+                      labelFormatter={(label: string) => `Mês: ${label}`}
+                      contentStyle={{ borderRadius: "8px", border: "1px solid hsl(var(--border))", background: "hsl(var(--popover))", color: "hsl(var(--popover-foreground))" }}
+                    />
+                    <Bar dataKey="valor" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} name="Valor" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         <Tabs defaultValue="produtos">
           <TabsList>
             <TabsTrigger value="produtos"><Package className="h-3 w-3 mr-1" /> Produtos ({products.length})</TabsTrigger>
