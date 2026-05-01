@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Store, Plus, Search, Edit2, Package, Monitor, Trash2, Eye, MapPin, X, CheckCircle, LayoutGrid, List, Filter, ChevronLeft, ChevronRight, Download, ShoppingCart, TrendingUp, Receipt, CalendarClock } from "lucide-react";
+import { Store, Plus, Search, Edit2, Package, Monitor, Trash2, Eye, MapPin, X, CheckCircle, LayoutGrid, List, Filter, ChevronLeft, ChevronRight, Download, ShoppingCart, TrendingUp, Receipt, CalendarClock, BarChart3 } from "lucide-react";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { formatKz, parseAmount } from "@/lib/numberFormat";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
