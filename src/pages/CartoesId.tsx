@@ -113,7 +113,7 @@ const CartoesId = () => {
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6 p-4 md:p-6">
-      <PageHeader title="Cartões de Identificação" subtitle="Gestão de cartões ID dos agricultores" />
+      <PageHeader title="Cartões de Identificação" description="Gestão de cartões ID dos agricultores" />
 
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

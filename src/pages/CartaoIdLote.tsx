@@ -182,7 +182,7 @@ const CartaoIdLote = () => {
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6 p-4 md:p-6">
-      <PageHeader title="Geração em Lote" subtitle="Selecione agricultores para gerar cartões ID em massa" />
+      <PageHeader title="Geração em Lote" description="Selecione agricultores para gerar cartões ID em massa" />
 
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3">
