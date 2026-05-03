@@ -98,37 +98,23 @@ describe("farmer_card_logs RLS — anon role", () => {
 // ── 3. Verification route UI logic (unit) ───────────────────────────────────
 
 describe("/verificacao/:token — UI states", () => {
+  function isCardActive(cardStatus: string, farmerStatus: string) {
+    return (
+      cardStatus !== "Revogado" &&
+      ["Aprovado", "Ativo", "Validado"].includes(farmerStatus)
+    );
+  }
+
   it("shows 'Cartão Válido' for active card with approved farmer", () => {
-    const card_status = "Gerado";
-    const farmer_status = "Aprovado";
-
-    const isActive =
-      card_status !== "Revogado" &&
-      ["Aprovado", "Ativo", "Validado"].includes(farmer_status);
-
-    expect(isActive).toBe(true);
+    expect(isCardActive("Gerado", "Aprovado")).toBe(true);
   });
 
   it("shows 'Cartão Inválido' for revoked card", () => {
-    const card_status = "Revogado";
-    const farmer_status = "Aprovado";
-
-    const isActive =
-      card_status !== "Revogado" &&
-      ["Aprovado", "Ativo", "Validado"].includes(farmer_status);
-
-    expect(isActive).toBe(false);
+    expect(isCardActive("Revogado", "Aprovado")).toBe(false);
   });
 
   it("shows 'Cartão Inválido' when farmer status is Pendente", () => {
-    const card_status = "Gerado";
-    const farmer_status = "Pendente";
-
-    const isActive =
-      card_status !== "Revogado" &&
-      ["Aprovado", "Ativo", "Validado"].includes(farmer_status);
-
-    expect(isActive).toBe(false);
+    expect(isCardActive("Gerado", "Pendente")).toBe(false);
   });
 
   it("detects credit eligibility correctly", () => {
