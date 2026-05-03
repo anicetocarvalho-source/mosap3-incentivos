@@ -1,12 +1,16 @@
 import { AlertTriangle, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import OfflineFallback from "@/components/OfflineFallback";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 
 interface ErrorStateProps {
   title?: string;
   description?: string;
   onRetry?: () => void;
   className?: string;
+  /** The original error, used to detect network failures */
+  error?: Error | null;
 }
 
 export function ErrorState({
@@ -14,7 +18,21 @@ export function ErrorState({
   description = "Ocorreu um erro ao comunicar com o servidor. Verifique a sua ligação e tente novamente.",
   onRetry,
   className,
+  error,
 }: ErrorStateProps) {
+  const isOnline = useOnlineStatus();
+
+  // If offline, delegate to the richer OfflineFallback
+  if (!isOnline) {
+    return (
+      <OfflineFallback
+        error={error}
+        onRetry={onRetry}
+        className={className}
+      />
+    );
+  }
+
   return (
     <div className={cn("flex flex-col items-center justify-center text-center py-12 px-4", className)}>
       <div className="mb-4 h-16 w-16 rounded-full bg-destructive/10 flex items-center justify-center">
