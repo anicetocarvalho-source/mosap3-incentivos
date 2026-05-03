@@ -26,6 +26,7 @@ import FarmerDocuments from "@/components/FarmerDocuments";
 import FarmerBalanceHistory from "@/components/FarmerBalanceHistory";
 import { supabase } from "@/integrations/supabase/client";
 import { parseAmount } from "@/lib/numberFormat";
+import FarmerCardTab from "@/components/cartao/FarmerCardTab";
 
 const allPhases = ["Preparação", "Sementeira", "Crescimento", "Floração", "Colheita", "Pós-Colheita"];
 
