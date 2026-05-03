@@ -1028,6 +1028,11 @@ const FarmerProfile = () => {
               );
             })()}
           </TabsContent>
+
+          {/* Cartão ID Tab */}
+          <TabsContent value="cartao" className="mt-4 space-y-4">
+            <FarmerCardTab farmerCode={id} farmerInfo={farmerInfo} signedPhotos={farmerInfo?.photos} />
+          </TabsContent>
         </Tabs>
       </motion.div>
       {/* Image Zoom Modal with Navigation */}
