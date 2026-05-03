@@ -161,7 +161,7 @@ const CartaoIdLote = () => {
       }
 
       // Generate PDF
-      const blob = await generateBatchPdf(cardElements);
+      const blob = await generateBatchPdf(cardElements, printLayout);
 
       // Cleanup
       while (container.firstChild) container.removeChild(container.firstChild);
