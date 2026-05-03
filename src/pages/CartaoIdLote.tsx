@@ -222,13 +222,16 @@ const CartaoIdLote = () => {
           </Button>
           <span className="text-sm text-muted-foreground">{selected.size} seleccionados</span>
         </div>
-        <Button onClick={handleGenerate} disabled={generating || selected.size === 0}>
-          {generating ? (
-            <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> A gerar...</>
-          ) : (
-            <><Download className="h-4 w-4 mr-2" /> Gerar PDF ({selected.size})</>
-          )}
-        </Button>
+        <div className="flex items-center gap-2">
+          <PrintLayoutDialog value={printLayout} onChange={setPrintLayout} />
+          <Button onClick={handleGenerate} disabled={generating || selected.size === 0}>
+            {generating ? (
+              <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> A gerar...</>
+            ) : (
+              <><Download className="h-4 w-4 mr-2" /> Gerar PDF ({selected.size})</>
+            )}
+          </Button>
+        </div>
       </div>
 
       {/* List */}
