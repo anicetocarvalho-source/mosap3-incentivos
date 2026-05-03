@@ -199,6 +199,78 @@ export type Database = {
         }
         Relationships: []
       }
+      farmer_card_logs: {
+        Row: {
+          action: string
+          created_at: string
+          details: Json | null
+          farmer_code: string
+          id: string
+          performed_by: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          details?: Json | null
+          farmer_code: string
+          id?: string
+          performed_by?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          details?: Json | null
+          farmer_code?: string
+          id?: string
+          performed_by?: string | null
+        }
+        Relationships: []
+      }
+      farmer_cards: {
+        Row: {
+          card_token: string
+          created_at: string
+          delivered_at: string | null
+          farmer_code: string
+          generated_at: string | null
+          generated_by: string | null
+          id: string
+          printed_at: string | null
+          revoked_at: string | null
+          revoked_reason: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          card_token?: string
+          created_at?: string
+          delivered_at?: string | null
+          farmer_code: string
+          generated_at?: string | null
+          generated_by?: string | null
+          id?: string
+          printed_at?: string | null
+          revoked_at?: string | null
+          revoked_reason?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          card_token?: string
+          created_at?: string
+          delivered_at?: string | null
+          farmer_code?: string
+          generated_at?: string | null
+          generated_by?: string | null
+          id?: string
+          printed_at?: string | null
+          revoked_at?: string | null
+          revoked_reason?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       farmer_dependents: {
         Row: {
           age: number | null
