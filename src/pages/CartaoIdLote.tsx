@@ -11,7 +11,8 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useFarmersList } from "@/hooks/useFarmersList";
 import FarmerIdCard, { FarmerCardData } from "@/components/cartao/FarmerIdCard";
-import { generateBatchPdf } from "@/lib/cardExport";
+import { generateBatchPdf, DEFAULT_PRINT_LAYOUT, type PrintLayoutOptions } from "@/lib/cardExport";
+import PrintLayoutDialog from "@/components/cartao/PrintLayoutDialog";
 import PageHeader from "@/components/PageHeader";
 
 const CartaoIdLote = () => {
