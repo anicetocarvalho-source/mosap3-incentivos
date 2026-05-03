@@ -74,6 +74,7 @@ export const navItems: NavItem[] = [
     moduleName: "Cadastro de Agricultores",
     children: [
       { label: "Registo do Pequeno Produtor", path: "/agricultores", icon: UserPlus },
+      { label: "Cartões ID", path: "/cartoes-id", icon: IdCard },
     ],
   },
   { icon: School, label: "Escolas", path: "/escolas", moduleName: "Escolas de Campo" },
