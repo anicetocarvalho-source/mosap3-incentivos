@@ -11,7 +11,8 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useFarmersList } from "@/hooks/useFarmersList";
 import FarmerIdCard, { FarmerCardData } from "@/components/cartao/FarmerIdCard";
-import { generateBatchPdf } from "@/lib/cardExport";
+import { generateBatchPdf, DEFAULT_PRINT_LAYOUT, type PrintLayoutOptions } from "@/lib/cardExport";
+import PrintLayoutDialog from "@/components/cartao/PrintLayoutDialog";
 import PageHeader from "@/components/PageHeader";
 
 const CartaoIdLote = () => {
@@ -21,6 +22,7 @@ const CartaoIdLote = () => {
   const [filterStatus, setFilterStatus] = useState("all");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [generating, setGenerating] = useState(false);
+  const [printLayout, setPrintLayout] = useState<PrintLayoutOptions>(DEFAULT_PRINT_LAYOUT);
   const renderContainerRef = useRef<HTMLDivElement>(null);
 
   const provinces = [...new Set(farmers.map((f) => f.province).filter(Boolean))].sort();
@@ -159,7 +161,7 @@ const CartaoIdLote = () => {
       }
 
       // Generate PDF
-      const blob = await generateBatchPdf(cardElements);
+      const blob = await generateBatchPdf(cardElements, printLayout);
 
       // Cleanup
       while (container.firstChild) container.removeChild(container.firstChild);
@@ -178,7 +180,7 @@ const CartaoIdLote = () => {
       toast.error("Erro ao gerar cartões em lote");
     }
     setGenerating(false);
-  }, [selected, farmers]);
+  }, [selected, farmers, printLayout]);
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6 p-4 md:p-6">
@@ -220,13 +222,16 @@ const CartaoIdLote = () => {
           </Button>
           <span className="text-sm text-muted-foreground">{selected.size} seleccionados</span>
         </div>
-        <Button onClick={handleGenerate} disabled={generating || selected.size === 0}>
-          {generating ? (
-            <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> A gerar...</>
-          ) : (
-            <><Download className="h-4 w-4 mr-2" /> Gerar PDF ({selected.size})</>
-          )}
-        </Button>
+        <div className="flex items-center gap-2">
+          <PrintLayoutDialog value={printLayout} onChange={setPrintLayout} />
+          <Button onClick={handleGenerate} disabled={generating || selected.size === 0}>
+            {generating ? (
+              <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> A gerar...</>
+            ) : (
+              <><Download className="h-4 w-4 mr-2" /> Gerar PDF ({selected.size})</>
+            )}
+          </Button>
+        </div>
       </div>
 
       {/* List */}

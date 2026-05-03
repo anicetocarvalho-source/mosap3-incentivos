@@ -6,7 +6,8 @@ import { Download, Printer, RefreshCw, Loader2, Clock, CreditCard, CheckCircle2,
 import { toast } from "sonner";
 import FarmerIdCard, { FarmerCardData } from "@/components/cartao/FarmerIdCard";
 import { useFarmerCard } from "@/hooks/useFarmerCard";
-import { downloadCardPdf, downloadCardPng } from "@/lib/cardExport";
+import { downloadCardPdf, downloadCardPng, DEFAULT_PRINT_LAYOUT, type PrintLayoutOptions } from "@/lib/cardExport";
+import PrintLayoutDialog from "@/components/cartao/PrintLayoutDialog";
 
 interface Props {
   farmerCode?: string;
@@ -26,6 +27,7 @@ const FarmerCardTab = ({ farmerCode, farmerInfo, signedPhotos }: Props) => {
   const { card, logs, loading, generateCard, updateStatus, regenerateToken } = useFarmerCard(farmerCode);
   const cardRef = useRef<HTMLDivElement>(null);
   const [exporting, setExporting] = useState(false);
+  const [printLayout, setPrintLayout] = useState<PrintLayoutOptions>(DEFAULT_PRINT_LAYOUT);
 
   if (loading) {
     return <div className="flex items-center justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
@@ -57,7 +59,7 @@ const FarmerCardTab = ({ farmerCode, farmerInfo, signedPhotos }: Props) => {
       const frontEl = cardRef.current.querySelector("[data-card-side='front']") as HTMLElement;
       const backEl = cardRef.current.querySelector("[data-card-side='back']") as HTMLElement;
       if (frontEl && backEl) {
-        await downloadCardPdf(frontEl, backEl, `cartao-${farmerData.code}`);
+        await downloadCardPdf(frontEl, backEl, `cartao-${farmerData.code}`, printLayout);
         toast.success("PDF descarregado");
       }
     } catch { toast.error("Erro ao gerar PDF"); }
@@ -101,6 +103,7 @@ const FarmerCardTab = ({ farmerCode, farmerInfo, signedPhotos }: Props) => {
 
           {/* Actions */}
           <div className="flex flex-wrap gap-2 justify-center">
+            <PrintLayoutDialog value={printLayout} onChange={setPrintLayout} />
             <Button variant="outline" size="sm" onClick={handleDownloadPdf} disabled={exporting}>
               <Download className="h-4 w-4 mr-1" /> PDF
             </Button>
