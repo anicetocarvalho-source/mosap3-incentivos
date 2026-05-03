@@ -26,6 +26,7 @@ import FarmerDocuments from "@/components/FarmerDocuments";
 import FarmerBalanceHistory from "@/components/FarmerBalanceHistory";
 import { supabase } from "@/integrations/supabase/client";
 import { parseAmount } from "@/lib/numberFormat";
+import FarmerCardTab from "@/components/cartao/FarmerCardTab";
 
 const allPhases = ["Preparação", "Sementeira", "Crescimento", "Floração", "Colheita", "Pós-Colheita"];
 
@@ -325,6 +326,9 @@ const FarmerProfile = () => {
             </TabsTrigger>
             <TabsTrigger value="patec" className="gap-1.5 text-xs md:text-sm data-[state=active]:bg-card whitespace-nowrap">
               <Package className="h-3.5 w-3.5 md:h-4 md:w-4" /> <span className="hidden sm:inline">PATEC</span>
+            </TabsTrigger>
+            <TabsTrigger value="cartao" className="gap-1.5 text-xs md:text-sm data-[state=active]:bg-card whitespace-nowrap">
+              <CreditCard className="h-3.5 w-3.5 md:h-4 md:w-4" /> <span className="hidden sm:inline">Cartão ID</span>
             </TabsTrigger>
           </TabsList>
 
@@ -1024,6 +1028,11 @@ const FarmerProfile = () => {
                 </>
               );
             })()}
+          </TabsContent>
+
+          {/* Cartão ID Tab */}
+          <TabsContent value="cartao" className="mt-4 space-y-4">
+            <FarmerCardTab farmerCode={id} farmerInfo={farmerInfo} signedPhotos={farmerInfo?.photos} />
           </TabsContent>
         </Tabs>
       </motion.div>

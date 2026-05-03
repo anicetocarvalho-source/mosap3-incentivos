@@ -13,6 +13,9 @@ import RoleGuard from "@/components/RoleGuard";
 import Auth from "@/pages/Auth";
 import Dashboard from "@/pages/Dashboard";
 import Agricultores from "@/pages/Agricultores";
+import CartoesId from "@/pages/CartoesId";
+import CartaoIdLote from "@/pages/CartaoIdLote";
+import VerificacaoCartao from "@/pages/VerificacaoCartao";
 
 import Transacoes from "@/pages/Transacoes";
 import Utilizadores from "@/pages/Utilizadores";
@@ -75,12 +78,15 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/auth" element={<Auth />} />
+          <Route path="/verificacao/:token" element={<VerificacaoCartao />} />
           <Route element={<ProtectedRoute />}>
             <Route element={<AppLayout />}>
               {/* Acesso livre a todos os perfis */}
               <Route path="/" element={<Dashboard />} />
               <Route path="/agricultores" element={<Agricultores />} />
               <Route path="/agricultores/:id" element={<FarmerProfile />} />
+              <Route path="/cartoes-id" element={<CartoesId />} />
+              <Route path="/cartoes-id/lote" element={<CartaoIdLote />} />
               <Route path="/escolas" element={<EscolasCampo />} />
               <Route path="/escolas/provincia/:slug" element={<ProvinciaEscolas />} />
               <Route path="/escolas/:id" element={<EscolaDetalhe />} />
