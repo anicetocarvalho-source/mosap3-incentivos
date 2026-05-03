@@ -26,6 +26,7 @@ import {
   Package,
   Shield,
   CreditCard,
+  IdCard,
   Store,
   Monitor,
   Receipt,
