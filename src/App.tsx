@@ -13,6 +13,9 @@ import RoleGuard from "@/components/RoleGuard";
 import Auth from "@/pages/Auth";
 import Dashboard from "@/pages/Dashboard";
 import Agricultores from "@/pages/Agricultores";
+import CartoesId from "@/pages/CartoesId";
+import CartaoIdLote from "@/pages/CartaoIdLote";
+import VerificacaoCartao from "@/pages/VerificacaoCartao";
 
 import Transacoes from "@/pages/Transacoes";
 import Utilizadores from "@/pages/Utilizadores";
