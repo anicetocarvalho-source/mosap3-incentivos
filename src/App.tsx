@@ -78,6 +78,7 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/auth" element={<Auth />} />
+          <Route path="/verificacao/:token" element={<VerificacaoCartao />} />
           <Route element={<ProtectedRoute />}>
             <Route element={<AppLayout />}>
               {/* Acesso livre a todos os perfis */}
