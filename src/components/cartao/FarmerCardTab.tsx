@@ -27,6 +27,7 @@ const FarmerCardTab = ({ farmerCode, farmerInfo, signedPhotos }: Props) => {
   const { card, logs, loading, generateCard, updateStatus, regenerateToken } = useFarmerCard(farmerCode);
   const cardRef = useRef<HTMLDivElement>(null);
   const [exporting, setExporting] = useState(false);
+  const [printLayout, setPrintLayout] = useState<PrintLayoutOptions>(DEFAULT_PRINT_LAYOUT);
 
   if (loading) {
     return <div className="flex items-center justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
