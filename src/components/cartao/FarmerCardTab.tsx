@@ -59,7 +59,7 @@ const FarmerCardTab = ({ farmerCode, farmerInfo, signedPhotos }: Props) => {
       const frontEl = cardRef.current.querySelector("[data-card-side='front']") as HTMLElement;
       const backEl = cardRef.current.querySelector("[data-card-side='back']") as HTMLElement;
       if (frontEl && backEl) {
-        await downloadCardPdf(frontEl, backEl, `cartao-${farmerData.code}`);
+        await downloadCardPdf(frontEl, backEl, `cartao-${farmerData.code}`, printLayout);
         toast.success("PDF descarregado");
       }
     } catch { toast.error("Erro ao gerar PDF"); }
