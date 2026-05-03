@@ -22,6 +22,7 @@ const CartaoIdLote = () => {
   const [filterStatus, setFilterStatus] = useState("all");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [generating, setGenerating] = useState(false);
+  const [printLayout, setPrintLayout] = useState<PrintLayoutOptions>(DEFAULT_PRINT_LAYOUT);
   const renderContainerRef = useRef<HTMLDivElement>(null);
 
   const provinces = [...new Set(farmers.map((f) => f.province).filter(Boolean))].sort();
