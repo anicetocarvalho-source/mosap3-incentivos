@@ -1,15 +1,18 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { motion } from "framer-motion";
-import { CreditCard, CheckCircle2, XCircle, Printer, Search, Eye, MoreHorizontal, RefreshCw, Download, Loader2 } from "lucide-react";
+import { CreditCard, CheckCircle2, XCircle, Printer, Search, Eye, MoreHorizontal, Download, Loader2, CalendarIcon, FileDown } from "lucide-react";
 import { Link } from "react-router-dom";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { format } from "date-fns";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import PageHeader from "@/components/PageHeader";
@@ -43,8 +46,10 @@ const CartoesId = () => {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
+  const [filterProvince, setFilterProvince] = useState("all");
+  const [dateFrom, setDateFrom] = useState<Date | undefined>();
+  const [dateTo, setDateTo] = useState<Date | undefined>();
   const [page, setPage] = useState(1);
-  const [kpis, setKpis] = useState({ total: 0, active: 0, revoked: 0, delivered: 0 });
 
   const fetchCards = async () => {
     setLoading(true);
@@ -53,7 +58,6 @@ const CartoesId = () => {
         supabase.from("farmer_cards").select("*", { count: "exact" }).order("created_at", { ascending: false })
       );
 
-      // Enrich with farmer names
       const codes = [...new Set(allCards.map((c: any) => c.farmer_code))];
       const { data: farmers } = await supabase
         .from("farmers")
@@ -68,14 +72,6 @@ const CartoesId = () => {
       });
 
       setCards(enriched);
-
-      // KPIs
-      setKpis({
-        total: enriched.length,
-        active: enriched.filter((c: any) => c.status !== "Revogado").length,
-        revoked: enriched.filter((c: any) => c.status === "Revogado").length,
-        delivered: enriched.filter((c: any) => c.status === "Entregue").length,
-      });
     } catch {
       toast.error("Erro ao carregar cartões");
     }
@@ -84,17 +80,85 @@ const CartoesId = () => {
 
   useEffect(() => { fetchCards(); }, []);
 
-  const filtered = cards.filter((c) => {
-    if (filterStatus !== "all" && c.status !== filterStatus) return false;
-    if (search) {
-      const q = search.toLowerCase();
-      return c.farmer_name?.toLowerCase().includes(q) || c.farmer_code.toLowerCase().includes(q);
-    }
-    return true;
-  });
+  const provinces = useMemo(
+    () => [...new Set(cards.map((c) => c.province).filter(Boolean))].sort() as string[],
+    [cards]
+  );
+
+  const filtered = useMemo(() => {
+    return cards.filter((c) => {
+      if (filterStatus !== "all" && c.status !== filterStatus) return false;
+      if (filterProvince !== "all" && c.province !== filterProvince) return false;
+      if (dateFrom) {
+        const d = c.generated_at || c.created_at;
+        if (new Date(d) < dateFrom) return false;
+      }
+      if (dateTo) {
+        const d = c.generated_at || c.created_at;
+        const end = new Date(dateTo);
+        end.setHours(23, 59, 59, 999);
+        if (new Date(d) > end) return false;
+      }
+      if (search) {
+        const q = search.toLowerCase();
+        return c.farmer_name?.toLowerCase().includes(q) || c.farmer_code.toLowerCase().includes(q);
+      }
+      return true;
+    });
+  }, [cards, filterStatus, filterProvince, dateFrom, dateTo, search]);
+
+  const kpis = useMemo(() => ({
+    total: filtered.length,
+    active: filtered.filter((c) => c.status !== "Revogado").length,
+    revoked: filtered.filter((c) => c.status === "Revogado").length,
+    delivered: filtered.filter((c) => c.status === "Entregue").length,
+  }), [filtered]);
 
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  const resetPage = useCallback(() => setPage(1), []);
+
+  const exportCsv = useCallback(() => {
+    if (filtered.length === 0) {
+      toast.error("Nenhum resultado para exportar");
+      return;
+    }
+    const headers = ["Código", "Agricultor", "Província", "Estado", "Token", "Gerado em", "Impresso em", "Entregue em", "Criado em"];
+    const rows = filtered.map((c) => [
+      c.farmer_code,
+      c.farmer_name || "",
+      c.province || "",
+      c.status,
+      c.card_token,
+      c.generated_at ? new Date(c.generated_at).toLocaleDateString("pt-AO") : "",
+      c.printed_at ? new Date(c.printed_at).toLocaleDateString("pt-AO") : "",
+      c.delivered_at ? new Date(c.delivered_at).toLocaleDateString("pt-AO") : "",
+      new Date(c.created_at).toLocaleDateString("pt-AO"),
+    ]);
+
+    const bom = "\uFEFF";
+    const csv = bom + [headers, ...rows].map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(";")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `cartoes-id-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success(`${filtered.length} registos exportados`);
+  }, [filtered]);
+
+  const clearFilters = () => {
+    setSearch("");
+    setFilterStatus("all");
+    setFilterProvince("all");
+    setDateFrom(undefined);
+    setDateTo(undefined);
+    setPage(1);
+  };
+
+  const hasActiveFilters = search || filterStatus !== "all" || filterProvince !== "all" || dateFrom || dateTo;
 
   const updateStatus = async (card: CardRow, newStatus: string) => {
     const { data: user } = await supabase.auth.getUser();
@@ -135,22 +199,68 @@ const CartoesId = () => {
         ))}
       </div>
 
-      {/* Actions */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Pesquisar por nome ou código..." value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} className="pl-9" />
+      {/* Filters */}
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input placeholder="Pesquisar por nome ou código..." value={search} onChange={(e) => { setSearch(e.target.value); resetPage(); }} className="pl-9" />
+          </div>
+          <Select value={filterStatus} onValueChange={(v) => { setFilterStatus(v); resetPage(); }}>
+            <SelectTrigger className="w-40"><SelectValue placeholder="Estado" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos Estados</SelectItem>
+              {["Rascunho", "Gerado", "Impresso", "Entregue", "Revogado"].map((s) => (
+                <SelectItem key={s} value={s}>{s}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={filterProvince} onValueChange={(v) => { setFilterProvince(v); resetPage(); }}>
+            <SelectTrigger className="w-44"><SelectValue placeholder="Província" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas Províncias</SelectItem>
+              {provinces.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+            </SelectContent>
+          </Select>
         </div>
-        <Select value={filterStatus} onValueChange={(v) => { setFilterStatus(v); setPage(1); }}>
-          <SelectTrigger className="w-40"><SelectValue placeholder="Estado" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos</SelectItem>
-            {["Rascunho", "Gerado", "Impresso", "Entregue", "Revogado"].map((s) => (
-              <SelectItem key={s} value={s}>{s}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Button asChild><Link to="/cartoes-id/lote">Geração em Lote</Link></Button>
+
+        <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+          {/* Date From */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className={cn("w-44 justify-start text-left font-normal", !dateFrom && "text-muted-foreground")}>
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {dateFrom ? format(dateFrom, "dd/MM/yyyy") : "Data início"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar mode="single" selected={dateFrom} onSelect={(d) => { setDateFrom(d); resetPage(); }} initialFocus className={cn("p-3 pointer-events-auto")} />
+            </PopoverContent>
+          </Popover>
+
+          {/* Date To */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className={cn("w-44 justify-start text-left font-normal", !dateTo && "text-muted-foreground")}>
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {dateTo ? format(dateTo, "dd/MM/yyyy") : "Data fim"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar mode="single" selected={dateTo} onSelect={(d) => { setDateTo(d); resetPage(); }} initialFocus className={cn("p-3 pointer-events-auto")} />
+            </PopoverContent>
+          </Popover>
+
+          <div className="flex gap-2 ml-auto">
+            {hasActiveFilters && (
+              <Button variant="ghost" size="sm" onClick={clearFilters}>Limpar Filtros</Button>
+            )}
+            <Button variant="outline" size="sm" onClick={exportCsv} disabled={filtered.length === 0}>
+              <FileDown className="h-4 w-4 mr-2" /> Exportar CSV ({filtered.length})
+            </Button>
+            <Button asChild size="sm"><Link to="/cartoes-id/lote"><Download className="h-4 w-4 mr-2" /> Geração em Lote</Link></Button>
+          </div>
+        </div>
       </div>
 
       {/* Table */}
@@ -229,6 +339,7 @@ const CartoesId = () => {
                   <div>
                     <p className="font-medium text-sm">{c.farmer_name}</p>
                     <p className="text-xs font-mono text-muted-foreground">{c.farmer_code}</p>
+                    {c.province && <p className="text-xs text-muted-foreground">{c.province}</p>}
                   </div>
                   <Badge className={statusColor[c.status] || ""}>{c.status}</Badge>
                 </div>
@@ -246,10 +357,13 @@ const CartoesId = () => {
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-2">
-              <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage((p) => p - 1)}>Anterior</Button>
-              <span className="text-sm text-muted-foreground">{page} / {totalPages}</span>
-              <Button variant="outline" size="sm" disabled={page === totalPages} onClick={() => setPage((p) => p + 1)}>Próximo</Button>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">{filtered.length} resultado{filtered.length !== 1 ? "s" : ""}</span>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage((p) => p - 1)}>Anterior</Button>
+                <span className="text-sm text-muted-foreground">{page} / {totalPages}</span>
+                <Button variant="outline" size="sm" disabled={page === totalPages} onClick={() => setPage((p) => p + 1)}>Próximo</Button>
+              </div>
             </div>
           )}
         </>
