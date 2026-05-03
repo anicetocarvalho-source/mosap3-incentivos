@@ -6,7 +6,8 @@ import { Download, Printer, RefreshCw, Loader2, Clock, CreditCard, CheckCircle2,
 import { toast } from "sonner";
 import FarmerIdCard, { FarmerCardData } from "@/components/cartao/FarmerIdCard";
 import { useFarmerCard } from "@/hooks/useFarmerCard";
-import { downloadCardPdf, downloadCardPng } from "@/lib/cardExport";
+import { downloadCardPdf, downloadCardPng, DEFAULT_PRINT_LAYOUT, type PrintLayoutOptions } from "@/lib/cardExport";
+import PrintLayoutDialog from "@/components/cartao/PrintLayoutDialog";
 
 interface Props {
   farmerCode?: string;
