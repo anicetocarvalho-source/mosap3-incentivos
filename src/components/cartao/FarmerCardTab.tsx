@@ -103,6 +103,7 @@ const FarmerCardTab = ({ farmerCode, farmerInfo, signedPhotos }: Props) => {
 
           {/* Actions */}
           <div className="flex flex-wrap gap-2 justify-center">
+            <PrintLayoutDialog value={printLayout} onChange={setPrintLayout} />
             <Button variant="outline" size="sm" onClick={handleDownloadPdf} disabled={exporting}>
               <Download className="h-4 w-4 mr-1" /> PDF
             </Button>
