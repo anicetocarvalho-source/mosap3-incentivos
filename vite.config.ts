@@ -18,7 +18,13 @@ export default defineConfig(({ mode }) => ({
     mode === "development" && componentTagger(),
     VitePWA({
       registerType: "autoUpdate",
-      includeAssets: ["favicon.ico", "robots.txt", "pwa-192x192.png", "pwa-512x512.png"],
+      includeAssets: [
+        "favicon.ico", "robots.txt",
+        "pwa-72x72.png", "pwa-96x96.png", "pwa-128x128.png", "pwa-144x144.png",
+        "pwa-152x152.png", "pwa-167x167.png", "pwa-180x180.png",
+        "pwa-192x192.png", "pwa-256x256.png", "pwa-384x384.png",
+        "pwa-512x512.png", "pwa-1024x1024.png",
+      ],
       workbox: {
       globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
@@ -83,8 +89,18 @@ export default defineConfig(({ mode }) => ({
         start_url: "/",
         categories: ["business", "productivity"],
         icons: [
+          { src: "/pwa-72x72.png", sizes: "72x72", type: "image/png" },
+          { src: "/pwa-96x96.png", sizes: "96x96", type: "image/png" },
+          { src: "/pwa-128x128.png", sizes: "128x128", type: "image/png" },
+          { src: "/pwa-144x144.png", sizes: "144x144", type: "image/png" },
+          { src: "/pwa-152x152.png", sizes: "152x152", type: "image/png" },
+          { src: "/pwa-167x167.png", sizes: "167x167", type: "image/png" },
+          { src: "/pwa-180x180.png", sizes: "180x180", type: "image/png" },
           { src: "/pwa-192x192.png", sizes: "192x192", type: "image/png" },
+          { src: "/pwa-256x256.png", sizes: "256x256", type: "image/png" },
+          { src: "/pwa-384x384.png", sizes: "384x384", type: "image/png" },
           { src: "/pwa-512x512.png", sizes: "512x512", type: "image/png" },
+          { src: "/pwa-1024x1024.png", sizes: "1024x1024", type: "image/png" },
           { src: "/pwa-512x512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
         ],
       },
