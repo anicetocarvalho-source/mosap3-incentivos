@@ -180,7 +180,7 @@ const CartaoIdLote = () => {
       toast.error("Erro ao gerar cartões em lote");
     }
     setGenerating(false);
-  }, [selected, farmers]);
+  }, [selected, farmers, printLayout]);
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6 p-4 md:p-6">
