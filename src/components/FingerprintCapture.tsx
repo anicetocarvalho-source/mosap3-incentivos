@@ -27,11 +27,12 @@ function vibrate(ms = 8) {
   try { navigator.vibrate?.(ms); } catch { /* not supported */ }
 }
 
-const FingerprintCapture = ({ label, onCapture, captured, onRemove }: Props) => {
+const FingerprintCapture = ({ label, onCapture, captured, onRemove, farmerCode, allowRealDevice = true }: Props) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const scanLineRef = useRef(0);
   const animFrameRef = useRef<number>(0);
   const [isCapturing, setIsCapturing] = useState(false);
+  const [useRealDevice, setUseRealDevice] = useState(false);
   const [touchPoints, setTouchPoints] = useState(0);
   const [progress, setProgress] = useState(0);
   const isDrawing = useRef(false);
