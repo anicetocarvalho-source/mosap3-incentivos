@@ -92,6 +92,16 @@ export interface FarmerFingerprint {
   created_at: string;
 }
 
+export interface FarmerNfcTag {
+  id: string;
+  farmer_code: string;
+  nfc_uid: string;
+  nfc_type: string | null;
+  label: string | null;
+  is_active: boolean;
+  created_at: string;
+}
+
 export interface FingerprintVerification {
   id: string;
   farmer_code: string;
@@ -99,6 +109,17 @@ export interface FingerprintVerification {
   match_score: number;
   match_result: "match" | "no_match" | "error";
   created_at: string;
+}
+
+/** Summary of all biometric links for a farmer */
+export interface FarmerBiometricSummary {
+  fingerprints: FarmerFingerprint[];
+  nfcTags: FarmerNfcTag[];
+  verifications: FingerprintVerification[];
+  fingerprintCount: number;
+  nfcCount: number;
+  hasFingerprint: boolean;
+  hasNfc: boolean;
 }
 
 export const MATCH_THRESHOLD = 580;
