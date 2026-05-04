@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { Fingerprint, CreditCard, Smartphone, X } from "lucide-react";
+import { Fingerprint, CreditCard, Smartphone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import DevicePairingPanel from "./DevicePairingPanel";
+import FingerprintSdkPanel from "./FingerprintSdkPanel";
 import type { DeviceCapture } from "@/lib/deviceBridge";
 
 interface Props {
@@ -11,9 +12,17 @@ interface Props {
   onFingerprintCapture?: (capture: DeviceCapture) => void;
   onFingerprintImage?: (dataUrl: string) => void;
   onNfcCapture?: (capture: DeviceCapture) => void;
+  /** Use full SDK panel for fingerprint (enroll + verify + history) */
+  fullFingerprintMode?: boolean;
 }
 
-const DeviceManagerDialog = ({ farmerCode, onFingerprintCapture, onFingerprintImage, onNfcCapture }: Props) => {
+const DeviceManagerDialog = ({
+  farmerCode,
+  onFingerprintCapture,
+  onFingerprintImage,
+  onNfcCapture,
+  fullFingerprintMode = false,
+}: Props) => {
   const [open, setOpen] = useState(false);
 
   return (
@@ -24,7 +33,7 @@ const DeviceManagerDialog = ({ farmerCode, onFingerprintCapture, onFingerprintIm
           Dispositivos Externos
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Smartphone className="h-5 w-5" />
@@ -45,21 +54,27 @@ const DeviceManagerDialog = ({ farmerCode, onFingerprintCapture, onFingerprintIm
           </TabsList>
 
           <TabsContent value="fingerprint" className="mt-4">
-            <DevicePairingPanel
-              deviceType="fingerprint"
-              farmerCode={farmerCode}
-              onCapture={onFingerprintCapture}
-              onCaptureImage={onFingerprintImage}
-            />
-            <div className="mt-3 rounded-lg bg-muted/30 p-3 space-y-1.5">
-              <p className="text-xs font-medium">SDK G2010 — Leitor OXi</p>
-              <ul className="text-[11px] text-muted-foreground space-y-0.5 list-disc pl-4">
-                <li>Templates ISO 19794-2 (498 bytes)</li>
-                <li>Imagens BMP 256×360 (raw)</li>
-                <li>Score de verificação: 580–2000</li>
-                <li>Conexão USB ao tablet Android</li>
-              </ul>
-            </div>
+            {fullFingerprintMode && farmerCode ? (
+              <FingerprintSdkPanel farmerCode={farmerCode} />
+            ) : (
+              <>
+                <DevicePairingPanel
+                  deviceType="fingerprint"
+                  farmerCode={farmerCode}
+                  onCapture={onFingerprintCapture}
+                  onCaptureImage={onFingerprintImage}
+                />
+                <div className="mt-3 rounded-lg bg-muted/30 p-3 space-y-1.5">
+                  <p className="text-xs font-medium">SDK G2010 — Leitor OXi</p>
+                  <ul className="text-[11px] text-muted-foreground space-y-0.5 list-disc pl-4">
+                    <li>Templates ISO 19794-2 (498 bytes)</li>
+                    <li>Imagens BMP 256×360 (raw)</li>
+                    <li>Score de verificação: 580–2000</li>
+                    <li>Conexão USB ao tablet Android</li>
+                  </ul>
+                </div>
+              </>
+            )}
           </TabsContent>
 
           <TabsContent value="nfc" className="mt-4">
