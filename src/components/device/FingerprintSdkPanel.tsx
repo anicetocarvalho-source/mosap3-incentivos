@@ -510,7 +510,7 @@ const FingerprintSdkPanel = ({ farmerCode, onTemplateEnrolled, onVerified }: Pro
                           Aguardando verificação do dispositivo...
                         </p>
                         <p className="text-[10px] text-muted-foreground mt-1">
-                          O dispositivo compara com: LIVESCAN_VERIFYTEMPLATE
+                          Comparando com: <strong>{verifyFinger ? FINGER_LABELS[verifyFinger] : "—"}</strong> (LIVESCAN_VERIFYTEMPLATE)
                         </p>
                       </div>
                     )}
