@@ -543,6 +543,9 @@ const FingerprintSdkPanel = ({ farmerCode, onTemplateEnrolled, onVerified }: Pro
                     <div className="space-y-1">
                       {verifications.slice(0, 5).map((v) => {
                         const m = getMatchLabel(v.match_score);
+                        const fingerLabel = v.finger_position
+                          ? FINGER_LABELS[v.finger_position as FingerPosition] || v.finger_position
+                          : "N/D";
                         return (
                           <div key={v.id} className="flex items-center justify-between rounded-md bg-muted/20 px-3 py-1.5 text-xs">
                             <div className="flex items-center gap-2">
@@ -552,6 +555,9 @@ const FingerprintSdkPanel = ({ farmerCode, onTemplateEnrolled, onVerified }: Pro
                                 <XCircle className="h-3.5 w-3.5 text-destructive" />
                               )}
                               <span className={m.color}>{m.label}</span>
+                              <Badge variant="secondary" className="text-[9px]">
+                                {fingerLabel}
+                              </Badge>
                             </div>
                             <div className="flex items-center gap-2">
                               <Badge variant="outline" className="text-[9px]">
