@@ -6,6 +6,7 @@ import {
   type DeviceType,
   type DeviceSession,
   type DeviceCapture,
+  type SdkWorkflowState,
 } from "@/lib/deviceBridge";
 import { toast } from "sonner";
 
@@ -14,6 +15,7 @@ interface UseDeviceSessionOptions {
   farmerCode?: string;
   onCapture?: (capture: DeviceCapture) => void;
   onPaired?: () => void;
+  onWorkflowUpdate?: (workflow: SdkWorkflowState) => void;
   autoClose?: boolean;
 }
 
@@ -22,11 +24,13 @@ export function useDeviceSession({
   farmerCode,
   onCapture,
   onPaired,
+  onWorkflowUpdate,
   autoClose = true,
 }: UseDeviceSessionOptions) {
   const [session, setSession] = useState<DeviceSession | null>(null);
   const [status, setStatus] = useState<string>("idle");
   const [captures, setCaptures] = useState<DeviceCapture[]>([]);
+  const [sdkWorkflow, setSdkWorkflow] = useState<SdkWorkflowState>({});
   const [loading, setLoading] = useState(false);
   const unsubRef = useRef<(() => void) | null>(null);
 
@@ -37,12 +41,20 @@ export function useDeviceSession({
       setSession(s);
       setStatus("pending");
       setCaptures([]);
+      setSdkWorkflow({});
 
-      // Subscribe to realtime
       unsubRef.current = subscribeToSession(
         s.id,
-        (newStatus) => {
+        (newStatus, metadata) => {
           setStatus(newStatus);
+
+          // Extract SDK workflow state from metadata
+          if (metadata?.sdk_workflow) {
+            const wf = metadata.sdk_workflow as SdkWorkflowState;
+            setSdkWorkflow(wf);
+            onWorkflowUpdate?.(wf);
+          }
+
           if (newStatus === "paired") {
             toast.success("Dispositivo emparelhado!");
             onPaired?.();
@@ -54,11 +66,17 @@ export function useDeviceSession({
         (capture) => {
           setCaptures((prev) => [...prev, capture]);
           onCapture?.(capture);
-          toast.success(
-            capture.capture_type.startsWith("fingerprint")
-              ? "Impressão digital recebida"
-              : "Tag NFC lida",
-          );
+
+          if (capture.capture_type === "fingerprint_template") {
+            toast.success(
+              `Template ISO capturado${capture.finger_position ? ` — ${capture.finger_position}` : ""}`,
+              { description: capture.quality_score ? `Qualidade: ${capture.quality_score}` : undefined },
+            );
+          } else if (capture.capture_type === "fingerprint_image") {
+            toast.success("Imagem da impressão digital recebida");
+          } else {
+            toast.success("Tag NFC lida");
+          }
         },
       );
     } catch (e: unknown) {
@@ -67,7 +85,7 @@ export function useDeviceSession({
     } finally {
       setLoading(false);
     }
-  }, [deviceType, farmerCode, onCapture, onPaired]);
+  }, [deviceType, farmerCode, onCapture, onPaired, onWorkflowUpdate]);
 
   const stop = useCallback(async () => {
     unsubRef.current?.();
@@ -77,9 +95,9 @@ export function useDeviceSession({
     }
     setSession(null);
     setStatus("idle");
+    setSdkWorkflow({});
   }, [session]);
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       unsubRef.current?.();
@@ -94,6 +112,7 @@ export function useDeviceSession({
     session,
     status,
     captures,
+    sdkWorkflow,
     loading,
     isActive: ["pending", "paired", "active"].includes(status),
     start,

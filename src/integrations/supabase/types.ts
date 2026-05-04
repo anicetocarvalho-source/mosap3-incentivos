@@ -439,6 +439,56 @@ export type Database = {
           },
         ]
       }
+      farmer_fingerprints: {
+        Row: {
+          created_at: string
+          device_session_id: string | null
+          enrolled_by: string
+          farmer_code: string
+          finger_position: string
+          id: string
+          is_active: boolean
+          quality_score: number | null
+          raw_image_path: string | null
+          template_iso: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          device_session_id?: string | null
+          enrolled_by: string
+          farmer_code: string
+          finger_position: string
+          id?: string
+          is_active?: boolean
+          quality_score?: number | null
+          raw_image_path?: string | null
+          template_iso: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          device_session_id?: string | null
+          enrolled_by?: string
+          farmer_code?: string
+          finger_position?: string
+          id?: string
+          is_active?: boolean
+          quality_score?: number | null
+          raw_image_path?: string | null
+          template_iso?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "farmer_fingerprints_device_session_id_fkey"
+            columns: ["device_session_id"]
+            isOneToOne: false
+            referencedRelation: "device_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       farmer_incentives: {
         Row: {
           amount: string
@@ -754,6 +804,50 @@ export type Database = {
           valor_recebido?: string | null
         }
         Relationships: []
+      }
+      fingerprint_verifications: {
+        Row: {
+          created_at: string
+          device_session_id: string | null
+          farmer_code: string
+          finger_position: string | null
+          id: string
+          match_result: string
+          match_score: number
+          metadata: Json | null
+          verified_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          device_session_id?: string | null
+          farmer_code: string
+          finger_position?: string | null
+          id?: string
+          match_result: string
+          match_score: number
+          metadata?: Json | null
+          verified_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          device_session_id?: string | null
+          farmer_code?: string
+          finger_position?: string | null
+          id?: string
+          match_result?: string
+          match_score?: number
+          metadata?: Json | null
+          verified_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fingerprint_verifications_device_session_id_fkey"
+            columns: ["device_session_id"]
+            isOneToOne: false
+            referencedRelation: "device_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       invoice_sequences: {
         Row: {
