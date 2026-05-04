@@ -512,8 +512,23 @@ const FingerprintSdkPanel = ({ farmerCode, onTemplateEnrolled, onVerified }: Pro
                         <p className="text-[10px] text-muted-foreground mt-1">
                           Comparando com: <strong>{verifyFinger ? FINGER_LABELS[verifyFinger] : "—"}</strong> (LIVESCAN_VERIFYTEMPLATE)
                         </p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">
+                          O Android deve enviar <code className="bg-muted px-1 rounded">finger_position: "{verifyFinger}"</code> no pedido verify
+                        </p>
                       </div>
                     )}
+
+                    {/* API details for Android companion */}
+                    <details className="text-[10px]">
+                      <summary className="text-muted-foreground cursor-pointer">Detalhes Verificação (Android)</summary>
+                      <div className="mt-1 rounded bg-muted/30 p-2 font-mono break-all space-y-0.5">
+                        <p><strong>Endpoint:</strong> {apiUrl}</p>
+                        <p><strong>Verify:</strong> POST ?action=verify</p>
+                        <p><strong>finger_position:</strong> {verifyFinger || "—"}</p>
+                        <p><strong>farmer_code:</strong> {farmerCode}</p>
+                        <p><strong>Campos obrigatórios:</strong> farmer_code, finger_position, match_score</p>
+                      </div>
+                    </details>
 
                     <Button variant="ghost" size="sm" onClick={stop} className="w-full gap-1">
                       <X className="h-3.5 w-3.5" /> Cancelar
@@ -528,6 +543,9 @@ const FingerprintSdkPanel = ({ farmerCode, onTemplateEnrolled, onVerified }: Pro
                     <div className="space-y-1">
                       {verifications.slice(0, 5).map((v) => {
                         const m = getMatchLabel(v.match_score);
+                        const fingerLabel = v.finger_position
+                          ? FINGER_LABELS[v.finger_position as FingerPosition] || v.finger_position
+                          : "N/D";
                         return (
                           <div key={v.id} className="flex items-center justify-between rounded-md bg-muted/20 px-3 py-1.5 text-xs">
                             <div className="flex items-center gap-2">
@@ -537,6 +555,9 @@ const FingerprintSdkPanel = ({ farmerCode, onTemplateEnrolled, onVerified }: Pro
                                 <XCircle className="h-3.5 w-3.5 text-destructive" />
                               )}
                               <span className={m.color}>{m.label}</span>
+                              <Badge variant="secondary" className="text-[9px]">
+                                {fingerLabel}
+                              </Badge>
                             </div>
                             <div className="flex items-center gap-2">
                               <Badge variant="outline" className="text-[9px]">
