@@ -309,6 +309,34 @@ const FingerprintCapture = ({ label, onCapture, captured, onRemove, farmerCode, 
     );
   }
 
+  // ── Real device mode ──
+  if (useRealDevice) {
+    return (
+      <div className="space-y-1.5">
+        <div className="flex items-center justify-between">
+          <label className="text-xs font-medium text-foreground">{label}</label>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 text-[10px] text-muted-foreground"
+            onClick={() => setUseRealDevice(false)}
+          >
+            Modo simulação
+          </Button>
+        </div>
+        <DevicePairingPanel
+          deviceType="fingerprint"
+          farmerCode={farmerCode}
+          onCaptureImage={(dataUrl) => {
+            onCapture(dataUrl);
+            setUseRealDevice(false);
+          }}
+          compact={false}
+        />
+      </div>
+    );
+  }
+
   // ── Idle state ──
   return (
     <div className="space-y-1.5">
@@ -324,6 +352,17 @@ const FingerprintCapture = ({ label, onCapture, captured, onRemove, farmerCode, 
           Toque para capturar
         </span>
       </button>
+      {allowRealDevice && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="w-full text-[10px] text-muted-foreground gap-1.5"
+          onClick={() => setUseRealDevice(true)}
+        >
+          <Smartphone className="h-3 w-3" />
+          Usar leitor G2010
+        </Button>
+      )}
     </div>
   );
 };
