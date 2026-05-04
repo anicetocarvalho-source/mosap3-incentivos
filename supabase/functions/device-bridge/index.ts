@@ -208,7 +208,32 @@ Deno.serve(async (req) => {
         });
       }
 
-      return json({ ok: true, capture_id: capture.id, enrolled: !!session.farmer_code });
+      // Auto-link NFC tag if farmer_code is set
+      let nfcLinked = false;
+      if (capture_type === "nfc_uid" && session.farmer_code) {
+        // Deactivate previous with same UID
+        await sb
+          .from("farmer_nfc_tags")
+          .update({ is_active: false })
+          .eq("nfc_uid", data)
+          .eq("is_active", true);
+
+        const { error: nfcErr } = await sb.from("farmer_nfc_tags").insert({
+          farmer_code: session.farmer_code,
+          nfc_uid: data,
+          nfc_type: capMeta?.nfc_type || "unknown",
+          device_session_id: session.id,
+          linked_by: session.user_id,
+        });
+        nfcLinked = !nfcErr;
+      }
+
+      return json({
+        ok: true,
+        capture_id: capture.id,
+        enrolled: !!(session.farmer_code && capture_type === "fingerprint_template"),
+        nfc_linked: nfcLinked,
+      });
     }
 
     // ── VERIFY: Compare template against enrolled fingerprints ──
