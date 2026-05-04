@@ -92,6 +92,16 @@ export interface FarmerFingerprint {
   created_at: string;
 }
 
+export interface FarmerNfcTag {
+  id: string;
+  farmer_code: string;
+  nfc_uid: string;
+  nfc_type: string | null;
+  label: string | null;
+  is_active: boolean;
+  created_at: string;
+}
+
 export interface FingerprintVerification {
   id: string;
   farmer_code: string;
@@ -99,6 +109,17 @@ export interface FingerprintVerification {
   match_score: number;
   match_result: "match" | "no_match" | "error";
   created_at: string;
+}
+
+/** Summary of all biometric links for a farmer */
+export interface FarmerBiometricSummary {
+  fingerprints: FarmerFingerprint[];
+  nfcTags: FarmerNfcTag[];
+  verifications: FingerprintVerification[];
+  fingerprintCount: number;
+  nfcCount: number;
+  hasFingerprint: boolean;
+  hasNfc: boolean;
 }
 
 export const MATCH_THRESHOLD = 580;
@@ -202,6 +223,84 @@ export async function deactivateFingerprint(id: string): Promise<void> {
     .update({ is_active: false })
     .eq("id", id);
   if (error) throw error;
+}
+
+/** Get linked NFC tags for a farmer */
+export async function getLinkedNfcTags(
+  farmerCode: string,
+): Promise<FarmerNfcTag[]> {
+  const { data, error } = await supabase
+    .from("farmer_nfc_tags")
+    .select("*")
+    .eq("farmer_code", farmerCode)
+    .eq("is_active", true)
+    .order("created_at", { ascending: true });
+
+  if (error) throw error;
+  return (data || []) as unknown as FarmerNfcTag[];
+}
+
+/** Link an NFC tag to a farmer */
+export async function linkNfcTag(
+  farmerCode: string,
+  nfcUid: string,
+  sessionId?: string,
+  nfcType?: string,
+): Promise<FarmerNfcTag> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Utilizador não autenticado");
+
+  // Deactivate previous with same UID
+  await supabase
+    .from("farmer_nfc_tags")
+    .update({ is_active: false })
+    .eq("nfc_uid", nfcUid)
+    .eq("is_active", true);
+
+  const { data, error } = await supabase
+    .from("farmer_nfc_tags")
+    .insert({
+      farmer_code: farmerCode,
+      nfc_uid: nfcUid,
+      nfc_type: nfcType || "unknown",
+      device_session_id: sessionId || null,
+      linked_by: user.id,
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data as unknown as FarmerNfcTag;
+}
+
+/** Deactivate an NFC tag */
+export async function deactivateNfcTag(id: string): Promise<void> {
+  const { error } = await supabase
+    .from("farmer_nfc_tags")
+    .update({ is_active: false })
+    .eq("id", id);
+  if (error) throw error;
+}
+
+/** Get full biometric summary for a farmer */
+export async function getFarmerBiometricSummary(
+  farmerCode: string,
+): Promise<FarmerBiometricSummary> {
+  const [fingerprints, nfcTags, verifications] = await Promise.all([
+    getEnrolledFingerprints(farmerCode),
+    getLinkedNfcTags(farmerCode),
+    getVerificationHistory(farmerCode, 5),
+  ]);
+
+  return {
+    fingerprints,
+    nfcTags,
+    verifications,
+    fingerprintCount: fingerprints.length,
+    nfcCount: nfcTags.length,
+    hasFingerprint: fingerprints.length > 0,
+    hasNfc: nfcTags.length > 0,
+  };
 }
 
 /** Subscribe to session status changes */

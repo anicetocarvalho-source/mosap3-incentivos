@@ -1,11 +1,13 @@
-import { useState } from "react";
-import { Fingerprint, CreditCard, Smartphone } from "lucide-react";
+import { useState, useCallback } from "react";
+import { Fingerprint, CreditCard, Smartphone, CheckCircle2, Link2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { toast } from "sonner";
 import DevicePairingPanel from "./DevicePairingPanel";
 import FingerprintSdkPanel from "./FingerprintSdkPanel";
-import type { DeviceCapture } from "@/lib/deviceBridge";
+import FarmerBiometricStatus from "./FarmerBiometricStatus";
+import { linkNfcTag, type DeviceCapture } from "@/lib/deviceBridge";
 
 interface Props {
   farmerCode?: string;
@@ -24,9 +26,67 @@ const DeviceManagerDialog = ({
   fullFingerprintMode = false,
 }: Props) => {
   const [open, setOpen] = useState(false);
+  const [biometricRefreshKey, setBiometricRefreshKey] = useState(0);
+  const [linkedItems, setLinkedItems] = useState<{ type: string; id: string; label: string }[]>([]);
+
+  const refreshBiometrics = useCallback(() => {
+    setBiometricRefreshKey((k) => k + 1);
+  }, []);
+
+  /** Auto-link NFC capture to farmer */
+  const handleNfcCapture = useCallback(async (capture: DeviceCapture) => {
+    onNfcCapture?.(capture);
+
+    if (!farmerCode) return;
+
+    if (capture.capture_type === "nfc_uid") {
+      try {
+        await linkNfcTag(
+          farmerCode,
+          capture.data,
+          capture.session_id,
+          (capture.metadata as Record<string, string>)?.nfc_type,
+        );
+        setLinkedItems((prev) => [
+          ...prev,
+          { type: "nfc", id: capture.id, label: `NFC ${capture.data.substring(0, 12)}` },
+        ]);
+        refreshBiometrics();
+        toast.success("Tag NFC vinculada ao agricultor", {
+          description: `UID: ${capture.data.substring(0, 16)}...`,
+        });
+      } catch (e) {
+        toast.error("Erro ao vincular NFC", {
+          description: e instanceof Error ? e.message : "Tente novamente",
+        });
+      }
+    }
+  }, [farmerCode, onNfcCapture, refreshBiometrics]);
+
+  /** Handle fingerprint template enrolled (auto-linked by edge function) */
+  const handleFingerprintEnrolled = useCallback((fp: { finger_position: string; quality_score: number | null }) => {
+    setLinkedItems((prev) => [
+      ...prev,
+      { type: "fingerprint", id: fp.finger_position, label: `Impressão ${fp.finger_position}` },
+    ]);
+    refreshBiometrics();
+  }, [refreshBiometrics]);
+
+  /** Handle fingerprint capture from simple mode */
+  const handleFingerprintCapture = useCallback((capture: DeviceCapture) => {
+    onFingerprintCapture?.(capture);
+
+    if (capture.capture_type === "fingerprint_template" && farmerCode) {
+      setLinkedItems((prev) => [
+        ...prev,
+        { type: "fingerprint", id: capture.id, label: `Template ISO` },
+      ]);
+      refreshBiometrics();
+    }
+  }, [farmerCode, onFingerprintCapture, refreshBiometrics]);
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) setLinkedItems([]); }}>
       <DialogTrigger asChild>
         <Button variant="outline" size="sm" className="gap-2">
           <Smartphone className="h-4 w-4" />
@@ -40,6 +100,42 @@ const DeviceManagerDialog = ({
             Dispositivos Externos
           </DialogTitle>
         </DialogHeader>
+
+        {/* Biometric status banner */}
+        {farmerCode && (
+          <div className="rounded-lg border border-border p-3 space-y-2">
+            <div className="flex items-center gap-2">
+              <Link2 className="h-4 w-4 text-primary" />
+              <span className="text-xs font-medium">Dados biométricos vinculados</span>
+            </div>
+            <FarmerBiometricStatus farmerCode={farmerCode} refreshKey={biometricRefreshKey} />
+          </div>
+        )}
+
+        {/* Recently linked items confirmation */}
+        {linkedItems.length > 0 && (
+          <div className="rounded-lg bg-success/5 border border-success/20 p-3 space-y-1.5">
+            <p className="text-xs font-medium text-success flex items-center gap-1.5">
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              Vinculados nesta sessão:
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {linkedItems.map((item, i) => (
+                <span
+                  key={`${item.id}-${i}`}
+                  className="inline-flex items-center gap-1 rounded-full bg-success/10 px-2 py-0.5 text-[10px] text-success"
+                >
+                  {item.type === "fingerprint" ? (
+                    <Fingerprint className="h-2.5 w-2.5" />
+                  ) : (
+                    <CreditCard className="h-2.5 w-2.5" />
+                  )}
+                  {item.label}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
 
         <Tabs defaultValue="fingerprint" className="w-full">
           <TabsList className="grid w-full grid-cols-2">
@@ -55,13 +151,16 @@ const DeviceManagerDialog = ({
 
           <TabsContent value="fingerprint" className="mt-4">
             {fullFingerprintMode && farmerCode ? (
-              <FingerprintSdkPanel farmerCode={farmerCode} />
+              <FingerprintSdkPanel
+                farmerCode={farmerCode}
+                onTemplateEnrolled={handleFingerprintEnrolled}
+              />
             ) : (
               <>
                 <DevicePairingPanel
                   deviceType="fingerprint"
                   farmerCode={farmerCode}
-                  onCapture={onFingerprintCapture}
+                  onCapture={handleFingerprintCapture}
                   onCaptureImage={onFingerprintImage}
                 />
                 <div className="mt-3 rounded-lg bg-muted/30 p-3 space-y-1.5">
@@ -81,7 +180,7 @@ const DeviceManagerDialog = ({
             <DevicePairingPanel
               deviceType="nfc"
               farmerCode={farmerCode}
-              onCapture={onNfcCapture}
+              onCapture={handleNfcCapture}
             />
             <div className="mt-3 rounded-lg bg-muted/30 p-3 space-y-1.5">
               <p className="text-xs font-medium">SDK SOTEN NFC</p>
