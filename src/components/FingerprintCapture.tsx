@@ -1,13 +1,16 @@
 import { useRef, useState, useEffect, useCallback } from "react";
-import { Fingerprint, RotateCcw, Check, ShieldCheck } from "lucide-react";
+import { Fingerprint, RotateCcw, Check, ShieldCheck, Smartphone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import DevicePairingPanel from "@/components/device/DevicePairingPanel";
 
 type Props = {
   label: string;
   onCapture: (imageData: string) => void;
   captured?: string;
   onRemove?: () => void;
+  farmerCode?: string;
+  allowRealDevice?: boolean;
 };
 
 const REQUIRED_POINTS = 50;
