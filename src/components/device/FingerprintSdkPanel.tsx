@@ -102,6 +102,7 @@ const HandSvg = ({ side, enrolled, selected, onSelect }: {
 const FingerprintSdkPanel = ({ farmerCode, onTemplateEnrolled, onVerified }: Props) => {
   const [activeTab, setActiveTab] = useState<"enroll" | "verify" | "history">("enroll");
   const [selectedFinger, setSelectedFinger] = useState<FingerPosition | null>(null);
+  const [verifyFinger, setVerifyFinger] = useState<FingerPosition | null>(null);
   const [enrolled, setEnrolled] = useState<FarmerFingerprint[]>([]);
   const [verifications, setVerifications] = useState<FingerprintVerification[]>([]);
   const [loadingData, setLoadingData] = useState(true);
@@ -435,19 +436,58 @@ const FingerprintSdkPanel = ({ farmerCode, onTemplateEnrolled, onVerified }: Pro
                     <div className="text-xs space-y-1">
                       <p className="font-medium">Verificação biométrica ISO 19794-2</p>
                       <p className="text-muted-foreground">
-                        Ligue o leitor G2010, capture a impressão digital do agricultor
-                        e o dispositivo comparará com o template registado.
-                        Score ≥ {MATCH_THRESHOLD} = correspondência válida.
+                        Seleccione o dedo registado para comparar, ligue o leitor G2010
+                        e capture a impressão digital. Score ≥ {MATCH_THRESHOLD} = correspondência válida.
                       </p>
                     </div>
                   </div>
                 </div>
 
+                {/* Finger selection for verification */}
+                <div>
+                  <p className="text-xs font-medium mb-2">Seleccione o dedo a verificar:</p>
+                  <div className="flex justify-center gap-4">
+                    <HandSvg
+                      side="esq"
+                      enrolled={enrolledSet}
+                      selected={verifyFinger}
+                      onSelect={(fp) => {
+                        if (enrolledSet.has(fp)) setVerifyFinger(fp);
+                        else toast.info(`${FINGER_LABELS[fp]} não está registado`);
+                      }}
+                    />
+                    <HandSvg
+                      side="dir"
+                      enrolled={enrolledSet}
+                      selected={verifyFinger}
+                      onSelect={(fp) => {
+                        if (enrolledSet.has(fp)) setVerifyFinger(fp);
+                        else toast.info(`${FINGER_LABELS[fp]} não está registado`);
+                      }}
+                    />
+                  </div>
+                  {verifyFinger && (
+                    <p className="text-xs text-center mt-2 text-primary font-medium">
+                      Verificar: {FINGER_LABELS[verifyFinger]}
+                    </p>
+                  )}
+                  {!verifyFinger && (
+                    <p className="text-[10px] text-center mt-2 text-muted-foreground">
+                      Toque num dedo registado (verde) para seleccionar
+                    </p>
+                  )}
+                </div>
+
                 <div className="flex flex-col items-center gap-3">
-                  <Button onClick={start} disabled={loading || isActive} className="gap-2">
+                  <Button onClick={start} disabled={loading || isActive || !verifyFinger} className="gap-2">
                     {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Shield className="h-4 w-4" />}
                     Iniciar Verificação
                   </Button>
+                  {!verifyFinger && !isActive && (
+                    <p className="text-[10px] text-muted-foreground">
+                      Seleccione um dedo primeiro
+                    </p>
+                  )}
                 </div>
 
                 {isActive && session && (
@@ -470,7 +510,7 @@ const FingerprintSdkPanel = ({ farmerCode, onTemplateEnrolled, onVerified }: Pro
                           Aguardando verificação do dispositivo...
                         </p>
                         <p className="text-[10px] text-muted-foreground mt-1">
-                          O dispositivo compara com: LIVESCAN_VERIFYTEMPLATE
+                          Comparando com: <strong>{verifyFinger ? FINGER_LABELS[verifyFinger] : "—"}</strong> (LIVESCAN_VERIFYTEMPLATE)
                         </p>
                       </div>
                     )}
