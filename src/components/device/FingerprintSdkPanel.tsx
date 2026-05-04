@@ -512,8 +512,23 @@ const FingerprintSdkPanel = ({ farmerCode, onTemplateEnrolled, onVerified }: Pro
                         <p className="text-[10px] text-muted-foreground mt-1">
                           Comparando com: <strong>{verifyFinger ? FINGER_LABELS[verifyFinger] : "—"}</strong> (LIVESCAN_VERIFYTEMPLATE)
                         </p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">
+                          O Android deve enviar <code className="bg-muted px-1 rounded">finger_position: "{verifyFinger}"</code> no pedido verify
+                        </p>
                       </div>
                     )}
+
+                    {/* API details for Android companion */}
+                    <details className="text-[10px]">
+                      <summary className="text-muted-foreground cursor-pointer">Detalhes Verificação (Android)</summary>
+                      <div className="mt-1 rounded bg-muted/30 p-2 font-mono break-all space-y-0.5">
+                        <p><strong>Endpoint:</strong> {apiUrl}</p>
+                        <p><strong>Verify:</strong> POST ?action=verify</p>
+                        <p><strong>finger_position:</strong> {verifyFinger || "—"}</p>
+                        <p><strong>farmer_code:</strong> {farmerCode}</p>
+                        <p><strong>Campos obrigatórios:</strong> farmer_code, finger_position, match_score</p>
+                      </div>
+                    </details>
 
                     <Button variant="ghost" size="sm" onClick={stop} className="w-full gap-1">
                       <X className="h-3.5 w-3.5" /> Cancelar
