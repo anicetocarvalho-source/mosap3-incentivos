@@ -1,13 +1,16 @@
 import { useRef, useState, useEffect, useCallback } from "react";
-import { Fingerprint, RotateCcw, Check, ShieldCheck } from "lucide-react";
+import { Fingerprint, RotateCcw, Check, ShieldCheck, Smartphone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import DevicePairingPanel from "@/components/device/DevicePairingPanel";
 
 type Props = {
   label: string;
   onCapture: (imageData: string) => void;
   captured?: string;
   onRemove?: () => void;
+  farmerCode?: string;
+  allowRealDevice?: boolean;
 };
 
 const REQUIRED_POINTS = 50;
@@ -24,11 +27,12 @@ function vibrate(ms = 8) {
   try { navigator.vibrate?.(ms); } catch { /* not supported */ }
 }
 
-const FingerprintCapture = ({ label, onCapture, captured, onRemove }: Props) => {
+const FingerprintCapture = ({ label, onCapture, captured, onRemove, farmerCode, allowRealDevice = true }: Props) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const scanLineRef = useRef(0);
   const animFrameRef = useRef<number>(0);
   const [isCapturing, setIsCapturing] = useState(false);
+  const [useRealDevice, setUseRealDevice] = useState(false);
   const [touchPoints, setTouchPoints] = useState(0);
   const [progress, setProgress] = useState(0);
   const isDrawing = useRef(false);
@@ -305,6 +309,34 @@ const FingerprintCapture = ({ label, onCapture, captured, onRemove }: Props) => 
     );
   }
 
+  // ── Real device mode ──
+  if (useRealDevice) {
+    return (
+      <div className="space-y-1.5">
+        <div className="flex items-center justify-between">
+          <label className="text-xs font-medium text-foreground">{label}</label>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 text-[10px] text-muted-foreground"
+            onClick={() => setUseRealDevice(false)}
+          >
+            Modo simulação
+          </Button>
+        </div>
+        <DevicePairingPanel
+          deviceType="fingerprint"
+          farmerCode={farmerCode}
+          onCaptureImage={(dataUrl) => {
+            onCapture(dataUrl);
+            setUseRealDevice(false);
+          }}
+          compact={false}
+        />
+      </div>
+    );
+  }
+
   // ── Idle state ──
   return (
     <div className="space-y-1.5">
@@ -320,6 +352,17 @@ const FingerprintCapture = ({ label, onCapture, captured, onRemove }: Props) => 
           Toque para capturar
         </span>
       </button>
+      {allowRealDevice && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="w-full text-[10px] text-muted-foreground gap-1.5"
+          onClick={() => setUseRealDevice(true)}
+        >
+          <Smartphone className="h-3 w-3" />
+          Usar leitor G2010
+        </Button>
+      )}
     </div>
   );
 };

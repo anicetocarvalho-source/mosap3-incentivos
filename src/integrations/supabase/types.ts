@@ -157,6 +157,86 @@ export type Database = {
           },
         ]
       }
+      device_captures: {
+        Row: {
+          capture_type: string
+          created_at: string
+          data: string
+          finger_position: string | null
+          id: string
+          metadata: Json | null
+          quality_score: number | null
+          session_id: string
+        }
+        Insert: {
+          capture_type: string
+          created_at?: string
+          data: string
+          finger_position?: string | null
+          id?: string
+          metadata?: Json | null
+          quality_score?: number | null
+          session_id: string
+        }
+        Update: {
+          capture_type?: string
+          created_at?: string
+          data?: string
+          finger_position?: string | null
+          id?: string
+          metadata?: Json | null
+          quality_score?: number | null
+          session_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "device_captures_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "device_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      device_sessions: {
+        Row: {
+          created_at: string
+          device_type: string
+          expires_at: string
+          farmer_code: string | null
+          id: string
+          metadata: Json | null
+          session_code: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          device_type: string
+          expires_at?: string
+          farmer_code?: string | null
+          id?: string
+          metadata?: Json | null
+          session_code: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          device_type?: string
+          expires_at?: string
+          farmer_code?: string | null
+          id?: string
+          metadata?: Json | null
+          session_code?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       farmer_balance_history: {
         Row: {
           changed_by: string | null
