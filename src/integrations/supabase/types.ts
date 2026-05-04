@@ -533,6 +533,53 @@ export type Database = {
           },
         ]
       }
+      farmer_nfc_tags: {
+        Row: {
+          created_at: string
+          device_session_id: string | null
+          farmer_code: string
+          id: string
+          is_active: boolean
+          label: string | null
+          linked_by: string
+          nfc_type: string | null
+          nfc_uid: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          device_session_id?: string | null
+          farmer_code: string
+          id?: string
+          is_active?: boolean
+          label?: string | null
+          linked_by: string
+          nfc_type?: string | null
+          nfc_uid: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          device_session_id?: string | null
+          farmer_code?: string
+          id?: string
+          is_active?: boolean
+          label?: string | null
+          linked_by?: string
+          nfc_type?: string | null
+          nfc_uid?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "farmer_nfc_tags_device_session_id_fkey"
+            columns: ["device_session_id"]
+            isOneToOne: false
+            referencedRelation: "device_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       farmer_parcels: {
         Row: {
           area: string
