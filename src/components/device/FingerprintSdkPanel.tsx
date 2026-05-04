@@ -102,6 +102,7 @@ const HandSvg = ({ side, enrolled, selected, onSelect }: {
 const FingerprintSdkPanel = ({ farmerCode, onTemplateEnrolled, onVerified }: Props) => {
   const [activeTab, setActiveTab] = useState<"enroll" | "verify" | "history">("enroll");
   const [selectedFinger, setSelectedFinger] = useState<FingerPosition | null>(null);
+  const [verifyFinger, setVerifyFinger] = useState<FingerPosition | null>(null);
   const [enrolled, setEnrolled] = useState<FarmerFingerprint[]>([]);
   const [verifications, setVerifications] = useState<FingerprintVerification[]>([]);
   const [loadingData, setLoadingData] = useState(true);
