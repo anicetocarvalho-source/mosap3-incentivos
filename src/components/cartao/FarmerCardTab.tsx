@@ -8,6 +8,7 @@ import FarmerIdCard, { FarmerCardData } from "@/components/cartao/FarmerIdCard";
 import { useFarmerCard } from "@/hooks/useFarmerCard";
 import { downloadCardPdf, downloadCardPng, DEFAULT_PRINT_LAYOUT, type PrintLayoutOptions } from "@/lib/cardExport";
 import PrintLayoutDialog from "@/components/cartao/PrintLayoutDialog";
+import DeviceManagerDialog from "@/components/device/DeviceManagerDialog";
 
 interface Props {
   farmerCode?: string;
