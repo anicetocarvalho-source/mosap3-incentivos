@@ -243,8 +243,28 @@ Deno.serve(async (req) => {
         finger_position,
       } = await req.json();
 
-      if (!farmer_code || match_score === undefined)
-        return json({ error: "farmer_code, match_score obrigatórios" }, 400);
+      if (!farmer_code || !finger_position || match_score === undefined)
+        return json({ error: "farmer_code, finger_position e match_score obrigatórios" }, 400);
+
+      const validFingers = [
+        "polegar_dir", "indicador_dir", "medio_dir", "anelar_dir",
+        "polegar_esq", "indicador_esq", "medio_esq", "anelar_esq",
+      ];
+      if (!validFingers.includes(finger_position))
+        return json({ error: `finger_position inválido. Aceites: ${validFingers.join(", ")}` }, 400);
+
+      // Fetch the enrolled template for the exact finger position
+      const { data: enrolledFp, error: fpErr } = await sb
+        .from("farmer_fingerprints")
+        .select("id, finger_position, template_iso, quality_score")
+        .eq("farmer_code", farmer_code)
+        .eq("finger_position", finger_position)
+        .eq("is_active", true)
+        .maybeSingle();
+
+      if (fpErr) return json({ error: fpErr.message }, 500);
+      if (!enrolledFp)
+        return json({ error: `Nenhum template registado para ${finger_position} deste agricultor` }, 404);
 
       const threshold = 580;
       const matchResult = match_score >= threshold ? "match" : "no_match";
@@ -264,13 +284,15 @@ Deno.serve(async (req) => {
         .from("fingerprint_verifications")
         .insert({
           farmer_code,
-          finger_position: finger_position || null,
+          finger_position,
           match_score,
           match_result: matchResult,
           verified_by: verifiedBy,
           device_session_id: session_id || null,
           metadata: {
             template_provided: !!template_iso,
+            enrolled_fingerprint_id: enrolledFp.id,
+            enrolled_quality_score: enrolledFp.quality_score,
             threshold,
             timestamp: new Date().toISOString(),
           },
@@ -287,6 +309,8 @@ Deno.serve(async (req) => {
         match_score,
         threshold,
         is_verified: matchResult === "match",
+        enrolled_fingerprint_id: enrolledFp.id,
+        finger_position,
       });
     }
 
