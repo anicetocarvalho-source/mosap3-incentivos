@@ -298,6 +298,16 @@ const FarmerProfile = () => {
                   </div>
                 )}
               </div>
+
+              {/* Linked SDK biometrics (G2010 fingerprint + NFC) */}
+              {id && (
+                <div className="mt-4 pt-4 border-t border-border">
+                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                    <Fingerprint className="h-3.5 w-3.5" /> Biometria Vinculada (SDK)
+                  </h3>
+                  <FarmerBiometricStatus farmerCode={id} />
+                </div>
+              )}
             </div>
           )}
         </Card>
