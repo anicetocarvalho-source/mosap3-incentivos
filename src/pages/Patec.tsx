@@ -73,7 +73,8 @@ const categoryIcons: Record<string, string> = {
 const PAGE_SIZE = 15;
 
 const Patec = () => {
-  const { isAdmin } = useAuth();
+  const { isAdmin, user, roles, authReady } = useAuth();
+  const [scope, setScope] = useState<ResolvedScope | null>(null);
   const [farmers, setFarmers] = useState<FarmerPatec[]>([]);
   const [patecItems, setPatecItems] = useState<PatecItem[]>([]);
   const [loading, setLoading] = useState(true);
