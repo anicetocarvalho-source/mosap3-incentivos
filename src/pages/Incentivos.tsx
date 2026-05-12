@@ -59,7 +59,7 @@ const Incentivos = () => {
     queryKey: ["farmers_list_select"],
     queryFn: async () => {
       return await fetchAllPages<any>(() =>
-        supabase.from("farmers").select("code, full_name", { count: "exact" }).order("full_name")
+        supabase.from("farmers").select("code, full_name", { count: "exact" }).neq("status","Removido").order("full_name")
       );
     },
   });
