@@ -48,22 +48,7 @@ export interface DashboardCharts {
   posSalesTrend: { month: string; valor: number; vendas: number }[];
 }
 
-async function resolveScope(userId: string, roles: AppRole[]) {
-  let scope = getFilterScope(roles);
-  let provinces: string[] = [];
-  let ecas: string[] = [];
-  if (scope === "province") {
-    provinces = await fetchUserProvinces(userId);
-    if (provinces.length === 0) scope = "global";
-  } else if (scope === "eca") {
-    ecas = await fetchUserEcas(userId);
-    if (ecas.length === 0) scope = "global";
-  }
-  let filterLabel = "Todas as províncias";
-  if (scope === "province") filterLabel = provinces.join(", ");
-  else if (scope === "eca") filterLabel = ecas.join(", ");
-  return { scope, provinces, ecas, filterLabel };
-}
+const resolveScope = resolveScopeShared;
 
 const toIsoDate = (d?: Date) => (d ? d.toISOString().slice(0, 10) : null);
 
