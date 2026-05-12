@@ -234,6 +234,6 @@ describe("Patec — integração: alternância de scope", () => {
     await waitFor(() =>
       expect(screen.getAllByText("15").length).toBeGreaterThan(0)
     );
-    expect(screen.getByText(/Elavoko/)).toBeInTheDocument();
+    expect(screen.getAllByText(/Elavoko/).length).toBeGreaterThan(0);
   });
 });
