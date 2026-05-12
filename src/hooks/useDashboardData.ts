@@ -1,35 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import type { Database } from "@/integrations/supabase/types";
-
-type AppRole = Database["public"]["Enums"]["app_role"];
-
-const GLOBAL_ROLES: AppRole[] = ["admin", "gestor_incentivos"];
-const PROVINCE_ROLES: AppRole[] = [
-  "senior_agricultura", "senior_monitoria", "senior_agronegocio",
-  "junior_agricultura", "junior_monitoria", "junior_agronegocio",
-];
-const ECA_ROLES: AppRole[] = ["tecnico_extensionista"];
-
-type FilterScope = "global" | "province" | "eca";
-
-function getFilterScope(roles: AppRole[]): FilterScope {
-  if (roles.some((r) => GLOBAL_ROLES.includes(r))) return "global";
-  if (roles.some((r) => PROVINCE_ROLES.includes(r))) return "province";
-  if (roles.some((r) => ECA_ROLES.includes(r))) return "eca";
-  return "global";
-}
-
-async function fetchUserProvinces(userId: string): Promise<string[]> {
-  const { data } = await supabase.from("user_provinces").select("province").eq("user_id", userId);
-  return data?.map((d) => d.province) ?? [];
-}
-
-async function fetchUserEcas(userId: string): Promise<string[]> {
-  const { data } = await supabase.from("user_ecas").select("eca_name").eq("user_id", userId);
-  return data?.map((d) => d.eca_name) ?? [];
-}
+import { resolveScope as resolveScopeShared, type FilterScope, type AppRole } from "@/lib/farmerScope";
 
 export type DashboardDeltas = Partial<Record<
   | "totalFarmers" | "totalApproved" | "totalCompanies" | "totalSchools"
