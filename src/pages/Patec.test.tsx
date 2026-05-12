@@ -134,9 +134,9 @@ describe("Patec — integração: alternância de scope", () => {
     // Não deve mostrar badge de scope
     expect(screen.queryByText(/Províncias:/)).toBeNull();
     expect(screen.queryByText(/ECAs:/)).toBeNull();
-    // applyFarmerScopeFilter foi chamado com scope global
-    expect(applyFarmerScopeFilterMock).toHaveBeenCalled();
-    expect(applyFarmerScopeFilterMock.mock.calls[0][1].scope).toBe("global");
+    // resolveScope foi chamado com scope global do utilizador
+    expect(resolveScopeMock).toHaveBeenCalledWith("u1", ["admin"]);
+    expect(fetchAllPagesMock).toHaveBeenCalled();
   });
 
   it("Júnior (province=Benguela): mostra só 100 produtores e badge de província", async () => {
