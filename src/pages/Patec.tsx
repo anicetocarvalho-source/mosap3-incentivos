@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
+import { resolveScope, applyFarmerScopeFilter, type ResolvedScope } from "@/lib/farmerScope";
 import { ErrorState } from "@/components/ui/error-state";
 import {
   AlertDialog,
