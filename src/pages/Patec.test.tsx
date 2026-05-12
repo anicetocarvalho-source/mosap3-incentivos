@@ -183,10 +183,9 @@ describe("Patec — integração: alternância de scope", () => {
       expect(screen.getAllByText("15").length).toBeGreaterThan(0);
     });
     expect(screen.getByText(/ECAs:/)).toBeInTheDocument();
-    expect(screen.getByText(/Elavoko/)).toBeInTheDocument();
-    expect(applyFarmerScopeFilterMock.mock.calls[0][1].scope).toBe("eca");
-    expect(applyFarmerScopeFilterMock.mock.calls[0][1].ecas).toEqual([
-      "Elavoko",
+    expect(screen.getAllByText(/Elavoko/).length).toBeGreaterThan(0);
+    expect(resolveScopeMock).toHaveBeenCalledWith("u1", [
+      "tecnico_extensionista",
     ]);
   });
 
