@@ -62,6 +62,7 @@ const EcaBalanceTable = () => {
           .from("farmers")
           .select("school, municipality, valor_recebido, total_gasto")
           .eq("province", province)
+          .neq("status", "Removido")
           .range(from, from + pageSize - 1);
         if (error || !data || data.length === 0) break;
         all.push(...data);
