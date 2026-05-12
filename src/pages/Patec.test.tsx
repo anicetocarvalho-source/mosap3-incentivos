@@ -26,14 +26,13 @@ vi.mock("@/hooks/useAuth", () => ({
 }));
 
 const resolveScopeMock = vi.fn();
-const applyFarmerScopeFilterMock = vi.fn((q) => q);
+const applyFarmerScopeFilterMock = vi.fn((...args: any[]) => args[0]);
 vi.mock("@/lib/farmerScope", async () => {
   const actual = await vi.importActual<any>("@/lib/farmerScope");
   return {
     ...actual,
     resolveScope: (...args: any[]) => resolveScopeMock(...args),
-    applyFarmerScopeFilter: (q: any, ...rest: any[]) =>
-      applyFarmerScopeFilterMock(q, ...rest),
+    applyFarmerScopeFilter: (...args: any[]) => applyFarmerScopeFilterMock(...args),
   };
 });
 
