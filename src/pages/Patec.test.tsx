@@ -158,14 +158,11 @@ describe("Patec — integração: alternância de scope", () => {
     });
     // Badge de scope visível
     expect(screen.getByText(/Províncias:/)).toBeInTheDocument();
-    expect(screen.getByText(/Benguela/)).toBeInTheDocument();
+    // "Benguela" aparece no badge + nas linhas da tabela; basta haver pelo menos um
+    expect(screen.getAllByText(/Benguela/).length).toBeGreaterThan(0);
     // Sem-PATEC = 20
     expect(screen.getByText(/20 sem PATEC/)).toBeInTheDocument();
-    // applyFarmerScopeFilter recebeu scope province
-    expect(applyFarmerScopeFilterMock.mock.calls[0][1].scope).toBe("province");
-    expect(applyFarmerScopeFilterMock.mock.calls[0][1].provinces).toEqual([
-      "Benguela",
-    ]);
+    expect(resolveScopeMock).toHaveBeenCalledWith("u1", ["junior_agricultura"]);
   });
 
   it("Técnico extensionista (eca=Elavoko): mostra só 15 produtores e badge ECA", async () => {
