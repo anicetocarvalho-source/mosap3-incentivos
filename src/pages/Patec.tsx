@@ -103,18 +103,21 @@ const Patec = () => {
   const [editingItem, setEditingItem] = useState<string | null>(null);
   const [editingItemName, setEditingItemName] = useState("");
 
-  const fetchFarmers = async () => {
+  const fetchFarmers = async (resolved: ResolvedScope) => {
     setLoading(true);
     setLoadError(null);
     try {
       const data = await fetchAllPages<FarmerPatec>(() =>
-        supabase
-          .from("farmers")
-          .select(
-            "id, code, full_name, province, municipality, school, patec, status",
-            { count: "exact" }
-          )
-          .order("code")
+        applyFarmerScopeFilter(
+          supabase
+            .from("farmers")
+            .select(
+              "id, code, full_name, province, municipality, school, patec, status",
+              { count: "exact" }
+            )
+            .order("code"),
+          resolved
+        )
       );
       setFarmers(data);
     } catch (error: any) {
@@ -133,9 +136,17 @@ const Patec = () => {
   };
 
   useEffect(() => {
-    fetchFarmers();
-    fetchPatecItems();
-  }, []);
+    if (!authReady || !user) return;
+    let cancelled = false;
+    (async () => {
+      const resolved = await resolveScope(user.id, roles);
+      if (cancelled) return;
+      setScope(resolved);
+      fetchFarmers(resolved);
+      fetchPatecItems();
+    })();
+    return () => { cancelled = true; };
+  }, [authReady, user?.id, roles.join(",")]);
 
   const getItems = (patecNum: number, category: string) =>
     patecItems.filter((i) => i.patec_number === patecNum && i.category === category);
