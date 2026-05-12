@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
+import { resolveScope, applyFarmerScopeFilter, type ResolvedScope } from "@/lib/farmerScope";
 import { ErrorState } from "@/components/ui/error-state";
 import {
   AlertDialog,
@@ -72,7 +73,8 @@ const categoryIcons: Record<string, string> = {
 const PAGE_SIZE = 15;
 
 const Patec = () => {
-  const { isAdmin } = useAuth();
+  const { isAdmin, user, roles, authReady } = useAuth();
+  const [scope, setScope] = useState<ResolvedScope | null>(null);
   const [farmers, setFarmers] = useState<FarmerPatec[]>([]);
   const [patecItems, setPatecItems] = useState<PatecItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -101,18 +103,21 @@ const Patec = () => {
   const [editingItem, setEditingItem] = useState<string | null>(null);
   const [editingItemName, setEditingItemName] = useState("");
 
-  const fetchFarmers = async () => {
+  const fetchFarmers = async (resolved: ResolvedScope) => {
     setLoading(true);
     setLoadError(null);
     try {
       const data = await fetchAllPages<FarmerPatec>(() =>
-        supabase
-          .from("farmers")
-          .select(
-            "id, code, full_name, province, municipality, school, patec, status",
-            { count: "exact" }
-          )
-          .order("code")
+        applyFarmerScopeFilter(
+          supabase
+            .from("farmers")
+            .select(
+              "id, code, full_name, province, municipality, school, patec, status",
+              { count: "exact" }
+            )
+            .order("code"),
+          resolved
+        )
       );
       setFarmers(data);
     } catch (error: any) {
@@ -131,9 +136,17 @@ const Patec = () => {
   };
 
   useEffect(() => {
-    fetchFarmers();
-    fetchPatecItems();
-  }, []);
+    if (!authReady || !user) return;
+    let cancelled = false;
+    (async () => {
+      const resolved = await resolveScope(user.id, roles);
+      if (cancelled) return;
+      setScope(resolved);
+      fetchFarmers(resolved);
+      fetchPatecItems();
+    })();
+    return () => { cancelled = true; };
+  }, [authReady, user?.id, roles.join(",")]);
 
   const getItems = (patecNum: number, category: string) =>
     patecItems.filter((i) => i.patec_number === patecNum && i.category === category);
@@ -217,7 +230,7 @@ const Patec = () => {
     } else {
       toast.success(`PATEC ${newPatec || "removido"} atribuído a ${editFarmer.full_name}`);
       setEditFarmer(null);
-      fetchFarmers();
+      scope && fetchFarmers(scope);
     }
   };
 
@@ -259,7 +272,7 @@ const Patec = () => {
       toast.success(`PATEC ${newPatec} atribuído a ${ids.length} produtor(es)`);
     }
     setSelectedIds(new Set());
-    fetchFarmers();
+    scope && fetchFarmers(scope);
   };
 
   const isAllSelected = filtered.length > 0 && selectedIds.size === filtered.length;
@@ -385,9 +398,18 @@ const Patec = () => {
             Gestão e atribuição dos pacotes tecnológicos aos produtores — Ano de Arranque MOSAP III
           </p>
         </div>
-        <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 rounded-lg px-3 py-2">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 rounded-lg px-3 py-2 flex-wrap">
           <Users className="h-3.5 w-3.5" />
           <span><strong className="text-foreground">{stats.total}</strong> produtores registados</span>
+          {scope && scope.scope !== "global" && (
+            <>
+              <span className="text-border">|</span>
+              <Filter className="h-3.5 w-3.5" />
+              <span className="font-medium text-foreground">
+                {scope.scope === "province" ? "Províncias" : "ECAs"}: {scope.filterLabel}
+              </span>
+            </>
+          )}
           {stats.semPatec > 0 && (
             <>
               <span className="text-border">|</span>
@@ -524,7 +546,7 @@ const Patec = () => {
 
       {/* Table */}
       {loadError ? (
-        <Card><CardContent className="p-0"><ErrorState onRetry={fetchFarmers} /></CardContent></Card>
+        <Card><CardContent className="p-0"><ErrorState onRetry={() => scope && fetchFarmers(scope)} /></CardContent></Card>
       ) : (
       <Card>
         <CardContent className="p-0">

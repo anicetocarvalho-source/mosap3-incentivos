@@ -40,6 +40,7 @@ const EcaBalanceTable = () => {
       const { data } = await supabase
         .from("farmers")
         .select("province")
+        .neq("status", "Removido")
         .not("province", "is", null);
       const unique = Array.from(
         new Set((data ?? []).map((r) => r.province).filter((p): p is string => !!p && p.trim() !== ""))
@@ -61,6 +62,7 @@ const EcaBalanceTable = () => {
           .from("farmers")
           .select("school, municipality, valor_recebido, total_gasto")
           .eq("province", province)
+          .neq("status", "Removido")
           .range(from, from + pageSize - 1);
         if (error || !data || data.length === 0) break;
         all.push(...data);

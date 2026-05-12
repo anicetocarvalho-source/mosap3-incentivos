@@ -1,169 +1,89 @@
+## Problema
 
-# Cartão ID do Agricultor
+A página `/patec` mostra contagens incorrectas:
+1. Total de produtores não bate com a base real.
+2. Stats por PATEC 1/2/3/Sem PATEC desactualizados.
+3. Inclui produtores soft-deleted (`status = 'Removido'`).
+4. Não respeita as permissões geográficas (províncias / ECAs) do utilizador.
 
-## Resumo
+A mesma inconsistência precisa ser corrigida em todos os módulos que contam produtores, para manter coerência em toda a plataforma.
 
-Módulo completo para gerar cartões de identificação digitais (frente e verso) no formato CR80 (85.6×54mm), com QR Code dinâmico, código de barras SIGAF, exportação PDF print-ready e PNG preview, gestão de estados e operações em lote.
+## Regras unificadas para contagem de produtores
 
----
+A partir desta correcção, **todas** as contagens de produtores aplicam:
 
-## 1. Base de Dados
+- Excluir `status = 'Removido'` (soft-delete).
+- Filtrar por `user_provinces` se o utilizador for sénior/júnior (province scope).
+- Filtrar por `user_ecas` (mapeado para `farmers.school`) se for técnico extensionista.
+- Admin e gestor de incentivos veem o total global.
 
-### Tabela `farmer_cards`
-| Campo | Tipo | Descrição |
-|-------|------|-----------|
-| id | uuid PK | — |
-| farmer_code | text NOT NULL | Código do agricultor |
-| card_token | text UNIQUE NOT NULL | Token seguro para QR (uuid v4) |
-| status | text | Rascunho / Gerado / Impresso / Entregue / Revogado |
-| generated_at | timestamptz | Data de geração |
-| generated_by | uuid | Utilizador que gerou |
-| printed_at | timestamptz | — |
-| delivered_at | timestamptz | — |
-| revoked_at | timestamptz | — |
-| revoked_reason | text | — |
-| created_at / updated_at | timestamptz | — |
+Reaproveita-se o helper `resolveScope` já existente em `useDashboardData.ts`, extraindo-o para `src/lib/farmerScope.ts` para uso partilhado.
 
-RLS: Backoffice pode ler/inserir/actualizar; Admin pode revogar/eliminar.
+## Mudanças
 
-### Tabela `farmer_card_logs`
-| Campo | Tipo |
-|-------|------|
-| id | uuid PK |
-| farmer_code | text |
-| action | text (gerado, impresso, entregue, revogado, regenerado) |
-| performed_by | uuid |
-| details | jsonb |
-| created_at | timestamptz |
+### 1. Novo helper `src/lib/farmerScope.ts`
+- Move `getFilterScope`, `fetchUserProvinces`, `fetchUserEcas`, `resolveScope` para módulo partilhado.
+- Adiciona `applyFarmerScopeFilter(query, scope, provinces, ecas)` que aplica `.neq("status", "Removido")` + `.in("province", …)` ou `.in("school", …)` conforme o scope.
+- `useDashboardData.ts` passa a importar daqui.
 
----
+### 2. `src/pages/Patec.tsx`
+- Usa `useAuth` + `resolveScope` para obter scope/províncias/ECAs do utilizador.
+- `fetchFarmers` aplica `applyFarmerScopeFilter` (exclui Removido + filtro geo).
+- Header passa a mostrar badge com o âmbito (igual ao Dashboard) quando não for global.
+- Stats `total / patec1 / patec2 / patec3 / semPatec` recalculam-se sobre a lista já filtrada — fica automaticamente correcto.
+- Ao carregar a lista das catequeses (escolas) para atribuição em lote, respeita o mesmo scope.
 
-## 2. Página de Verificação Pública
+### 3. `src/hooks/usePatecPendingCount.ts` (badge da sidebar)
+- Adiciona `.neq("status", "Removido")` e aplica filtro geo via `resolveScope` para coincidir com a página.
 
-**Rota:** `/verificacao/:token`
+### 4. Auditoria de outros módulos que contam produtores
+Aplicar a mesma regra (excluir Removido + scope geo) a:
 
-Página pública (fora do ProtectedRoute) que consulta `farmer_cards` pelo token e mostra:
-- Nome, Estado (Activo/Inactivo), Elegibilidade (crédito/incentivo), Última actualização
-- Sem dados sensíveis expostos
+- `src/hooks/useFarmersList.ts` — lista de Agricultores (já tem filtro de status no UI, garantir que a contagem default exclui Removido salvo quando o utilizador escolhe explicitamente esse filtro).
+- `src/hooks/useDashboardData.ts` / RPC `dashboard_kpis` — confirmar que a função SQL exclui Removido; se não excluir, criar migração para corrigir.
+- `src/hooks/useReportData.ts` (página Relatórios) — aplicar exclusão e scope.
+- `src/pages/Incentivos.tsx` e `src/components/incentivos/BatchDistributionDialog.tsx` — exclusão + scope.
+- `src/pages/CartoesId.tsx` e `src/pages/CartaoIdLote.tsx` — exclusão + scope.
+- `src/hooks/useFinancialSummary.ts` — exclusão.
+- `src/pages/EscolasCampo.tsx` / `useSchoolDetail.ts` — exclusão na agregação por escola.
+- Página `Producao` / `Parcelas` — exclusão na contagem de produtores associados.
 
----
+Cada módulo recebe apenas o mínimo: passar a query pelo `applyFarmerScopeFilter` (ou equivalente para hooks que já têm a sua própria lógica de scope).
 
-## 3. Componente de Renderização do Cartão
+### 5. Migração SQL (se necessário)
+Se a função `dashboard_kpis` (RPC) ou outras funções SQL contarem `farmers` sem excluir `Removido`, criar migração que actualiza as funções para ignorar esse status. Verificar antes de criar.
 
-**Ficheiro:** `src/components/cartao/FarmerIdCard.tsx`
+### 6. Verificação
+- Login como admin → contagens totais batem com `SELECT count(*) FROM farmers WHERE status <> 'Removido'`.
+- Login como sénior de uma província → contagens só dessa província.
+- Login como extensionista → só da(s) sua(s) ECA(s).
+- Marcar um produtor como Removido → contagem de PATEC, Dashboard, sidebar badge e Relatórios decrementa.
 
-Renderiza frente e verso do cartão em HTML/CSS com dimensões CR80 (escala para ecrã e impressão):
+## Detalhes técnicos
 
-**Frente:**
-- Logo MOSAP3 + título
-- Foto frontal do agricultor (signed URL)
-- Nome completo, ID SIGAF
-- Província / Município
-- Tipo de produtor, Cultura principal
-- QR Code (aponta para `/verificacao/{token}`)
+```ts
+// src/lib/farmerScope.ts
+export async function applyFarmerScopeFilter<T>(
+  query: any,
+  { scope, provinces, ecas }: ResolvedScope,
+  { includeRemoved = false } = {}
+) {
+  if (!includeRemoved) query = query.neq("status", "Removido");
+  if (scope === "province" && provinces.length) query = query.in("province", provinces);
+  else if (scope === "eca" && ecas.length) query = query.in("school", ecas);
+  return query;
+}
+```
 
-**Verso:**
-- Código de barras (ID SIGAF) — usar biblioteca `react-barcode` ou SVG inline
-- Área produtiva, Score produtivo
-- Elegibilidade (crédito / incentivo)
-- Data de emissão, Validade
-- Texto legal
+```ts
+// src/pages/Patec.tsx (fetchFarmers)
+const scope = await resolveScope(user.id, roles);
+const data = await fetchAllPages<FarmerPatec>(() =>
+  applyFarmerScopeFilter(
+    supabase.from("farmers").select("id, code, full_name, province, municipality, school, patec, status", { count: "exact" }).order("code"),
+    scope
+  )
+);
+```
 
----
-
-## 4. Exportação PDF e PNG
-
-**Abordagem:** Usar `html2canvas` para capturar o cartão renderizado + `jsPDF` para criar PDF a 300 DPI.
-
-- **Download individual:** Botão no perfil do agricultor
-- **Preview PNG:** Gerado via `html2canvas`
-- **PDF print-ready:** Página A4 com cartão centralizado, margens de corte
-
----
-
-## 5. Geração em Lote
-
-**Ficheiro:** `src/pages/CartaoIdLote.tsx`
-
-- Listagem de agricultores com checkbox de seleção
-- Filtros por província, estado, PATEC
-- Botão "Gerar Cartões" → para cada agricultor selecionado:
-  1. Cria/actualiza registo em `farmer_cards` com token único
-  2. Gera PDF com múltiplos cartões (4 por página A4)
-- Download único do PDF agrupado
-- Inserção em blocos de 50 (respeitar limite Supabase)
-
----
-
-## 6. Dashboard de Cartões
-
-**Ficheiro:** `src/pages/CartoesId.tsx`
-
-KPIs:
-- Nº cartões gerados / activos / revogados
-- Taxa de emissão por província (gráfico de barras)
-
-Listagem com filtros:
-- Pesquisa por nome/código
-- Filtro por estado, província
-- Acções: Ver cartão, Imprimir, Alterar estado, Revogar
-
----
-
-## 7. Integração no Perfil do Agricultor
-
-No `FarmerProfile.tsx`, adicionar:
-- Tab ou secção "Cartão ID"
-- Preview do cartão (frente/verso)
-- Botões: Gerar / Regenerar / Download PDF / Alterar estado
-- Histórico de acções do cartão
-
----
-
-## 8. Navegação
-
-- Entrada no menu lateral: "Cartões ID" (ícone CreditCard)
-- Rotas: `/cartoes-id` (dashboard), `/cartoes-id/lote` (geração em lote), `/verificacao/:token` (pública)
-
----
-
-## 9. Dependências a Instalar
-
-- `jspdf` — geração PDF
-- `html2canvas` — captura HTML para canvas
-- `react-barcode` — código de barras SVG
-
-(`qrcode.react` já está instalado)
-
----
-
-## 10. Segurança
-
-- Token do QR é UUID v4, único e não sequencial
-- Regeneração cria novo token e revoga o anterior
-- Logs de todas as acções em `farmer_card_logs`
-- Página de verificação não expõe dados financeiros
-
----
-
-## Ordem de Implementação
-
-1. Migração DB (`farmer_cards` + `farmer_card_logs` + RLS)
-2. Instalar dependências (`jspdf`, `html2canvas`, `react-barcode`)
-3. Componente `FarmerIdCard` (frente/verso)
-4. Página de verificação pública `/verificacao/:token`
-5. Hooks e lógica de geração/exportação PDF/PNG
-6. Dashboard `/cartoes-id`
-7. Geração em lote `/cartoes-id/lote`
-8. Integração no perfil do agricultor
-9. Navegação e rotas
-
----
-
-## Detalhes Técnicos
-
-- O cartão é renderizado em HTML a 300 DPI equivalente (escala 3x do tamanho CR80)
-- O PDF usa formato A4 com área de corte para impressão profissional
-- QR aponta para URL relativa do domínio publicado
-- Código de barras usa formato CODE128 para o ID SIGAF
-- Estados geridos com timestamps independentes para rastreabilidade completa
+Sem alterações de schema previstas (apenas eventual ajuste em RPC se a auditoria mostrar que conta Removidos).

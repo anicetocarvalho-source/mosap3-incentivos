@@ -1,35 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import type { Database } from "@/integrations/supabase/types";
-
-type AppRole = Database["public"]["Enums"]["app_role"];
-
-const GLOBAL_ROLES: AppRole[] = ["admin", "gestor_incentivos"];
-const PROVINCE_ROLES: AppRole[] = [
-  "senior_agricultura", "senior_monitoria", "senior_agronegocio",
-  "junior_agricultura", "junior_monitoria", "junior_agronegocio",
-];
-const ECA_ROLES: AppRole[] = ["tecnico_extensionista"];
-
-type FilterScope = "global" | "province" | "eca";
-
-function getFilterScope(roles: AppRole[]): FilterScope {
-  if (roles.some((r) => GLOBAL_ROLES.includes(r))) return "global";
-  if (roles.some((r) => PROVINCE_ROLES.includes(r))) return "province";
-  if (roles.some((r) => ECA_ROLES.includes(r))) return "eca";
-  return "global";
-}
-
-async function fetchUserProvinces(userId: string): Promise<string[]> {
-  const { data } = await supabase.from("user_provinces").select("province").eq("user_id", userId);
-  return data?.map((d) => d.province) ?? [];
-}
-
-async function fetchUserEcas(userId: string): Promise<string[]> {
-  const { data } = await supabase.from("user_ecas").select("eca_name").eq("user_id", userId);
-  return data?.map((d) => d.eca_name) ?? [];
-}
+import { resolveScope as resolveScopeShared, type FilterScope, type AppRole } from "@/lib/farmerScope";
 
 export type DashboardDeltas = Partial<Record<
   | "totalFarmers" | "totalApproved" | "totalCompanies" | "totalSchools"
@@ -76,22 +48,7 @@ export interface DashboardCharts {
   posSalesTrend: { month: string; valor: number; vendas: number }[];
 }
 
-async function resolveScope(userId: string, roles: AppRole[]) {
-  let scope = getFilterScope(roles);
-  let provinces: string[] = [];
-  let ecas: string[] = [];
-  if (scope === "province") {
-    provinces = await fetchUserProvinces(userId);
-    if (provinces.length === 0) scope = "global";
-  } else if (scope === "eca") {
-    ecas = await fetchUserEcas(userId);
-    if (ecas.length === 0) scope = "global";
-  }
-  let filterLabel = "Todas as províncias";
-  if (scope === "province") filterLabel = provinces.join(", ");
-  else if (scope === "eca") filterLabel = ecas.join(", ");
-  return { scope, provinces, ecas, filterLabel };
-}
+const resolveScope = resolveScopeShared;
 
 const toIsoDate = (d?: Date) => (d ? d.toISOString().slice(0, 10) : null);
 

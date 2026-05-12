@@ -55,7 +55,7 @@ const Agricultores = () => {
   const [summaryTarget, setSummaryTarget] = useState<any>(null);
   const [sortBy, setSortBy] = useState<"name" | "recebido" | "usado" | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
-  const { farmers, loading, error: farmersError, refetch: refetchFarmers } = useFarmersList();
+  const { farmers, loading, error: farmersError, refetch: refetchFarmers } = useFarmersList({ includeRemoved: true });
   const queryClient = useQueryClient();
 
   const { data: provinces = [] } = useQuery({
