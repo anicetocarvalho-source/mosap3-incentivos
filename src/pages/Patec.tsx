@@ -398,9 +398,18 @@ const Patec = () => {
             Gestão e atribuição dos pacotes tecnológicos aos produtores — Ano de Arranque MOSAP III
           </p>
         </div>
-        <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 rounded-lg px-3 py-2">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 rounded-lg px-3 py-2 flex-wrap">
           <Users className="h-3.5 w-3.5" />
           <span><strong className="text-foreground">{stats.total}</strong> produtores registados</span>
+          {scope && scope.scope !== "global" && (
+            <>
+              <span className="text-border">|</span>
+              <Filter className="h-3.5 w-3.5" />
+              <span className="font-medium text-foreground">
+                {scope.scope === "province" ? "Províncias" : "ECAs"}: {scope.filterLabel}
+              </span>
+            </>
+          )}
           {stats.semPatec > 0 && (
             <>
               <span className="text-border">|</span>
