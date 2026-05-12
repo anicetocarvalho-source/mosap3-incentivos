@@ -230,7 +230,7 @@ const Patec = () => {
     } else {
       toast.success(`PATEC ${newPatec || "removido"} atribuído a ${editFarmer.full_name}`);
       setEditFarmer(null);
-      fetchFarmers();
+      scope && fetchFarmers(scope);
     }
   };
 
@@ -272,7 +272,7 @@ const Patec = () => {
       toast.success(`PATEC ${newPatec} atribuído a ${ids.length} produtor(es)`);
     }
     setSelectedIds(new Set());
-    fetchFarmers();
+    scope && fetchFarmers(scope);
   };
 
   const isAllSelected = filtered.length > 0 && selectedIds.size === filtered.length;
@@ -537,7 +537,7 @@ const Patec = () => {
 
       {/* Table */}
       {loadError ? (
-        <Card><CardContent className="p-0"><ErrorState onRetry={fetchFarmers} /></CardContent></Card>
+        <Card><CardContent className="p-0"><ErrorState onRetry={() => scope && fetchFarmers(scope)} /></CardContent></Card>
       ) : (
       <Card>
         <CardContent className="p-0">
