@@ -201,7 +201,13 @@ const Patec = () => {
     setEditingItem(null);
   };
 
-  const filtered = farmers.filter((f) => {
+  const provinces = Array.from(new Set(farmers.map((f) => f.province).filter(Boolean))).sort();
+
+  const farmersByProvince = farmers.filter((f) =>
+    filterProvince === "all" || f.province === filterProvince
+  );
+
+  const filtered = farmersByProvince.filter((f) => {
     const matchesSearch =
       f.full_name.toLowerCase().includes(search.toLowerCase()) ||
       f.code.toLowerCase().includes(search.toLowerCase());
@@ -213,11 +219,11 @@ const Patec = () => {
   });
 
   const stats = {
-    total: farmers.length,
-    patec1: farmers.filter((f) => f.patec === 1).length,
-    patec2: farmers.filter((f) => f.patec === 2).length,
-    patec3: farmers.filter((f) => f.patec === 3).length,
-    semPatec: farmers.filter((f) => !f.patec).length,
+    total: farmersByProvince.length,
+    patec1: farmersByProvince.filter((f) => f.patec === 1).length,
+    patec2: farmersByProvince.filter((f) => f.patec === 2).length,
+    patec3: farmersByProvince.filter((f) => f.patec === 3).length,
+    semPatec: farmersByProvince.filter((f) => !f.patec).length,
   };
 
   const handleSavePatec = async () => {
