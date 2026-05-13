@@ -19,6 +19,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { fetchAllPages } from "@/lib/supabaseFetchAll";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
+import { useSearchParams } from "react-router-dom";
 import StatCard from "@/components/StatCard";
 import { motion } from "framer-motion";
 import { ErrorState } from "@/components/ui/error-state";
