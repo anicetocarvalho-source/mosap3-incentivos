@@ -375,6 +375,11 @@ const Dashboard = () => {
                   <Legend wrapperStyle={{ fontSize: 11 }} iconType="circle" />
                 </PieChart>
               </ResponsiveContainer>
+              {stats.totalNoGender > 0 && (
+                <div className="rounded-lg border border-warning/30 bg-warning/5 p-2 text-[11px] text-warning-foreground/80">
+                  ⚠ {formatNumber(stats.totalNoGender)} produtores sem registo de género
+                </div>
+              )}
               <div className="rounded-lg border border-border bg-muted/30 p-3">
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0">
