@@ -2091,18 +2091,18 @@ export type Database = {
           p_scope?: string
         }
         Returns: {
-          anomaly_key: string
-          anomaly_type: string
-          details: Json
-          farmer_code: string
-          farmer_name: string
-          municipality: string
-          province: string
-          related_codes: string[]
-          resolved: boolean
-          resolved_notes: string
-          school: string
-          severity: string
+          out_anomaly_key: string
+          out_anomaly_type: string
+          out_details: Json
+          out_farmer_code: string
+          out_farmer_name: string
+          out_municipality: string
+          out_province: string
+          out_related_codes: string[]
+          out_resolved: boolean
+          out_resolved_notes: string
+          out_school: string
+          out_severity: string
         }[]
       }
       has_any_backoffice_role: { Args: { _user_id: string }; Returns: boolean }
