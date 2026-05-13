@@ -1,5 +1,6 @@
-import { LucideIcon } from "lucide-react";
+import { Info, LucideIcon } from "lucide-react";
 import { motion } from "framer-motion";
+import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 
 interface KpiCardProps {
@@ -11,6 +12,10 @@ interface KpiCardProps {
   delay?: number;
   /** YoY delta in %. null/undefined hides the badge. */
   delta?: number | null;
+  /** Show a "sem dados registados" hint (when value is 0 because module is empty). */
+  emptyHint?: boolean;
+  /** Optional internal route to navigate on click. */
+  to?: string;
 }
 
 const formatDelta = (n: number) => {
@@ -27,8 +32,9 @@ const accentMap: Record<NonNullable<KpiCardProps["accent"]>, { bg: string; fg: s
   destructive: { bg: "hsl(var(--destructive) / 0.1)", fg: "hsl(var(--destructive))", ring: "hsl(var(--destructive) / 0.2)" },
 };
 
-const KpiCard = ({ title, value, subtitle, icon: Icon, accent = "primary", delay = 0, delta }: KpiCardProps) => {
+const KpiCard = ({ title, value, subtitle, icon: Icon, accent = "primary", delay = 0, delta, emptyHint, to }: KpiCardProps) => {
   const c = accentMap[accent];
+  const navigate = useNavigate();
   const showDelta = delta !== undefined && delta !== null;
   const deltaTone =
     !showDelta ? "" :
@@ -36,15 +42,21 @@ const KpiCard = ({ title, value, subtitle, icon: Icon, accent = "primary", delay
     delta! < 0 ? "bg-destructive/10 text-destructive ring-1 ring-destructive/20" :
     "bg-muted text-muted-foreground ring-1 ring-border";
   const deltaArrow = !showDelta ? "" : delta! > 0 ? "↑" : delta! < 0 ? "↓" : "–";
+  const isClickable = !!to;
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay, duration: 0.35, ease: "easeOut" }}
       whileHover={{ y: -2 }}
+      onClick={isClickable ? () => navigate(to!) : undefined}
+      role={isClickable ? "button" : undefined}
+      tabIndex={isClickable ? 0 : undefined}
+      onKeyDown={isClickable ? (e) => { if (e.key === "Enter") navigate(to!); } : undefined}
       className={cn(
         "group relative overflow-hidden rounded-xl border border-border bg-card p-4 md:p-5",
-        "shadow-[var(--shadow-card)] hover:shadow-[var(--shadow-elevated)] transition-all"
+        "shadow-[var(--shadow-card)] hover:shadow-[var(--shadow-elevated)] transition-all",
+        isClickable && "cursor-pointer hover:border-primary/40",
       )}
     >
       {/* accent stripe */}
@@ -76,6 +88,11 @@ const KpiCard = ({ title, value, subtitle, icon: Icon, accent = "primary", delay
           </div>
           {subtitle && (
             <p className="text-[10px] md:text-xs text-muted-foreground font-medium">{subtitle}</p>
+          )}
+          {emptyHint && (
+            <span className="mt-1 inline-flex items-center gap-1 rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground ring-1 ring-border">
+              <Info className="h-3 w-3" /> Sem dados registados
+            </span>
           )}
         </div>
         <div
