@@ -10,6 +10,8 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
+import { TableRowsSkeleton, CardListSkeleton } from "@/components/ui/loading-skeletons";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -360,18 +362,9 @@ const Agricultores = () => {
               </thead>
               <tbody>
                 {loading ? (
-                  Array.from({ length: 5 }).map((_, i) => (
-                    <tr key={i} className="border-b border-border">
-                      <td className="px-6 py-3"><Skeleton className="h-5 w-40" /></td>
-                      <td className="px-4 py-3"><Skeleton className="h-4 w-24" /></td>
-                      <td className="px-4 py-3"><Skeleton className="h-4 w-20" /></td>
-                      <td className="px-4 py-3"><Skeleton className="h-4 w-24" /></td>
-                      <td className="px-4 py-3"><Skeleton className="h-4 w-16" /></td>
-                      <td className="px-4 py-3"><Skeleton className="h-4 w-20 ml-auto" /></td>
-                      <td className="px-4 py-3"><Skeleton className="h-4 w-20 ml-auto" /></td>
-                      <td className="px-4 py-3"><Skeleton className="h-8 w-8 ml-auto" /></td>
-                    </tr>
-                  ))
+                  <TableRowsSkeleton rows={6} cols={8} />
+                ) : paginated.length === 0 ? (
+                  <tr><td colSpan={8} className="p-0"><EmptyState size="sm" icon={Search} description="Não foram encontrados agricultores com os filtros actuais." /></td></tr>
                 ) : (
                   <TooltipProvider delayDuration={200}>
                     {paginated.map((f) => (
@@ -471,14 +464,9 @@ const Agricultores = () => {
           {/* Mobile card list */}
           <div className="md:hidden divide-y divide-border">
             {loading ? (
-              Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="p-4 space-y-2">
-                  <Skeleton className="h-5 w-3/4" />
-                  <Skeleton className="h-4 w-1/2" />
-                </div>
-              ))
+              <CardListSkeleton count={5} />
             ) : paginated.length === 0 ? (
-              <div className="p-8 text-center text-muted-foreground">Nenhum agricultor encontrado</div>
+              <EmptyState size="sm" icon={Search} description="Não foram encontrados agricultores com os filtros actuais." />
             ) : paginated.map((f) => (
               <div key={f.id} className="p-3 flex items-center gap-3">
                 <FarmerAvatar photoUrl={f.photo_frontal_url} name={f.full_name} size="h-10 w-10" />

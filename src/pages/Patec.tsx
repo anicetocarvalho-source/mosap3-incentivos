@@ -11,6 +11,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { EmptyState } from "@/components/ui/empty-state";
+import { TableRowsSkeleton, CardListSkeleton } from "@/components/ui/loading-skeletons";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -744,9 +746,9 @@ const Patec = () => {
               </TableHeader>
               <TableBody>
                 {loading ? (
-                  <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin inline mr-2" />Carregando produtores...</TableCell></TableRow>
+                  <TableRowsSkeleton rows={6} cols={8} />
                 ) : paginated.length === 0 ? (
-                  <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Nenhum produtor encontrado</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={8} className="p-0"><EmptyState size="sm" icon={Users} /></TableCell></TableRow>
                 ) : paginated.map((f) => (
                   <TableRow key={f.id} className={selectedIds.has(f.id) ? "bg-primary/5" : ""}>
                     <TableCell>
@@ -784,9 +786,9 @@ const Patec = () => {
           {/* Mobile cards */}
           <div className="md:hidden divide-y divide-border">
             {loading ? (
-              <p className="text-center py-8 text-muted-foreground text-sm">Carregando...</p>
+              <CardListSkeleton count={5} />
             ) : paginated.length === 0 ? (
-              <p className="text-center py-8 text-muted-foreground text-sm">Nenhum produtor encontrado</p>
+              <EmptyState size="sm" icon={Users} />
             ) : paginated.map((f) => (
               <div key={f.id} className={`p-3 space-y-1.5 ${selectedIds.has(f.id) ? "bg-primary/5" : ""}`}>
                 <div className="flex items-center justify-between">

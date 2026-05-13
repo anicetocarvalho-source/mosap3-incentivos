@@ -8,6 +8,7 @@ import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorState } from "@/components/ui/error-state";
 import { EmptyState } from "@/components/ui/empty-state";
+import { TableRowsSkeleton, CardListSkeleton } from "@/components/ui/loading-skeletons";
 import StatCard from "@/components/StatCard";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -243,15 +244,9 @@ const Parcelas = () => {
               </thead>
               <tbody>
                 {isLoading ? (
-                  Array.from({ length: 5 }).map((_, i) => (
-                    <tr key={i} className="border-b border-border">
-                      {Array.from({ length: 6 }).map((_, j) => (
-                        <td key={j} className="px-4 py-3"><Skeleton className="h-4 w-20" /></td>
-                      ))}
-                    </tr>
-                  ))
+                  <TableRowsSkeleton rows={6} cols={6} />
                 ) : paginated.length === 0 ? (
-                  <tr><td colSpan={6} className="px-6 py-12 text-center text-muted-foreground">Nenhuma parcela encontrada</td></tr>
+                  <tr><td colSpan={6} className="p-0"><EmptyState size="sm" icon={MapPin} /></td></tr>
                 ) : paginated.map((p: any) => (
                   <tr key={p.id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
                     <td className="px-6 py-3 font-mono text-xs text-muted-foreground">{p.parcel_code}</td>
@@ -283,14 +278,9 @@ const Parcelas = () => {
           {/* Mobile card list */}
           <div className="md:hidden divide-y divide-border">
             {isLoading ? (
-              Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="p-4 space-y-2">
-                  <Skeleton className="h-5 w-3/4" />
-                  <Skeleton className="h-4 w-1/2" />
-                </div>
-              ))
+              <CardListSkeleton count={5} />
             ) : paginated.length === 0 ? (
-              <div className="p-8 text-center text-muted-foreground">Nenhuma parcela encontrada</div>
+              <EmptyState size="sm" icon={MapPin} />
             ) : paginated.map((p: any) => (
               <div key={p.id} className="p-3 space-y-1.5">
                 <div className="flex items-center justify-between gap-2">
