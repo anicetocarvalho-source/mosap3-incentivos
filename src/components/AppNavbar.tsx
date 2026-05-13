@@ -120,6 +120,13 @@ export const navItems: NavItem[] = [
     moduleName: "Relatórios",
   },
   {
+    icon: Shield,
+    label: "Anomalias",
+    path: "/anomalias",
+    sidebar: true,
+    allowedRoles: ["admin", "gestor_incentivos"],
+  },
+  {
     icon: UserCog,
     label: "Utilizadores",
     sidebar: true,
