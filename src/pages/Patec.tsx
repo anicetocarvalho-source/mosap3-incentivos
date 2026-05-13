@@ -420,6 +420,13 @@ const Patec = () => {
               </span>
             </>
           )}
+          {filterProvince !== "all" && (
+            <>
+              <span className="text-border">|</span>
+              <MapPin className="h-3.5 w-3.5" />
+              <span className="font-medium text-foreground">{filterProvince}</span>
+            </>
+          )}
           {stats.semPatec > 0 && (
             <>
               <span className="text-border">|</span>
