@@ -4,6 +4,8 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
+import { TableRowsSkeleton, CardListSkeleton } from "@/components/ui/loading-skeletons";
 import { ErrorState } from "@/components/ui/error-state";
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -105,20 +107,11 @@ const Transacoes = () => {
               </thead>
               <tbody>
                 {isLoading ? (
-                  Array.from({ length: 5 }).map((_, i) => (
-                    <tr key={i} className="border-b border-border">
-                      <td className="px-6 py-3"><Skeleton className="h-4 w-20" /></td>
-                      <td className="px-4 py-3"><Skeleton className="h-4 w-32" /></td>
-                      <td className="px-4 py-3"><Skeleton className="h-4 w-24" /></td>
-                      <td className="px-4 py-3"><Skeleton className="h-4 w-24" /></td>
-                      <td className="px-4 py-3"><Skeleton className="h-4 w-20" /></td>
-                      <td className="px-4 py-3"><Skeleton className="h-4 w-20" /></td>
-                    </tr>
-                  ))
+                  <TableRowsSkeleton rows={6} cols={6} />
                 ) : paginated.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-6 py-12 text-center text-muted-foreground">
-                      Nenhuma transação encontrada
+                    <td colSpan={6} className="p-0">
+                      <EmptyState size="sm" icon={Filter} description="Ajuste os filtros ou aguarde novas transações." />
                     </td>
                   </tr>
                 ) : paginated.map((t: any) => (
@@ -149,14 +142,9 @@ const Transacoes = () => {
           {/* Mobile card list */}
           <div className="md:hidden divide-y divide-border">
             {isLoading ? (
-              Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="p-4 space-y-2">
-                  <Skeleton className="h-5 w-3/4" />
-                  <Skeleton className="h-4 w-1/2" />
-                </div>
-              ))
+              <CardListSkeleton count={5} />
             ) : paginated.length === 0 ? (
-              <div className="p-8 text-center text-muted-foreground">Nenhuma transação encontrada</div>
+              <EmptyState size="sm" icon={Filter} description="Ajuste os filtros ou aguarde novas transações." />
             ) : paginated.map((t: any) => (
               <div key={t.id} className="p-3 space-y-1.5">
                 <div className="flex items-center justify-between gap-2">
