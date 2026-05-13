@@ -511,6 +511,45 @@ const Patec = () => {
         );
       })()}
 
+      {/* Gráfico de distribuição PATEC */}
+      {stats.total > 0 && (
+        <div>
+          <h2 className="text-sm font-semibold flex items-center gap-2 mb-3">
+            <BarChart className="h-4 w-4 text-primary" />
+            Distribuição dos Pacotes
+          </h2>
+          <div className="rounded-xl border border-border bg-card p-4 md:p-6 shadow-[var(--shadow-card)]">
+            <ResponsiveContainer width="100%" height={260}>
+              <RechartsBarChart data={[
+                { name: "PATEC 1", value: stats.patec1, fill: "hsl(38, 92%, 50%)" },
+                { name: "PATEC 2", value: stats.patec2, fill: "hsl(160, 84%, 39%)" },
+                { name: "PATEC 3", value: stats.patec3, fill: "hsl(263, 70%, 50%)" },
+                { name: "Sem PATEC", value: stats.semPatec, fill: "hsl(var(--destructive))" },
+              ]} margin={{ top: 8, right: 16, left: 8, bottom: 8 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                <YAxis tick={{ fontSize: 12 }} allowDecimals={false} />
+                <Tooltip
+                  formatter={(v: number) => [v.toLocaleString("pt-AO"), "Agricultores"]}
+                  contentStyle={{ borderRadius: "8px", border: "1px solid hsl(var(--border))", background: "hsl(var(--card))" }}
+                  labelStyle={{ color: "hsl(var(--foreground))", fontWeight: 600 }}
+                />
+                <Bar dataKey="value" radius={[6, 6, 0, 0]}>
+                  {[
+                    { fill: "hsl(38, 92%, 50%)" },
+                    { fill: "hsl(160, 84%, 39%)" },
+                    { fill: "hsl(263, 70%, 50%)" },
+                    { fill: "hsl(var(--destructive))" },
+                  ].map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.fill} />
+                  ))}
+                </Bar>
+              </RechartsBarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
+
       {/* Composition cards - improved */}
       <div>
         <h2 className="text-sm font-semibold flex items-center gap-2 mb-3">
