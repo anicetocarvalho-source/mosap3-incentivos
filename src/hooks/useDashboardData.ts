@@ -18,7 +18,9 @@ export interface DashboardKpis {
   totalApproved: number;
   totalTransactions: number;
   totalCompanies: number;
+  totalCompaniesActive: number;
   totalSchools: number;
+  totalMunicipalities: number;
   totalParcels: number;
   totalAreaHa: number;
   totalProduction: number;
@@ -33,6 +35,13 @@ export interface DashboardKpis {
   totalFemale: number;
   femaleWithIncentive: number;
   femaleWithIncentivePct: number;
+  totalNoGender: number;
+  totalIncentivesCount: number;
+  totalCreditNotes: number;
+  totalPatec1: number;
+  totalPatec2: number;
+  totalPatec3: number;
+  totalSemPatec: number;
   incentiveFunnel: { stage: string; value: number }[];
   filterScope: FilterScope;
   filterLabel: string;
@@ -93,7 +102,9 @@ function mapKpisFromJson(k: any, deltasRaw: any | null): Omit<DashboardKpis, "fi
     totalApproved: Number(k.total_approved) || 0,
     totalTransactions: Number(k.total_transactions) || 0,
     totalCompanies: Number(k.total_companies) || 0,
+    totalCompaniesActive: Number(k.total_companies_active) || 0,
     totalSchools: Number(k.total_schools) || 0,
+    totalMunicipalities: Number(k.total_municipalities) || 0,
     totalParcels: Number(k.total_parcels) || 0,
     totalAreaHa: Number(k.total_area_ha) || 0,
     totalProduction: Number(k.total_production) || 0,
@@ -108,6 +119,13 @@ function mapKpisFromJson(k: any, deltasRaw: any | null): Omit<DashboardKpis, "fi
     totalFemale: Number(k.total_female) || 0,
     femaleWithIncentive: Number(k.female_with_incentive) || 0,
     femaleWithIncentivePct: Number(k.female_with_incentive_pct) || 0,
+    totalNoGender: Number(k.total_no_gender) || 0,
+    totalIncentivesCount: Number(k.total_incentives_count) || 0,
+    totalCreditNotes: Number(k.total_credit_notes) || 0,
+    totalPatec1: Number(k.total_patec_1) || 0,
+    totalPatec2: Number(k.total_patec_2) || 0,
+    totalPatec3: Number(k.total_patec_3) || 0,
+    totalSemPatec: Number(k.total_sem_patec) || 0,
     incentiveFunnel: [
       { stage: "Atribuído", value: Math.round(totalRecebido) },
       { stage: "Recebido", value: Math.round(totalRecebido) },
