@@ -464,14 +464,9 @@ const Agricultores = () => {
           {/* Mobile card list */}
           <div className="md:hidden divide-y divide-border">
             {loading ? (
-              Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="p-4 space-y-2">
-                  <Skeleton className="h-5 w-3/4" />
-                  <Skeleton className="h-4 w-1/2" />
-                </div>
-              ))
+              <CardListSkeleton count={5} />
             ) : paginated.length === 0 ? (
-              <div className="p-8 text-center text-muted-foreground">Nenhum agricultor encontrado</div>
+              <EmptyState size="sm" icon={Search} description="Não foram encontrados agricultores com os filtros actuais." />
             ) : paginated.map((f) => (
               <div key={f.id} className="p-3 flex items-center gap-3">
                 <FarmerAvatar photoUrl={f.photo_frontal_url} name={f.full_name} size="h-10 w-10" />
