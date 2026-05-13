@@ -611,6 +611,18 @@ const Patec = () => {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input placeholder="Pesquisar por nome ou código..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
           </div>
+          <Select value={filterProvince} onValueChange={(v) => { setFilterProvince(v); setSelectedIds(new Set()); }}>
+            <SelectTrigger className="w-[200px]">
+              <MapPin className="h-4 w-4 mr-2" />
+              <SelectValue placeholder="Todas as províncias" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas as províncias</SelectItem>
+              {provinces.map((p) => (
+                <SelectItem key={p} value={p}>{p}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Select value={filterPatec} onValueChange={setFilterPatec}>
             <SelectTrigger className="w-[200px]">
               <Filter className="h-4 w-4 mr-2" />
