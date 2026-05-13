@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   BarChart as RechartsBarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
 } from "recharts";
@@ -77,14 +77,17 @@ const PAGE_SIZE = 15;
 
 const Patec = () => {
   const { isAdmin, user, roles, authReady } = useAuth();
+  const [searchParams] = useSearchParams();
+  const initialProvince = searchParams.get("province") || "all";
+  const initialPatec = searchParams.get("patec") || "all";
   const [scope, setScope] = useState<ResolvedScope | null>(null);
   const [farmers, setFarmers] = useState<FarmerPatec[]>([]);
   const [patecItems, setPatecItems] = useState<PatecItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  const [filterPatec, setFilterPatec] = useState<string>("all");
-  const [filterProvince, setFilterProvince] = useState<string>("all");
+  const [filterPatec, setFilterPatec] = useState<string>(initialPatec);
+  const [filterProvince, setFilterProvince] = useState<string>(initialProvince);
   const [page, setPage] = useState(1);
   const [editFarmer, setEditFarmer] = useState<FarmerPatec | null>(null);
   const [editPatec, setEditPatec] = useState<string>("");

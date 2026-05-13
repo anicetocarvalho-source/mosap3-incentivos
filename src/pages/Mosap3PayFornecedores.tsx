@@ -19,6 +19,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { fetchAllPages } from "@/lib/supabaseFetchAll";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
+import { useSearchParams } from "react-router-dom";
 import StatCard from "@/components/StatCard";
 import { motion } from "framer-motion";
 import { ErrorState } from "@/components/ui/error-state";
@@ -67,6 +68,8 @@ interface PosTerminal {
 
 const Mosap3PayFornecedores = () => {
   const { isAdmin } = useAuth();
+  const [searchParams] = useSearchParams();
+  const initialProvinceParam = searchParams.get("province") || "all";
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -100,7 +103,7 @@ const Mosap3PayFornecedores = () => {
   // View toggle & filters
   const [viewMode, setViewMode] = useState<string>("grid");
   const [filterStatus, setFilterStatus] = useState("all");
-  const [filterProvince, setFilterProvince] = useState("all");
+  const [filterProvince, setFilterProvince] = useState(initialProvinceParam);
   const [filterZone, setFilterZone] = useState("all");
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 12;

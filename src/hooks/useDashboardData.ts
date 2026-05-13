@@ -45,6 +45,8 @@ export interface DashboardKpis {
   incentiveFunnel: { stage: string; value: number }[];
   filterScope: FilterScope;
   filterLabel: string;
+  filterProvinces: string[];
+  filterEcas: string[];
   deltas: DashboardDeltas | null;
 }
 
@@ -61,7 +63,7 @@ const resolveScope = resolveScopeShared;
 
 const toIsoDate = (d?: Date) => (d ? d.toISOString().slice(0, 10) : null);
 
-function mapKpisFromJson(k: any, deltasRaw: any | null): Omit<DashboardKpis, "filterScope" | "filterLabel"> {
+function mapKpisFromJson(k: any, deltasRaw: any | null): Omit<DashboardKpis, "filterScope" | "filterLabel" | "filterProvinces" | "filterEcas"> {
   const totalRecebido = Number(k.total_recebido) || 0;
   const totalGasto = Number(k.total_gasto) || 0;
   const totalReconciliado = Number(k.total_reconciliado) || 0;
@@ -160,6 +162,8 @@ async function fetchKpis(
       ...mapKpisFromJson(d.current ?? {}, d.deltas ?? null),
       filterScope: scope,
       filterLabel,
+      filterProvinces: provinces,
+      filterEcas: ecas,
     };
   }
 
@@ -173,6 +177,8 @@ async function fetchKpis(
     ...mapKpisFromJson(data ?? {}, null),
     filterScope: scope,
     filterLabel,
+    filterProvinces: provinces,
+    filterEcas: ecas,
   };
 }
 
