@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Plus, Search, Download, Eye, Edit, Package, ChevronLeft, ChevronRight, Trash2, RotateCcw, MoreHorizontal, Wallet, ArrowUp, ArrowDown, ArrowUpDown, AlertTriangle } from "lucide-react";
 import FarmerAvatar from "@/components/FarmerAvatar";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -42,11 +42,13 @@ const statusDotClass = (status: string): string => {
 };
 
 const Agricultores = () => {
+  const [searchParams] = useSearchParams();
+  const initialProvince = searchParams.get("province") || "all";
   const [search, setSearch] = useState("");
   const [showSearchSuggestions, setShowSearchSuggestions] = useState(false);
   const [filterPatec, setFilterPatec] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
-  const [filterProvince, setFilterProvince] = useState("all");
+  const [filterProvince, setFilterProvince] = useState(initialProvince);
   const [filterMunicipality, setFilterMunicipality] = useState("all");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingFarmer, setEditingFarmer] = useState<any>(null);
