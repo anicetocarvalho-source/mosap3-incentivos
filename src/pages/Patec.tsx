@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import {
   BarChart as RechartsBarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
 } from "recharts";
-import { Package, Search, Filter, Edit2, Eye, CheckSquare, X, Plus, Trash2, Pencil, Check, ChevronLeft, ChevronRight, Wheat, Loader2, Users, AlertCircle, Sprout, Leaf, TreeDeciduous, BarChart } from "lucide-react";
+import { Package, Search, Filter, Edit2, Eye, CheckSquare, X, Plus, Trash2, Pencil, Check, ChevronLeft, ChevronRight, Wheat, Loader2, Users, AlertCircle, Sprout, Leaf, TreeDeciduous, BarChart, MapPin } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllPages } from "@/lib/supabaseFetchAll";
 import { Input } from "@/components/ui/input";
@@ -84,6 +84,7 @@ const Patec = () => {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [filterPatec, setFilterPatec] = useState<string>("all");
+  const [filterProvince, setFilterProvince] = useState<string>("all");
   const [page, setPage] = useState(1);
   const [editFarmer, setEditFarmer] = useState<FarmerPatec | null>(null);
   const [editPatec, setEditPatec] = useState<string>("");
@@ -200,7 +201,13 @@ const Patec = () => {
     setEditingItem(null);
   };
 
-  const filtered = farmers.filter((f) => {
+  const provinces = Array.from(new Set(farmers.map((f) => f.province).filter(Boolean))).sort();
+
+  const farmersByProvince = farmers.filter((f) =>
+    filterProvince === "all" || f.province === filterProvince
+  );
+
+  const filtered = farmersByProvince.filter((f) => {
     const matchesSearch =
       f.full_name.toLowerCase().includes(search.toLowerCase()) ||
       f.code.toLowerCase().includes(search.toLowerCase());
@@ -212,11 +219,11 @@ const Patec = () => {
   });
 
   const stats = {
-    total: farmers.length,
-    patec1: farmers.filter((f) => f.patec === 1).length,
-    patec2: farmers.filter((f) => f.patec === 2).length,
-    patec3: farmers.filter((f) => f.patec === 3).length,
-    semPatec: farmers.filter((f) => !f.patec).length,
+    total: farmersByProvince.length,
+    patec1: farmersByProvince.filter((f) => f.patec === 1).length,
+    patec2: farmersByProvince.filter((f) => f.patec === 2).length,
+    patec3: farmersByProvince.filter((f) => f.patec === 3).length,
+    semPatec: farmersByProvince.filter((f) => !f.patec).length,
   };
 
   const handleSavePatec = async () => {
@@ -283,7 +290,7 @@ const Patec = () => {
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-  useEffect(() => { setPage(1); }, [search, filterPatec]);
+  useEffect(() => { setPage(1); }, [search, filterPatec, filterProvince]);
 
   // Render editable item list for a category
   const renderItemList = (patecNum: number, category: string) => {
@@ -411,6 +418,13 @@ const Patec = () => {
               <span className="font-medium text-foreground">
                 {scope.scope === "province" ? "Províncias" : "ECAs"}: {scope.filterLabel}
               </span>
+            </>
+          )}
+          {filterProvince !== "all" && (
+            <>
+              <span className="text-border">|</span>
+              <MapPin className="h-3.5 w-3.5" />
+              <span className="font-medium text-foreground">{filterProvince}</span>
             </>
           )}
           {stats.semPatec > 0 && (
@@ -597,6 +611,18 @@ const Patec = () => {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input placeholder="Pesquisar por nome ou código..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
           </div>
+          <Select value={filterProvince} onValueChange={(v) => { setFilterProvince(v); setSelectedIds(new Set()); }}>
+            <SelectTrigger className="w-[200px]">
+              <MapPin className="h-4 w-4 mr-2" />
+              <SelectValue placeholder="Todas as províncias" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas as províncias</SelectItem>
+              {provinces.map((p) => (
+                <SelectItem key={p} value={p}>{p}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Select value={filterPatec} onValueChange={setFilterPatec}>
             <SelectTrigger className="w-[200px]">
               <Filter className="h-4 w-4 mr-2" />
