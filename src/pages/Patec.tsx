@@ -285,6 +285,55 @@ const Patec = () => {
     scope && fetchFarmers(scope);
   };
 
+  // Random redistribution (admin only)
+  const [randomConfirmOpen, setRandomConfirmOpen] = useState(false);
+  const [randomReport, setRandomReport] = useState<null | {
+    total: number; p1: number; p2: number; p3: number; province: string;
+  }>(null);
+
+  const semPatecPool = farmersByProvince.filter((f) => !f.patec);
+
+  const handleRandomReassign = async () => {
+    if (semPatecPool.length === 0) return;
+    setSaving(true);
+    // Fisher-Yates shuffle
+    const ids = semPatecPool.map((f) => f.id);
+    for (let i = ids.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [ids[i], ids[j]] = [ids[j], ids[i]];
+    }
+    // Split in thirds
+    const buckets: Record<number, string[]> = { 1: [], 2: [], 3: [] };
+    ids.forEach((id, idx) => {
+      const bucket = ((idx % 3) + 1) as 1 | 2 | 3;
+      buckets[bucket].push(id);
+    });
+    let errorCount = 0;
+    for (const patecNum of [1, 2, 3] as const) {
+      const list = buckets[patecNum];
+      for (let i = 0; i < list.length; i += 50) {
+        const batch = list.slice(i, i + 50);
+        const { error } = await supabase.from("farmers").update({ patec: patecNum }).in("id", batch);
+        if (error) errorCount++;
+      }
+    }
+    setSaving(false);
+    setRandomConfirmOpen(false);
+    if (errorCount > 0) {
+      toast.error("Erro ao reatribuir alguns produtores");
+    } else {
+      toast.success(`Reatribuídos ${ids.length} produtor(es) aleatoriamente`);
+      setRandomReport({
+        total: ids.length,
+        p1: buckets[1].length,
+        p2: buckets[2].length,
+        p3: buckets[3].length,
+        province: filterProvince === "all" ? "Todas as províncias" : filterProvince,
+      });
+    }
+    scope && fetchFarmers(scope);
+  };
+
   const isAllSelected = filtered.length > 0 && selectedIds.size === filtered.length;
   const isSomeSelected = selectedIds.size > 0;
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
