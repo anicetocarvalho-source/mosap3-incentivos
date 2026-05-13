@@ -465,6 +465,49 @@ const Patec = () => {
         </Card>
       </div>
 
+      {/* Validação de distribuição (terços) */}
+      {(() => {
+        const assigned = stats.patec1 + stats.patec2 + stats.patec3;
+        if (assigned === 0) return null;
+        const pct = (n: number) => (assigned > 0 ? (n / assigned) * 100 : 0);
+        const p1 = pct(stats.patec1), p2 = pct(stats.patec2), p3 = pct(stats.patec3);
+        const fmt = (v: number) => v.toFixed(1).replace(".", ",") + "%";
+        const maxDev = Math.max(Math.abs(p1 - 33.33), Math.abs(p2 - 33.33), Math.abs(p3 - 33.33));
+        const balanced = maxDev <= 2;
+        const semPct = stats.total > 0 ? (stats.semPatec / stats.total) * 100 : 0;
+        return (
+          <Card className={balanced ? "border-success/40 bg-success/5" : "border-warning/40 bg-warning/5"}>
+            <CardContent className="p-4">
+              <div className="flex items-start justify-between gap-3 flex-wrap">
+                <div className="flex items-center gap-2">
+                  {balanced ? (
+                    <Check className="h-5 w-5 text-success" />
+                  ) : (
+                    <AlertCircle className="h-5 w-5 text-warning" />
+                  )}
+                  <div>
+                    <p className="text-sm font-semibold">
+                      {balanced ? "Distribuição equilibrada em terços" : "Distribuição desequilibrada"}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Ideal: 33,3% por pacote · desvio máximo {fmt(maxDev)} {balanced ? "(≤ 2pp)" : "(> 2pp)"}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 text-xs">
+                  <Badge variant="outline">PATEC 1: <strong className="ml-1">{stats.patec1}</strong> · {fmt(p1)}</Badge>
+                  <Badge variant="outline">PATEC 2: <strong className="ml-1">{stats.patec2}</strong> · {fmt(p2)}</Badge>
+                  <Badge variant="outline">PATEC 3: <strong className="ml-1">{stats.patec3}</strong> · {fmt(p3)}</Badge>
+                  <Badge variant={stats.semPatec === 0 ? "outline" : "destructive"}>
+                    Sem PATEC: <strong className="ml-1">{stats.semPatec}</strong> · {fmt(semPct)}
+                  </Badge>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })()}
+
       {/* Composition cards - improved */}
       <div>
         <h2 className="text-sm font-semibold flex items-center gap-2 mb-3">
