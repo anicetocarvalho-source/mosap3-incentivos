@@ -290,7 +290,7 @@ const Patec = () => {
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-  useEffect(() => { setPage(1); }, [search, filterPatec]);
+  useEffect(() => { setPage(1); }, [search, filterPatec, filterProvince]);
 
   // Render editable item list for a category
   const renderItemList = (patecNum: number, category: string) => {
