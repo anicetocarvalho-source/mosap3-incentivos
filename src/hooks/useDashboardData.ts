@@ -63,7 +63,7 @@ const resolveScope = resolveScopeShared;
 
 const toIsoDate = (d?: Date) => (d ? d.toISOString().slice(0, 10) : null);
 
-function mapKpisFromJson(k: any, deltasRaw: any | null): Omit<DashboardKpis, "filterScope" | "filterLabel"> {
+function mapKpisFromJson(k: any, deltasRaw: any | null): Omit<DashboardKpis, "filterScope" | "filterLabel" | "filterProvinces" | "filterEcas"> {
   const totalRecebido = Number(k.total_recebido) || 0;
   const totalGasto = Number(k.total_gasto) || 0;
   const totalReconciliado = Number(k.total_reconciliado) || 0;
