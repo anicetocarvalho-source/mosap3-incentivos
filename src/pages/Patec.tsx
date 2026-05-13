@@ -84,6 +84,7 @@ const Patec = () => {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [filterPatec, setFilterPatec] = useState<string>("all");
+  const [filterProvince, setFilterProvince] = useState<string>("all");
   const [page, setPage] = useState(1);
   const [editFarmer, setEditFarmer] = useState<FarmerPatec | null>(null);
   const [editPatec, setEditPatec] = useState<string>("");
