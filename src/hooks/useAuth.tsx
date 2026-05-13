@@ -189,6 +189,33 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setAuthReady(true);
   }, [fetchUserData, tryRestoreOffline]);
 
+  // Proactive token refresh: ensures the session is fresh on focus/visibility/online,
+  // and forces sign-out + redirect to /auth if refresh fails (avoids 401 loops).
+  const ensureFreshSession = useCallback(async () => {
+    if (!navigator.onLine) return;
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const expiresAt = (session.expires_at ?? 0) * 1000;
+      const msUntilExpiry = expiresAt - Date.now();
+
+      // Refresh if expired or within 2 minutes of expiring.
+      if (msUntilExpiry < 2 * 60 * 1000) {
+        const { error } = await supabase.auth.refreshSession();
+        if (error) {
+          console.warn("[auth] Refresh failed, signing out", error.message);
+          await supabase.auth.signOut().catch(() => {});
+          if (typeof window !== "undefined" && !window.location.pathname.startsWith("/auth")) {
+            window.location.replace("/auth");
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("[auth] ensureFreshSession error", e);
+    }
+  }, []);
+
   useEffect(() => {
     mountedRef.current = true;
     normalizeStoredAuthSessionClockSkew();
@@ -206,6 +233,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           // profile/roles queries when only the token changed.
           if (event === "TOKEN_REFRESHED") return;
 
+          // If signed out remotely (e.g. refresh failed), force redirect to /auth.
+          if (event === "SIGNED_OUT") {
+            setResolvedAuthUser(null);
+            if (typeof window !== "undefined" && !window.location.pathname.startsWith("/auth")) {
+              window.location.replace("/auth");
+            }
+            return;
+          }
+
           setResolvedAuthUser(normalizedSession?.user ?? null);
         });
       }
@@ -218,16 +254,40 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       initializedRef.current = true;
 
       const normalizedSession = normalizeAuthSessionClockSkew(session);
+
+      // If session is expired at boot, try to refresh once before resolving.
+      if (normalizedSession && (normalizedSession.expires_at ?? 0) * 1000 < Date.now() + 60 * 1000) {
+        await ensureFreshSession();
+        const { data: { session: refreshed } } = await supabase.auth.getSession();
+        const renorm = normalizeAuthSessionClockSkew(refreshed);
+        setResolvedAuthUser(renorm?.user ?? null);
+        return;
+      }
+
       setResolvedAuthUser(normalizedSession?.user ?? null);
     });
+
+    // Re-check session on focus / visibility / online to refresh proactively.
+    const onFocus = () => { void ensureFreshSession(); };
+    const onVisibility = () => { if (document.visibilityState === "visible") void ensureFreshSession(); };
+    window.addEventListener("focus", onFocus);
+    window.addEventListener("online", onFocus);
+    document.addEventListener("visibilitychange", onVisibility);
+
+    // Periodic safety check every 4 minutes.
+    const interval = window.setInterval(() => { void ensureFreshSession(); }, 4 * 60 * 1000);
 
     return () => {
       mountedRef.current = false;
       authDispatchTimeoutsRef.current.forEach((timeoutId) => window.clearTimeout(timeoutId));
       authDispatchTimeoutsRef.current = [];
       subscription.unsubscribe();
+      window.removeEventListener("focus", onFocus);
+      window.removeEventListener("online", onFocus);
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.clearInterval(interval);
     };
-  }, [queueAuthWork, setResolvedAuthUser]);
+  }, [queueAuthWork, setResolvedAuthUser, ensureFreshSession]);
 
   useEffect(() => {
     if (authUser === undefined) return;
