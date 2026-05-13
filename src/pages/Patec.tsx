@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import {
   BarChart as RechartsBarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
 } from "recharts";
-import { Package, Search, Filter, Edit2, Eye, CheckSquare, X, Plus, Trash2, Pencil, Check, ChevronLeft, ChevronRight, Wheat, Loader2, Users, AlertCircle, Sprout, Leaf, TreeDeciduous, BarChart, MapPin } from "lucide-react";
+import { Package, Search, Filter, Edit2, Eye, CheckSquare, X, Plus, Trash2, Pencil, Check, ChevronLeft, ChevronRight, Wheat, Loader2, Users, AlertCircle, Sprout, Leaf, TreeDeciduous, BarChart, MapPin, Shuffle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllPages } from "@/lib/supabaseFetchAll";
 import { Input } from "@/components/ui/input";
@@ -285,6 +285,55 @@ const Patec = () => {
     scope && fetchFarmers(scope);
   };
 
+  // Random redistribution (admin only)
+  const [randomConfirmOpen, setRandomConfirmOpen] = useState(false);
+  const [randomReport, setRandomReport] = useState<null | {
+    total: number; p1: number; p2: number; p3: number; province: string;
+  }>(null);
+
+  const semPatecPool = farmersByProvince.filter((f) => !f.patec);
+
+  const handleRandomReassign = async () => {
+    if (semPatecPool.length === 0) return;
+    setSaving(true);
+    // Fisher-Yates shuffle
+    const ids = semPatecPool.map((f) => f.id);
+    for (let i = ids.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [ids[i], ids[j]] = [ids[j], ids[i]];
+    }
+    // Split in thirds
+    const buckets: Record<number, string[]> = { 1: [], 2: [], 3: [] };
+    ids.forEach((id, idx) => {
+      const bucket = ((idx % 3) + 1) as 1 | 2 | 3;
+      buckets[bucket].push(id);
+    });
+    let errorCount = 0;
+    for (const patecNum of [1, 2, 3] as const) {
+      const list = buckets[patecNum];
+      for (let i = 0; i < list.length; i += 50) {
+        const batch = list.slice(i, i + 50);
+        const { error } = await supabase.from("farmers").update({ patec: patecNum }).in("id", batch);
+        if (error) errorCount++;
+      }
+    }
+    setSaving(false);
+    setRandomConfirmOpen(false);
+    if (errorCount > 0) {
+      toast.error("Erro ao reatribuir alguns produtores");
+    } else {
+      toast.success(`Reatribuídos ${ids.length} produtor(es) aleatoriamente`);
+      setRandomReport({
+        total: ids.length,
+        p1: buckets[1].length,
+        p2: buckets[2].length,
+        p3: buckets[3].length,
+        province: filterProvince === "all" ? "Todas as províncias" : filterProvince,
+      });
+    }
+    scope && fetchFarmers(scope);
+  };
+
   const isAllSelected = filtered.length > 0 && selectedIds.size === filtered.length;
   const isSomeSelected = selectedIds.size > 0;
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
@@ -518,6 +567,18 @@ const Patec = () => {
                   <Badge variant={stats.semPatec === 0 ? "outline" : "destructive"}>
                     Sem PATEC: <strong className="ml-1">{stats.semPatec}</strong> · {fmt(semPct)}
                   </Badge>
+                  {isAdmin && stats.semPatec > 0 && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8 text-xs"
+                      onClick={() => setRandomConfirmOpen(true)}
+                      disabled={saving}
+                    >
+                      <Shuffle className="h-3.5 w-3.5 mr-1.5" />
+                      Reatribuir aleatoriamente
+                    </Button>
+                  )}
                 </div>
               </div>
             </CardContent>
@@ -942,6 +1003,83 @@ const Patec = () => {
               </div>
             </>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Random reassign confirmation */}
+      <AlertDialog open={randomConfirmOpen} onOpenChange={setRandomConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Shuffle className="h-5 w-5 text-primary" /> Reatribuir aleatoriamente
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2 text-sm">
+                <p>
+                  Vai atribuir PATEC 1, 2 ou 3 de forma aleatória e equilibrada (terços) a{" "}
+                  <strong className="text-foreground">{semPatecPool.length}</strong>{" "}
+                  produtor(es) sem PATEC
+                  {filterProvince !== "all" ? <> em <strong className="text-foreground">{filterProvince}</strong></> : null}.
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Os produtores que já têm PATEC atribuído não serão alterados.
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={saving}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleRandomReassign} disabled={saving || semPatecPool.length === 0}>
+              {saving ? <><Loader2 className="h-4 w-4 mr-1.5 animate-spin" />A reatribuir...</> : "Reatribuir agora"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Random reassign report */}
+      <Dialog open={!!randomReport} onOpenChange={(o) => !o && setRandomReport(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Check className="h-5 w-5 text-success" /> Relatório de Reatribuição
+            </DialogTitle>
+          </DialogHeader>
+          {randomReport && (() => {
+            const t = randomReport.total;
+            const pct = (n: number) => (t > 0 ? ((n / t) * 100).toFixed(1).replace(".", ",") + "%" : "—");
+            return (
+              <div className="space-y-3 py-2 text-sm">
+                <p className="text-muted-foreground">
+                  Âmbito: <span className="font-medium text-foreground">{randomReport.province}</span>
+                </p>
+                <p>
+                  <strong className="text-foreground">{t}</strong> produtor(es) reatribuídos aleatoriamente em terços.
+                </p>
+                <div className="rounded-lg border bg-muted/30 p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium">PATEC 1 — Milho</span>
+                    <Badge variant="outline">{randomReport.p1} · {pct(randomReport.p1)}</Badge>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium">PATEC 2 — Massango</span>
+                    <Badge variant="outline">{randomReport.p2} · {pct(randomReport.p2)}</Badge>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium">PATEC 3 — Massambala</span>
+                    <Badge variant="outline">{randomReport.p3} · {pct(randomReport.p3)}</Badge>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Diferença máxima entre pacotes: <strong className="text-foreground">
+                    {Math.max(randomReport.p1, randomReport.p2, randomReport.p3) - Math.min(randomReport.p1, randomReport.p2, randomReport.p3)}
+                  </strong> produtor(es) (ideal ≤ 1 com distribuição em terços).
+                </p>
+              </div>
+            );
+          })()}
+          <DialogFooter>
+            <Button onClick={() => setRandomReport(null)}>Fechar</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
