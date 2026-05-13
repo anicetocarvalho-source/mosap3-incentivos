@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      anomaly_resolutions: {
+        Row: {
+          anomaly_key: string
+          anomaly_type: string
+          created_at: string
+          id: string
+          notes: string | null
+          resolved_as: string
+          resolved_at: string
+          resolved_by: string | null
+        }
+        Insert: {
+          anomaly_key: string
+          anomaly_type: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          resolved_as?: string
+          resolved_at?: string
+          resolved_by?: string | null
+        }
+        Update: {
+          anomaly_key?: string
+          anomaly_type?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          resolved_as?: string
+          resolved_at?: string
+          resolved_by?: string | null
+        }
+        Relationships: []
+      }
       audit_logs: {
         Row: {
           action: string
@@ -2050,6 +2083,28 @@ export type Database = {
         }
         Returns: Json
       }
+      detect_farmer_anomalies: {
+        Args: {
+          p_ecas?: string[]
+          p_include_resolved?: boolean
+          p_provinces?: string[]
+          p_scope?: string
+        }
+        Returns: {
+          anomaly_key: string
+          anomaly_type: string
+          details: Json
+          farmer_code: string
+          farmer_name: string
+          municipality: string
+          province: string
+          related_codes: string[]
+          resolved: boolean
+          resolved_notes: string
+          school: string
+          severity: string
+        }[]
+      }
       has_any_backoffice_role: { Args: { _user_id: string }; Returns: boolean }
       has_role: {
         Args: {
@@ -2075,6 +2130,7 @@ export type Database = {
         Args: { _supplier_id: string; _year: number }
         Returns: string
       }
+      normalize_name: { Args: { _s: string }; Returns: string }
       notify_all_users: {
         Args: {
           _body: string
