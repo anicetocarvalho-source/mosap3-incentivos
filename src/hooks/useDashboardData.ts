@@ -45,6 +45,8 @@ export interface DashboardKpis {
   incentiveFunnel: { stage: string; value: number }[];
   filterScope: FilterScope;
   filterLabel: string;
+  filterProvinces: string[];
+  filterEcas: string[];
   deltas: DashboardDeltas | null;
 }
 
@@ -160,6 +162,8 @@ async function fetchKpis(
       ...mapKpisFromJson(d.current ?? {}, d.deltas ?? null),
       filterScope: scope,
       filterLabel,
+      filterProvinces: provinces,
+      filterEcas: ecas,
     };
   }
 
@@ -173,6 +177,8 @@ async function fetchKpis(
     ...mapKpisFromJson(data ?? {}, null),
     filterScope: scope,
     filterLabel,
+    filterProvinces: provinces,
+    filterEcas: ecas,
   };
 }
 
