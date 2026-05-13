@@ -58,6 +58,7 @@ import FornecedorPerfil from "@/pages/fornecedor/FornecedorPerfil";
 import FornecedorLojas from "@/pages/fornecedor/FornecedorLojas";
 import NotFound from "@/pages/NotFound";
 import Diagnostico from "@/pages/Diagnostico";
+import Anomalias from "@/pages/Anomalias";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -114,6 +115,7 @@ const App = () => (
               <Route path="/transacoes" element={<RoleGuard allowedRoles={["admin", "gestor_incentivos"]} moduleName="Transações"><Transacoes /></RoleGuard>} />
               <Route path="/telefones-orfaos" element={<RoleGuard allowedRoles={["admin"]} moduleName="Incentivos"><TelefonesOrfaos /></RoleGuard>} />
               <Route path="/revisao-provincias" element={<RoleGuard allowedRoles={["admin", "gestor_incentivos"]} moduleName="Incentivos"><RevisaoProvincias /></RoleGuard>} />
+              <Route path="/anomalias" element={<RoleGuard allowedRoles={["admin", "gestor_incentivos"]}><Anomalias /></RoleGuard>} />
 
 
               {/* Relatórios: todos excepto junior_agronegocio e tecnico_extensionista */}

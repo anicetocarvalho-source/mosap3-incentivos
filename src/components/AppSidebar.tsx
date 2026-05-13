@@ -47,6 +47,7 @@ const SECTION_MAP: Record<string, string> = {
   Incentivos: "Incentivos",
   MOSAP3Pay: "Comercial",
   Relatórios: "Comercial",
+  Anomalias: "Comercial",
   Utilizadores: "Sistema",
   Configurações: "Sistema",
   Instalar: "Sistema",

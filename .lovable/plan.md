@@ -1,79 +1,92 @@
 ## Objectivo
 
-Garantir que **todos os cards e gráficos** do `/` (Dashboard) reflectem fielmente o que existe nos módulos (Agricultores, Transações, Fornecedores, Escolas, Parcelas, Pecuária, Incentivos), e adicionar os cards em falta.
+Criar uma página `/anomalias` que detecta automaticamente casos suspeitos nos dados de produtores (como o duplicado da Victoria Intumba) para revisão manual pelo Admin / Gestor de Incentivos.
 
-## Diagnóstico actual (admin, âmbito global)
+## O caso real diagnosticado
 
-Após inspeccionar `dashboard_kpis` e `dashboard_charts` na BD, os valores devolvidos são:
+A Victoria Intumba (AGR-10639) tem `valor_recebido = 301.760,00 Kz` — não é um valor anormal por si só (é o segundo escalão mais comum, presente em 1.921 produtoras). O verdadeiro problema é:
 
-| KPI | Valor RPC | Valor real na BD | Estado |
-|---|---|---|---|
-| Produtores | 10.905 | 10.905 | ✅ |
-| Transações | 70.394 | 70.394 | ✅ |
-| Fornecedores | 13 (`status='Ativo'`) | 13 totais | ⚠️ filtro restritivo |
-| Escolas/ECAs | 733 (tabela `schools`) | 681 com produtores | ⚠️ inconsistente |
-| Parcelas | 0 | 0 (tabela vazia) | ✅ mas sem aviso |
-| Pecuária | 0 | 0 (tabela vazia) | ✅ mas sem aviso |
-| Vendas POS | 0 | 0 (tabela vazia) | ✅ mas sem aviso |
-| Género (M/F) | 0% / 0% | todos NULL | ⚠️ campo vazio |
+1. Existe um registo **gémeo** AGR-10640 ("Victoria Intumba Mutango Ndala") na mesma província/município, criado **no mesmo segundo** (2026-04-17 07:54:27) e creditado com **o mesmo valor no mesmo lote** Unitel (`import_unitel_money_2026_04`).
+2. AGR-10639 tem **saldo negativo de -362.796,24 Kz** (gastou 363k mas só recebeu 301k).
 
-**Cards/secções em falta no Dashboard que existem nos módulos:**
-- Nº de **Transações** (só aparece como subtítulo do "Volume POS")
-- Nº de **ECAs/Escolas de Campo** (não tem card próprio)
-- Nº de **Municípios cobertos**
-- Nº de **Incentivos atribuídos** (registos em `farmer_incentives`)
-- Nº de **Notas de Crédito** emitidas
-- Nº de **PATEC distribuídos** (1/2/3) e **sem PATEC**
+Provável duplicação de registo durante a importação inicial.
 
-## Alterações
+## Categorias de anomalia detectadas
 
-### 1. Migração SQL — corrigir RPCs
+| Categoria | Regra | Severidade |
+|---|---|---|
+| **Duplicado de produtor** | Mesmo nome normalizado (lowercase, sem acentos, palavras-chave comuns) na mesma província+município, ou nomes muito similares (Levenshtein ≤ 2) | Alta |
+| **Saldo negativo** | `parse_ptao_numeric(total_gasto) > parse_ptao_numeric(valor_recebido)` | Alta |
+| **Valor fora dos escalões** | `valor_recebido` não pertence a {0; 200.000; 301.760; 915.840} e não é nulo | Média |
+| **Telefone partilhado** | Mesmo `phone` (não vazio) em 2+ produtores | Alta |
+| **BI partilhado** | Mesmo `bi` (não vazio) em 2+ produtores | Alta |
 
-Editar `dashboard_kpis` e `dashboard_charts`:
+## Estrutura de implementação
 
-- `total_companies` → contar **todos** os fornecedores (remover filtro `status='Ativo'`); adicionar `total_companies_active` separado.
-- `total_schools` → contar `DISTINCT school` em `farmers` (apenas ECAs com produtores), conforme escolha do utilizador.
-- Adicionar novos campos ao JSON de retorno:
-  - `total_municipalities` (DISTINCT municipality em farmers)
-  - `total_incentives_count` (count `farmer_incentives`)
-  - `total_credit_notes` (count `credit_notes`)
-  - `total_patec_1`, `total_patec_2`, `total_patec_3`, `total_sem_patec`
-- Em `dashboard_charts`, recalcular `gender_data` para distinguir entre "Sem registo" e zeros reais (devolver também `total_no_gender`).
+### 1. Backend — Function SQL
 
-### 2. Front-end (`src/pages/Dashboard.tsx` + `useDashboardData.ts`)
+Criar uma view/function `detect_farmer_anomalies()` que devolve:
+```
+anomaly_type | severity | farmer_code | farmer_name | province | municipality | school | details (jsonb) | related_codes (text[])
+```
 
-- Estender interface `DashboardKpis` com os novos campos.
-- Criar nova secção **"Cobertura Operacional"** com 4 cards:
-  - Transações (contagem) — link `/transacoes`
-  - ECAs activas — link `/escolas-campo`
-  - Municípios cobertos — link `/dashboard`
-  - Incentivos atribuídos — link `/incentivos`
-- Adicionar secção **"Distribuição PATEC"** (mini-cards 1/2/3/Sem) — link `/patec`.
-- Reordenar "Visão Geral" para incluir Fornecedores Activos vs Total.
+Lógica em SQL puro (uma só query unionada por categoria) para ser performante e re-executável.
 
-### 3. Aviso "Sem dados" nos cards a 0
+### 2. Tabela de resolução
 
-Criar variante visual no `KpiCard` (badge cinzento "sem dados registados" + ícone `Info`) para cards cujo valor é 0 **e** o módulo subjacente está realmente vazio. Aplicar a Parcelas, Pecuária, Vendas POS, Produção, Género.
+```
+anomaly_resolutions
+  id, anomaly_type, anomaly_key (texto único: ex "duplicate:victoria-intumba|cuando-cubango|menogue"),
+  resolved_as ('falso_positivo'),
+  notes, resolved_by, resolved_at
+```
 
-### 4. Validação cruzada
+RLS: SELECT/INSERT/UPDATE para `is_admin OR has_role(gestor_incentivos)`.
 
-Adicionar pequeno componente `DataIntegrityBanner` (apenas para admin) no topo do dashboard que faz contagens directas (`SELECT count(*)`) às tabelas-chave e compara com os valores RPC. Se houver divergência > 1%, mostra aviso amarelo com detalhes (ajuda a diagnosticar caches do React Query).
+Quando uma anomalia é marcada como falso positivo, fica registada por `anomaly_key` e deixa de aparecer.
 
-### 5. Refresh manual
+### 3. Frontend — `/anomalias`
 
-Adicionar botão "Actualizar dados" no `HeroHeader` que invalida `dashboard-kpis` e `dashboard-charts` no React Query (`staleTime` actual é 5min).
+Layout padrão do sistema (filtros + tabela desktop / cards mobile):
 
-## Ficheiros afectados
+- **Cards de resumo no topo**: contagem por categoria (Duplicados, Saldo Negativo, Valor Fora Escalões, Telefone/BI partilhado).
+- **Filtros**: categoria, província, severidade, "incluir falsos positivos" (off por defeito).
+- **Tabela**: tipo, produtor (linka para `/agricultores/{code}`), localização, detalhes (ex. "AGR-10639 + AGR-10640 — mesmo nome, mesma escola"), saldo, acções.
+- **Acções por linha**:
+  - **Abrir perfil** → navega para `/agricultores/{code}`
+  - **Marcar falso positivo** → dialog com nota obrigatória; grava em `anomaly_resolutions` + `audit_logs`.
+- **Skeletons** de carregamento e `EmptyState` "Sem anomalias detectadas" (já criados).
 
-- `supabase/migrations/<novo>.sql` — RPCs `dashboard_kpis` + `dashboard_charts`
-- `src/hooks/useDashboardData.ts` — extensão da interface + mapping
-- `src/pages/Dashboard.tsx` — novas secções + variante "sem dados"
-- `src/components/dashboard/KpiCard.tsx` — variante `emptyState`
-- `src/components/dashboard/HeroHeader.tsx` — botão refresh
-- `src/components/dashboard/DataIntegrityBanner.tsx` — **novo**
+### 4. Navegação e RBAC
 
-## Notas
+- Adicionar item "Anomalias" no `AppSidebar` (debaixo de Relatórios), com badge mostrando contagem total não resolvida.
+- Visível apenas para Admin e Gestor de Incentivos. Aplicar filtro geográfico do utilizador (províncias permitidas).
 
-- A escolha "Apenas ECAs com produtores" será aplicada também em qualquer KPI relacionado.
-- Cards sem dados ficam visíveis com aviso ("Mostrar 0 com aviso").
-- Os campos `gender` e tabelas `farmer_parcels`/`livestock`/`pos_sales` estão genuinamente vazios — isto não é bug, mas o dashboard passará a comunicá-lo claramente.
+### 5. Filtragem geográfica
+
+Reutilizar o helper `useGeoScope()` para garantir que utilizadores não-globais só vêem anomalias das suas províncias permitidas (consistente com o resto do sistema).
+
+## Detalhes técnicos
+
+**Ficheiros a criar:**
+- `supabase/migrations/<ts>_anomaly_detection.sql` — function SQL + tabela `anomaly_resolutions` + RLS
+- `src/hooks/useAnomalies.ts` — fetch via RPC + filtragem por scope
+- `src/pages/Anomalias.tsx` — página principal
+- `src/components/anomalies/AnomalyTable.tsx`
+- `src/components/anomalies/AnomalyCard.tsx` (mobile)
+- `src/components/anomalies/MarkFalsePositiveDialog.tsx`
+- `src/components/anomalies/AnomalySummaryCards.tsx`
+
+**Ficheiros a editar:**
+- `src/App.tsx` — rota `/anomalias`
+- `src/components/AppSidebar.tsx` — entrada de menu + badge
+- `src/lib/permissions.ts` (ou equivalente) — gating por role
+
+**Memória de projecto:** adicionar `mem://features/deteccao-anomalias` descrevendo a regra de detecção e localização da página.
+
+## Fora de âmbito desta versão
+
+- Fusão automática de duplicados (apenas marcação manual + abrir perfil para acção).
+- Soft-delete em massa.
+- Exportação CSV (pode ser adicionada depois se necessária).
+- Re-cálculo automático de saldos.
