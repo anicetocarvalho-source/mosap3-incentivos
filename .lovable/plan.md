@@ -1,89 +1,49 @@
-## Problema
+## Objectivo
 
-A página `/patec` mostra contagens incorrectas:
-1. Total de produtores não bate com a base real.
-2. Stats por PATEC 1/2/3/Sem PATEC desactualizados.
-3. Inclui produtores soft-deleted (`status = 'Removido'`).
-4. Não respeita as permissões geográficas (províncias / ECAs) do utilizador.
+Atribuir PATEC 1/2/3 de forma aleatória balanceada a todos os ~10.905 agricultores activos, para destrancar o teste end-to-end do fluxo de compras (POS → saldo → factura).
 
-A mesma inconsistência precisa ser corrigida em todos os módulos que contam produtores, para manter coerência em toda a plataforma.
+## Recomendação de execução
 
-## Regras unificadas para contagem de produtores
+**Migração SQL única, idempotente.** Razão:
+- É um seed de ambiente de teste, não uma feature de produto recorrente — não justifica UI dedicada nem código TypeScript.
+- Uma migração corre num passo, fica versionada no histórico do projecto, e o utilizador aprova antes de executar (sem surpresas).
+- Idempotente: pode ser re-executada sem duplicar nem partir dados já atribuídos manualmente.
 
-A partir desta correcção, **todas** as contagens de produtores aplicam:
+Descarto as outras opções: o "script seedável" obriga a manter uma função SQL no schema só para testes (poluição); o "botão admin em /patec" custa muito mais código para algo que vais correr 1 vez.
 
-- Excluir `status = 'Removido'` (soft-delete).
-- Filtrar por `user_provinces` se o utilizador for sénior/júnior (province scope).
-- Filtrar por `user_ecas` (mapeado para `farmers.school`) se for técnico extensionista.
-- Admin e gestor de incentivos veem o total global.
+## Regras de atribuição
 
-Reaproveita-se o helper `resolveScope` já existente em `useDashboardData.ts`, extraindo-o para `src/lib/farmerScope.ts` para uso partilhado.
+- Universo: `farmers` onde `status <> 'Removido'` E `patec IS NULL` (não sobrescreve quem já tenha PATEC manual).
+- Distribuição: `NTILE(3)` sobre `ORDER BY random()` → ~⅓ recebe PATEC 1, ⅓ PATEC 2, ⅓ PATEC 3.
+- Resultado esperado: ~3.635 produtores por pacote, "Sem PATEC" cai para 0 (excluindo Removidos).
 
-## Mudanças
+## Passos
 
-### 1. Novo helper `src/lib/farmerScope.ts`
-- Move `getFilterScope`, `fetchUserProvinces`, `fetchUserEcas`, `resolveScope` para módulo partilhado.
-- Adiciona `applyFarmerScopeFilter(query, scope, provinces, ecas)` que aplica `.neq("status", "Removido")` + `.in("province", …)` ou `.in("school", …)` conforme o scope.
-- `useDashboardData.ts` passa a importar daqui.
-
-### 2. `src/pages/Patec.tsx`
-- Usa `useAuth` + `resolveScope` para obter scope/províncias/ECAs do utilizador.
-- `fetchFarmers` aplica `applyFarmerScopeFilter` (exclui Removido + filtro geo).
-- Header passa a mostrar badge com o âmbito (igual ao Dashboard) quando não for global.
-- Stats `total / patec1 / patec2 / patec3 / semPatec` recalculam-se sobre a lista já filtrada — fica automaticamente correcto.
-- Ao carregar a lista das catequeses (escolas) para atribuição em lote, respeita o mesmo scope.
-
-### 3. `src/hooks/usePatecPendingCount.ts` (badge da sidebar)
-- Adiciona `.neq("status", "Removido")` e aplica filtro geo via `resolveScope` para coincidir com a página.
-
-### 4. Auditoria de outros módulos que contam produtores
-Aplicar a mesma regra (excluir Removido + scope geo) a:
-
-- `src/hooks/useFarmersList.ts` — lista de Agricultores (já tem filtro de status no UI, garantir que a contagem default exclui Removido salvo quando o utilizador escolhe explicitamente esse filtro).
-- `src/hooks/useDashboardData.ts` / RPC `dashboard_kpis` — confirmar que a função SQL exclui Removido; se não excluir, criar migração para corrigir.
-- `src/hooks/useReportData.ts` (página Relatórios) — aplicar exclusão e scope.
-- `src/pages/Incentivos.tsx` e `src/components/incentivos/BatchDistributionDialog.tsx` — exclusão + scope.
-- `src/pages/CartoesId.tsx` e `src/pages/CartaoIdLote.tsx` — exclusão + scope.
-- `src/hooks/useFinancialSummary.ts` — exclusão.
-- `src/pages/EscolasCampo.tsx` / `useSchoolDetail.ts` — exclusão na agregação por escola.
-- Página `Producao` / `Parcelas` — exclusão na contagem de produtores associados.
-
-Cada módulo recebe apenas o mínimo: passar a query pelo `applyFarmerScopeFilter` (ou equivalente para hooks que já têm a sua própria lógica de scope).
-
-### 5. Migração SQL (se necessário)
-Se a função `dashboard_kpis` (RPC) ou outras funções SQL contarem `farmers` sem excluir `Removido`, criar migração que actualiza as funções para ignorar esse status. Verificar antes de criar.
-
-### 6. Verificação
-- Login como admin → contagens totais batem com `SELECT count(*) FROM farmers WHERE status <> 'Removido'`.
-- Login como sénior de uma província → contagens só dessa província.
-- Login como extensionista → só da(s) sua(s) ECA(s).
-- Marcar um produtor como Removido → contagem de PATEC, Dashboard, sidebar badge e Relatórios decrementa.
+1. Criar migração SQL com `UPDATE farmers SET patec = ... WHERE patec IS NULL AND status <> 'Removido'` usando CTE com `NTILE(3) OVER (ORDER BY random())`.
+2. Após aplicação, validar via `/patec`:
+   - Total no topo = nº de activos
+   - Stats PATEC 1/2/3 ≈ ⅓ cada
+   - "Sem PATEC" = 0
+3. Validar com utilizador júnior (Benguela) que os contadores filtrados pelo scope geográfico continuam coerentes.
 
 ## Detalhes técnicos
 
-```ts
-// src/lib/farmerScope.ts
-export async function applyFarmerScopeFilter<T>(
-  query: any,
-  { scope, provinces, ecas }: ResolvedScope,
-  { includeRemoved = false } = {}
-) {
-  if (!includeRemoved) query = query.neq("status", "Removido");
-  if (scope === "province" && provinces.length) query = query.in("province", provinces);
-  else if (scope === "eca" && ecas.length) query = query.in("school", ecas);
-  return query;
-}
+```sql
+WITH buckets AS (
+  SELECT id, ((NTILE(3) OVER (ORDER BY random()))) AS bucket
+  FROM farmers
+  WHERE patec IS NULL AND status <> 'Removido'
+)
+UPDATE farmers f
+SET patec = b.bucket, updated_at = now()
+FROM buckets b
+WHERE f.id = b.id;
 ```
 
-```ts
-// src/pages/Patec.tsx (fetchFarmers)
-const scope = await resolveScope(user.id, roles);
-const data = await fetchAllPages<FarmerPatec>(() =>
-  applyFarmerScopeFilter(
-    supabase.from("farmers").select("id, code, full_name, province, municipality, school, patec, status", { count: "exact" }).order("code"),
-    scope
-  )
-);
-```
+Nota: não usar `random()` directamente em `SET patec = ...` porque cada chamada a `random()` reavalia por linha — `NTILE` garante a distribuição exacta em terços.
 
-Sem alterações de schema previstas (apenas eventual ajuste em RPC se a auditoria mostrar que conta Removidos).
+## Fora de âmbito
+
+- Não cria atribuições para "Removidos" nem sobrescreve PATEC já existentes.
+- Não mexe em `farmer_incentives`, saldos, ou lojas — só preenche a coluna `farmers.patec`.
+- Não adiciona UI nova.
