@@ -1005,6 +1005,83 @@ const Patec = () => {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Random reassign confirmation */}
+      <AlertDialog open={randomConfirmOpen} onOpenChange={setRandomConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Shuffle className="h-5 w-5 text-primary" /> Reatribuir aleatoriamente
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2 text-sm">
+                <p>
+                  Vai atribuir PATEC 1, 2 ou 3 de forma aleatória e equilibrada (terços) a{" "}
+                  <strong className="text-foreground">{semPatecPool.length}</strong>{" "}
+                  produtor(es) sem PATEC
+                  {filterProvince !== "all" ? <> em <strong className="text-foreground">{filterProvince}</strong></> : null}.
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Os produtores que já têm PATEC atribuído não serão alterados.
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={saving}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleRandomReassign} disabled={saving || semPatecPool.length === 0}>
+              {saving ? <><Loader2 className="h-4 w-4 mr-1.5 animate-spin" />A reatribuir...</> : "Reatribuir agora"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Random reassign report */}
+      <Dialog open={!!randomReport} onOpenChange={(o) => !o && setRandomReport(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Check className="h-5 w-5 text-success" /> Relatório de Reatribuição
+            </DialogTitle>
+          </DialogHeader>
+          {randomReport && (() => {
+            const t = randomReport.total;
+            const pct = (n: number) => (t > 0 ? ((n / t) * 100).toFixed(1).replace(".", ",") + "%" : "—");
+            return (
+              <div className="space-y-3 py-2 text-sm">
+                <p className="text-muted-foreground">
+                  Âmbito: <span className="font-medium text-foreground">{randomReport.province}</span>
+                </p>
+                <p>
+                  <strong className="text-foreground">{t}</strong> produtor(es) reatribuídos aleatoriamente em terços.
+                </p>
+                <div className="rounded-lg border bg-muted/30 p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium">PATEC 1 — Milho</span>
+                    <Badge variant="outline">{randomReport.p1} · {pct(randomReport.p1)}</Badge>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium">PATEC 2 — Massango</span>
+                    <Badge variant="outline">{randomReport.p2} · {pct(randomReport.p2)}</Badge>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium">PATEC 3 — Massambala</span>
+                    <Badge variant="outline">{randomReport.p3} · {pct(randomReport.p3)}</Badge>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Diferença máxima entre pacotes: <strong className="text-foreground">
+                    {Math.max(randomReport.p1, randomReport.p2, randomReport.p3) - Math.min(randomReport.p1, randomReport.p2, randomReport.p3)}
+                  </strong> produtor(es) (ideal ≤ 1 com distribuição em terços).
+                </p>
+              </div>
+            );
+          })()}
+          <DialogFooter>
+            <Button onClick={() => setRandomReport(null)}>Fechar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
