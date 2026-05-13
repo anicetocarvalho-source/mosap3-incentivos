@@ -567,6 +567,18 @@ const Patec = () => {
                   <Badge variant={stats.semPatec === 0 ? "outline" : "destructive"}>
                     Sem PATEC: <strong className="ml-1">{stats.semPatec}</strong> · {fmt(semPct)}
                   </Badge>
+                  {isAdmin && stats.semPatec > 0 && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8 text-xs"
+                      onClick={() => setRandomConfirmOpen(true)}
+                      disabled={saving}
+                    >
+                      <Shuffle className="h-3.5 w-3.5 mr-1.5" />
+                      Reatribuir aleatoriamente
+                    </Button>
+                  )}
                 </div>
               </div>
             </CardContent>
