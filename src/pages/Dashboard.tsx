@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Users, ArrowRightLeft, Building2, MapPin, Beef, Loader2, BarChart3, PieChart as PieIcon, Activity, Sprout, Target, Gauge, TrendingUp } from "lucide-react";
+import { Users, ArrowRightLeft, Building2, MapPin, Beef, Loader2, BarChart3, PieChart as PieIcon, Activity, Sprout, Target, Gauge, TrendingUp, School, Map, HandCoins, Receipt, Package } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
@@ -84,6 +84,8 @@ const Dashboard = () => {
           filterScope={stats.filterScope}
           filterLabel={stats.filterLabel}
           volumeFormatted={formatCurrency(stats.volumeTransactions)}
+          onRefresh={() => { refetchKpis(); refetchCharts(); }}
+          refreshing={kpisLoading || chartsLoading}
         />
         <div className="absolute right-4 top-4 md:right-6 md:top-6 z-10">
           <PeriodFilter value={period} onChange={setPeriod} />
@@ -99,11 +101,12 @@ const Dashboard = () => {
           <KpiCard
             title="Produtores"
             value={formatNumber(stats.totalFarmers)}
-            subtitle={`${formatNumber(stats.totalLivestockProducers)} com pecuária`}
+            subtitle={`${formatNumber(stats.totalApproved)} aprovados`}
             icon={Users}
             accent="primary"
             delay={0.05}
             delta={d?.totalFarmers ?? null}
+            to="/agricultores"
           />
           <KpiCard
             title="Parcelas"
@@ -113,15 +116,114 @@ const Dashboard = () => {
             accent="success"
             delay={0.1}
             delta={d?.totalParcels ?? null}
+            emptyHint={stats.totalParcels === 0}
+            to="/parcelas"
           />
           <KpiCard
             title="Fornecedores"
             value={formatNumber(stats.totalCompanies)}
-            subtitle="Activos no MOSAP3Pay"
+            subtitle={`${formatNumber(stats.totalCompaniesActive)} activos no MOSAP3Pay`}
             icon={Building2}
             accent="secondary"
             delay={0.15}
             delta={d?.totalCompanies ?? null}
+            emptyHint={stats.totalCompanies === 0}
+            to="/mosap3pay/fornecedores"
+          />
+        </div>
+      </div>
+
+      {/* Cobertura Operacional */}
+      <div>
+        <p className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+          Cobertura Operacional
+        </p>
+        <div className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-4">
+          <KpiCard
+            title="Transações"
+            value={formatNumber(stats.totalTransactions)}
+            subtitle={formatCurrency(stats.volumeTransactions)}
+            icon={ArrowRightLeft}
+            accent="info"
+            delay={0.05}
+            delta={d?.totalTransactions ?? null}
+            emptyHint={stats.totalTransactions === 0}
+            to="/transacoes"
+          />
+          <KpiCard
+            title="ECAs com Produtores"
+            value={formatNumber(stats.totalSchools)}
+            subtitle="Escolas de campo activas"
+            icon={School}
+            accent="primary"
+            delay={0.1}
+            emptyHint={stats.totalSchools === 0}
+            to="/escolas-campo"
+          />
+          <KpiCard
+            title="Municípios Cobertos"
+            value={formatNumber(stats.totalMunicipalities)}
+            subtitle="Com pelo menos 1 produtor"
+            icon={Map}
+            accent="success"
+            delay={0.15}
+            emptyHint={stats.totalMunicipalities === 0}
+          />
+          <KpiCard
+            title="Incentivos Atribuídos"
+            value={formatNumber(stats.totalIncentivesCount)}
+            subtitle={`${formatNumber(stats.totalCreditNotes)} notas de crédito`}
+            icon={HandCoins}
+            accent="warning"
+            delay={0.2}
+            emptyHint={stats.totalIncentivesCount === 0}
+            to="/incentivos"
+          />
+        </div>
+      </div>
+
+      {/* Distribuição PATEC */}
+      <div>
+        <p className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+          Distribuição PATEC
+        </p>
+        <div className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-4">
+          <KpiCard
+            title="PATEC 1"
+            value={formatNumber(stats.totalPatec1)}
+            subtitle="Pacote básico"
+            icon={Package}
+            accent="warning"
+            delay={0.05}
+            to="/patec"
+          />
+          <KpiCard
+            title="PATEC 2"
+            value={formatNumber(stats.totalPatec2)}
+            subtitle="Pacote intermédio"
+            icon={Package}
+            accent="success"
+            delay={0.1}
+            to="/patec"
+          />
+          <KpiCard
+            title="PATEC 3"
+            value={formatNumber(stats.totalPatec3)}
+            subtitle="Pacote avançado"
+            icon={Package}
+            accent="primary"
+            delay={0.15}
+            to="/patec"
+          />
+          <KpiCard
+            title="Sem PATEC"
+            value={formatNumber(stats.totalSemPatec)}
+            subtitle="Por atribuir"
+            icon={Package}
+            accent="destructive"
+            delay={0.2}
+            emptyHint={stats.totalSemPatec === 0 && stats.totalFarmers > 0}
+            to="/patec"
           />
         </div>
       </div>
@@ -140,6 +242,7 @@ const Dashboard = () => {
             accent={stats.utilizationRate >= 70 ? "success" : stats.utilizationRate >= 40 ? "warning" : "destructive"}
             delay={0.05}
             delta={d?.utilizationRate ?? null}
+            emptyHint={stats.totalRecebido === 0}
           />
           <KpiCard
             title="Volume POS"
@@ -149,6 +252,7 @@ const Dashboard = () => {
             accent="info"
             delay={0.1}
             delta={d?.volumeTransactions ?? null}
+            emptyHint={stats.volumeTransactions === 0}
           />
           <KpiCard
             title="Produtividade"
@@ -158,6 +262,7 @@ const Dashboard = () => {
             accent="primary"
             delay={0.15}
             delta={d?.avgYieldPerHa ?? null}
+            emptyHint={stats.avgYieldPerHa === 0}
           />
         </div>
       </div>
