@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import {
   BarChart as RechartsBarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
 } from "recharts";
-import { Package, Search, Filter, Edit2, Eye, CheckSquare, X, Plus, Trash2, Pencil, Check, ChevronLeft, ChevronRight, Wheat, Loader2, Users, AlertCircle, Sprout, Leaf, TreeDeciduous, BarChart } from "lucide-react";
+import { Package, Search, Filter, Edit2, Eye, CheckSquare, X, Plus, Trash2, Pencil, Check, ChevronLeft, ChevronRight, Wheat, Loader2, Users, AlertCircle, Sprout, Leaf, TreeDeciduous, BarChart, MapPin } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllPages } from "@/lib/supabaseFetchAll";
 import { Input } from "@/components/ui/input";
