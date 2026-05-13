@@ -1,15 +1,18 @@
 import { motion } from "framer-motion";
-import { Filter, Sparkles, TrendingUp } from "lucide-react";
+import { Filter, RefreshCw, Sparkles, TrendingUp } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 
 interface HeroHeaderProps {
   roleName: string;
   filterScope: "global" | "province" | "eca" | string;
   filterLabel?: string;
   volumeFormatted: string;
+  onRefresh?: () => void;
+  refreshing?: boolean;
 }
 
-const HeroHeader = ({ roleName, filterScope, filterLabel, volumeFormatted }: HeroHeaderProps) => {
+const HeroHeader = ({ roleName, filterScope, filterLabel, volumeFormatted, onRefresh, refreshing }: HeroHeaderProps) => {
   const today = new Date().toLocaleDateString("pt-AO", {
     weekday: "long",
     day: "2-digit",
@@ -72,31 +75,44 @@ const HeroHeader = ({ roleName, filterScope, filterLabel, volumeFormatted }: Her
             )}
           </div>
 
-          {/* Volume highlight card */}
-          <div
-            className="rounded-xl border border-white/10 p-4 md:p-5 backdrop-blur-sm min-w-[260px]"
-            style={{ background: "hsl(0 0% 100% / 0.06)" }}
-          >
-            <div className="flex items-center gap-3">
-              <div
-                className="flex h-12 w-12 items-center justify-center rounded-xl"
-                style={{ background: "var(--gradient-gold)" }}
+          <div className="flex items-center gap-3">
+            {onRefresh && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onRefresh}
+                disabled={refreshing}
+                className="border-white/20 bg-white/5 text-[hsl(var(--sidebar-foreground))] hover:bg-white/10"
               >
-                <TrendingUp className="h-6 w-6" style={{ color: "hsl(var(--secondary-foreground))" }} />
-              </div>
-              <div className="min-w-0">
-                <p
-                  className="text-[10px] font-semibold uppercase tracking-wider"
-                  style={{ color: "hsl(var(--sidebar-foreground) / 0.6)" }}
+                <RefreshCw className={`mr-2 h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
+                Actualizar
+              </Button>
+            )}
+            <div
+              className="rounded-xl border border-white/10 p-4 md:p-5 backdrop-blur-sm min-w-[260px]"
+              style={{ background: "hsl(0 0% 100% / 0.06)" }}
+            >
+              <div className="flex items-center gap-3">
+                <div
+                  className="flex h-12 w-12 items-center justify-center rounded-xl"
+                  style={{ background: "var(--gradient-gold)" }}
                 >
-                  Volume Movimentado
-                </p>
-                <p
-                  className="font-heading text-xl md:text-2xl font-bold tracking-tight truncate"
-                  style={{ color: "hsl(var(--sidebar-foreground))" }}
-                >
-                  {volumeFormatted}
-                </p>
+                  <TrendingUp className="h-6 w-6" style={{ color: "hsl(var(--secondary-foreground))" }} />
+                </div>
+                <div className="min-w-0">
+                  <p
+                    className="text-[10px] font-semibold uppercase tracking-wider"
+                    style={{ color: "hsl(var(--sidebar-foreground) / 0.6)" }}
+                  >
+                    Volume Movimentado
+                  </p>
+                  <p
+                    className="font-heading text-xl md:text-2xl font-bold tracking-tight truncate"
+                    style={{ color: "hsl(var(--sidebar-foreground))" }}
+                  >
+                    {volumeFormatted}
+                  </p>
+                </div>
               </div>
             </div>
           </div>
