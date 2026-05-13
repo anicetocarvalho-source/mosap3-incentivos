@@ -116,7 +116,7 @@ const Dashboard = () => {
             accent="primary"
             delay={0.05}
             delta={d?.totalFarmers ?? null}
-            to="/agricultores"
+            to={scopedHref("/agricultores")}
           />
           <KpiCard
             title="Parcelas"
@@ -127,7 +127,7 @@ const Dashboard = () => {
             delay={0.1}
             delta={d?.totalParcels ?? null}
             emptyHint={stats.totalParcels === 0}
-            to="/parcelas"
+            to={scopedHref("/parcelas")}
           />
           <KpiCard
             title="Fornecedores"
@@ -138,7 +138,7 @@ const Dashboard = () => {
             delay={0.15}
             delta={d?.totalCompanies ?? null}
             emptyHint={stats.totalCompanies === 0}
-            to="/mosap3pay/fornecedores"
+            to={scopedHref("/mosap3pay/fornecedores")}
           />
         </div>
       </div>
@@ -158,7 +158,7 @@ const Dashboard = () => {
             delay={0.05}
             delta={d?.totalTransactions ?? null}
             emptyHint={stats.totalTransactions === 0}
-            to="/transacoes"
+            to={scopedHref("/transacoes")}
           />
           <KpiCard
             title="ECAs com Produtores"
@@ -168,7 +168,7 @@ const Dashboard = () => {
             accent="primary"
             delay={0.1}
             emptyHint={stats.totalSchools === 0}
-            to="/escolas-campo"
+            to={scopedHref("/escolas-campo")}
           />
           <KpiCard
             title="Municípios Cobertos"
@@ -187,7 +187,7 @@ const Dashboard = () => {
             accent="warning"
             delay={0.2}
             emptyHint={stats.totalIncentivesCount === 0}
-            to="/incentivos"
+            to={scopedHref("/incentivos")}
           />
         </div>
       </div>
@@ -205,7 +205,7 @@ const Dashboard = () => {
             icon={Package}
             accent="warning"
             delay={0.05}
-            to="/patec"
+            to={scopedHref("/patec")}
           />
           <KpiCard
             title="PATEC 2"
@@ -214,7 +214,7 @@ const Dashboard = () => {
             icon={Package}
             accent="success"
             delay={0.1}
-            to="/patec"
+            to={scopedHref("/patec")}
           />
           <KpiCard
             title="PATEC 3"
@@ -223,7 +223,7 @@ const Dashboard = () => {
             icon={Package}
             accent="primary"
             delay={0.15}
-            to="/patec"
+            to={scopedHref("/patec")}
           />
           <KpiCard
             title="Sem PATEC"
@@ -233,7 +233,7 @@ const Dashboard = () => {
             accent="destructive"
             delay={0.2}
             emptyHint={stats.totalSemPatec === 0 && stats.totalFarmers > 0}
-            to="/patec"
+            to={scopedHref("/patec")}
           />
         </div>
       </div>
