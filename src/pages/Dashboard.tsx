@@ -15,6 +15,7 @@ import EcaBalanceTable from "@/components/dashboard/EcaBalanceTable";
 import { ErrorState } from "@/components/ui/error-state";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
+import { withScope } from "@/lib/dashboardScopeUrl";
 
 const PROVINCE_COLORS = [
   "hsl(130, 55%, 35%)", "hsl(45, 90%, 50%)", "hsl(210, 75%, 50%)",
@@ -58,6 +59,15 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const roleName = roles.length > 0 ? (roleLabels[roles[0]] ?? roles[0]) : "Utilizador";
   const d = stats?.deltas ?? null;
+  const scopedHref = (path: string) =>
+    stats
+      ? withScope(path, {
+          scope: stats.filterScope,
+          provinces: stats.filterProvinces,
+          ecas: stats.filterEcas,
+          period,
+        })
+      : path;
 
   if (kpisLoading || (!stats && !kpisError)) {
     return (
