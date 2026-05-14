@@ -196,9 +196,11 @@ const Mosap3PayReconciliacao = () => {
     for (let i = 0; i < targets.length; i += BATCH) {
       const batch = targets.slice(i, i + BATCH);
       const results = await Promise.all(
-        batch.map((d) =>
-          supabase.from("farmers").update({ [field]: d.proposed }).eq("code", d.dbCode)
-        )
+        batch.map((d) => {
+          const payload: Record<string, any> = { [field]: d.proposed };
+          if (field === "sim_status") payload.sim_status_source = "reconciliacao";
+          return supabase.from("farmers").update(payload).eq("code", d.dbCode);
+        })
       );
       results.forEach((r) => (r.error ? fail++ : ok++));
       setProgress({ pct: Math.round(((i + batch.length) / targets.length) * 100), label: `${i + batch.length}/${targets.length}` });
