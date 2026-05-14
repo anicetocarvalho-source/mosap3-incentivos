@@ -64,6 +64,8 @@ export default function TelefonesOrfaos() {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"todos" | "pendentes" | "auto" | "manual">("pendentes");
   const [linkDialog, setLinkDialog] = useState<OrphanRow | null>(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
 
   const load = async () => {
     setLoading(true);
