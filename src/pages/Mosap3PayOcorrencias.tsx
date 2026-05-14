@@ -135,6 +135,26 @@ const Mosap3PayOcorrencias = () => {
   // Reset to first page when filters change
   useEffect(() => setPage(1), [search, statusFilter, dateFrom, dateTo]);
 
+  // Auto-refresh / realtime state
+  const [pendingNew, setPendingNew] = useState(0);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [realtimeOn, setRealtimeOn] = useState(false);
+  const reloadTokenRef = useRef(0);
+
+  const reload = useCallback(() => {
+    reloadTokenRef.current += 1;
+    setPendingNew(0);
+  }, []);
+
+  const [reloadTick, setReloadTick] = useState(0);
+  // Bump tick when reload() called via ref
+  useEffect(() => {
+    const id = setInterval(() => {
+      if (reloadTokenRef.current !== reloadTick) setReloadTick(reloadTokenRef.current);
+    }, 50);
+    return () => clearInterval(id);
+  }, [reloadTick]);
+
   useEffect(() => {
     let cancelled = false;
     const run = async () => {
@@ -158,6 +178,8 @@ const Mosap3PayOcorrencias = () => {
       } else {
         setRows((data ?? []) as AuditRow[]);
         setTotal(count ?? 0);
+        setLastUpdated(new Date());
+        setPendingNew(0);
       }
       setLoading(false);
     };
@@ -165,9 +187,50 @@ const Mosap3PayOcorrencias = () => {
     return () => {
       cancelled = true;
     };
-  }, [search, statusFilter, dateFrom, dateTo, page]);
+  }, [search, statusFilter, dateFrom, dateTo, page, reloadTick]);
 
-  const totalPages = useMemo(() => Math.max(1, Math.ceil(total / PAGE_SIZE)), [total]);
+  // Realtime: listen for new POS occurrences and notify the user.
+  useEffect(() => {
+    const channel = supabase
+      .channel("ocorrencias-pos-realtime")
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "audit_logs",
+          filter: `action=eq.${ACTION}`,
+        },
+        () => {
+          setPendingNew((n) => n + 1);
+        }
+      )
+      .subscribe((status) => {
+        setRealtimeOn(status === "SUBSCRIBED");
+      });
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  // Fallback polling every 2 minutes (in case realtime is unavailable).
+  useEffect(() => {
+    const id = setInterval(() => {
+      reload();
+    }, 2 * 60 * 1000);
+    return () => clearInterval(id);
+  }, [reload]);
+
+  // Auto-merge new occurrences silently when on page 1 with no active filters.
+  useEffect(() => {
+    if (pendingNew === 0) return;
+    const noFilters = !search && statusFilter === "all" && !dateFrom && !dateTo;
+    if (page === 1 && noFilters) {
+      const t = setTimeout(() => reload(), 1500);
+      return () => clearTimeout(t);
+    }
+  }, [pendingNew, page, search, statusFilter, dateFrom, dateTo, reload]);
+
 
   const exportCsv = async () => {
     setExporting(true);
