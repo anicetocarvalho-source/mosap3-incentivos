@@ -92,7 +92,7 @@ export function useServerTable<T = any>(opts: ServerTableOptions): ServerTableRe
     placeholderData: keepPreviousData,
     staleTime: 30_000,
     queryFn: async () => {
-      let query: any = supabase.from(table).select(columns, { count: "exact" });
+      let query: any = (supabase as any).from(table).select(columns, { count: "exact" });
 
       // Filtros de igualdade
       for (const [k, v] of Object.entries(filters)) {
