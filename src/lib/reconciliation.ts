@@ -240,7 +240,7 @@ export function parseSheet(rawRows: any[]): ParsedSheet {
 export interface FarmerDiff {
   phone: string;
   dbCode: string;
-  field: "full_name" | "province" | "municipality" | "saldo_final";
+  field: "full_name" | "province" | "municipality" | "saldo_final" | "sim_status";
   current: string;
   proposed: string;
 }
