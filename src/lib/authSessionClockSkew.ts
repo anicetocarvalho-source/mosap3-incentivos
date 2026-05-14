@@ -100,6 +100,22 @@ function extractStoredSession(payload: unknown): SessionContainer | null {
   return null;
 }
 
+function decodeJwtIat(accessToken: string | undefined | null): number | null {
+  if (!accessToken || typeof accessToken !== "string") return null;
+  const parts = accessToken.split(".");
+  if (parts.length < 2) return null;
+  try {
+    // base64url -> base64
+    const b64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const padded = b64 + "===".slice((b64.length + 3) % 4);
+    const json = typeof atob === "function" ? atob(padded) : Buffer.from(padded, "base64").toString("binary");
+    const payload = JSON.parse(json) as { iat?: number };
+    return typeof payload.iat === "number" ? payload.iat : null;
+  } catch {
+    return null;
+  }
+}
+
 function normalizeSessionShape<T extends SessionShape>(session: T): { session: T; adjusted: boolean } {
   const now = Math.floor(Date.now() / 1000);
   const expiresAt = typeof session.expires_at === "number" ? session.expires_at : null;
@@ -111,6 +127,22 @@ function normalizeSessionShape<T extends SessionShape>(session: T): { session: T
   const skew = now - expiresAt;
   if (skew <= CLOCK_SKEW_THRESHOLD || skew > MAX_CLOCK_SKEW_ADJUSTMENT) {
     return { session, adjusted: false };
+  }
+
+  // Distinguish a real expiry (token simply aged out) from a clock-skew issue.
+  // Use the JWT `iat` as the server clock reference. If `iat` is in the past
+  // by roughly the token TTL, the token is genuinely expired and must NOT be
+  // patched — otherwise the Supabase client never refreshes and every API call
+  // returns 401 in a loop. Only adjust when the local clock disagrees with the
+  // server clock (|now - iat| > threshold).
+  const iat = decodeJwtIat((session as any).access_token);
+  if (iat !== null) {
+    const clockSkewSeconds = Math.abs(now - iat);
+    if (clockSkewSeconds <= CLOCK_SKEW_THRESHOLD) {
+      // Local clock matches server — token is genuinely expired. Leave as-is
+      // so supabase-js triggers a refresh (or fails it and forces re-auth).
+      return { session, adjusted: false };
+    }
   }
 
   const ttl =

@@ -1,73 +1,49 @@
-# Auditoria de ECAs (Escolas de Campo)
+## Diagnóstico
 
-## Contexto
+Os logs de rede mostram dezenas de pedidos `HEAD /rest/v1/farmers?...&status=neq.Removido` a devolver **401** de minuto em minuto, sempre com o **mesmo JWT já expirado** (`exp` ≈ 13:37, pedidos a partir das 13:52). Ou seja: o token está caducado, o Supabase não o renova e o `usePatecPendingCount` (intervalo de 60 s) continua a martelar a API até "tudo parecer não carregar".
 
-A correcção feita em `useSchoolDetail` resolveu o caso "1 De Maio" (Balombo). Mas a base de dados tem:
+A causa raiz está em `src/lib/authSessionClockSkew.ts`:
 
-- **38 nomes de escolas duplicados** distribuídos por **89 registos** (ex.: `Boa Esperanca` aparece 5×, `4 De Abril` e `Boa Vida` 4×, `1 De Maio`, `4 De Fevereiro`, `Elavoko`, `Rei Mandume`, `Tuapandula`, `Tuayovoka` 3× cada).
-- **Nomes muito parecidos** que provavelmente são a mesma escola escrita de forma diferente (ex.: `Elavoko` vs `Elavoco`, `Tuapandula` vs `Twapandula`, `Tuayovoka` vs `Twayovoka`, `Uniao Faz A Forca` vs `A Uniao Faz A Forca`, `Santo  Antonio` com espaço duplo, `Kuatoko` vs `Kuatoko Namukueno`).
+```ts
+const skew = now - expiresAt;
+if (skew <= 5*60 || skew > 12*60*60) return { session, adjusted: false };
+// caso contrário: expires_at = now + 3600  ← falsifica a expiração
+```
 
-O botão `Validar contagens` na página `/escolas` já cobre o **caso 1** (duplicados exactos). Falta cobrir os **casos restantes** e tornar a auditoria navegável.
+Qualquer sessão **realmente expirada** entre 5 min e 12 h é tratada como "desvio de relógio" e o `expires_at` é reescrito para o futuro. Consequência:
 
-## O que vou construir
+1. O cliente Supabase pensa que o token ainda é válido → **nunca** faz auto-refresh.
+2. `ensureFreshSession` vê `msUntilExpiry > 2 min` → também não refresca.
+3. O servidor rejeita com 401 porque o JWT está mesmo expirado.
+4. Não há `SIGNED_OUT`, não há redirect para `/auth`, e os pollers (PATEC, futuros sinais de cache) continuam a falhar em loop.
 
-### 1. Página dedicada `/escolas/auditoria`
+A heurística de skew confunde "token caducado por inatividade" com "relógio do cliente atrasado".
 
-Acessível via novo botão **"Auditoria"** no cabeçalho de `/escolas` (ao lado de "Validar contagens"). Apenas para Admin / Gestor de Incentivos.
+## Plano
 
-Estrutura em **3 separadores**:
+### 1. Corrigir a normalização de clock-skew (`src/lib/authSessionClockSkew.ts`)
+Só ajustar quando houver evidência real de relógio do cliente errado, não em qualquer expiração no passado.
 
-#### Tab A — Duplicados exactos (mesmo nome)
-Lista as 89 escolas com nome repetido, agrupadas por nome:
+- Usar o `iat` do `access_token` (decodificar o JWT sem validar) como referência do relógio do servidor.
+- Considerar skew apenas se `Math.abs(now - iat) > 5 min` **e** o token foi emitido há pouco (`iat` próximo do `expires_at - ttl`).
+- Se `iat <= now` e `expires_at < now` → token genuinamente expirado: **não tocar** em `expires_at`; deixar o cliente Supabase fazer refresh normal.
+- Manter o limite máximo de ajuste (12 h) e o TTL por omissão.
 
-| Nome | Província | Município | Real | Cache | Δ | Estado | Ações |
-|---|---|---|---:|---:|---:|---|---|
-| 1 De Maio | Benguela | Balombo | 20 | 76 | −56 | ⚠️ | Abrir ECA |
+### 2. Forçar recuperação quando uma sessão expirada é detectada (`src/hooks/useAuth.tsx`)
+- No arranque, se `getSession()` devolver sessão com `expires_at < now` (sem ajuste falso), chamar `refreshSession()` uma vez; se falhar, `signOut()` + redirect para `/auth` (já existente, mas garantir que dispara).
+- Em `ensureFreshSession`, refrescar também quando o token **já expirou** (hoje só refresca se faltar < 2 min, o que com o bug ficava sempre falso).
 
-- "Real" = produtores filtrados por `school + province + município` (mesma lógica de `useSchoolDetail`).
-- "Cache" = `schools.total_farmers`.
-- Linha vermelha quando `Real ≠ Cache`.
-- Resumo no topo: total de ECAs auditadas, total com discrepância, somatório de produtores "perdidos/sobrantes".
+### 3. Parar o loop de 401 do `usePatecPendingCount` (`src/hooks/usePatecPendingCount.ts`)
+- Capturar erros de auth (status 401 / mensagens `JWT expired` / `invalid token`) e, ao detectá-los, chamar `ensureFreshSession` (ou `supabase.auth.refreshSession()`) e desistir desse fetch sem agendar nova tentativa imediata.
+- Reduzir `refetchInterval` para 5 min (300 000 ms) em vez de 60 s para baixar a pressão; manter `refetchOnWindowFocus` para frescura quando o utilizador volta ao separador.
+- Manter `enabled: !!user && authReady` para não correr enquanto a auth não está pronta.
 
-#### Tab B — Nomes similares (potenciais duplicados ortográficos)
-Compara todos os nomes de escolas par a par (após normalização: minúsculas, sem acentos, espaços colapsados) e mostra pares com:
-- distância de Levenshtein ≤ 2, **ou**
-- um nome contido no outro (ex.: `Kuatoko` ⊂ `Kuatoko Namukueno`), **ou**
-- igualdade após colapsar espaços/acentos (apanha o caso `Santo  Antonio`).
+### 4. Verificação
+- Recarregar a app: a sessão expirada deve desencadear refresh ou redirect para `/auth` em vez de 401 em loop.
+- Confirmar nos logs de rede que deixam de aparecer 401 repetidos.
+- Confirmar que após login as páginas (Dashboard, Escolas, Auditoria) voltam a carregar dados.
 
-Tabela:
-
-| Nome A (Município/Província) | Nome B (Município/Província) | Distância | Nº produtores A | Nº produtores B | Ação |
-|---|---|---:|---:|---:|---|
-| Elavoko (Cuvango/Huíla) | Elavoco (Cuvango/Huíla) | 1 | 12 | 8 | Abrir ambas |
-
-Útil para o utilizador decidir se são a mesma ECA mal escrita.
-
-#### Tab C — Produtores "órfãos" por escola
-Para cada ECA, conta produtores cujo `farmers.school` bate com o nome mas o `province` ou `municipality` não bate com nenhuma das ECAs com esse nome — ou seja, produtores que nunca aparecem em nenhum detalhe de ECA. Mostra apenas linhas com órfãos > 0.
-
-### 2. Exportação
-Botão **"Exportar CSV"** em cada tab para enviar ao Gestor de Incentivos.
-
-### 3. Não vou (fora de âmbito)
-- **Não** vou fundir/renomear escolas automaticamente — só sinalizar.
-- **Não** vou actualizar a coluna `schools.total_farmers` (continua a ser o cache informativo das listagens). Se quiser, faço num passo seguinte um botão "Recalcular caches" que corre uma query `UPDATE schools SET total_farmers = ...`.
-- **Não** vou introduzir `school_id` em `farmers` (mudança estrutural maior).
-
-## Detalhes técnicos
-
-- Nova rota `src/pages/EscolasAuditoria.tsx` registada em `src/App.tsx` dentro do `ProtectedRoute` + `RoleGuard` (`admin`, `gestor_incentivos`).
-- Novo hook `src/hooks/useEscolasAuditoria.ts` que carrega numa só passagem: `schools` + `provinces` + `municipalities` + `farmers` (apenas colunas necessárias, paginação via `fetchAllPages`) e devolve já as 3 estruturas de dados das tabs.
-- Função utilitária `src/lib/stringSimilarity.ts` com `normalize()` (lowercase + `normalize("NFD")` + remoção de diacríticos + colapso de espaços) e `levenshtein(a,b)` (implementação O(n·m) em ~30 linhas, suficiente para ~máx. 500 escolas → 125k pares ainda no cliente).
-- Botão "Auditoria" adicionado em `src/pages/EscolasCampo.tsx` ao lado de `ValidateSchoolCountsButton`.
-- Reutiliza componentes shadcn (`Tabs`, `Table`, `Badge`, `Button`).
-
-## Ficheiros a alterar / criar
-
-- criar `src/pages/EscolasAuditoria.tsx`
-- criar `src/hooks/useEscolasAuditoria.ts`
-- criar `src/lib/stringSimilarity.ts`
-- editar `src/App.tsx` (rota nova)
-- editar `src/pages/EscolasCampo.tsx` (botão "Auditoria")
-
-Confirma e implemento.
+### Notas técnicas
+- A decodificação do JWT é apenas leitura do payload (`atob` do segundo segmento); não valida assinatura.
+- Não mexer em `src/integrations/supabase/client.ts`.
+- Nenhuma migração de base de dados é necessária.
