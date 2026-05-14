@@ -649,3 +649,40 @@ function LinkDialog({
     </Dialog>
   );
 }
+
+/* ───────────────────── Paginação ───────────────────── */
+function PaginationBar({
+  page, totalPages, pageSize, total, onPage, onPageSize,
+}: {
+  page: number; totalPages: number; pageSize: number; total: number;
+  onPage: (p: number) => void; onPageSize: (s: number) => void;
+}) {
+  if (total === 0) return null;
+  const from = (page - 1) * pageSize + 1;
+  const to = Math.min(page * pageSize, total);
+  return (
+    <div className="flex flex-col sm:flex-row items-center justify-between gap-2 p-3 border-t text-xs text-muted-foreground">
+      <div>
+        A mostrar <strong>{from.toLocaleString("pt-AO")}–{to.toLocaleString("pt-AO")}</strong> de{" "}
+        <strong>{total.toLocaleString("pt-AO")}</strong>
+      </div>
+      <div className="flex items-center gap-2">
+        <span>Por página:</span>
+        <select
+          value={pageSize}
+          onChange={(e) => onPageSize(Number(e.target.value))}
+          className="h-8 rounded border bg-background px-2"
+        >
+          {[25, 50, 100, 200, 500].map((n) => (
+            <option key={n} value={n}>{n}</option>
+          ))}
+        </select>
+        <Button size="sm" variant="outline" onClick={() => onPage(1)} disabled={page <= 1}>«</Button>
+        <Button size="sm" variant="outline" onClick={() => onPage(page - 1)} disabled={page <= 1}>‹</Button>
+        <span className="px-2">Página <strong>{page}</strong> / {totalPages}</span>
+        <Button size="sm" variant="outline" onClick={() => onPage(page + 1)} disabled={page >= totalPages}>›</Button>
+        <Button size="sm" variant="outline" onClick={() => onPage(totalPages)} disabled={page >= totalPages}>»</Button>
+      </div>
+    </div>
+  );
+}
