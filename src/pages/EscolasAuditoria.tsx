@@ -35,6 +35,104 @@ function downloadCsv(filename: string, rows: (string | number)[][]) {
   URL.revokeObjectURL(url);
 }
 
+const PHASE_LABELS: Record<string, string> = {
+  fetch: "Carregar dados",
+  indexFarmers: "Indexar produtores",
+  normalizeSchools: "Normalizar escolas",
+  duplicates: "Duplicados",
+  similar: "Similares",
+  orphans: "Órfãos",
+  total: "Total",
+};
+
+function PerfPhasesTable({ perf }: { perf: PerfMetrics }) {
+  const total = perf.phases.total || 1;
+  const ordered: (keyof typeof perf.phases)[] = [
+    "fetch",
+    "indexFarmers",
+    "normalizeSchools",
+    "duplicates",
+    "similar",
+    "orphans",
+  ];
+  return (
+    <div>
+      <p className="text-xs uppercase text-muted-foreground mb-2">Fases (ms)</p>
+      <div className="space-y-1.5">
+        {ordered.map((p) => {
+          const ms = perf.phases[p] || 0;
+          const pct = Math.min(100, (ms / total) * 100);
+          return (
+            <div key={p} className="grid grid-cols-[140px_1fr_70px] items-center gap-2 text-xs">
+              <span className="text-muted-foreground">{PHASE_LABELS[p]}</span>
+              <div className="h-2 bg-muted rounded overflow-hidden">
+                <div className="h-full bg-info" style={{ width: `${pct}%` }} />
+              </div>
+              <span className="font-mono text-right">{ms.toFixed(1)}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function PerfHistoryTable({ history, onClear }: { history: PerfMetrics[]; onClear: () => void }) {
+  if (history.length === 0) {
+    return <p className="text-xs text-muted-foreground">Sem histórico ainda. Cada execução é guardada localmente (últimas 20).</p>;
+  }
+  const latest = history[history.length - 1];
+  const baseline = history[0];
+  const deltaPct = baseline.phases.total ? ((latest.phases.total - baseline.phases.total) / baseline.phases.total) * 100 : 0;
+  const reversed = history.slice().reverse();
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-xs uppercase text-muted-foreground">
+          Histórico ({history.length}) · vs 1ª execução:{" "}
+          <span className={deltaPct > 5 ? "text-destructive" : deltaPct < -5 ? "text-success" : "text-muted-foreground"}>
+            {deltaPct >= 0 ? "+" : ""}
+            {deltaPct.toFixed(1)}%
+          </span>
+        </p>
+        <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs" onClick={onClear}>
+          <Trash2 className="h-3 w-3" /> Limpar
+        </Button>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs">
+          <thead className="text-muted-foreground">
+            <tr>
+              <th className="text-left p-1.5">Quando</th>
+              <th className="text-right p-1.5">Total (ms)</th>
+              <th className="text-right p-1.5">Fetch</th>
+              <th className="text-right p-1.5">Index</th>
+              <th className="text-right p-1.5">Similares</th>
+              <th className="text-right p-1.5">Mem (MB)</th>
+              <th className="text-right p-1.5">Δ Mem</th>
+              <th className="text-right p-1.5">Produtores</th>
+            </tr>
+          </thead>
+          <tbody>
+            {reversed.map((h, i) => (
+              <tr key={h.startedAt + i} className="border-t">
+                <td className="p-1.5">{new Date(h.startedAt).toLocaleString("pt-AO")}</td>
+                <td className="p-1.5 text-right font-mono">{h.phases.total.toFixed(0)}</td>
+                <td className="p-1.5 text-right font-mono">{h.phases.fetch.toFixed(0)}</td>
+                <td className="p-1.5 text-right font-mono">{h.phases.indexFarmers.toFixed(0)}</td>
+                <td className="p-1.5 text-right font-mono">{h.phases.similar.toFixed(0)}</td>
+                <td className="p-1.5 text-right font-mono">{h.memory.usedJSHeapMB ?? "—"}</td>
+                <td className="p-1.5 text-right font-mono">{h.memory.deltaJSHeapMB ?? "—"}</td>
+                <td className="p-1.5 text-right font-mono">{h.rows.farmers}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 const EscolasAuditoria = () => {
   const { data, loading, refetch } = useEscolasAuditoria();
   const [showPerf, setShowPerf] = useState(true);
