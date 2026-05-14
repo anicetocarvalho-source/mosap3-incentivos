@@ -568,7 +568,7 @@ export function useEscolasAuditoria() {
       // eslint-disable-next-line no-console
       console.info("[useEscolasAuditoria] perf", perf);
 
-      setData({
+      const finalResult: AuditoriaResult = {
         duplicates,
         similar,
         orphans,
@@ -581,9 +581,23 @@ export function useEscolasAuditoria() {
           orphans: orphans.reduce((s, o) => s + o.orphanCount, 0),
         },
         perf,
-      });
+      };
+      setData(finalResult);
       completePhase("orphans");
       setProgress({ phase: "done", label: PHASE_LABELS_HOOK.done, pct: 100 });
+
+      // Persist to cache with a signature derived from the rows we just loaded
+      writeCache({
+        savedAt: Date.now(),
+        signature: {
+          schools: schools.length,
+          farmers: farmers.length,
+          provinces: provinces.length,
+          municipalities: municipalities.length,
+        },
+        result: finalResult,
+      });
+      setCacheInfo({ fromCache: false, savedAt: Date.now(), ageMs: 0 });
     } catch (e) {
       console.error("[useEscolasAuditoria]", e);
       setError(e instanceof Error ? e : new Error(String(e)));
@@ -596,5 +610,7 @@ export function useEscolasAuditoria() {
     run();
   }, [run]);
 
-  return { data, loading, error, progress, refetch: run };
+  const refetch = useCallback(() => run({ force: true }), [run]);
+
+  return { data, loading, error, progress, cacheInfo, refetch };
 }
