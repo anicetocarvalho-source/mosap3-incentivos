@@ -244,6 +244,24 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
   const isSimBlocked = (status: string | null | undefined) =>
     status === "Barrado" || status === "Removido";
 
+  const notifySimBlockedFarmer = async (
+    f: Farmer,
+    event: "identificacao_pos" | "tentativa_pagamento"
+  ) => {
+    try {
+      await supabase.rpc("notify_farmer_sim_blocked" as any, {
+        _farmer_code: f.code,
+        _phone: f.phone,
+        _farmer_name: f.full_name,
+        _sim_status: f.sim_status,
+        _event: event,
+        _source: "pos",
+      });
+    } catch (e) {
+      console.warn("notify_farmer_sim_blocked failed", e);
+    }
+  };
+
   const selectFarmerFromSuggestion = async (f: Farmer) => {
     if (isSimBlocked(f.sim_status)) {
       toast.error(`Venda bloqueada — cartão SIM ${f.sim_status}. Produtor ${f.full_name} (${f.code}) não pode efectuar compras.`);
@@ -259,9 +277,10 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
           action: "pos_sale_blocked_sim",
           entity_type: "farmer",
           entity_id: f.code,
-          details: { sim_status: f.sim_status, farmer_name: f.full_name } as any,
+          details: { sim_status: f.sim_status, farmer_name: f.full_name, event: "identificacao_pos" } as any,
         });
       } catch {}
+      notifySimBlockedFarmer(f, "identificacao_pos");
       return;
     }
     setFarmer(f);
