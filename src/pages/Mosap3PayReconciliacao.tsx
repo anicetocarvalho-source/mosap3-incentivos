@@ -430,6 +430,17 @@ const Mosap3PayReconciliacao = () => {
                 }}
               />
             </TabsContent>
+
+            <TabsContent value="sim">
+              <DiffTab
+                title="Estado SIM (Unitel vs BD)"
+                rows={diffs.simStatusDiffs}
+                selected={selSim}
+                onToggle={(k) => toggle(selSim, setSelSim, k)}
+                onToggleAll={() => toggleAll(selSim, setSelSim, diffs.simStatusDiffs.map((d) => d.dbCode))}
+                onApply={async () => { await applyDiffs(diffs.simStatusDiffs, selSim, "sim_status", "estados de SIM"); setSelSim(new Set()); }}
+              />
+            </TabsContent>
           </Tabs>
 
           {diffs.onlyDbCount > 0 && (
