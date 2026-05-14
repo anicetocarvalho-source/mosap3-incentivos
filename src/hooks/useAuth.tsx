@@ -204,10 +204,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (msUntilExpiry < 2 * 60 * 1000) {
         const { error } = await supabase.auth.refreshSession();
         if (error) {
-          console.warn("[auth] Refresh failed, signing out", error.message);
-          await supabase.auth.signOut().catch(() => {});
-          if (typeof window !== "undefined" && !window.location.pathname.startsWith("/auth")) {
-            window.location.replace("/auth");
+          const msg = (error.message || "").toLowerCase();
+          const fatal =
+            msg.includes("refresh_token_not_found") ||
+            msg.includes("invalid_grant") ||
+            msg.includes("invalid refresh token") ||
+            msg.includes("expired");
+          console.warn("[auth] Refresh failed", error.message);
+          if (fatal) {
+            await supabase.auth.signOut().catch(() => {});
+            if (typeof window !== "undefined" && !window.location.pathname.startsWith("/auth")) {
+              window.location.replace("/auth");
+            }
           }
         }
       }
