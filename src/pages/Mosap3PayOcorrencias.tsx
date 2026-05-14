@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { AlertTriangle, Search, Download, Loader2, Filter, Eye, ExternalLink, History } from "lucide-react";
+import { AlertTriangle, Search, Download, Loader2, Filter, Eye, ExternalLink, History, RefreshCw, Radio } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -135,6 +135,17 @@ const Mosap3PayOcorrencias = () => {
   // Reset to first page when filters change
   useEffect(() => setPage(1), [search, statusFilter, dateFrom, dateTo]);
 
+  // Auto-refresh / realtime state
+  const [pendingNew, setPendingNew] = useState(0);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [realtimeOn, setRealtimeOn] = useState(false);
+  const [reloadTick, setReloadTick] = useState(0);
+
+  const reload = useCallback(() => {
+    setPendingNew(0);
+    setReloadTick((n) => n + 1);
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     const run = async () => {
@@ -158,6 +169,8 @@ const Mosap3PayOcorrencias = () => {
       } else {
         setRows((data ?? []) as AuditRow[]);
         setTotal(count ?? 0);
+        setLastUpdated(new Date());
+        setPendingNew(0);
       }
       setLoading(false);
     };
@@ -165,9 +178,52 @@ const Mosap3PayOcorrencias = () => {
     return () => {
       cancelled = true;
     };
-  }, [search, statusFilter, dateFrom, dateTo, page]);
+  }, [search, statusFilter, dateFrom, dateTo, page, reloadTick]);
+
+  // Realtime: listen for new POS occurrences and notify the user.
+  useEffect(() => {
+    const channel = supabase
+      .channel("ocorrencias-pos-realtime")
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "audit_logs",
+          filter: `action=eq.${ACTION}`,
+        },
+        () => {
+          setPendingNew((n) => n + 1);
+        }
+      )
+      .subscribe((status) => {
+        setRealtimeOn(status === "SUBSCRIBED");
+      });
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  // Fallback polling every 2 minutes (in case realtime is unavailable).
+  useEffect(() => {
+    const id = setInterval(() => {
+      reload();
+    }, 2 * 60 * 1000);
+    return () => clearInterval(id);
+  }, [reload]);
+
+  // Auto-merge new occurrences silently when on page 1 with no active filters.
+  useEffect(() => {
+    if (pendingNew === 0) return;
+    const noFilters = !search && statusFilter === "all" && !dateFrom && !dateTo;
+    if (page === 1 && noFilters) {
+      const t = setTimeout(() => reload(), 1500);
+      return () => clearTimeout(t);
+    }
+  }, [pendingNew, page, search, statusFilter, dateFrom, dateTo, reload]);
 
   const totalPages = useMemo(() => Math.max(1, Math.ceil(total / PAGE_SIZE)), [total]);
+
 
   const exportCsv = async () => {
     setExporting(true);
@@ -237,11 +293,37 @@ const Mosap3PayOcorrencias = () => {
             Bloqueios reportados pelos operadores POS por SIM Barrado/Removido.
           </p>
         </div>
-        <Button onClick={exportCsv} variant="outline" disabled={!total || exporting}>
-          {exporting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
-          Exportar CSV
-        </Button>
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Radio className={cn("h-3 w-3", realtimeOn ? "text-success animate-pulse" : "text-muted-foreground")} />
+            {realtimeOn ? "Tempo real ativo" : "Tempo real indisponível"}
+            {lastUpdated && (
+              <span className="hidden sm:inline">· Atualizado {format(lastUpdated, "HH:mm:ss")}</span>
+            )}
+          </span>
+          <Button onClick={reload} variant="outline" size="sm" disabled={loading}>
+            <RefreshCw className={cn("h-4 w-4 mr-2", loading && "animate-spin")} /> Atualizar
+          </Button>
+          <Button onClick={exportCsv} variant="outline" size="sm" disabled={!total || exporting}>
+            {exporting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
+            Exportar CSV
+          </Button>
+        </div>
       </div>
+
+      {pendingNew > 0 && (
+        <div className="rounded-md border border-warning/40 bg-warning/10 px-4 py-2 flex items-center justify-between gap-3">
+          <div className="text-sm flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 text-warning" />
+            <span>
+              {pendingNew} nova{pendingNew > 1 ? "s" : ""} ocorrência{pendingNew > 1 ? "s" : ""} disponíve{pendingNew > 1 ? "is" : "l"}.
+            </span>
+          </div>
+          <Button size="sm" onClick={reload}>
+            <RefreshCw className="h-4 w-4 mr-2" /> Ver agora
+          </Button>
+        </div>
+      )}
 
       <Card>
         <CardHeader>
