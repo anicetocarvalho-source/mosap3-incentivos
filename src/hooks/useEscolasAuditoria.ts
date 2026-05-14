@@ -139,11 +139,68 @@ const PHASE_LABELS_HOOK: Record<AuditoriaProgress["phase"], string> = {
 
 const yieldUI = () => new Promise<void>((r) => setTimeout(r, 0));
 
+// ── Persistent cache (localStorage) ───────────────────────────────────────────
+const CACHE_KEY = "escolas_auditoria_cache_v1";
+const CACHE_TTL_MS = 30 * 60 * 1000; // 30 min (matches PWA convention)
+
+type CacheSignature = { schools: number; farmers: number; provinces: number; municipalities: number };
+type CacheEnvelope = { savedAt: number; signature: CacheSignature; result: AuditoriaResult };
+
+function readCache(): CacheEnvelope | null {
+  try {
+    const raw = localStorage.getItem(CACHE_KEY);
+    if (!raw) return null;
+    const env = JSON.parse(raw) as CacheEnvelope;
+    if (!env || typeof env.savedAt !== "number" || !env.result) return null;
+    return env;
+  } catch {
+    return null;
+  }
+}
+
+function writeCache(env: CacheEnvelope) {
+  try {
+    localStorage.setItem(CACHE_KEY, JSON.stringify(env));
+  } catch (e) {
+    // Quota exceeded etc. — drop silently, audit still works in-memory
+    console.warn("[useEscolasAuditoria] cache write failed", e);
+  }
+}
+
+export function clearAuditoriaCache() {
+  try {
+    localStorage.removeItem(CACHE_KEY);
+  } catch {
+    /* noop */
+  }
+}
+
+async function fetchSignature(): Promise<CacheSignature> {
+  const head = (table: "schools" | "farmers" | "provinces" | "municipalities", filter?: (q: any) => any) => {
+    let q: any = supabase.from(table).select("*", { count: "exact", head: true });
+    if (filter) q = filter(q);
+    return q.then((r: any) => r.count ?? 0);
+  };
+  const [schools, farmers, provinces, municipalities] = await Promise.all([
+    head("schools"),
+    head("farmers", (q) => q.neq("status", "Removido")),
+    head("provinces"),
+    head("municipalities"),
+  ]);
+  return { schools, farmers, provinces, municipalities };
+}
+
+const sigEq = (a: CacheSignature, b: CacheSignature) =>
+  a.schools === b.schools && a.farmers === b.farmers && a.provinces === b.provinces && a.municipalities === b.municipalities;
+
+export type CacheInfo = { fromCache: boolean; savedAt: number | null; ageMs: number | null };
+
 export function useEscolasAuditoria() {
   const [data, setData] = useState<AuditoriaResult | null>(null);
   const [progress, setProgress] = useState<AuditoriaProgress>({ phase: "idle", label: PHASE_LABELS_HOOK.idle, pct: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+  const [cacheInfo, setCacheInfo] = useState<CacheInfo>({ fromCache: false, savedAt: null, ageMs: null });
 
   const run = useCallback(async () => {
     setLoading(true);
