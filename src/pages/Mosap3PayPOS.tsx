@@ -1344,9 +1344,12 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
                         </div>
                       )}
                     </div>
-                    <Button className="w-full mt-3" onClick={() => setConfirmOpen(true)} disabled={!farmer || cart.length === 0 || farmerBalance <= 0 || cartTotal > farmerBalance}>
+                    <Button className="w-full mt-3" onClick={() => setConfirmOpen(true)} disabled={!farmer || cart.length === 0 || farmerBalance <= 0 || cartTotal > farmerBalance || isSimBlocked(farmer?.sim_status)}>
                       <CreditCard className="h-4 w-4 mr-2" /> Processar Pagamento
                     </Button>
+                    {farmer && isSimBlocked(farmer.sim_status) && (
+                      <p className="text-xs text-destructive text-center mt-2 font-bold">⛔ Cartão SIM {farmer.sim_status} — venda bloqueada</p>
+                    )}
                     {farmer && farmerBalance <= 0 && (
                       <p className="text-xs text-destructive text-center mt-2 font-medium">⚠ Produtor sem saldo de incentivo</p>
                     )}
