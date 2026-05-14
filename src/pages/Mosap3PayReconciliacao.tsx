@@ -186,7 +186,7 @@ const Mosap3PayReconciliacao = () => {
   const applyDiffs = async (
     items: FarmerDiff[],
     selected: Set<string>,
-    field: "full_name" | "province" | "municipality" | "saldo_final",
+    field: "full_name" | "province" | "municipality" | "saldo_final" | "sim_status",
     label: string,
   ) => {
     const targets = items.filter((d) => selected.has(d.dbCode));
