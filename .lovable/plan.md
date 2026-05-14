@@ -1,74 +1,46 @@
-# Validação dos Telefones Órfãos
+## Contexto
 
-## Resultado da auditoria
+Após a reconciliação automática, o estado real em base é:
+- **3.399** telefones órfãos no total (1.708.292.320,00 Kz)
+- **3.387** auto-associados a agricultores (1.707.076.480,00 Kz) — `notes = "Auto-associado por validação (match últimos 9 dígitos)"`
+- **12** ainda verdadeiramente pendentes (1.215.840,00 Kz)
+- 0 associações manuais até ao momento
 
-Executei matching entre `orphan_phones` (pendentes) e `farmers.phone` usando **últimos 9 dígitos** (mesma chave usada no resto do sistema):
+A página atual mostra apenas três contadores genéricos (Total / Pendentes / Associados) e não distingue auto vs manual, nem dá visibilidade aos 12 casos prioritários nem ao histórico da reconciliação.
 
-| Métrica | Valor |
-|---|---|
-| Total de órfãos pendentes | **3.399** |
-| Órfãos com agricultor correspondente (1 match único) | **3.387** (99,6 %) |
-| Órfãos com múltiplos matches (ambíguos) | 0 |
-| Órfãos verdadeiramente sem agricultor | **12** |
-| Valor mal-classificado como órfão | **1.707.076.480,00 Kz** |
+## Alterações (apenas frontend, ficheiro `src/pages/TelefonesOrfaos.tsx`)
 
-### Causa-raiz
-O ficheiro CSV de pagamentos Unitel guarda telefones com **9 dígitos** (`976096393`), enquanto `farmers.phone` tem **12 dígitos** com prefixo do país (`244976096393`). O importador original comparou strings completas em vez de normalizar pelos últimos 9 dígitos, pelo que 3.387 pagamentos foram classificados como órfãos quando na verdade têm um agricultor único correspondente.
+### 1. Cards de estatísticas (4 em vez de 3)
+- **Total** (mantém)
+- **Pendentes** (destaque visual reforçado quando count > 0 — borda warning + ícone)
+- **Auto-associados** (success): conta linhas com `notes ILIKE 'Auto-associado%'`
+- **Associados manualmente** (info/primary): conta linhas com `linked_farmer_code IS NOT NULL` e notes não auto
 
-Exemplos confirmados:
+Cada card mostra contagem + valor em Kz formatado pt-AO.
 
-```text
-órfão 976096393  → AGR-MP5MM9GA-1716  Gervasio Hilukilwa  (244976096393)
-órfão 976096395  → AGR-MP5MM9GA-1717  Ndaimutala Waishonga
-órfão 976096397  → AGR-MP5MM9GA-1719  Teodora Manuel
-```
+### 2. Banner informativo no topo (quando há auto-associações)
+Pequeno alerta success-tinted: "Reconciliação automática concluída — 3.387 telefones associados (1.707.076.480,00 Kz). Restam X casos para revisão manual." Calculado dinamicamente.
 
-Notei ainda que estes agricultores têm `valor_recebido = 0,00` — o pagamento nunca lhes foi creditado.
+### 3. Filtros
+Substituir os 3 botões atuais por 4: `Pendentes` (default) · `Auto-associados` · `Manuais` · `Todos`. Filtro derivado das `notes`.
 
-## Plano proposto
+### 4. Tabela
+- Nova coluna **Origem** (badge): `Auto` (success outline) / `Manual` (primary outline) / `—` para pendentes
+- Coluna **Notas/Detalhe** truncada com tooltip mostrando notes completos
+- Ordenação default: pendentes primeiro, depois por valor desc
+- Mostrar `linked_at` formatado em pt-AO na linha quando associado
 
-### 1. Auto-associar os 3.387 órfãos com match único
-Migration que, numa única transacção:
+### 5. Versão mobile
+Cards já existentes recebem o mesmo badge de origem e a data de associação.
 
-- Faz UPDATE em `orphan_phones` para preencher `linked_farmer_code`, `linked_at = now()`, `notes = 'Auto-associado por validação (match últimos 9 dígitos)'` para cada órfão pendente cujos últimos 9 dígitos correspondem a **exactamente um** agricultor.
-- Soma `orphan_phones.amount` ao campo `farmers.valor_recebido` desses agricultores (respeitando o formato `pt-AO` com vírgula decimal e separador de milhares com ponto).
-- Insere uma linha em `farmer_balance_history` por agricultor afectado (`source = 'orphan_phone_auto_link'`, com `delta`, `old_value`, `new_value` e `source_ref = orphan_phones.id`) para garantir auditoria.
-- Insere um registo em `audit_logs` com o resumo da operação (3.387 linhas, total Kz).
+### 6. Dialog de associação manual
+- Adicionar `notes` que comecem por `Manual:` para que o filtro distinga (já está, mas garantir prefixo `Manual:`)
+- **Registar entrada em `farmer_balance_history`** após a associação manual (igual ao que o auto-link da função RPC faz), com `source = 'orphan_phone_manual_link'`, `delta`, `old_value`, `new_value`, `source_ref = orphan_phone.id`. Hoje a página atualiza `valor_recebido` mas não escreve histórico — é uma inconsistência face ao fluxo automático.
 
-### 2. Validar os 12 órfãos verdadeiros
-Manter pendentes em `/telefones-orfaos` (estes não têm qualquer agricultor com últimos 9 dígitos coincidentes — listados abaixo). O administrador pode associá-los manualmente como hoje.
+### 7. Export CSV
+Acrescentar coluna `origem` (Auto/Manual/Pendente) ao CSV exportado.
 
-```text
-976103487, 976103177, 976103236, 976103342, 976102891,
-976102908, 976102920, 976102986, 976103015, 976093238,
-976093928, 976093235
-```
-
-### 3. Endurecer o importador
-Pequena alteração na função/edge que cria órfãos (próximas importações Unitel) para que o matching inicial use já os últimos 9 dígitos antes de marcar como órfão — evita que o problema reapareça.
-
-### 4. Sem alterações de UI
-A página `/telefones-orfaos` continua igual; após a migration mostrará 12 pendentes (1 cartão "Pendentes") e 3.387 associados.
-
-## Detalhes técnicos
-
-- Match SQL canónico:
-  ```sql
-  RIGHT(regexp_replace(phone,'\D','','g'), 9)
-  ```
-- Conversão segura de `valor_recebido` (texto `'1.234,56'` → numeric → texto):
-  ```sql
-  to_char(
-    coalesce(replace(replace(valor_recebido,'.',''),',','.')::numeric, 0)
-      + op.amount,
-    'FM999G999G990D00'
-  )
-  ```
-  com `lc_numeric = 'pt_PT'` ou substituição manual `.`/`,`.
-- A migration corre apenas para `linked_farmer_code IS NULL` e exige `n_farmers = 1` (já confirmado: 0 ambíguos hoje).
-- RLS: a migration corre como `service_role`, sem impacto em policies.
-
-## Risco / reversibilidade
-
-- Reversível: cada auto-associação fica registada em `farmer_balance_history` com `source = 'orphan_phone_auto_link'` e `source_ref`, permitindo desfazer em massa se necessário.
-- Sem perda de dados: nada é apagado; apenas preenchemos colunas e somamos saldos que deveriam ter sido somados na importação original.
+## Fora do âmbito
+- Sem alterações de schema nem de RPC.
+- Sem alterações nas migrações de reconciliação já aplicadas.
+- Sem mudanças noutras páginas.
