@@ -536,35 +536,12 @@ export function useEscolasAuditoria() {
       );
       await advance("orphans");
 
-      // ── Tab C: orphans — single pass per school name using the index built earlier
+      // ── Tab C: orphans — emit from accumulator built during streaming
       const orphans: OrphanRow[] = [];
-      for (const [key, group] of byName) {
-        const idxs = farmersBySchool.get(key);
-        if (!idxs || idxs.length === 0) continue;
-
-        // Allowed (province|municipality) tuples for this school name
-        const allowed = new Set<string>();
-        for (const sn of group) allowed.add(sn.provN + KEY_SEP + sn.munN);
-
-        let count = 0;
-        const examples: OrphanRow["examples"] = [];
-        for (const i of idxs) {
-          const loc = farmerNormProv[i] + KEY_SEP + farmerNormMun[i];
-          if (allowed.has(loc)) continue;
-          count++;
-          if (examples.length < 5) {
-            const f = farmers[i];
-            examples.push({
-              code: f.code,
-              name: f.full_name,
-              province: f.province || "",
-              municipality: f.municipality || "",
-            });
-          }
-        }
-        if (count > 0) {
-          orphans.push({ schoolName: group[0].s.name, orphanCount: count, examples });
-        }
+      for (const [key, acc] of orphansAcc) {
+        if (acc.count === 0) continue;
+        const display = displayBySchool.get(key) || key;
+        orphans.push({ schoolName: display, orphanCount: acc.count, examples: acc.examples });
       }
       orphans.sort((a, b) => b.orphanCount - a.orphanCount);
       mark("orphans");
