@@ -93,8 +93,7 @@ const Mosap3PayCartoesSim = () => {
       const all = await fetchAllPages<Farmer>(() => {
         let q: any = supabase
           .from("farmers")
-          .select(COLS, { count: "exact" })
-          .neq("status", "Removido");
+          .select(COLS, { count: "exact" });
         if (statusFilter !== "all") q = q.eq("sim_status", statusFilter);
         if (provFilter !== "all") q = q.eq("province", provFilter);
         const term = debSearch.trim();
