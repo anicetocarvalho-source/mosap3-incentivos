@@ -37,7 +37,7 @@ const EMPTY: FinancialSummary = {
  * Resumo financeiro agregado dos agricultores filtrados por província e/ou ECA.
  * - Soma valor_recebido, total_gasto e saldo_final (formato PT-AO).
  * - Conta beneficiários (valor_recebido > 0) e calcula taxa de utilização.
- * - Exclui produtores com status = 'Removido'.
+ * - Inclui Removidos (alinhamento com Dashboard global).
  */
 export function useFinancialSummary(filters: FinancialSummaryFilters) {
   const { province, school, enabled = true } = filters;
