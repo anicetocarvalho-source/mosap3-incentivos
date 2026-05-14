@@ -125,7 +125,8 @@ const Patec = () => {
               { count: "exact" }
             )
             .order("code"),
-          resolved
+          resolved,
+          { includeRemoved: true }
         )
       );
       setFarmers(data);
