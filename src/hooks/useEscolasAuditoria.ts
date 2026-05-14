@@ -158,7 +158,17 @@ export function useEscolasAuditoria() {
       phases[phase] = Math.round((now - tMark) * 100) / 100;
       tMark = now;
     };
+    let cumulative = 0;
+    const advance = async (phase: AuditoriaProgress["phase"]) => {
+      setProgress({ phase, label: PHASE_LABELS_HOOK[phase], pct: cumulative });
+      await yieldUI();
+    };
+    const completePhase = (phase: AuditoriaProgress["phase"]) => {
+      cumulative = Math.min(100, cumulative + PHASE_WEIGHTS[phase]);
+    };
+    setData(null);
     try {
+      await advance("fetch");
       const [schools, provinces, municipalities, farmers] = await Promise.all([
         fetchAllPages<any>(() =>
           supabase.from("schools").select("id,name,province_id,municipality_id,village,total_farmers", { count: "exact" })
