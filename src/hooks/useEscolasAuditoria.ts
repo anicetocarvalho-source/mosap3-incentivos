@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { fetchAllPages } from "@/lib/supabaseFetchAll";
+import { fetchAllPages, streamAllPages } from "@/lib/supabaseFetchAll";
 import { normalizeName, levenshtein } from "@/lib/stringSimilarity";
 
 export type DuplicateRow = {
@@ -247,51 +247,19 @@ export function useEscolasAuditoria() {
     setData(null);
     try {
       await advance("fetch");
-      const [schools, provinces, municipalities, farmers] = await Promise.all([
+      const [schools, provinces, municipalities] = await Promise.all([
         fetchAllPages<any>(() =>
           supabase.from("schools").select("id,name,province_id,municipality_id,village,total_farmers", { count: "exact" })
         ),
         fetchAllPages<any>(() => supabase.from("provinces").select("id,name", { count: "exact" })),
         fetchAllPages<any>(() => supabase.from("municipalities").select("id,name", { count: "exact" })),
-        fetchAllPages<any>(() =>
-          supabase
-            .from("farmers")
-            .select("code,full_name,school,province,municipality,status", { count: "exact" })
-            .neq("status", "Removido")
-        ),
       ]);
       mark("fetch");
       completePhase("fetch");
-      await advance("indexFarmers");
+      await advance("normalizeSchools");
 
       const provMap = new Map<string, string>(provinces.map((p) => [p.id, p.name as string]));
       const munMap = new Map<string, string>(municipalities.map((m) => [m.id, m.name as string]));
-
-      // ── Single pass over farmers: build (school|prov|mun) -> count and (school) -> list of indices
-      // We avoid materializing a normalized parallel array; we keep only what's needed.
-      const triKey = (s: string, p: string, m: string) => s + KEY_SEP + p + KEY_SEP + m;
-      const tripletCount = new Map<string, number>(); // school|prov|mun -> count
-      const farmersBySchool = new Map<string, number[]>(); // schoolNorm -> indices into `farmers`
-      const farmerNormProv: string[] = new Array(farmers.length);
-      const farmerNormMun: string[] = new Array(farmers.length);
-
-      for (let i = 0; i < farmers.length; i++) {
-        const f = farmers[i];
-        const sN = normalizeName(f.school);
-        if (!sN) continue;
-        const pN = normalizeName(f.province);
-        const mN = normalizeName(f.municipality);
-        farmerNormProv[i] = pN;
-        farmerNormMun[i] = mN;
-        const k = triKey(sN, pN, mN);
-        tripletCount.set(k, (tripletCount.get(k) || 0) + 1);
-        const arr = farmersBySchool.get(sN);
-        if (arr) arr.push(i);
-        else farmersBySchool.set(sN, [i]);
-      }
-      mark("indexFarmers");
-      completePhase("indexFarmers");
-      await advance("normalizeSchools");
 
       // ── Pre-normalize schools & group by normalized name
       type SchoolNorm = {
@@ -316,27 +284,95 @@ export function useEscolasAuditoria() {
       });
 
       const byName = new Map<string, SchoolNorm[]>();
+      const allowedByName = new Map<string, Set<string>>(); // schoolNorm -> set of "provN|munN"
+      const displayBySchool = new Map<string, string>(); // schoolNorm -> first display name
       for (const sn of schoolsN) {
         if (!sn.nameN) continue;
         const arr = byName.get(sn.nameN);
         if (arr) arr.push(sn);
         else byName.set(sn.nameN, [sn]);
+        let allowed = allowedByName.get(sn.nameN);
+        if (!allowed) {
+          allowed = new Set();
+          allowedByName.set(sn.nameN, allowed);
+          displayBySchool.set(sn.nameN, sn.s.name);
+        }
+        allowed.add(sn.provN + KEY_SEP + sn.munN);
       }
       mark("normalizeSchools");
+      completePhase("normalizeSchools");
+      await advance("indexFarmers");
+
+      // ── Stream farmers page-by-page; accumulate aggregates only (no per-row retention)
+      const triKey = (s: string, p: string, m: string) => s + KEY_SEP + p + KEY_SEP + m;
+      const tripletCount = new Map<string, number>(); // school|prov|mun -> count
+      const bySchoolProv = new Map<string, number>(); // school|prov -> count (fallback)
+      const bySchoolMun = new Map<string, number>(); // school|mun -> count (fallback)
+      const byNameTotal = new Map<string, number>(); // schoolNorm -> total count (fallback)
+
+      type OrphanAcc = { count: number; examples: OrphanRow["examples"] };
+      const orphansAcc = new Map<string, OrphanAcc>();
+
+      let totalFarmersStreamed = 0;
+      const stream = await streamAllPages<any>(
+        () =>
+          supabase
+            .from("farmers")
+            .select("code,full_name,school,province,municipality,status", { count: "exact" })
+            .neq("status", "Removido"),
+        async (rows, pageIdx, totalPages) => {
+          for (let i = 0; i < rows.length; i++) {
+            const f = rows[i];
+            const sN = normalizeName(f.school);
+            if (!sN) continue;
+            const pN = normalizeName(f.province);
+            const mN = normalizeName(f.municipality);
+
+            tripletCount.set(triKey(sN, pN, mN), (tripletCount.get(triKey(sN, pN, mN)) || 0) + 1);
+            bySchoolProv.set(sN + KEY_SEP + pN, (bySchoolProv.get(sN + KEY_SEP + pN) || 0) + 1);
+            bySchoolMun.set(sN + KEY_SEP + mN, (bySchoolMun.get(sN + KEY_SEP + mN) || 0) + 1);
+            byNameTotal.set(sN, (byNameTotal.get(sN) || 0) + 1);
+
+            // Orphans: school name known but location not in allowed set
+            const allowed = allowedByName.get(sN);
+            if (allowed && !allowed.has(pN + KEY_SEP + mN)) {
+              let acc = orphansAcc.get(sN);
+              if (!acc) {
+                acc = { count: 0, examples: [] };
+                orphansAcc.set(sN, acc);
+              }
+              acc.count++;
+              if (acc.examples.length < 5) {
+                acc.examples.push({
+                  code: f.code,
+                  name: f.full_name,
+                  province: f.province || "",
+                  municipality: f.municipality || "",
+                });
+              }
+            }
+          }
+          totalFarmersStreamed += rows.length;
+          // Update progress within the indexFarmers slice (approx)
+          const indexWeight = PHASE_WEIGHTS.indexFarmers;
+          const pageProgress = (pageIdx + 1) / totalPages;
+          setProgress({
+            phase: "indexFarmers",
+            label: `${PHASE_LABELS_HOOK.indexFarmers} (${totalFarmersStreamed.toLocaleString("pt-AO")})`,
+            pct: Math.min(100, Math.round(cumulative + indexWeight * pageProgress)),
+          });
+          await yieldUI();
+        }
+      );
+      const farmersTotal = stream.totalRows;
+      mark("indexFarmers");
 
       // Helper for any school's real farmer count using triplet map (with fallback when prov/mun empty)
       const realCount = (sn: SchoolNorm): number => {
         if (sn.provN && sn.munN) return tripletCount.get(triKey(sn.nameN, sn.provN, sn.munN)) || 0;
-        // Fallback: scan only farmers of this school name (rare path)
-        const idxs = farmersBySchool.get(sn.nameN);
-        if (!idxs) return 0;
-        let c = 0;
-        for (const i of idxs) {
-          if (sn.provN && farmerNormProv[i] !== sn.provN) continue;
-          if (sn.munN && farmerNormMun[i] !== sn.munN) continue;
-          c++;
-        }
-        return c;
+        if (sn.provN) return bySchoolProv.get(sn.nameN + KEY_SEP + sn.provN) || 0;
+        if (sn.munN) return bySchoolMun.get(sn.nameN + KEY_SEP + sn.munN) || 0;
+        return byNameTotal.get(sn.nameN) || 0;
       };
 
       // ── Tab A: exact duplicates
@@ -383,7 +419,7 @@ export function useEscolasAuditoria() {
           schools: schools.length,
           provinces: provinces.length,
           municipalities: municipalities.length,
-          farmers: farmers.length,
+          farmers: farmersTotal,
         },
         memory: { supported: false },
       });
@@ -500,35 +536,12 @@ export function useEscolasAuditoria() {
       );
       await advance("orphans");
 
-      // ── Tab C: orphans — single pass per school name using the index built earlier
+      // ── Tab C: orphans — emit from accumulator built during streaming
       const orphans: OrphanRow[] = [];
-      for (const [key, group] of byName) {
-        const idxs = farmersBySchool.get(key);
-        if (!idxs || idxs.length === 0) continue;
-
-        // Allowed (province|municipality) tuples for this school name
-        const allowed = new Set<string>();
-        for (const sn of group) allowed.add(sn.provN + KEY_SEP + sn.munN);
-
-        let count = 0;
-        const examples: OrphanRow["examples"] = [];
-        for (const i of idxs) {
-          const loc = farmerNormProv[i] + KEY_SEP + farmerNormMun[i];
-          if (allowed.has(loc)) continue;
-          count++;
-          if (examples.length < 5) {
-            const f = farmers[i];
-            examples.push({
-              code: f.code,
-              name: f.full_name,
-              province: f.province || "",
-              municipality: f.municipality || "",
-            });
-          }
-        }
-        if (count > 0) {
-          orphans.push({ schoolName: group[0].s.name, orphanCount: count, examples });
-        }
+      for (const [key, acc] of orphansAcc) {
+        if (acc.count === 0) continue;
+        const display = displayBySchool.get(key) || key;
+        orphans.push({ schoolName: display, orphanCount: acc.count, examples: acc.examples });
       }
       orphans.sort((a, b) => b.orphanCount - a.orphanCount);
       mark("orphans");
@@ -552,7 +565,7 @@ export function useEscolasAuditoria() {
           schools: schools.length,
           provinces: provinces.length,
           municipalities: municipalities.length,
-          farmers: farmers.length,
+          farmers: farmersTotal,
         },
         memory: memAfter
           ? {
@@ -591,7 +604,7 @@ export function useEscolasAuditoria() {
         savedAt: Date.now(),
         signature: {
           schools: schools.length,
-          farmers: farmers.length,
+          farmers: farmersTotal,
           provinces: provinces.length,
           municipalities: municipalities.length,
         },
