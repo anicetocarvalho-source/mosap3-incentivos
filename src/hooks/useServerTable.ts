@@ -31,6 +31,10 @@ export interface ServerTableOptions<F extends Record<string, any> = Record<strin
   sort?: { column: string; dir: SortDir; nullsFirst?: boolean };
   /** Coluna a excluir (ex.: status != 'Removido'). { column, value } */
   excludeEq?: { column: string; value: string };
+  /** Filtros de intervalo numérico/temporal (gte/lte). undefined/null são ignorados. */
+  rangeFilters?: Array<{ column: string; gte?: number | string | null; lte?: number | string | null }>;
+  /** Filtro OR genérico (ex.: para pesquisa de produtor por código OU nome). */
+  orFilter?: string;
   /** Permite desactivar enquanto não há contexto (ex.: auth) */
   enabled?: boolean;
   /** Chave extra para o cache (scope, role, etc.) */
