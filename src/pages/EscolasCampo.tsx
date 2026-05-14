@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useProvincesData } from "@/hooks/useProvincesData";
+import { ValidateSchoolCountsButton } from "@/components/escolas/ValidateSchoolCountsButton";
 
 /* ─── Angola province approximate center coords for the map ─── */
 const PROVINCE_COORDS: Record<string, [number, number]> = {
@@ -195,14 +196,17 @@ const EscolasCampo = () => {
   return (
     <div className="space-y-5 md:space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="page-title text-xl md:text-2xl flex items-center gap-2">
-          <School className="h-6 w-6 text-primary" />
-          Escolas de Campo
-        </h1>
-        <p className="text-muted-foreground text-xs md:text-sm mt-1">
-          Gestão e acompanhamento das escolas de campo por província
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+        <div>
+          <h1 className="page-title text-xl md:text-2xl flex items-center gap-2">
+            <School className="h-6 w-6 text-primary" />
+            Escolas de Campo
+          </h1>
+          <p className="text-muted-foreground text-xs md:text-sm mt-1">
+            Gestão e acompanhamento das escolas de campo por província
+          </p>
+        </div>
+        <ValidateSchoolCountsButton />
       </div>
 
       {/* Stats row */}
