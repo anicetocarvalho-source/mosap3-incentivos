@@ -60,7 +60,6 @@ const Mosap3PayCartoesSim = () => {
     searchColumns: ["full_name", "phone", "code", "bi"],
     filters,
     sort: { column: "sim_status_updated_at", dir: "desc", nullsFirst: false },
-    excludeEq: { column: "status", value: "Removido" },
   });
 
   // KPIs do servidor (1 query agregada)
