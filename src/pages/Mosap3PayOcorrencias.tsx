@@ -139,21 +139,12 @@ const Mosap3PayOcorrencias = () => {
   const [pendingNew, setPendingNew] = useState(0);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [realtimeOn, setRealtimeOn] = useState(false);
-  const reloadTokenRef = useRef(0);
+  const [reloadTick, setReloadTick] = useState(0);
 
   const reload = useCallback(() => {
-    reloadTokenRef.current += 1;
     setPendingNew(0);
+    setReloadTick((n) => n + 1);
   }, []);
-
-  const [reloadTick, setReloadTick] = useState(0);
-  // Bump tick when reload() called via ref
-  useEffect(() => {
-    const id = setInterval(() => {
-      if (reloadTokenRef.current !== reloadTick) setReloadTick(reloadTokenRef.current);
-    }, 50);
-    return () => clearInterval(id);
-  }, [reloadTick]);
 
   useEffect(() => {
     let cancelled = false;
