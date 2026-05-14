@@ -1415,7 +1415,13 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
                       <CreditCard className="h-4 w-4 mr-2" /> Processar Pagamento
                     </Button>
                     {farmer && isSimBlocked(farmer.sim_status) && (
-                      <p className="text-xs text-destructive text-center mt-2 font-bold">⛔ Cartão SIM {farmer.sim_status} — venda bloqueada</p>
+                      <Alert variant="destructive" className="mt-2">
+                        <Ban className="h-4 w-4" />
+                        <AlertTitle className="text-xs font-bold">⛔ Pagamento recusado — SIM {farmer.sim_status}</AlertTitle>
+                        <AlertDescription className="text-[11px]">
+                          {simStatusReason(farmer.sim_status)?.recomendacao}
+                        </AlertDescription>
+                      </Alert>
                     )}
                     {farmer && farmerBalance <= 0 && (
                       <p className="text-xs text-destructive text-center mt-2 font-medium">⚠ Produtor sem saldo de incentivo</p>
