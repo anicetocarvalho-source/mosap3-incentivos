@@ -168,6 +168,7 @@ export function useEscolasAuditoria() {
         if (arr) arr.push(i);
         else farmersBySchool.set(sN, [i]);
       }
+      mark("indexFarmers");
 
       // ── Pre-normalize schools & group by normalized name
       type SchoolNorm = {
