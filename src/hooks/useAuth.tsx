@@ -200,7 +200,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const expiresAt = (session.expires_at ?? 0) * 1000;
       const msUntilExpiry = expiresAt - Date.now();
 
-      // Refresh if expired or within 2 minutes of expiring.
+      // Refresh if already expired OR within 2 minutes of expiring.
       if (msUntilExpiry < 2 * 60 * 1000) {
         const { error } = await supabase.auth.refreshSession();
         if (error) {
