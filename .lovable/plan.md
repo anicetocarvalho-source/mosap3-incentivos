@@ -1,110 +1,41 @@
-# Otimização de páginas/funcionalidades pesadas
+# Alinhar Dashboard com a lista de Agricultores
 
-## Diagnóstico
+## Objetivo
+Fazer o Dashboard contar todos os 15.166 agricultores (incluindo os 1.363 com `status = 'Removido'`), batendo certo com o total mostrado na página Agricultores.
 
-Identifiquei o padrão comum que está a causar a lentidão em **Agricultores**, **Transações**, **Cartões SIM**, **Vendas**, **Geração em Lote de Cartões**, etc.:
+## Causa atual
+As funções `dashboard_kpis` e `dashboard_charts` (no Supabase) filtram em todo o lado por `COALESCE(status,'') <> 'Removido'`. Isso gera o total de 13.803, contra os 15.166 da lista.
 
-1. **Carregamento total via `fetchAllPages`** — cada página puxa **TODAS** as linhas da tabela (até 18 mil agricultores, dezenas de milhares de transações) em chunks de 1000, mesmo quando só são apresentadas 10–15 linhas por página.
-2. **Pesquisa/filtros/ordenação no browser** — re-corre o array completo a cada tecla digitada.
-3. **Geração em lote sequencial** — em `CartaoIdLote.tsx` cada agricultor implica 3 round-trips (`select` + `update`/`insert` + `audit log`) feitos um a um, mais um `setTimeout(200ms)` por cartão renderizado.
-4. **Falta de índices** na BD para colunas usadas em filtros (`province`, `status`, `school`, `farmer_code`, `created_at`).
+## Alterações (apenas SQL via migration)
 
----
+Remover a exclusão de `'Removido'` em todas as agregações de KPIs e gráficos do dashboard:
 
-## Plano de otimização (5 frentes)
+1. **`public.dashboard_kpis`** — eliminar o `<> 'Removido'` em:
+   - CTE `scoped` (base de produtores, género, escolas, municípios, PATEC)
+   - sub-queries de `farmer_incentives`, `farmer_transactions`, `farmer_parcels`, `farmer_production`, `livestock`
+   - bloco "ELSE" do recebido/gasto agregado
 
-### 1. Paginação e pesquisa no servidor (ganho maior)
+2. **`public.dashboard_charts`** — eliminar o `<> 'Removido'` em:
+   - `farmers_by_province`, `gender_data`
+   - `transactions_by_province`, `production_by_culture`, `livestock_by_species`, `pos_sales_trend`
 
-Criar um hook genérico `useServerTable<T>` (em `src/hooks/useServerTable.ts`) que faz só **a página visível** com `range()` + `count: 'exact', head: true` e aceita filtros/ordenação:
+3. Manter o filtro de scope geográfico (província/ECA) intacto.
 
-```text
-input  : { table, columns, page, pageSize, search, filters, sort, scope }
-output : { rows, total, loading, refetch }
-```
+## O que NÃO muda
 
-Aplicar a:
-- **Agricultores** — pesquisa por `full_name`/`code`/`phone` via `or(ilike.%q%,...)`
-- **Transações** — `farmer_transactions` com `farmer_code.ilike`/`empresa.eq`
-- **Cartões SIM**, **Vendas**, **Facturas**, **Notas de Crédito**, **Stock**, **Ocorrências**
-
-Manter o "carregar tudo" **só** na rota `/exportar` (CSV) e isolado num botão explícito.
-
-### 2. Índices na base de dados
-
-Migration única (`add_perf_indexes.sql`) com `CREATE INDEX CONCURRENTLY IF NOT EXISTS`:
-- `farmers (status, province, municipality)` — filtros principais
-- `farmers (created_at DESC)` — ordenação default
-- `farmer_transactions (created_at DESC)`, `(empresa)`, `(farmer_code)`
-- `pos_sales (created_at DESC)`, `(supplier_id)`, `(farmer_code)`
-- Extensão `pg_trgm` + índices GIN trigram em `farmers.full_name`, `farmers.code`, `farmers.phone`, `farmers.bi` — torna `ILIKE '%termo%'` quase instantâneo
-
-### 3. Operações em lote → RPC única (Geração de Cartões)
-
-Substituir o loop de 3 chamadas/agricultor em `CartaoIdLote.tsx` por **uma** RPC `generate_farmer_cards_batch(_codes text[])`:
-- faz `INSERT … ON CONFLICT DO UPDATE` em `farmer_cards` para todos os códigos
-- regista `farmer_card_logs` em batch
-- devolve `[{farmer_code, card_token}]`
-
-Resultado: para 500 cartões passamos de **1500 round-trips** (~60–90 s) para **1** (~1–2 s).
-
-Acertos adicionais no render PDF:
-- Remover o `await setTimeout(200)` por cartão (ganho ≈ 200 ms × N).
-- Renderizar em **batches paralelos** de 8 com `Promise.all` em vez de série.
-- Lazy-import de `html2canvas`/`jspdf` na hora de gerar (já feito em parte) — confirmar.
-
-### 4. React Query + cache partilhado
-
-- Migrar `useFarmersList` (atualmente `useState/useEffect`) para `useQuery` com:
-  - `staleTime: 60_000`
-  - `placeholderData: keepPreviousData` (paginação sem flash)
-- Reaproveita cache entre páginas (Agricultores ↔ CartaoIdLote ↔ Anomalias) — clicar entre elas fica instantâneo.
-- Debounce do input de pesquisa (300 ms) com `useDeferredValue`.
-
-### 5. Carga útil mais leve
-
-- Reduzir `select(...)` aos campos mostrados (ex.: a listagem de Agricultores **não** precisa de `bi`, `saldo_final`, `total_gasto` — apresentamos esses só no perfil).
-- Virtualizar listagens longas com `@tanstack/react-virtual` quando o utilizador escolhe "ver tudo" (modo export-preview).
-
----
-
-## Detalhes técnicos
-
-```text
-src/
-  hooks/
-    useServerTable.ts        ← novo, genérico
-    useFarmersList.ts        ← refactor para wrapper de useServerTable
-  pages/
-    Agricultores.tsx         ← passa filtros/page/sort ao hook
-    Transacoes.tsx           ← idem
-    CartaoIdLote.tsx         ← chamada única à RPC, batch render
-    Mosap3PayCartoesSim.tsx  ← idem
-    Mosap3PayVendas.tsx      ← idem
-supabase/
-  migrations/
-    add_perf_indexes.sql                   ← índices + pg_trgm
-    generate_farmer_cards_batch.sql        ← RPC em lote
-```
-
-Manter retrocompatibilidade: o hook antigo `useFarmersList()` continua a expor `farmers` mas com paginação opcional — páginas não migradas continuam a funcionar.
-
----
-
-## Ordem de implementação (incremental, sem regressões)
-
-1. **Migration de índices** — efeito imediato, sem mexer em código.
-2. **Hook `useServerTable` + Agricultores** (página de maior impacto visível).
-3. **Transações + Cartões SIM + Vendas** (mesmo padrão, copy-paste).
-4. **RPC `generate_farmer_cards_batch` + refactor de `CartaoIdLote`**.
-5. **Debounce/virtualização** onde fizer sentido após medições.
-
-Após cada passo posso correr o `browser--performance_profile` para confirmar a melhoria.
+- `recalc_school_farmer_counts`, `recalc_school_for_name` e `detect_farmer_anomalies` continuam a excluir Removidos (faz sentido: contagem oficial das ECAs e anomalias não devem incluir fichas removidas).
+- Lista de Agricultores continua a mostrar Removidos com opacidade reduzida e botão Restaurar (sem alterações).
+- Hook `useFarmersList` e `applyFarmerScopeFilter` continuam com a regra atual (cada página decide via `includeRemoved`).
 
 ## Resultado esperado
 
-| Página | Antes | Depois |
+| Indicador | Antes | Depois |
 |---|---|---|
-| Agricultores (18k) | ~6–10 s | <500 ms |
-| Transações | ~5–8 s | <500 ms |
-| Geração lote 500 cartões | 60–90 s | 5–10 s |
-| Pesquisa por nome | trava UI | instantâneo |
+| Total Agricultores (Dashboard) | 13.803 | **15.166** |
+| Total Agricultores (Lista) | 15.166 | 15.166 |
+| Total ECAs (escolas), produção, pecuária | só ativos | passam a incluir Removidos |
+| Anomalias / contagens nas ECAs | só ativos | só ativos (inalterado) |
+
+## Aviso
+
+Incluir Removidos no Dashboard significa que os KPIs financeiros (recebido, gasto), produção e pecuária passam a somar também valores de fichas que foram marcadas como removidas. Se preferir manter os indicadores financeiros/produtivos só com ativos e mudar apenas a contagem de produtores, diga-me e ajusto o plano para alterar exclusivamente a CTE `scoped` (deixando incentivos/transações/produção/pecuária com o filtro atual).
