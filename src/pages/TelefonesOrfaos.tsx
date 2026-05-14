@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/tooltip";
 import {
   PhoneOff, Download, Link2, Search, RefreshCw, CheckCircle2, Unlink,
-  AlertTriangle, Sparkles, UserCheck,
+  AlertTriangle, Sparkles, UserCheck, Wand2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
