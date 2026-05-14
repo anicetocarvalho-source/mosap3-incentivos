@@ -196,7 +196,11 @@ const supabaseMock = {
   }),
 };
 
-vi.mock("@/integrations/supabase/client", () => ({ supabase: supabaseMock }));
+vi.mock("@/integrations/supabase/client", () => ({
+  get supabase() {
+    return supabaseMock;
+  },
+}));
 
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllPages } from "@/lib/supabaseFetchAll";
