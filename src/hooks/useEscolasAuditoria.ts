@@ -109,8 +109,39 @@ function readMemory(): { used: number; total: number; limit: number } | null {
 
 const KEY_SEP = "\u0001";
 
+export type AuditoriaProgress = {
+  phase: "idle" | "fetch" | "indexFarmers" | "normalizeSchools" | "duplicates" | "similar" | "orphans" | "done";
+  label: string;
+  pct: number; // 0..100
+};
+
+const PHASE_WEIGHTS: Record<AuditoriaProgress["phase"], number> = {
+  idle: 0,
+  fetch: 25,
+  indexFarmers: 15,
+  normalizeSchools: 5,
+  duplicates: 10,
+  similar: 30,
+  orphans: 15,
+  done: 0,
+};
+
+const PHASE_LABELS_HOOK: Record<AuditoriaProgress["phase"], string> = {
+  idle: "A iniciar…",
+  fetch: "A carregar dados…",
+  indexFarmers: "A indexar produtores…",
+  normalizeSchools: "A normalizar escolas…",
+  duplicates: "A calcular duplicados…",
+  similar: "A detectar nomes similares…",
+  orphans: "A identificar produtores órfãos…",
+  done: "Concluído",
+};
+
+const yieldUI = () => new Promise<void>((r) => setTimeout(r, 0));
+
 export function useEscolasAuditoria() {
   const [data, setData] = useState<AuditoriaResult | null>(null);
+  const [progress, setProgress] = useState<AuditoriaProgress>({ phase: "idle", label: PHASE_LABELS_HOOK.idle, pct: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
@@ -127,7 +158,17 @@ export function useEscolasAuditoria() {
       phases[phase] = Math.round((now - tMark) * 100) / 100;
       tMark = now;
     };
+    let cumulative = 0;
+    const advance = async (phase: AuditoriaProgress["phase"]) => {
+      setProgress({ phase, label: PHASE_LABELS_HOOK[phase], pct: cumulative });
+      await yieldUI();
+    };
+    const completePhase = (phase: AuditoriaProgress["phase"]) => {
+      cumulative = Math.min(100, cumulative + PHASE_WEIGHTS[phase]);
+    };
+    setData(null);
     try {
+      await advance("fetch");
       const [schools, provinces, municipalities, farmers] = await Promise.all([
         fetchAllPages<any>(() =>
           supabase.from("schools").select("id,name,province_id,municipality_id,village,total_farmers", { count: "exact" })
@@ -142,6 +183,8 @@ export function useEscolasAuditoria() {
         ),
       ]);
       mark("fetch");
+      completePhase("fetch");
+      await advance("indexFarmers");
 
       const provMap = new Map<string, string>(provinces.map((p) => [p.id, p.name as string]));
       const munMap = new Map<string, string>(municipalities.map((m) => [m.id, m.name as string]));
@@ -169,6 +212,8 @@ export function useEscolasAuditoria() {
         else farmersBySchool.set(sN, [i]);
       }
       mark("indexFarmers");
+      completePhase("indexFarmers");
+      await advance("normalizeSchools");
 
       // ── Pre-normalize schools & group by normalized name
       type SchoolNorm = {
@@ -243,6 +288,44 @@ export function useEscolasAuditoria() {
           a.municipality.localeCompare(b.municipality)
       );
       mark("duplicates");
+      completePhase("duplicates");
+
+      const makePartialPerf = (): PerfMetrics => ({
+        startedAt,
+        phases: {
+          fetch: phases.fetch || 0,
+          indexFarmers: phases.indexFarmers || 0,
+          normalizeSchools: phases.normalizeSchools || 0,
+          duplicates: phases.duplicates || 0,
+          similar: phases.similar || 0,
+          orphans: phases.orphans || 0,
+          total: Math.round((performance.now() - tStart) * 100) / 100,
+        },
+        rows: {
+          schools: schools.length,
+          provinces: provinces.length,
+          municipalities: municipalities.length,
+          farmers: farmers.length,
+        },
+        memory: { supported: false },
+      });
+
+      const partialDupNames = [...byName.values()].reduce((n, g) => n + (g.length > 1 ? 1 : 0), 0);
+      setData({
+        duplicates,
+        similar: [],
+        orphans: [],
+        totals: {
+          schools: schools.length,
+          duplicateNames: partialDupNames,
+          duplicateRows: duplicates.length,
+          discrepant: duplicates.reduce((n, d) => n + (d.ok ? 0 : 1), 0),
+          similarPairs: 0,
+          orphans: 0,
+        },
+        perf: makePartialPerf(),
+      });
+      await advance("similar");
 
       // Cache farmer counts per school id (used by similar tab)
       const countById = new Map<string, number>();
@@ -326,6 +409,18 @@ export function useEscolasAuditoria() {
 
       similar.sort((a, b) => a.distance - b.distance || a.a.name.localeCompare(b.a.name));
       mark("similar");
+      completePhase("similar");
+      setData((prev) =>
+        prev
+          ? {
+              ...prev,
+              similar,
+              totals: { ...prev.totals, similarPairs: similar.length },
+              perf: makePartialPerf(),
+            }
+          : prev
+      );
+      await advance("orphans");
 
       // ── Tab C: orphans — single pass per school name using the index built earlier
       const orphans: OrphanRow[] = [];
@@ -409,6 +504,8 @@ export function useEscolasAuditoria() {
         },
         perf,
       });
+      completePhase("orphans");
+      setProgress({ phase: "done", label: PHASE_LABELS_HOOK.done, pct: 100 });
     } catch (e) {
       console.error("[useEscolasAuditoria]", e);
       setError(e instanceof Error ? e : new Error(String(e)));
@@ -421,5 +518,5 @@ export function useEscolasAuditoria() {
     run();
   }, [run]);
 
-  return { data, loading, error, refetch: run };
+  return { data, loading, error, progress, refetch: run };
 }

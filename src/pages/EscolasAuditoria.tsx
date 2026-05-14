@@ -134,17 +134,21 @@ function PerfHistoryTable({ history, onClear }: { history: PerfMetrics[]; onClea
 }
 
 const EscolasAuditoria = () => {
-  const { data, loading, refetch } = useEscolasAuditoria();
+  const { data, loading, progress, refetch } = useEscolasAuditoria();
   const [showPerf, setShowPerf] = useState(true);
   const [historyTick, setHistoryTick] = useState(0);
   const history = useMemo(() => readAuditoriaPerfHistory(), [data, historyTick]);
 
-  if (loading || !data) {
+  if (!data) {
     return (
       <div className="space-y-4">
         <div className="flex items-center gap-2">
           <Loader2 className="h-5 w-5 animate-spin text-primary" />
-          <span className="text-sm text-muted-foreground">A executar auditoria de ECAs…</span>
+          <span className="text-sm text-muted-foreground">{progress.label}</span>
+          <span className="text-xs text-muted-foreground font-mono">({progress.pct}%)</span>
+        </div>
+        <div className="h-2 bg-muted rounded overflow-hidden">
+          <div className="h-full bg-primary transition-all duration-300" style={{ width: `${progress.pct}%` }} />
         </div>
         <Skeleton className="h-24 w-full" />
         <Skeleton className="h-64 w-full" />
@@ -169,6 +173,16 @@ const EscolasAuditoria = () => {
 
   return (
     <div className="space-y-5">
+      {loading && (
+        <div className="rounded-md border border-info/30 bg-info/5 px-3 py-2 flex items-center gap-3 text-sm">
+          <Loader2 className="h-4 w-4 animate-spin text-info shrink-0" />
+          <span className="flex-1 truncate">{progress.label}</span>
+          <span className="font-mono text-xs text-muted-foreground">{progress.pct}%</span>
+          <div className="w-32 h-1.5 bg-muted rounded overflow-hidden">
+            <div className="h-full bg-info transition-all duration-300" style={{ width: `${progress.pct}%` }} />
+          </div>
+        </div>
+      )}
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
         <div>
           <h1 className="page-title text-xl md:text-2xl flex items-center gap-2">
