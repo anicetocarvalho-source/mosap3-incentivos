@@ -94,6 +94,38 @@ const Mosap3PayOcorrencias = () => {
   const [dateTo, setDateTo] = useState<Date | undefined>();
   const [page, setPage] = useState(1);
 
+  // Detail dialog state
+  const [selected, setSelected] = useState<AuditRow | null>(null);
+  const [history, setHistory] = useState<AuditRow[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+
+  useEffect(() => {
+    if (!selected?.entity_id) {
+      setHistory([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      setHistoryLoading(true);
+      const { data, error } = await supabase
+        .from("audit_logs")
+        .select("id, action, entity_id, entity_type, user_id, user_name, details, created_at")
+        .eq("action", ACTION)
+        .eq("entity_id", selected.entity_id)
+        .order("created_at", { ascending: false })
+        .limit(50);
+      if (cancelled) return;
+      if (error) {
+        console.error("[Ocorrencias] history error", error);
+        setHistory([]);
+      } else {
+        setHistory((data ?? []) as AuditRow[]);
+      }
+      setHistoryLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, [selected?.entity_id]);
+
   // Debounce search input → server query
   useEffect(() => {
     const t = setTimeout(() => setSearch(searchInput), 350);
