@@ -1137,6 +1137,10 @@ const RevisaoProvincias = () => {
         matched_amount: matchedAmount,
         orphans_inserted: orphansInserted,
         orphans_amount: orphanAmount,
+        auto_linked: autoLinked,
+        auto_credited_kz: autoCreditedKz,
+        still_orphan: stillOrphan,
+        ambiguous_unlinked: ambiguous,
         failed_codes: failed.slice(0, 20),
       };
       const { data: u } = await supabase.auth.getUser();
@@ -1157,9 +1161,12 @@ const RevisaoProvincias = () => {
 
       setApplyDialogOpen(false);
       setApplyConfirmText("");
+      const orphanMsg = orphansInserted > 0
+        ? ` · Órfãos: ${orphansInserted} guardados, ${autoLinked} auto-associados (${fmt(autoCreditedKz)} Kz), ${stillOrphan} ainda pendentes${ambiguous > 0 ? `, ${ambiguous} ambíguos` : ""}`
+        : "";
       toast.success(
-        `Aplicado: ${okCount} agricultores creditados (${fmt(matchedAmount)} Kz), ${orphansInserted} órfãos guardados${failCount > 0 ? `, ${failCount} falhas` : ""}.`,
-        { duration: 10000 },
+        `Aplicado: ${okCount} agricultores creditados (${fmt(matchedAmount)} Kz)${orphanMsg}${failCount > 0 ? ` · ${failCount} falhas` : ""}.`,
+        { duration: 12000 },
       );
     } catch (e: any) {
       toast.error(`Falha na aplicação: ${e?.message ?? e}`);
