@@ -1,51 +1,38 @@
-## Objetivo
-Reforçar a página `/transacoes` com filtros adicionais (produto, produtor, faixa de valor) e cards analíticos que reflectem os filtros activos (Total vendido, Top produtos, Top empresas — sempre com Kz e nº de transacções lado a lado).
+## Objectivo
+Os KPIs e a tabela `/mosap3pay/cartoes-sim` já suportam visualmente os estados `Pré desactivado`, `Barrado` e `Removido`, mas a base de dados só tem `Activo` (13.741) e `Pendente` (1.425). Faltam os números do ficheiro **ALL_MOSAP (003).xlsx** com esses 3 estados.
 
-## Mudanças
+## Pré-requisito
+**Reenvie o ficheiro `ALL_MOSAP (003).xlsx`** anexado nesta conversa — o ficheiro partilhado anteriormente não está acessível no sandbox.
 
-### 1. Base de dados (1 migração)
-- Adicionar coluna **gerada** `valor_num numeric GENERATED ALWAYS AS (parse_ptao_numeric(valor)) STORED` em `farmer_transactions`. Permite `.gte/.lte` e ordenar por valor de forma indexada (hoje `valor` é texto PT-AO).
-- Índices: `idx_ftx_valor_num` (btree em `valor_num`), `idx_ftx_farmer_name_trgm` em `farmers.full_name` (já existe via `pg_trgm`, confirmar).
-- RPC `transacoes_kpis(p_search text, p_empresa text, p_product text, p_farmer text, p_min numeric, p_max numeric)` retorna JSONB:
-  - `total_count`, `total_volume_kz`
-  - `min_valor`, `max_valor`, `avg_valor`
-  - `top_products`: array com 5 itens `{ product, total_kz, count }` (ordem por total_kz desc)
-  - `top_empresas`: array com 5 itens `{ empresa, total_kz, count }` (ordem por total_kz desc)
-  - `top_products_by_count`: array com 5 itens (ordem por nº de vendas desc)
-  - `top_empresas_by_count`: idem
-  - Aplica os mesmos filtros que a tabela. `SECURITY DEFINER`, `STABLE`, restrito a `authenticated`.
+## Plano de execução
 
-### 2. Hook `useServerTable`
-Estender com `rangeFilters?: Array<{ column: string; gte?: number; lte?: number }>` (opcional). Sem mudança nas chamadas existentes.
+### 1. Inspecção do Excel (após receber ficheiro)
+- Ler todas as folhas com `pandas`.
+- Identificar coluna `Estado` (ou similar) e coluna do número de telefone (MSISDN).
+- Listar contagens por estado e amostra de linhas para validação consigo antes de tocar na BD.
 
-### 3. Página `/transacoes`
-- **Cards de KPI no topo (4 cards, reactivos aos filtros):**
-  1. Total vendido (Kz) + nº de transacções
-  2. Ticket médio / mín / máx
-  3. Top 5 Produtos (lista compacta com Kz e nº de vendas lado a lado)
-  4. Top 5 Empresas (Kz e nº lado a lado)
-- **Barra de filtros expandida:**
-  - Pesquisa livre (mantém)
-  - Empresa (mantém)
-  - **Produto** (Select com lista distinta — combobox pesquisável dado os 174 produtos)
-  - **Produtor** (input livre, pesquisa por código/nome do agricultor — debounced)
-  - **Faixa de valor**: dois inputs numéricos (Mín/Máx Kz)
-  - **Ordenação**: Mais recentes (default) / Mais caros / Mais baratos / Maior volume primeiro
-  - Botão "Limpar filtros"
-- Tabela mantém estrutura, mas a coluna **Valor** passa a ordenar por `valor_num` quando o utilizador escolhe "mais caros/mais baratos".
+### 2. Normalização e mapeamento
+- Mapear valores do Excel para os 5 estados canónicos da BD:
+  - `Activo`, `Pendente`, `Pré desactivado`, `Barrado`, `Removido`.
+- Normalizar telefone (remover espaços, prefixo `+244`, manter 9 dígitos finais).
+- Match contra `farmers.phone` normalizado (chave escolhida).
 
-### 4. Testes (Vitest)
-- `transacoes-kpis.test.ts`: valida que soma das `top_products[].total_kz` ≤ `total_volume_kz`, soma de `count` consistente, e que os filtros aplicados afectam os tops.
-- Garantir Removidos contam (Core rule): nunca filtrar `farmers.status = 'Removido'` neste fluxo.
+### 3. Edge function `import-sim-status` (re-deploy)
+- Corre em modo **dry-run** primeiro: devolve quantos foram encontrados, quantos não bateram, e contagem por novo estado.
+- Após confirmação, aplica `UPDATE farmers SET sim_status = ?, sim_status_updated_at = now(), sim_status_source = 'ALL_MOSAP_xlsx'` em blocos de 50 (Core rule).
+- Apenas **sobrepõe** estados quando o ficheiro tem informação explícita; agricultores não listados ficam intactos.
 
-## Detalhes técnicos
-- `parse_ptao_numeric` é `IMMUTABLE`, logo válido em coluna gerada STORED.
-- Backfill automático ao criar coluna gerada (Postgres preenche existentes).
-- 70 394 linhas actuais → preenchimento sub-segundo; índice btree para suportar `ORDER BY valor_num` e ranges.
-- Filtro "produtor" usa `farmer_code` (eq) ou `farmers.full_name ilike`. Como a tabela usa `farmers!fk(...)`, faz-se `.or()` em `farmer_code` + lookup separado por nome via subquery (ou aceitar só `farmer_code`/nº telefone para ser indexável). **Decisão:** input único que tenta `farmer_code = X` ou `full_name ilike %X%` via `or` na join — aproveita índice trgm em `full_name`.
-- Cards usam React Query com `queryKey` que inclui todos os filtros + debounce 300ms para evitar requests durante digitação.
+### 4. Verificação
+- Re-correr `src/test/sim-kpis-reconciliation.test.ts` — soma dos KPIs deve continuar a bater com 15.166.
+- Confirmar visualmente em `/mosap3pay/cartoes-sim` que os 3 novos cards passam a ter valores reais.
+- Notificar com resumo: contagem antes/depois por estado e nº de não-correspondidos.
 
 ## Fora de âmbito
-- Exportação CSV (não pedida; existe noutras páginas).
-- Gráficos temporais (a página tem perfil de listagem; o módulo Relatórios cobre análise temporal).
-- Alterar identidade visual / layout global.
+- Alterar o esquema da tabela `farmers` (já tem `sim_status`/`sim_status_source`).
+- Mudar UI dos cards (já existe).
+- Alterar lógica de reconciliação financeira.
+
+## Detalhes técnicos
+- Chave de match: `phone` normalizado para últimos 9 dígitos.
+- Se um agricultor aparecer em mais que um estado no Excel, prevalece a última ocorrência (com aviso no relatório dry-run).
+- `sim_status_source = 'ALL_MOSAP_xlsx'` distingue da fonte anterior `unitel_sim_status`.
