@@ -222,6 +222,8 @@ const Mosap3PayOcorrencias = () => {
     }
   }, [pendingNew, page, search, statusFilter, dateFrom, dateTo, reload]);
 
+  const totalPages = useMemo(() => Math.max(1, Math.ceil(total / PAGE_SIZE)), [total]);
+
 
   const exportCsv = async () => {
     setExporting(true);
