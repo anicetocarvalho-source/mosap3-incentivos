@@ -210,9 +210,24 @@ export default function TelefonesOrfaos() {
         icon={PhoneOff}
         actions={
           <>
+            {lastLoaded && (
+              <span className="hidden md:inline text-xs text-muted-foreground mr-2">
+                Actualizado às {lastLoaded.toLocaleTimeString("pt-AO")}
+              </span>
+            )}
             <Button variant="outline" size="sm" onClick={load} disabled={loading}>
               <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
               <span className="hidden sm:inline ml-1">Atualizar</span>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={reconcilePendentes}
+              disabled={reconciling || loading}
+              title="Tentar associar pendentes pelos últimos 9 dígitos"
+            >
+              <Wand2 className={`h-4 w-4 ${reconciling ? "animate-spin" : ""}`} />
+              <span className="hidden sm:inline ml-1">Reconciliar pendentes</span>
             </Button>
             <Button size="sm" onClick={exportCsv} disabled={filtered.length === 0}>
               <Download className="h-4 w-4" />
