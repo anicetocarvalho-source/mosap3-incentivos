@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { FileText, Search, Plus, Eye, Loader2, AlertTriangle, ChevronLeft, ChevronRight } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { ErrorState } from "@/components/ui/error-state";
+import { useServerTable, useDebouncedValue } from "@/hooks/useServerTable";
 
 const PAGE_SIZE = 15;
 
@@ -57,15 +59,11 @@ interface SaleItem {
 
 const Mosap3PayNotasCredito = () => {
   const { user } = useAuth();
-  const [creditNotes, setCreditNotes] = useState<CreditNote[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
   const [detailNote, setDetailNote] = useState<CreditNote | null>(null);
   const [page, setPage] = useState(1);
 
-  // Create form state
   const [suppliers, setSuppliers] = useState<{ id: string; name: string }[]>([]);
   const [selectedSupplier, setSelectedSupplier] = useState("");
   const [sales, setSales] = useState<Sale[]>([]);
@@ -75,26 +73,35 @@ const Mosap3PayNotasCredito = () => {
   const [reason, setReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
+  const debSearch = useDebouncedValue(search, 350);
+  useEffect(() => { setPage(1); }, [debSearch]);
+
   useEffect(() => {
-    fetchCreditNotes();
     supabase.from("suppliers").select("id, name").order("name").then(({ data }) => setSuppliers(data || []));
   }, []);
 
-  const fetchCreditNotes = async () => {
-    setLoading(true);
-    setLoadError(null);
-    const { data, error } = await supabase
-      .from("credit_notes")
-      .select("*")
-      .order("created_at", { ascending: false });
-    if (error) {
-      setLoadError(error.message);
-      toast.error("Erro ao carregar notas de crédito");
-    } else {
-      setCreditNotes((data as CreditNote[]) || []);
-    }
-    setLoading(false);
-  };
+  const { rows: paginated, total, isLoading: loading, isError, isFetching, refetch } = useServerTable<CreditNote>({
+    table: "credit_notes",
+    columns: "*",
+    page,
+    pageSize: PAGE_SIZE,
+    search: debSearch,
+    searchColumns: ["credit_note_number", "farmer_name", "farmer_code"],
+    sort: { column: "created_at", dir: "desc" },
+  });
+
+  const kpisQuery = useQuery({
+    queryKey: ["credit_notes_kpis", debSearch],
+    staleTime: 30_000,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("credit_notes_kpis", { _search: debSearch || null });
+      if (error) throw error;
+      return data as { total_count: number; total_credited: number; active_count: number };
+    },
+  });
+
+  const kpis = kpisQuery.data || { total_count: 0, total_credited: 0, active_count: 0 };
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   const loadSales = async (supplierId: string) => {
     setSelectedSupplier(supplierId);
@@ -130,7 +137,6 @@ const Mosap3PayNotasCredito = () => {
       toast.error("Seleccione pelo menos um item para creditar");
       return;
     }
-
     setSubmitting(true);
     try {
       let subtotal = 0;
@@ -150,15 +156,11 @@ const Mosap3PayNotasCredito = () => {
           line_total: Math.round((lineNet + lineIva) * 100) / 100,
         };
       });
-
       const total = Math.round((subtotal + ivaTotal) * 100) / 100;
-
       const year = new Date().getFullYear();
       const { data: ncNumber } = await supabase.rpc("next_credit_note_number", {
-        _supplier_id: selectedSale.supplier_id,
-        _year: year,
+        _supplier_id: selectedSale.supplier_id, _year: year,
       });
-
       const { data: cn, error } = await supabase.from("credit_notes").insert({
         credit_note_number: ncNumber || `NC ${year}/00001`,
         supplier_id: selectedSale.supplier_id,
@@ -171,26 +173,16 @@ const Mosap3PayNotasCredito = () => {
         total,
         created_by: user?.id,
       }).select().single();
-
       if (error) throw error;
+      await supabase.from("credit_note_items").insert(cnItems.map(item => ({ ...item, credit_note_id: cn.id })));
 
-      await supabase.from("credit_note_items").insert(
-        cnItems.map(item => ({ ...item, credit_note_id: cn.id }))
-      );
-
-      const { data: farmerData } = await supabase
-        .from("farmers")
-        .select("saldo_final, total_gasto")
-        .eq("code", selectedSale.farmer_code)
-        .maybeSingle();
-
+      const { data: farmerData } = await supabase.from("farmers").select("saldo_final, total_gasto").eq("code", selectedSale.farmer_code).maybeSingle();
       if (farmerData) {
         const parseCurrency = (v: string | null) => parseFloat((v || "0").replace(/\s/g, "").replace(",", ".")) || 0;
         const currentSaldo = parseCurrency(farmerData.saldo_final);
         const currentGasto = parseCurrency(farmerData.total_gasto);
         const newSaldo = Math.round((currentSaldo + total) * 100) / 100;
         const newGasto = Math.round(Math.max(0, currentGasto - total) * 100) / 100;
-
         await supabase.from("farmers").update({
           saldo_final: newSaldo.toFixed(2).replace(".", ","),
           total_gasto: newGasto.toFixed(2).replace(".", ","),
@@ -198,30 +190,16 @@ const Mosap3PayNotasCredito = () => {
       }
 
       await supabase.from("audit_logs").insert({
-        user_id: user?.id,
-        user_name: user?.email,
-        action: "credit_note_issued",
-        entity_type: "credit_note",
-        entity_id: cn.id,
+        user_id: user?.id, user_name: user?.email,
+        action: "credit_note_issued", entity_type: "credit_note", entity_id: cn.id,
         details: {
-          credit_note_number: cn.credit_note_number,
-          supplier_id: selectedSale.supplier_id,
-          original_sale_id: selectedSale.id,
-          original_sale_code: selectedSale.sale_code,
-          original_invoice_number: selectedSale.invoice_number,
-          original_sale_total: Number(selectedSale.total),
-          farmer_code: selectedSale.farmer_code,
-          farmer_name: selectedSale.farmer_name,
-          reason: reason.trim(),
-          subtotal: Math.round(subtotal * 100) / 100,
-          iva_total: Math.round(ivaTotal * 100) / 100,
-          total,
-          items_credited: cnItems.map(i => ({
-            product_name: i.product_name,
-            quantity: i.quantity,
-            unit_price: i.unit_price,
-            line_total: i.line_total,
-          })),
+          credit_note_number: cn.credit_note_number, supplier_id: selectedSale.supplier_id,
+          original_sale_id: selectedSale.id, original_sale_code: selectedSale.sale_code,
+          original_invoice_number: selectedSale.invoice_number, original_sale_total: Number(selectedSale.total),
+          farmer_code: selectedSale.farmer_code, farmer_name: selectedSale.farmer_name,
+          reason: reason.trim(), subtotal: Math.round(subtotal * 100) / 100,
+          iva_total: Math.round(ivaTotal * 100) / 100, total,
+          items_credited: cnItems.map(i => ({ product_name: i.product_name, quantity: i.quantity, unit_price: i.unit_price, line_total: i.line_total })),
           balance_adjusted: true,
         },
       });
@@ -230,7 +208,8 @@ const Mosap3PayNotasCredito = () => {
       setCreateOpen(false);
       setReason("");
       setSelectedSale(null);
-      fetchCreditNotes();
+      refetch();
+      kpisQuery.refetch();
     } catch (e: any) {
       toast.error("Erro ao criar NC: " + (e.message || "Erro desconhecido"));
     } finally {
@@ -238,21 +217,12 @@ const Mosap3PayNotasCredito = () => {
     }
   };
 
-  const filtered = creditNotes.filter(cn =>
-    cn.credit_note_number.toLowerCase().includes(search.toLowerCase()) ||
-    cn.farmer_name.toLowerCase().includes(search.toLowerCase()) ||
-    cn.farmer_code.toLowerCase().includes(search.toLowerCase())
-  );
-
-  const totalCredited = filtered.reduce((s, cn) => s + Number(cn.total), 0);
-  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
-  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-
-  useEffect(() => { setPage(1); }, [search]);
-
   const PaginationControls = () => totalPages > 1 ? (
     <div className="flex items-center justify-between px-4 py-3 border-t">
-      <p className="text-xs text-muted-foreground">{filtered.length} registos • Página {page}/{totalPages}</p>
+      <p className="text-xs text-muted-foreground">
+        {total.toLocaleString("pt-AO")} registos • Página {page}/{totalPages}
+        {isFetching && <Loader2 className="h-3 w-3 animate-spin inline ml-2" />}
+      </p>
       <div className="flex gap-1">
         <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(p => p - 1)}><ChevronLeft className="h-4 w-4" /></Button>
         <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}><ChevronRight className="h-4 w-4" /></Button>
@@ -276,15 +246,15 @@ const Mosap3PayNotasCredito = () => {
 
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
         <Card><CardContent className="p-4 text-center">
-          <p className="text-2xl font-bold">{filtered.length}</p>
+          <p className="text-2xl font-bold">{kpis.total_count.toLocaleString("pt-AO")}</p>
           <p className="text-xs text-muted-foreground">Total NC Emitidas</p>
         </CardContent></Card>
         <Card><CardContent className="p-4 text-center">
-          <p className="text-2xl font-bold">{totalCredited.toLocaleString("pt-AO")} Kz</p>
+          <p className="text-2xl font-bold">{Number(kpis.total_credited).toLocaleString("pt-AO")} Kz</p>
           <p className="text-xs text-muted-foreground">Total Creditado</p>
         </CardContent></Card>
         <Card><CardContent className="p-4 text-center">
-          <p className="text-2xl font-bold">{filtered.filter(cn => cn.status === "emitida").length}</p>
+          <p className="text-2xl font-bold">{kpis.active_count.toLocaleString("pt-AO")}</p>
           <p className="text-xs text-muted-foreground">Activas</p>
         </CardContent></Card>
       </div>
@@ -294,12 +264,11 @@ const Mosap3PayNotasCredito = () => {
         <Input placeholder="Pesquisar por número NC, nome ou código..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
       </div>
 
-      {loadError ? (
-        <Card><CardContent className="p-6"><ErrorState onRetry={fetchCreditNotes} /></CardContent></Card>
+      {isError ? (
+        <Card><CardContent className="p-6"><ErrorState onRetry={() => refetch()} /></CardContent></Card>
       ) : (
       <Card>
         <CardContent className="p-0">
-          {/* Desktop table */}
           <div className="hidden md:block">
             <Table>
               <TableHeader>
@@ -327,9 +296,7 @@ const Mosap3PayNotasCredito = () => {
                     </TableCell>
                     <TableCell className="text-sm max-w-[200px] truncate">{cn.reason}</TableCell>
                     <TableCell className="font-bold">{Number(cn.total).toLocaleString("pt-AO")} Kz</TableCell>
-                    <TableCell>
-                      <Badge variant={cn.status === "emitida" ? "default" : "secondary"} className="text-[10px]">{cn.status}</Badge>
-                    </TableCell>
+                    <TableCell><Badge variant={cn.status === "emitida" ? "default" : "secondary"} className="text-[10px]">{cn.status}</Badge></TableCell>
                     <TableCell className="text-xs text-muted-foreground">{new Date(cn.created_at).toLocaleDateString("pt-AO")}</TableCell>
                     <TableCell className="text-right">
                       <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setDetailNote(cn)}>
@@ -342,7 +309,6 @@ const Mosap3PayNotasCredito = () => {
             </Table>
           </div>
 
-          {/* Mobile cards */}
           <div className="md:hidden divide-y divide-border">
             {loading ? (
               <p className="text-center py-8 text-muted-foreground text-sm">Carregando...</p>
@@ -369,7 +335,6 @@ const Mosap3PayNotasCredito = () => {
       </Card>
       )}
 
-      {/* Create NC Dialog */}
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -426,10 +391,7 @@ const Mosap3PayNotasCredito = () => {
                         <p className="text-sm font-medium">{item.product_name}</p>
                         <p className="text-xs text-muted-foreground">Max: {item.quantity} × {Number(item.unit_price).toLocaleString("pt-AO")} Kz</p>
                       </div>
-                      <Input
-                        type="number"
-                        min={0}
-                        max={item.quantity}
+                      <Input type="number" min={0} max={item.quantity}
                         value={selectedItems[item.id] || 0}
                         onChange={e => setSelectedItems(prev => ({ ...prev, [item.id]: Math.min(Number(e.target.value), item.quantity) }))}
                         className="w-20 text-center"
@@ -440,12 +402,8 @@ const Mosap3PayNotasCredito = () => {
 
                 <div className="space-y-2">
                   <Label>Motivo da Nota de Crédito *</Label>
-                  <Textarea
-                    placeholder="Ex: Devolução de produto danificado, erro na facturação..."
-                    value={reason}
-                    onChange={e => setReason(e.target.value)}
-                    rows={3}
-                  />
+                  <Textarea placeholder="Ex: Devolução de produto danificado, erro na facturação..."
+                    value={reason} onChange={e => setReason(e.target.value)} rows={3} />
                 </div>
 
                 {(() => {
@@ -474,7 +432,6 @@ const Mosap3PayNotasCredito = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Detail Dialog */}
       <Dialog open={!!detailNote} onOpenChange={o => !o && setDetailNote(null)}>
         <DialogContent className="max-w-lg">
           <DialogHeader><DialogTitle>{detailNote?.credit_note_number}</DialogTitle></DialogHeader>
@@ -485,10 +442,7 @@ const Mosap3PayNotasCredito = () => {
                 <p className="text-xs text-muted-foreground">{detailNote.farmer_code}</p>
                 <p className="text-xs text-muted-foreground mt-1">{new Date(detailNote.created_at).toLocaleString("pt-AO")}</p>
               </div>
-              <div>
-                <Label className="text-xs">Motivo</Label>
-                <p className="text-sm">{detailNote.reason}</p>
-              </div>
+              <div><Label className="text-xs">Motivo</Label><p className="text-sm">{detailNote.reason}</p></div>
               <Separator />
               <div className="space-y-1 text-sm">
                 <div className="flex justify-between"><span>Subtotal</span><span>{Number(detailNote.subtotal).toLocaleString("pt-AO")} Kz</span></div>

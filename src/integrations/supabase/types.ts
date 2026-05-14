@@ -2158,6 +2158,7 @@ export type Database = {
     }
     Functions: {
       bulk_insert_orphan_phones: { Args: { _data: Json }; Returns: number }
+      credit_notes_kpis: { Args: { _search?: string }; Returns: Json }
       dashboard_charts: {
         Args: { p_ecas?: string[]; p_provinces?: string[]; p_scope: string }
         Returns: Json
@@ -2204,6 +2205,13 @@ export type Database = {
           out_severity: string
         }[]
       }
+      farmers_distinct_provinces: {
+        Args: never
+        Returns: {
+          province: string
+        }[]
+      }
+      farmers_sim_kpis: { Args: never; Returns: Json }
       generate_farmer_cards_batch: {
         Args: { _codes: string[] }
         Returns: {
@@ -2219,6 +2227,12 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      invoice_years: {
+        Args: never
+        Returns: {
+          year: number
+        }[]
       }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
       is_managing_eca: {
@@ -2279,6 +2293,16 @@ export type Database = {
         Returns: number
       }
       parse_ptao_numeric: { Args: { _s: string }; Returns: number }
+      pos_sales_kpis: {
+        Args: {
+          _invoice_only?: boolean
+          _search?: string
+          _status?: string
+          _supplier_id?: string
+          _year?: number
+        }
+        Returns: Json
+      }
       recalc_all_farmer_totals: { Args: never; Returns: number }
       recalc_farmer_totals: {
         Args: { _farmer_code: string }
