@@ -116,6 +116,7 @@ const App = () => (
               <Route path="/mosap3pay/configuracoes" element={<Mosap3PayConfiguracoes />} />
               <Route path="/mosap3pay/reconciliacao" element={<RoleGuard allowedRoles={["admin", "gestor_incentivos"]}><Mosap3PayReconciliacao /></RoleGuard>} />
               <Route path="/mosap3pay/cartoes-sim" element={<RoleGuard allowedRoles={["admin", "gestor_incentivos"]}><Mosap3PayCartoesSim /></RoleGuard>} />
+              <Route path="/mosap3pay/ocorrencias" element={<RoleGuard allowedRoles={["admin", "gestor_incentivos"]}><Mosap3PayOcorrencias /></RoleGuard>} />
 
               {/* Incentivos & Transações: admin, gestor_incentivos */}
               <Route path="/incentivos" element={<RoleGuard allowedRoles={["admin", "gestor_incentivos"]} moduleName="Incentivos"><Incentivos /></RoleGuard>} />
