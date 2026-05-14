@@ -89,6 +89,9 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
   const [processing, setProcessing] = useState(false);
   const [contactingManager, setContactingManager] = useState(false);
   const [contactConfirmOpen, setContactConfirmOpen] = useState(false);
+  const [managers, setManagers] = useState<Array<{ user_id: string; full_name: string; role: string }>>([]);
+  const [managersLoading, setManagersLoading] = useState(false);
+  const [managerRoleFilter, setManagerRoleFilter] = useState<string>("__all__");
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [receiptOpen, setReceiptOpen] = useState(false);
   const [lastSaleCode, setLastSaleCode] = useState("");
@@ -274,6 +277,26 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
     }
   };
 
+  const loadManagers = async () => {
+    setManagersLoading(true);
+    try {
+      const { data, error } = await supabase.rpc("list_backoffice_managers", { _role: null });
+      if (error) throw error;
+      setManagers((data ?? []) as any);
+    } catch (e) {
+      console.warn("loadManagers failed", e);
+      setManagers([]);
+    } finally {
+      setManagersLoading(false);
+    }
+  };
+
+  const filteredManagers = managerRoleFilter === "__all__"
+    ? managers
+    : managers.filter((m) => m.role === managerRoleFilter);
+
+  const availableManagerRoles = Array.from(new Set(managers.map((m) => m.role))).sort();
+
   const contactarGestor = async (f: Farmer) => {
     const r = simStatusReason(f.sim_status);
     if (!r) return;
@@ -281,9 +304,11 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
     try {
       const title = `⛔ Apoio solicitado — SIM ${f.sim_status}`;
       const body = `Operador POS sinalizou bloqueio: agricultor ${f.full_name} (${f.code})${f.phone ? ` · Tel: ${f.phone}` : ""}. Motivo: ${r.reason}`;
-      const { error } = await supabase.rpc("notify_all_users", {
+      const roleArg = managerRoleFilter === "__all__" ? null : managerRoleFilter;
+      const { data: count, error } = await supabase.rpc("notify_users_by_role", {
         _title: title,
         _body: body,
+        _role: roleArg,
         _category: "cartoes_sim",
         _entity_type: "farmer",
         _entity_id: f.code,
@@ -294,11 +319,11 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
           action: "pos_contact_manager_sim_blocked",
           entity_type: "farmer",
           entity_id: f.code,
-          details: { sim_status: f.sim_status, farmer_name: f.full_name, phone: f.phone, reason: r.reason } as any,
+          details: { sim_status: f.sim_status, farmer_name: f.full_name, phone: f.phone, reason: r.reason, role_filter: roleArg, recipients: count } as any,
         });
       } catch {}
-      toast.success("Gestores notificados", {
-        description: `Ocorrência do agricultor ${f.code} enviada via sino in-app.`,
+      toast.success(`${count ?? 0} gestor(es) notificado(s)`, {
+        description: `Ocorrência do agricultor ${f.code} enviada via sino in-app${roleArg ? ` (função: ${roleArg})` : ""}.`,
       });
     } catch (e: any) {
       toast.error("Não foi possível notificar os gestores", { description: e?.message ?? String(e) });
@@ -306,6 +331,7 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
       setContactingManager(false);
     }
   };
+
   const notifySimBlockedFarmer = async (
     f: Farmer,
     event: "identificacao_pos" | "tentativa_pagamento"
@@ -1318,7 +1344,7 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
                             size="sm"
                             variant="outline"
                             className="mt-2 h-7 text-xs gap-1.5 bg-background hover:bg-background/80"
-                            onClick={() => setContactConfirmOpen(true)}
+                            onClick={() => { setManagerRoleFilter("__all__"); loadManagers(); setContactConfirmOpen(true); }}
                             disabled={contactingManager}
                           >
                             <Send className="h-3 w-3" />
@@ -1586,8 +1612,8 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
               <Send className="h-4 w-4 text-primary" /> Contactar gestor
             </AlertDialogTitle>
             <AlertDialogDescription asChild>
-              <div className="space-y-2 text-sm">
-                <p>Esta ocorrência será enviada via sino in-app a todos os gestores do sistema. Confirma o envio?</p>
+              <div className="space-y-3 text-sm">
+                <p>Esta ocorrência será enviada via sino in-app aos gestores selecionados. Confirma o envio?</p>
                 {farmer && (() => {
                   const r = simStatusReason(farmer.sim_status);
                   return (
@@ -1600,13 +1626,49 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
                     </div>
                   );
                 })()}
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <Label className="text-xs font-semibold">Destinatários</Label>
+                    <Select value={managerRoleFilter} onValueChange={setManagerRoleFilter} disabled={managersLoading || managers.length === 0}>
+                      <SelectTrigger className="h-8 w-[180px] text-xs">
+                        <SelectValue placeholder="Todas as funções" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__all__">Todas as funções</SelectItem>
+                        {availableManagerRoles.map((r) => (
+                          <SelectItem key={r} value={r}>{r}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="rounded-md border bg-background max-h-44 overflow-auto">
+                    {managersLoading ? (
+                      <p className="p-3 text-xs text-muted-foreground">A carregar gestores…</p>
+                    ) : filteredManagers.length === 0 ? (
+                      <p className="p-3 text-xs text-muted-foreground">Sem gestores para esta função.</p>
+                    ) : (
+                      <ul className="divide-y">
+                        {filteredManagers.map((m) => (
+                          <li key={`${m.user_id}-${m.role}`} className="flex items-center justify-between gap-2 px-3 py-1.5 text-xs">
+                            <span className="truncate">{m.full_name || "(sem nome)"}</span>
+                            <Badge variant="outline" className="text-[10px]">{m.role}</Badge>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    {filteredManagers.length} destinatário(s) {managerRoleFilter !== "__all__" ? `com função "${managerRoleFilter}"` : "no total"}.
+                  </p>
+                </div>
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={contactingManager}>Cancelar</AlertDialogCancel>
             <AlertDialogAction
-              disabled={contactingManager || !farmer}
+              disabled={contactingManager || !farmer || filteredManagers.length === 0}
               onClick={async (e) => {
                 e.preventDefault();
                 if (!farmer) return;
@@ -1615,7 +1677,7 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
               }}
             >
               <Send className="h-4 w-4 mr-2" />
-              {contactingManager ? "A enviar…" : "Confirmar e enviar"}
+              {contactingManager ? "A enviar…" : `Enviar a ${filteredManagers.length}`}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

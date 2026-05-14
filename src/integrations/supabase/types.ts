@@ -2221,6 +2221,14 @@ export type Database = {
         Args: { _province: string; _user_id: string }
         Returns: boolean
       }
+      list_backoffice_managers: {
+        Args: { _role?: string }
+        Returns: {
+          full_name: string
+          role: string
+          user_id: string
+        }[]
+      }
       next_credit_note_number: {
         Args: { _supplier_id: string; _year: number }
         Returns: string
@@ -2250,6 +2258,17 @@ export type Database = {
           _source?: string
         }
         Returns: Json
+      }
+      notify_users_by_role: {
+        Args: {
+          _body: string
+          _category?: string
+          _entity_id?: string
+          _entity_type?: string
+          _role?: string
+          _title: string
+        }
+        Returns: number
       }
       parse_ptao_numeric: { Args: { _s: string }; Returns: number }
       recalc_all_farmer_totals: { Args: never; Returns: number }
