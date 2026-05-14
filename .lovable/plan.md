@@ -1,41 +1,62 @@
-# Alinhar Dashboard com a lista de Agricultores
+## Objectivo
 
-## Objetivo
-Fazer o Dashboard contar todos os 15.166 agricultores (incluindo os 1.363 com `status = 'Removido'`), batendo certo com o total mostrado na página Agricultores.
+Alinhar todos os agregados financeiros e de relatórios com o Dashboard global (15.166 agricultores, incluindo Removidos) e travar futuras divergências com testes automáticos.
 
-## Causa atual
-As funções `dashboard_kpis` e `dashboard_charts` (no Supabase) filtram em todo o lado por `COALESCE(status,'') <> 'Removido'`. Isso gera o total de 13.803, contra os 15.166 da lista.
+## 1. Alinhar código (remover exclusão de Removidos)
 
-## Alterações (apenas SQL via migration)
+| Ficheiro | Linha(s) a alterar | Mudança |
+|---|---|---|
+| `src/hooks/useFinancialSummary.ts` | 55 | Remover `.neq("status","Removido")` e actualizar JSDoc (linha 40). |
+| `src/components/dashboard/EcaBalanceTable.tsx` | 43, 65 | Remover ambos os `.neq("status","Removido")` (lista de províncias e agregação por ECA). |
+| `src/hooks/useReportData.ts` | 41, 100, 162, 193, 233 | Remover os 5 `.neq("status","Removido")`. |
 
-Remover a exclusão de `'Removido'` em todas as agregações de KPIs e gráficos do dashboard:
+Resultado: cards de resumo financeiro, tabela de saldos por ECA e Relatórios passam a contar 15.166 produtores, batendo com o Dashboard e a Lista.
 
-1. **`public.dashboard_kpis`** — eliminar o `<> 'Removido'` em:
-   - CTE `scoped` (base de produtores, género, escolas, municípios, PATEC)
-   - sub-queries de `farmer_incentives`, `farmer_transactions`, `farmer_parcels`, `farmer_production`, `livestock`
-   - bloco "ELSE" do recebido/gasto agregado
+## 2. Novos testes de paridade
 
-2. **`public.dashboard_charts`** — eliminar o `<> 'Removido'` em:
-   - `farmers_by_province`, `gender_data`
-   - `transactions_by_province`, `production_by_culture`, `livestock_by_species`, `pos_sales_trend`
+Ficheiro novo: `src/test/financial-summary-parity.test.ts`
 
-3. Manter o filtro de scope geográfico (província/ECA) intacto.
+Mock do cliente Supabase com um dataset partilhado (~150 produtores: 138 activos em 3 províncias + 14 Removidos numa 4ª província) e estes casos:
+
+1. **`useFinancialSummary` por província** — soma de `recebido`/`gasto`/`saldo` igual à soma directa do dataset filtrado por essa província **incluindo Removidos**.
+2. **`useFinancialSummary` por ECA** — mesma regra com filtro `school` (ilike).
+3. **Sem filtros** — hook devolve `EMPTY` (regra actual mantém-se).
+4. **`EcaBalanceTable`** — agregação por escola dentro de uma província conta Removidos; total das linhas == nº de produtores da Lista nessa província.
+5. **`useReportData` (`farmersByProvince`)** — totais por província batem com a contagem da Lista (Removidos incluídos).
+
+Ficheiro a estender: `src/test/dashboard-list-parity.test.ts`
+
+Adicionar 2 testes cross-source:
+
+6. **Lista (admin) vs `useFinancialSummary` global** — soma agregada por todas as províncias do hook == total da Lista.
+7. **`dashboard_kpis.total_recebido` vs soma de `useFinancialSummary` em todas as províncias** — diferença = 0 (única fonte de verdade financeira).
+
+## 3. Memória do projecto
+
+Adicionar uma core rule curta em `mem://index.md`:
+
+> "Removidos são contados em TODOS os agregados (Dashboard, financeiros, Relatórios, ECA). Nunca usar `.neq('status','Removido')` em queries de contagem/soma. Excepção: lista de produtores por defeito esconde Removidos (reciclagem)."
+
+## Detalhes técnicos
+
+- O mock do Supabase segue o padrão já existente em `src/test/dashboard-list-parity.test.ts` (`vi.mock` com `get supabase()` para evitar problemas de hoisting).
+- Não toca em SQL — as funções `dashboard_kpis`/`dashboard_charts` já incluem Removidos (migration anterior).
+- `useFarmersList` mantém comportamento actual (`includeRemoved` opt-in). Só os hooks de **agregação** mudam.
+- Não altera RLS, autenticação nem layouts.
 
 ## O que NÃO muda
 
-- `recalc_school_farmer_counts`, `recalc_school_for_name` e `detect_farmer_anomalies` continuam a excluir Removidos (faz sentido: contagem oficial das ECAs e anomalias não devem incluir fichas removidas).
-- Lista de Agricultores continua a mostrar Removidos com opacidade reduzida e botão Restaurar (sem alterações).
-- Hook `useFarmersList` e `applyFarmerScopeFilter` continuam com a regra atual (cada página decide via `includeRemoved`).
+- `recalc_school_farmer_counts`, `recalc_school_for_name`, `detect_farmer_anomalies` — continuam a excluir Removidos (regra de negócio das ECAs).
+- Página `/agricultores` continua a mostrar Removidos com opacidade reduzida e botão Restaurar.
+- Nenhuma mudança visual ou de UX.
 
 ## Resultado esperado
 
 | Indicador | Antes | Depois |
 |---|---|---|
-| Total Agricultores (Dashboard) | 13.803 | **15.166** |
-| Total Agricultores (Lista) | 15.166 | 15.166 |
-| Total ECAs (escolas), produção, pecuária | só ativos | passam a incluir Removidos |
-| Anomalias / contagens nas ECAs | só ativos | só ativos (inalterado) |
-
-## Aviso
-
-Incluir Removidos no Dashboard significa que os KPIs financeiros (recebido, gasto), produção e pecuária passam a somar também valores de fichas que foram marcadas como removidas. Se preferir manter os indicadores financeiros/produtivos só com ativos e mudar apenas a contagem de produtores, diga-me e ajusto o plano para alterar exclusivamente a CTE `scoped` (deixando incentivos/transações/produção/pecuária com o filtro atual).
+| Dashboard `total_farmers` | 15.166 | 15.166 |
+| Lista de Agricultores | 15.166 | 15.166 |
+| Cards financeiros por província | 13.803 | **15.166** |
+| Tabela Saldos por ECA | só activos | **inclui Removidos** |
+| Relatórios | só activos | **inclui Removidos** |
+| Testes de paridade | 5 | **12** |
