@@ -110,56 +110,30 @@ const CartaoIdLote = () => {
     };
 
     try {
-      const { data: user } = await supabase.auth.getUser();
-      const userId = user?.user?.id;
+      // Phase 1: DB — gerar todos os cartões numa única chamada (RPC em lote)
+      const codes = selectedFarmers.map((f) => f.code);
+      selectedFarmers.forEach((f) => updateResult(f.code, { status: "processing" }));
 
-      // Phase 1: DB – create/update cards
       const tokens: Map<string, string> = new Map();
-      for (let i = 0; i < selectedFarmers.length; i++) {
-        const f = selectedFarmers[i];
-        updateResult(f.code, { status: "processing" });
+      const { data: batchData, error: batchErr } = await (supabase as any)
+        .rpc("generate_farmer_cards_batch", { _codes: codes });
 
-        try {
-          const { data: existing } = await supabase
-            .from("farmer_cards")
-            .select("id, card_token")
-            .eq("farmer_code", f.code)
-            .neq("status", "Revogado")
-            .maybeSingle();
-
-          if (existing) {
-            const { error: updErr } = await supabase.from("farmer_cards").update({
-              status: "Gerado",
-              generated_at: new Date().toISOString(),
-              generated_by: userId,
-            }).eq("id", existing.id);
-            if (updErr) throw updErr;
-            tokens.set(f.code, existing.card_token);
-          } else {
-            const { data: newCard, error: insErr } = await supabase.from("farmer_cards").insert({
-              farmer_code: f.code,
-              status: "Gerado",
-              generated_at: new Date().toISOString(),
-              generated_by: userId,
-            }).select("card_token").single();
-            if (insErr) throw insErr;
-            if (newCard) tokens.set(f.code, newCard.card_token);
-          }
-
-          await supabase.from("farmer_card_logs").insert({
-            farmer_code: f.code,
-            action: "gerado",
-            performed_by: userId,
-            details: { batch: true },
-          });
-
-          updateResult(f.code, { status: "success" });
-        } catch (err: any) {
-          updateResult(f.code, { status: "error", error: err?.message || "Erro desconhecido" });
-        }
-
-        setProgressCurrent(i + 1);
+      if (batchErr) {
+        selectedFarmers.forEach((f) =>
+          updateResult(f.code, { status: "error", error: batchErr.message })
+        );
+        throw batchErr;
       }
+
+      for (const row of (batchData || []) as Array<{ farmer_code: string; card_token: string }>) {
+        tokens.set(row.farmer_code, row.card_token);
+        updateResult(row.farmer_code, { status: "success" });
+      }
+      // Marcar como erro qualquer agricultor sem token retornado
+      selectedFarmers.forEach((f) => {
+        if (!tokens.has(f.code)) updateResult(f.code, { status: "error", error: "Cartão não retornado" });
+      });
+      setProgressCurrent(selectedFarmers.length);
 
       // Phase 2: Render cards off-screen
       setProgressPhase("render");
