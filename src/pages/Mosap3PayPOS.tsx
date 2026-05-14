@@ -473,6 +473,11 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
 
   const processSale = async () => {
     if (!farmer || cart.length === 0 || !selectedSupplierId) return;
+
+    if (isSimBlocked(farmer.sim_status)) {
+      toast.error(`Venda bloqueada — cartão SIM ${farmer.sim_status}.`);
+      return;
+    }
     
     // Final balance check before processing
     if (farmerBalance <= 0) {
