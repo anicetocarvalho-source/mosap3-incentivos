@@ -291,7 +291,11 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
 
   const selectFarmerFromSuggestion = async (f: Farmer) => {
     if (isSimBlocked(f.sim_status)) {
-      toast.error(`Venda bloqueada — cartão SIM ${f.sim_status}. Produtor ${f.full_name} (${f.code}) não pode efectuar compras.`);
+      const r = simStatusReason(f.sim_status);
+      toast.error(`⛔ ${r?.title} — ${f.full_name} (${f.code})`, {
+        description: r?.reason,
+        duration: 8000,
+      });
       setFarmer(f);
       setFarmerSearch(f.code);
       setShowSuggestions(false);
