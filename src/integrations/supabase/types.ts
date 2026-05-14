@@ -2160,7 +2160,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      bulk_insert_orphan_phones: { Args: { _data: Json }; Returns: number }
+      bulk_insert_orphan_phones: { Args: { _data: Json }; Returns: Json }
       credit_notes_kpis: { Args: { _search?: string }; Returns: Json }
       dashboard_charts: {
         Args: { p_ecas?: string[]; p_provinces?: string[]; p_scope: string }

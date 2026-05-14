@@ -1100,8 +1100,12 @@ const RevisaoProvincias = () => {
         setApplyProgress({ done: Math.min(i + chunkSize, farmerEntries.length), total: farmerEntries.length });
       }
 
-      // 4) Inserir telefones órfãos
+      // 4) Inserir telefones órfãos + auto-reconciliação (match últimos 9 dígitos)
       let orphansInserted = 0;
+      let autoLinked = 0;
+      let autoCreditedKz = 0;
+      let stillOrphan = 0;
+      let ambiguous = 0;
       if (orphanAmounts.size > 0) {
         const orphanArray = Array.from(orphanAmounts.entries()).map(([phone, amount]) => ({
           phone,
@@ -1113,8 +1117,15 @@ const RevisaoProvincias = () => {
         );
         if (orphanErr) {
           toast.warning(`Órfãos: ${orphanErr.message}`);
+        } else if (orphanResult && typeof orphanResult === "object") {
+          orphansInserted = Number((orphanResult as any).inserted_or_updated ?? 0);
+          autoLinked = Number((orphanResult as any).auto_linked ?? 0);
+          autoCreditedKz = Number((orphanResult as any).total_credited_kz ?? 0);
+          stillOrphan = Number((orphanResult as any).still_orphan ?? 0);
+          ambiguous = Number((orphanResult as any).ambiguous_unlinked ?? 0);
         } else {
-          orphansInserted = (orphanResult as number) ?? orphanArray.length;
+          // fallback compat (versão antiga devolvia número)
+          orphansInserted = Number(orphanResult ?? orphanArray.length);
         }
       }
 
@@ -1126,6 +1137,10 @@ const RevisaoProvincias = () => {
         matched_amount: matchedAmount,
         orphans_inserted: orphansInserted,
         orphans_amount: orphanAmount,
+        auto_linked: autoLinked,
+        auto_credited_kz: autoCreditedKz,
+        still_orphan: stillOrphan,
+        ambiguous_unlinked: ambiguous,
         failed_codes: failed.slice(0, 20),
       };
       const { data: u } = await supabase.auth.getUser();
@@ -1146,9 +1161,12 @@ const RevisaoProvincias = () => {
 
       setApplyDialogOpen(false);
       setApplyConfirmText("");
+      const orphanMsg = orphansInserted > 0
+        ? ` · Órfãos: ${orphansInserted} guardados, ${autoLinked} auto-associados (${fmt(autoCreditedKz)} Kz), ${stillOrphan} ainda pendentes${ambiguous > 0 ? `, ${ambiguous} ambíguos` : ""}`
+        : "";
       toast.success(
-        `Aplicado: ${okCount} agricultores creditados (${fmt(matchedAmount)} Kz), ${orphansInserted} órfãos guardados${failCount > 0 ? `, ${failCount} falhas` : ""}.`,
-        { duration: 10000 },
+        `Aplicado: ${okCount} agricultores creditados (${fmt(matchedAmount)} Kz)${orphanMsg}${failCount > 0 ? ` · ${failCount} falhas` : ""}.`,
+        { duration: 12000 },
       );
     } catch (e: any) {
       toast.error(`Falha na aplicação: ${e?.message ?? e}`);
