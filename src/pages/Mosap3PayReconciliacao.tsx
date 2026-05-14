@@ -168,6 +168,8 @@ const Mosap3PayReconciliacao = () => {
         municipality: normalizeMunicipality(r.region) || null,
         saldo_final: r.saldoMosap.toFixed(2).replace(".", ","),
         status: r.estadoNumero === "Removido" ? "Removido" : "Pendente",
+        sim_status: (r.estadoNumero && ["Activo","Removido","Barrado"].includes(r.estadoNumero)) ? r.estadoNumero : (r.estadoNumero?.toLowerCase().startsWith("pré") || r.estadoNumero?.toLowerCase().startsWith("pre")) ? "Pré desactivado" : "Desconhecido",
+        sim_status_source: "reconciliacao",
       }));
       const { error } = await supabase.from("farmers").insert(batch);
       if (error) fail += batch.length;
