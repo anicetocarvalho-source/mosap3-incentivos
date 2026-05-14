@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.import-sim-status]
 verify_jwt = false
+
+[functions.bulk-update-valor-recebido]
+verify_jwt = false
