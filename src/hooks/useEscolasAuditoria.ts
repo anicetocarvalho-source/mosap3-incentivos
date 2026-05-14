@@ -288,6 +288,44 @@ export function useEscolasAuditoria() {
           a.municipality.localeCompare(b.municipality)
       );
       mark("duplicates");
+      completePhase("duplicates");
+
+      const makePartialPerf = (): PerfMetrics => ({
+        startedAt,
+        phases: {
+          fetch: phases.fetch || 0,
+          indexFarmers: phases.indexFarmers || 0,
+          normalizeSchools: phases.normalizeSchools || 0,
+          duplicates: phases.duplicates || 0,
+          similar: phases.similar || 0,
+          orphans: phases.orphans || 0,
+          total: Math.round((performance.now() - tStart) * 100) / 100,
+        },
+        rows: {
+          schools: schools.length,
+          provinces: provinces.length,
+          municipalities: municipalities.length,
+          farmers: farmers.length,
+        },
+        memory: { supported: false },
+      });
+
+      const partialDupNames = [...byName.values()].reduce((n, g) => n + (g.length > 1 ? 1 : 0), 0);
+      setData({
+        duplicates,
+        similar: [],
+        orphans: [],
+        totals: {
+          schools: schools.length,
+          duplicateNames: partialDupNames,
+          duplicateRows: duplicates.length,
+          discrepant: duplicates.reduce((n, d) => n + (d.ok ? 0 : 1), 0),
+          similarPairs: 0,
+          orphans: 0,
+        },
+        perf: makePartialPerf(),
+      });
+      await advance("similar");
 
       // Cache farmer counts per school id (used by similar tab)
       const countById = new Map<string, number>();
