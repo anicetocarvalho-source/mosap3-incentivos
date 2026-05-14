@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Smartphone, Search, Download, Pencil, History, Loader2 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllPages } from "@/lib/supabaseFetchAll";
 import { Card, CardContent } from "@/components/ui/card";
@@ -12,6 +13,7 @@ import { SimStatusBadge } from "@/components/cartoes-sim/SimStatusBadge";
 import { EditarSimStatusDialog } from "@/components/cartoes-sim/EditarSimStatusDialog";
 import { SimStatusHistoryDrawer } from "@/components/cartoes-sim/SimStatusHistoryDrawer";
 import { SIM_STATUSES } from "@/lib/reconciliation";
+import { useServerTable, useDebouncedValue } from "@/hooks/useServerTable";
 
 type Farmer = {
   code: string;
@@ -26,70 +28,99 @@ type Farmer = {
 };
 
 const PAGE_SIZE = 50;
+const COLS = "code, full_name, phone, province, municipality, school, sim_status, sim_status_updated_at, sim_status_source";
 
 const Mosap3PayCartoesSim = () => {
-  const [rows, setRows] = useState<Farmer[]>([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [provFilter, setProvFilter] = useState<string>("all");
   const [page, setPage] = useState(1);
   const [edit, setEdit] = useState<Farmer | null>(null);
   const [history, setHistory] = useState<Farmer | null>(null);
+  const [exporting, setExporting] = useState(false);
 
-  const load = async () => {
-    setLoading(true);
-    const data = await fetchAllPages<Farmer>(() =>
-      supabase
-        .from("farmers")
-        .select("code, full_name, phone, province, municipality, school, sim_status, sim_status_updated_at, sim_status_source", { count: "exact" })
-        .neq("status", "Removido")
-    );
-    setRows(data);
-    setLoading(false);
-  };
+  const debSearch = useDebouncedValue(search, 350);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { setPage(1); }, [debSearch, statusFilter, provFilter]);
 
-  const provinces = useMemo(
-    () => Array.from(new Set(rows.map((r) => r.province).filter(Boolean) as string[])).sort(),
-    [rows]
+  const filters = useMemo(
+    () => ({
+      sim_status: statusFilter === "all" ? undefined : statusFilter,
+      province: provFilter === "all" ? undefined : provFilter,
+    }),
+    [statusFilter, provFilter]
   );
 
-  const counts = useMemo(() => {
-    const c: Record<string, number> = { Activo: 0, "Pré desactivado": 0, Barrado: 0, Removido: 0, Desconhecido: 0 };
-    rows.forEach((r) => { c[r.sim_status || "Desconhecido"] = (c[r.sim_status || "Desconhecido"] || 0) + 1; });
-    return c;
-  }, [rows]);
+  const { rows, total, isLoading, refetch, isFetching } = useServerTable<Farmer>({
+    table: "farmers",
+    columns: COLS,
+    page,
+    pageSize: PAGE_SIZE,
+    search: debSearch,
+    searchColumns: ["full_name", "phone", "code", "bi"],
+    filters,
+    sort: { column: "sim_status_updated_at", dir: "desc", nullsFirst: false },
+    excludeEq: { column: "status", value: "Removido" },
+  });
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return rows.filter((r) => {
-      if (statusFilter !== "all" && (r.sim_status || "Desconhecido") !== statusFilter) return false;
-      if (provFilter !== "all" && r.province !== provFilter) return false;
-      if (q && !`${r.full_name} ${r.phone || ""} ${r.code}`.toLowerCase().includes(q)) return false;
-      return true;
-    });
-  }, [rows, search, statusFilter, provFilter]);
+  // KPIs do servidor (1 query agregada)
+  const kpisQuery = useQuery({
+    queryKey: ["farmers-sim-kpis"],
+    staleTime: 60_000,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("farmers_sim_kpis");
+      if (error) throw error;
+      return data as { activo: number; pre_desactivado: number; barrado: number; removido: number; desconhecido: number };
+    },
+  });
 
-  const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  // Lista de províncias (1 query distinta)
+  const provincesQuery = useQuery({
+    queryKey: ["farmers-distinct-provinces"],
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("farmers_distinct_provinces");
+      if (error) throw error;
+      return ((data as any[]) || []).map((r) => r.province).filter(Boolean) as string[];
+    },
+  });
 
-  useEffect(() => { setPage(1); }, [search, statusFilter, provFilter]);
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const provinces = provincesQuery.data || [];
 
-  const exportCsv = () => {
-    const header = ["Código", "Nome", "Telefone", "Província", "Município", "Escola", "Estado SIM", "Última alteração", "Fonte"];
-    const csv = [header, ...filtered.map((r) => [
-      r.code, r.full_name, r.phone || "", r.province || "", r.municipality || "", r.school || "",
-      r.sim_status || "Desconhecido",
-      r.sim_status_updated_at ? new Date(r.sim_status_updated_at).toLocaleString("pt-AO") : "",
-      r.sim_status_source || "",
-    ])].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
-    const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a"); a.href = url; a.download = `cartoes_sim_${Date.now()}.csv`; a.click();
-    URL.revokeObjectURL(url);
+  const exportCsv = async () => {
+    setExporting(true);
+    try {
+      const all = await fetchAllPages<Farmer>(() => {
+        let q: any = supabase
+          .from("farmers")
+          .select(COLS, { count: "exact" })
+          .neq("status", "Removido");
+        if (statusFilter !== "all") q = q.eq("sim_status", statusFilter);
+        if (provFilter !== "all") q = q.eq("province", provFilter);
+        const term = debSearch.trim();
+        if (term) {
+          q = q.or(["full_name", "phone", "code", "bi"].map((c) => `${c}.ilike.%${term}%`).join(","));
+        }
+        return q;
+      });
+      const header = ["Código", "Nome", "Telefone", "Província", "Município", "Escola", "Estado SIM", "Última alteração", "Fonte"];
+      const csv = [header, ...all.map((r) => [
+        r.code, r.full_name, r.phone || "", r.province || "", r.municipality || "", r.school || "",
+        r.sim_status || "Desconhecido",
+        r.sim_status_updated_at ? new Date(r.sim_status_updated_at).toLocaleString("pt-AO") : "",
+        r.sim_status_source || "",
+      ])].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
+      const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a"); a.href = url; a.download = `cartoes_sim_${Date.now()}.csv`; a.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setExporting(false);
+    }
   };
+
+  const counts = kpisQuery.data || { activo: 0, pre_desactivado: 0, barrado: 0, removido: 0, desconhecido: 0 };
 
   const KPI = ({ label, value, status }: { label: string; value: number; status: string }) => (
     <Card>
@@ -103,6 +134,8 @@ const Mosap3PayCartoesSim = () => {
     </Card>
   );
 
+  const onSaved = () => { refetch(); kpisQuery.refetch(); };
+
   return (
     <div className="container mx-auto p-4 sm:p-6 space-y-6">
       <div className="flex items-start justify-between gap-3 flex-wrap">
@@ -115,17 +148,18 @@ const Mosap3PayCartoesSim = () => {
             Estado dos cartões SIM dos agricultores (sincronizado via reconciliação ou edição manual).
           </p>
         </div>
-        <Button variant="outline" onClick={exportCsv} disabled={filtered.length === 0}>
-          <Download className="h-4 w-4 mr-2" />Exportar CSV
+        <Button variant="outline" onClick={exportCsv} disabled={exporting || total === 0}>
+          {exporting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
+          Exportar CSV
         </Button>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        <KPI label="Activos" value={counts.Activo || 0} status="Activo" />
-        <KPI label="Pré desactivado" value={counts["Pré desactivado"] || 0} status="Pré desactivado" />
-        <KPI label="Barrados" value={counts.Barrado || 0} status="Barrado" />
-        <KPI label="Removidos" value={counts.Removido || 0} status="Removido" />
-        <KPI label="Desconhecido" value={counts.Desconhecido || 0} status="Desconhecido" />
+        <KPI label="Activos" value={counts.activo} status="Activo" />
+        <KPI label="Pré desactivado" value={counts.pre_desactivado} status="Pré desactivado" />
+        <KPI label="Barrados" value={counts.barrado} status="Barrado" />
+        <KPI label="Removidos" value={counts.removido} status="Removido" />
+        <KPI label="Desconhecido" value={counts.desconhecido} status="Desconhecido" />
       </div>
 
       <Card>
@@ -133,7 +167,7 @@ const Mosap3PayCartoesSim = () => {
           <div className="relative">
             <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Pesquisar nome, telefone ou código…"
+              placeholder="Pesquisar nome, telefone, código ou BI…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9"
@@ -158,13 +192,12 @@ const Mosap3PayCartoesSim = () => {
 
       <Card>
         <CardContent className="p-0">
-          {loading ? (
+          {isLoading ? (
             <div className="flex items-center justify-center p-12">
               <Loader2 className="h-6 w-6 animate-spin text-primary" />
             </div>
           ) : (
             <>
-              {/* Desktop table */}
               <div className="hidden md:block">
                 <Table>
                   <TableHeader>
@@ -179,7 +212,7 @@ const Mosap3PayCartoesSim = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {paged.map((r) => (
+                    {rows.map((r) => (
                       <TableRow key={r.code}>
                         <TableCell className="font-mono text-xs">{r.phone || "—"}</TableCell>
                         <TableCell>{r.full_name}</TableCell>
@@ -207,16 +240,15 @@ const Mosap3PayCartoesSim = () => {
                         </TableCell>
                       </TableRow>
                     ))}
-                    {paged.length === 0 && (
+                    {rows.length === 0 && (
                       <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground p-6">Nenhum resultado</TableCell></TableRow>
                     )}
                   </TableBody>
                 </Table>
               </div>
 
-              {/* Mobile cards */}
               <div className="md:hidden divide-y">
-                {paged.map((r) => (
+                {rows.map((r) => (
                   <div key={r.code} className="p-3 space-y-1.5">
                     <div className="flex items-center justify-between">
                       <span className="font-medium text-sm">{r.full_name}</span>
@@ -235,22 +267,21 @@ const Mosap3PayCartoesSim = () => {
                     </div>
                   </div>
                 ))}
-                {paged.length === 0 && (
+                {rows.length === 0 && (
                   <p className="text-center text-muted-foreground p-6 text-sm">Nenhum resultado</p>
                 )}
               </div>
 
-              {totalPages > 1 && (
-                <div className="flex items-center justify-between p-3 border-t text-sm">
-                  <span className="text-muted-foreground">
-                    {filtered.length.toLocaleString("pt-AO")} resultados · página {page}/{totalPages}
-                  </span>
-                  <div className="flex gap-2">
-                    <Button size="sm" variant="outline" disabled={page === 1} onClick={() => setPage((p) => p - 1)}>Anterior</Button>
-                    <Button size="sm" variant="outline" disabled={page === totalPages} onClick={() => setPage((p) => p + 1)}>Seguinte</Button>
-                  </div>
+              <div className="flex items-center justify-between p-3 border-t text-sm">
+                <span className="text-muted-foreground">
+                  {total.toLocaleString("pt-AO")} resultados · página {page}/{totalPages}
+                  {isFetching && <Loader2 className="h-3 w-3 animate-spin inline ml-2" />}
+                </span>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="outline" disabled={page === 1} onClick={() => setPage((p) => p - 1)}>Anterior</Button>
+                  <Button size="sm" variant="outline" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>Seguinte</Button>
                 </div>
-              )}
+              </div>
             </>
           )}
         </CardContent>
@@ -260,7 +291,7 @@ const Mosap3PayCartoesSim = () => {
         farmer={edit}
         open={!!edit}
         onOpenChange={(v) => !v && setEdit(null)}
-        onSaved={load}
+        onSaved={onSaved}
       />
       <SimStatusHistoryDrawer
         farmerCode={history?.code || null}
