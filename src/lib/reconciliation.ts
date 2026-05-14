@@ -29,17 +29,19 @@ export interface DbFarmerRow {
   sim_status?: string | null;
 }
 
-export const SIM_STATUSES = ["Activo", "Pendente", "Removido", "Barrado", "Pré desactivado", "Desconhecido"] as const;
+export const SIM_STATUSES = ["Activo", "Pendente", "Pré activo", "Pré desactivado", "Desactivado", "Barrado", "Removido", "Desconhecido"] as const;
 export type SimStatus = typeof SIM_STATUSES[number];
 
 export const normalizeSimStatus = (raw?: string | null): SimStatus => {
   if (!raw) return "Desconhecido";
-  const v = String(raw).trim();
-  const lower = v.toLowerCase();
+  const lower = String(raw).trim().toLowerCase();
   if (lower === "activo" || lower === "ativo") return "Activo";
+  if (lower === "pendente") return "Pendente";
   if (lower === "removido") return "Removido";
   if (lower === "barrado") return "Barrado";
-  if (lower.startsWith("pré") || lower.startsWith("pre")) return "Pré desactivado";
+  if (lower === "pré activo" || lower === "pre activo") return "Pré activo";
+  if (lower === "pré desactivo" || lower === "pre desactivo" || lower === "pré desactivado" || lower === "pre desactivado") return "Pré desactivado";
+  if (lower === "desactivo" || lower === "desactivado") return "Desactivado";
   return "Desconhecido";
 };
 

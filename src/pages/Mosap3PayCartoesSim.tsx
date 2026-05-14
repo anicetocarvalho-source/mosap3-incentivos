@@ -69,7 +69,7 @@ const Mosap3PayCartoesSim = () => {
     queryFn: async () => {
       const { data, error } = await supabase.rpc("farmers_sim_kpis");
       if (error) throw error;
-      return data as { activo: number; pendente: number; pre_desactivado: number; barrado: number; removido: number; desconhecido: number };
+      return data as { activo: number; pendente: number; pre_activo: number; pre_desactivado: number; desactivado: number; barrado: number; removido: number; desconhecido: number };
     },
   });
 
@@ -118,7 +118,7 @@ const Mosap3PayCartoesSim = () => {
     }
   };
 
-  const counts = kpisQuery.data || { activo: 0, pendente: 0, pre_desactivado: 0, barrado: 0, removido: 0, desconhecido: 0 };
+  const counts = kpisQuery.data || { activo: 0, pendente: 0, pre_activo: 0, pre_desactivado: 0, desactivado: 0, barrado: 0, removido: 0, desconhecido: 0 };
 
   const KPI = ({ label, value, status }: { label: string; value: number; status: string }) => (
     <Card>
@@ -152,10 +152,12 @@ const Mosap3PayCartoesSim = () => {
         </Button>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <KPI label="Activos" value={counts.activo} status="Activo" />
         <KPI label="Pendentes" value={counts.pendente} status="Pendente" />
+        <KPI label="Pré activo" value={counts.pre_activo} status="Pré activo" />
         <KPI label="Pré desactivado" value={counts.pre_desactivado} status="Pré desactivado" />
+        <KPI label="Desactivado" value={counts.desactivado} status="Desactivado" />
         <KPI label="Barrados" value={counts.barrado} status="Barrado" />
         <KPI label="Removidos" value={counts.removido} status="Removido" />
         <KPI label="Desconhecido" value={counts.desconhecido} status="Desconhecido" />
