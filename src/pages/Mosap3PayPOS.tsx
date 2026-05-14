@@ -1205,6 +1205,12 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
                       {farmerBalance <= 0 && (
                         <p className="text-[10px] text-destructive font-medium">⚠ Sem saldo — compras bloqueadas</p>
                       )}
+                      {isSimBlocked(farmer.sim_status) && (
+                        <p className="text-[10px] text-destructive font-bold">⛔ SIM {farmer.sim_status} — venda bloqueada</p>
+                      )}
+                      {farmer.sim_status === "Pré desactivado" && (
+                        <p className="text-[10px] text-warning font-medium">⚠ SIM Pré desactivado</p>
+                      )}
                     </div>
                   </div>
                 )}
