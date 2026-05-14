@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useProvincesData } from "@/hooks/useProvincesData";
+import { ValidateSchoolCountsButton } from "@/components/escolas/ValidateSchoolCountsButton";
 
 /* ─── Angola province approximate center coords for the map ─── */
 const PROVINCE_COORDS: Record<string, [number, number]> = {
