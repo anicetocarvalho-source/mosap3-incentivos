@@ -42,7 +42,6 @@ export const normalizeSimStatus = (raw?: string | null): SimStatus => {
   if (lower.startsWith("pré") || lower.startsWith("pre")) return "Pré desactivado";
   return "Desconhecido";
 };
-}
 
 const PROVINCE_MAP: Record<string, string> = {
   BENGUELA: "Benguela",
