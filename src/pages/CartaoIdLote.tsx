@@ -193,7 +193,7 @@ const CartaoIdLote = () => {
           <FarmerIdCard farmer={farmerData} cardToken={token} side="back" />
         );
 
-        await new Promise((r) => setTimeout(r, 200));
+        await new Promise((r) => setTimeout(r, 0));
 
         const frontEl = frontDiv.querySelector("[data-card-side='front']") as HTMLElement || frontDiv;
         const backEl = backDiv.querySelector("[data-card-side='back']") as HTMLElement || backDiv;
