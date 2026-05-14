@@ -1310,6 +1310,19 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
                         <p><strong>Estado do SIM:</strong> {farmer.sim_status}</p>
                         <p><strong>Motivo:</strong> {r.reason}</p>
                         <p><strong>Recomendação:</strong> {r.recomendacao}</p>
+                        {blocked && (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="mt-2 h-7 text-xs gap-1.5 bg-background hover:bg-background/80"
+                            onClick={() => contactarGestor(farmer)}
+                            disabled={contactingManager}
+                          >
+                            <Send className="h-3 w-3" />
+                            {contactingManager ? "A enviar…" : "Contactar gestor"}
+                          </Button>
+                        )}
                       </AlertDescription>
                     </Alert>
                   );
