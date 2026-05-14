@@ -495,6 +495,7 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
 
     if (isSimBlocked(farmer.sim_status)) {
       toast.error(`Venda bloqueada — cartão SIM ${farmer.sim_status}.`);
+      notifySimBlockedFarmer(farmer, "tentativa_pagamento");
       return;
     }
     
