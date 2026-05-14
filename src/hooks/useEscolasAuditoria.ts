@@ -504,6 +504,8 @@ export function useEscolasAuditoria() {
         },
         perf,
       });
+      completePhase("orphans");
+      setProgress({ phase: "done", label: PHASE_LABELS_HOOK.done, pct: 100 });
     } catch (e) {
       console.error("[useEscolasAuditoria]", e);
       setError(e instanceof Error ? e : new Error(String(e)));
@@ -516,5 +518,5 @@ export function useEscolasAuditoria() {
     run();
   }, [run]);
 
-  return { data, loading, error, refetch: run };
+  return { data, loading, error, progress, refetch: run };
 }
