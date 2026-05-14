@@ -66,19 +66,43 @@ export default function TelefonesOrfaos() {
   const [linkDialog, setLinkDialog] = useState<OrphanRow | null>(null);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(50);
+  const [lastLoaded, setLastLoaded] = useState<Date | null>(null);
+  const [reconciling, setReconciling] = useState(false);
 
   const load = async () => {
     setLoading(true);
     try {
+      // Limpa cache do service worker para esta tabela (evita ler snapshot pré-reconciliação)
+      if (typeof caches !== "undefined") {
+        try { await caches.delete("supabase-api"); } catch { /* ignore */ }
+      }
       const { fetchAllPages } = await import("@/lib/supabaseFetchAll");
       const all = await fetchAllPages<OrphanRow>(() =>
         supabase.from("orphan_phones").select("*", { count: "exact" }).order("amount", { ascending: false })
       );
       setRows(all);
+      setLastLoaded(new Date());
     } catch (e: any) {
       toast.error("Erro a carregar órfãos: " + (e?.message ?? e));
     } finally {
       setLoading(false);
+    }
+  };
+
+  const reconcilePendentes = async () => {
+    setReconciling(true);
+    try {
+      const { data, error } = await supabase.rpc("bulk_insert_orphan_phones", { _data: [] as any });
+      if (error) throw error;
+      const r: any = data ?? {};
+      toast.success(
+        `Reconciliação concluída — ${r.auto_linked ?? 0} associados, ${r.still_orphan ?? 0} ainda pendentes`
+      );
+      await load();
+    } catch (e: any) {
+      toast.error("Erro a reconciliar: " + (e?.message ?? e));
+    } finally {
+      setReconciling(false);
     }
   };
 
