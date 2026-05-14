@@ -1,69 +1,62 @@
-# Reflectir a real quantidade de agricultores em todas as páginas
+## Validação — Resultado
 
-## Diagnóstico (números reais na BD)
+Cruzei os **1.363 agricultores marcados como `Removido`** com a folha `Detalhe` do anexo `ALL_MOSAP_003-5.xlsx` (15.166 linhas) usando os últimos 9 dígitos do MSISDN:
 
-| Métrica | Valor real | Onde aparece desactualizado |
+| Métrica | Valor |
+|---|---|
+| Removidos no nosso sistema | **1.363** |
+| Encontrados no anexo (Estado MOSAP3 = Activo) | **1.363 (100%)** |
+| Não encontrados no anexo | **0** |
+| Removidos com duplicado entre os ativos da BD (últimos 9 dígitos) | **0** |
+| Removidos com `valor_recebido` já registado | 1.100 |
+
+**Conclusão:** Os 1.363 estão **todos legítimos** no sistema MOSAP3 da operadora — não são duplicados de nenhum agricultor activo. A marcação `Removido` foi indevida (resultado das duas vagas de 17:54 e 18:26 de hoje, esta última no mesmo timestamp do `bulk_link_orphan_phones`).
+
+---
+
+## Plano
+
+### 1. Restaurar estado dos 1.363
+Migração que faz `UPDATE farmers SET status = 'Pendente'` apenas para os agricultores que cumprem **todas** as condições (defensivo, evita afectar outros registos):
+
+- `status = 'Removido'`
+- `bi IS NULL` AND `school IS NULL` AND `registered_by IS NULL`
+- `phone IS NOT NULL`
+- `updated_at` ∈ {17:54:34 e 18:26:28 de 2026-05-14}
+
+Estes 1.363 voltam ao estado `Pendente` (não vão para `Aprovado` porque ainda estão sem BI / escola / foto / extensionista).
+
+### 2. Enriquecer com dados do anexo
+Para cada um dos 1.363, cruzar pelos últimos 9 dígitos do telefone e preencher:
+
+| Campo BD | Origem no anexo | Regra |
 |---|---|---|
-| Total de produtores | **15.166** (13.803 ativos + 1.363 Removidos) | Dashboard ✅ correcto (RPC devolve 15.166) |
-| Tabela `schools` | **733** escolas | Dashboard mostra **681** (DISTINCT em `farmers.school` texto) |
-| Tabela `municipalities` | **8** municípios | Dashboard mostra **19** (DISTINCT em `farmers.municipality` texto livre) |
-| `Σ schools.total_farmers` (cache) | **11.934** | Devia ser **15.166** — falta 3.232 |
+| `sim_status` | `Estado_Numero` (Activo) | `'Ativo'`; `sim_status_source = 'unitel_export_2026-05-14'`; `sim_status_updated_at = now()` |
+| `valor_recebido` | `SALDO_DISPONIVEL_MOSAP` | Apenas se actual = `'0,00'` (não sobrescreve valores já reconciliados) |
+| `province` / `municipality` | `PROVINCE` / `REGION` | Apenas se actual `IS NULL` (preserva o que já temos) |
 
-### Onde está o erro
+A operação é feita por **insert tool** (UPDATE em blocos de 50 — regra do projecto), não por migração de schema.
 
-**1. Cache `schools.total_farmers` está desactualizada**
-- 40 escolas têm `total_farmers` diferente do real (somando por nome+município+província).
-- Σ contagem real por escola = 10.908; Σ cache = 11.934.
-- 4.275 produtores têm `school = NULL`/vazio → não contam para nenhuma escola.
-- **Páginas afectadas:** `EscolasCampo`, `ProvinciaEscolas`, `FichaEscola`, `EscolaDetalhe` (parcialmente — já recalcula em runtime).
+### 3. Registo de auditoria
+Inserir uma linha em `audit_logs`:
 
-**2. RPC `dashboard_kpis` calcula `total_schools` e `total_municipalities` com `DISTINCT` sobre o texto livre em `farmers`**
-- `total_schools = 681` → devia ler de `schools` (733).
-- `total_municipalities = 19` → devia ler de `municipalities` (8). Os 19 vêm de variações ortográficas no campo texto.
-
-**3. Produtores "órfãos" de escola (4.275)**
-- Têm `province` e `municipality` preenchidos mas `school` vazio. Não aparecem em nenhuma ficha de escola.
-- Existe já a página `/escolas/auditoria` que detecta divergências de nome — mas não cobre o caso "sem escola".
-
-## Plano de correcção
-
-### 1. Migração: recalcular cache `schools.total_farmers`
-Função SQL idempotente que faz, para cada `schools.id`:
-```sql
-UPDATE schools s SET total_farmers = (
-  SELECT count(*) FROM farmers f
-  WHERE lower(trim(f.school))       = lower(trim(s.name))
-    AND lower(trim(f.municipality)) = lower(trim(m.name))
-    AND lower(trim(f.province))     = lower(trim(p.name))
-)
-FROM municipalities m, provinces p
-WHERE s.municipality_id = m.id AND s.province_id = p.id;
 ```
-Adicionar trigger em `farmers` (INSERT/UPDATE/DELETE) que invoca a mesma função para as escolas afectadas, mantendo a cache automaticamente sincronizada.
+action  : bulk_restore_removidos_unitel
+entity  : farmers (1363)
+details : { source: 'ALL_MOSAP_003-5.xlsx', total: 1363, províncias: {...} }
+```
 
-### 2. Migração: corrigir `dashboard_kpis`
-- `total_schools := (SELECT count(*) FROM schools)`
-- `total_municipalities := (SELECT count(*) FROM municipalities)`
-- Quando `p_scope='province'`, restringir os COUNT a `WHERE province_id IN (...)`.
+### 4. Ficheiro organizado para o utilizador
+Gerar `/mnt/documents/removidos_reconciliados_v1.xlsx` com 3 folhas:
 
-### 3. Auditoria visual: marcar produtores sem escola
-Na página `/escolas/auditoria`, adicionar um cartão extra:
-> **4.275 produtores sem escola atribuída** (lista exportável, com botão para abrir cada um em `/agricultores/:code`).
+- **Resumo** — totais por província/município, valor total restaurado, estado SIM, antes/depois.
+- **Detalhe (1.363)** — Código MOSAP3 · Nome · Telefone · Província · Município · Estado SIM (anexo) · Saldo MOSAP (anexo) · Saldo eMoney (anexo) · Estado actual BD (antes/depois) · Já tinha valor_recebido (S/N).
+- **Auditoria** — origem da decisão, timestamps das duas vagas, ID do registo de audit_logs.
 
-### 4. Verificação final
-Após migração, executar e mostrar ao utilizador:
-- `Σ schools.total_farmers` deve passar de 11.934 → 15.166 (ou 15.166 − 4.275 = 10.891 se mantivermos só os com escola; preferimos atribuir ou registar como anomalia).
-- Dashboard: Escolas = 733, Municípios = 8.
-- `EscolasCampo`/`ProvinciaEscolas`: somatórios coerentes com `/agricultores`.
+---
 
 ## Fora de âmbito
 
-- Reatribuir manualmente os 4.275 produtores a escolas (precisa decisão de negócio — fica na página de auditoria como lista para acção).
-- Alterações de RLS, autenticação ou outras páginas não relacionadas com contagem.
-- Página `/agricultores` (já correcta — esconde Removidos por design, conforme regra Core).
-
-## Ficheiros que vão mudar
-
-- Nova migração SQL: função `recompute_school_farmer_counts()` + trigger em `farmers` + alteração do `dashboard_kpis`.
-- `src/pages/EscolasAuditoria.tsx`: novo cartão "produtores sem escola".
-- `src/hooks/useEscolasAuditoria.ts`: query auxiliar para listar produtores órfãos de escola.
+- Não vou atribuir-lhes escola/BI/foto — isso exige decisão de campo do extensionista.
+- Não vou tocar em nenhum dos 13.803 agricultores activos.
+- Não vou alterar a regra global "Removidos contam em todos os agregados" — após a restauração os contadores ficam: 13.803 + 1.363 = 15.166 activos+pendentes, alinhado com o anexo.
