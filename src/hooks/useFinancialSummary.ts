@@ -52,7 +52,7 @@ export function useFinancialSummary(filters: FinancialSummaryFilters) {
         let q = supabase
           .from("farmers")
           .select("code, valor_recebido, total_gasto", { count: "exact" })
-          .neq("status", "Removido");
+          ;
         if (province) q = q.eq("province", province);
         if (school) q = q.ilike("school", school);
         return q;
