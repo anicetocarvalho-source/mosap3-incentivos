@@ -48,6 +48,7 @@ import Mosap3PayAuditLogs from "@/pages/Mosap3PayAuditLogs";
 import Mosap3PayConfiguracoes from "@/pages/Mosap3PayConfiguracoes";
 import Mosap3PayReconciliacao from "@/pages/Mosap3PayReconciliacao";
 import Mosap3PayCartoesSim from "@/pages/Mosap3PayCartoesSim";
+import Mosap3PayOcorrencias from "@/pages/Mosap3PayOcorrencias";
 import FornecedorAuth from "@/pages/fornecedor/FornecedorAuth";
 import FornecedorLayout from "@/components/fornecedor/FornecedorLayout";
 import FornecedorDashboard from "@/pages/fornecedor/FornecedorDashboard";
@@ -115,6 +116,7 @@ const App = () => (
               <Route path="/mosap3pay/configuracoes" element={<Mosap3PayConfiguracoes />} />
               <Route path="/mosap3pay/reconciliacao" element={<RoleGuard allowedRoles={["admin", "gestor_incentivos"]}><Mosap3PayReconciliacao /></RoleGuard>} />
               <Route path="/mosap3pay/cartoes-sim" element={<RoleGuard allowedRoles={["admin", "gestor_incentivos"]}><Mosap3PayCartoesSim /></RoleGuard>} />
+              <Route path="/mosap3pay/ocorrencias" element={<RoleGuard allowedRoles={["admin", "gestor_incentivos"]}><Mosap3PayOcorrencias /></RoleGuard>} />
 
               {/* Incentivos & Transações: admin, gestor_incentivos */}
               <Route path="/incentivos" element={<RoleGuard allowedRoles={["admin", "gestor_incentivos"]} moduleName="Incentivos"><Incentivos /></RoleGuard>} />
