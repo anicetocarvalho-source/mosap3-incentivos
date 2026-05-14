@@ -134,7 +134,7 @@ function PerfHistoryTable({ history, onClear }: { history: PerfMetrics[]; onClea
 }
 
 const EscolasAuditoria = () => {
-  const { data, loading, progress, refetch } = useEscolasAuditoria();
+  const { data, loading, progress, cacheInfo, refetch } = useEscolasAuditoria();
   const [showPerf, setShowPerf] = useState(true);
   const [historyTick, setHistoryTick] = useState(0);
   const history = useMemo(() => readAuditoriaPerfHistory(), [data, historyTick]);
