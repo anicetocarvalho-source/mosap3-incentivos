@@ -42,6 +42,11 @@ export default defineConfig(({ mode }) => ({
               expiration: { maxEntries: 500, maxAgeSeconds: 60 * 60 * 24 * 30 },
             },
           },
+          // orphan_phones — nunca cachear (admin-only, dados sensíveis a reconciliação)
+          {
+            urlPattern: /^https:\/\/.*\.supabase\.co\/rest\/v1\/orphan_phones.*/i,
+            handler: "NetworkOnly",
+          },
           // Supabase REST API — network first with offline fallback
           {
             urlPattern: /^https:\/\/.*\.supabase\.co\/rest\/v1\/.*/i,
