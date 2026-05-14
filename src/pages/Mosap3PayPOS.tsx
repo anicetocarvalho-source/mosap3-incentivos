@@ -198,7 +198,7 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
     const timeout = setTimeout(async () => {
       const { data } = await supabase
         .from("farmers")
-        .select("code, full_name, phone, patec, photo_frontal_url, saldo_final")
+        .select("code, full_name, phone, patec, photo_frontal_url, saldo_final, sim_status")
         .or(`full_name.ilike.%${q}%,code.ilike.%${q}%,phone.ilike.%${q}%,bi.ilike.%${q}%`)
         .limit(8);
       setFarmerSuggestions((data as Farmer[]) || []);
@@ -268,7 +268,7 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
     setShowSuggestions(false);
     const { data } = await supabase
       .from("farmers")
-      .select("code, full_name, phone, patec, photo_frontal_url, saldo_final")
+      .select("code, full_name, phone, patec, photo_frontal_url, saldo_final, sim_status")
       .or(`code.eq.${query},phone.eq.${query},bi.eq.${query},full_name.ilike.%${query}%`)
       .limit(1)
       .single();
