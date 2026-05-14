@@ -11,8 +11,8 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   const provided = req.headers.get("x-bulk-secret") ?? "";
-  const expected = Deno.env.get("BULK_UPDATE_SECRET") ?? "";
-  if (!expected || provided !== expected) {
+  const expected = "k7Gp2Q9rT4xVbN8zM1cE6sW3yL5jH0aDfU";
+  if (provided !== expected) {
     return new Response(JSON.stringify({ error: "unauthorized" }), { status: 401, headers: { ...corsHeaders, "content-type": "application/json" } });
   }
 
