@@ -14,21 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      _sim_status_staging: {
-        Row: {
-          estado: string
-          phone9: string
-        }
-        Insert: {
-          estado: string
-          phone9: string
-        }
-        Update: {
-          estado?: string
-          phone9?: string
-        }
-        Relationships: []
-      }
       anomaly_resolutions: {
         Row: {
           anomaly_key: string
@@ -2175,7 +2160,6 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      apply_sim_status_from_staging: { Args: never; Returns: number }
       bulk_insert_orphan_phones: { Args: { _data: Json }; Returns: number }
       credit_notes_kpis: { Args: { _search?: string }; Returns: Json }
       dashboard_charts: {
