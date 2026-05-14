@@ -37,6 +37,9 @@ function downloadCsv(filename: string, rows: (string | number)[][]) {
 
 const EscolasAuditoria = () => {
   const { data, loading, refetch } = useEscolasAuditoria();
+  const [showPerf, setShowPerf] = useState(true);
+  const [historyTick, setHistoryTick] = useState(0);
+  const history = useMemo(() => readAuditoriaPerfHistory(), [data, historyTick]);
 
   if (loading || !data) {
     return (
