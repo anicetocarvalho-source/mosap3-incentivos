@@ -202,9 +202,30 @@ export function useEscolasAuditoria() {
   const [error, setError] = useState<Error | null>(null);
   const [cacheInfo, setCacheInfo] = useState<CacheInfo>({ fromCache: false, savedAt: null, ageMs: null });
 
-  const run = useCallback(async () => {
+  const run = useCallback(async (opts?: { force?: boolean }) => {
+    const force = !!opts?.force;
     setLoading(true);
     setError(null);
+
+    // Try persistent cache first (unless forced)
+    if (!force) {
+      const env = readCache();
+      if (env && Date.now() - env.savedAt < CACHE_TTL_MS) {
+        try {
+          const liveSig = await fetchSignature();
+          if (sigEq(liveSig, env.signature)) {
+            setData(env.result);
+            setProgress({ phase: "done", label: PHASE_LABELS_HOOK.done, pct: 100 });
+            setCacheInfo({ fromCache: true, savedAt: env.savedAt, ageMs: Date.now() - env.savedAt });
+            setLoading(false);
+            return;
+          }
+        } catch (e) {
+          console.warn("[useEscolasAuditoria] signature check failed, running full audit", e);
+        }
+      }
+    }
+    setCacheInfo({ fromCache: false, savedAt: null, ageMs: null });
     const tStart = performance.now();
     const memBefore = readMemory();
     const startedAt = new Date().toISOString();
