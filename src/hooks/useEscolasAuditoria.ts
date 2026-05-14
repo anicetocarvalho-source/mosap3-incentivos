@@ -139,15 +139,93 @@ const PHASE_LABELS_HOOK: Record<AuditoriaProgress["phase"], string> = {
 
 const yieldUI = () => new Promise<void>((r) => setTimeout(r, 0));
 
+// ── Persistent cache (localStorage) ───────────────────────────────────────────
+const CACHE_KEY = "escolas_auditoria_cache_v1";
+const CACHE_TTL_MS = 30 * 60 * 1000; // 30 min (matches PWA convention)
+
+type CacheSignature = { schools: number; farmers: number; provinces: number; municipalities: number };
+type CacheEnvelope = { savedAt: number; signature: CacheSignature; result: AuditoriaResult };
+
+function readCache(): CacheEnvelope | null {
+  try {
+    const raw = localStorage.getItem(CACHE_KEY);
+    if (!raw) return null;
+    const env = JSON.parse(raw) as CacheEnvelope;
+    if (!env || typeof env.savedAt !== "number" || !env.result) return null;
+    return env;
+  } catch {
+    return null;
+  }
+}
+
+function writeCache(env: CacheEnvelope) {
+  try {
+    localStorage.setItem(CACHE_KEY, JSON.stringify(env));
+  } catch (e) {
+    // Quota exceeded etc. — drop silently, audit still works in-memory
+    console.warn("[useEscolasAuditoria] cache write failed", e);
+  }
+}
+
+export function clearAuditoriaCache() {
+  try {
+    localStorage.removeItem(CACHE_KEY);
+  } catch {
+    /* noop */
+  }
+}
+
+async function fetchSignature(): Promise<CacheSignature> {
+  const head = (table: "schools" | "farmers" | "provinces" | "municipalities", filter?: (q: any) => any) => {
+    let q: any = supabase.from(table).select("*", { count: "exact", head: true });
+    if (filter) q = filter(q);
+    return q.then((r: any) => r.count ?? 0);
+  };
+  const [schools, farmers, provinces, municipalities] = await Promise.all([
+    head("schools"),
+    head("farmers", (q) => q.neq("status", "Removido")),
+    head("provinces"),
+    head("municipalities"),
+  ]);
+  return { schools, farmers, provinces, municipalities };
+}
+
+const sigEq = (a: CacheSignature, b: CacheSignature) =>
+  a.schools === b.schools && a.farmers === b.farmers && a.provinces === b.provinces && a.municipalities === b.municipalities;
+
+export type CacheInfo = { fromCache: boolean; savedAt: number | null; ageMs: number | null };
+
 export function useEscolasAuditoria() {
   const [data, setData] = useState<AuditoriaResult | null>(null);
   const [progress, setProgress] = useState<AuditoriaProgress>({ phase: "idle", label: PHASE_LABELS_HOOK.idle, pct: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+  const [cacheInfo, setCacheInfo] = useState<CacheInfo>({ fromCache: false, savedAt: null, ageMs: null });
 
-  const run = useCallback(async () => {
+  const run = useCallback(async (opts?: { force?: boolean }) => {
+    const force = !!opts?.force;
     setLoading(true);
     setError(null);
+
+    // Try persistent cache first (unless forced)
+    if (!force) {
+      const env = readCache();
+      if (env && Date.now() - env.savedAt < CACHE_TTL_MS) {
+        try {
+          const liveSig = await fetchSignature();
+          if (sigEq(liveSig, env.signature)) {
+            setData(env.result);
+            setProgress({ phase: "done", label: PHASE_LABELS_HOOK.done, pct: 100 });
+            setCacheInfo({ fromCache: true, savedAt: env.savedAt, ageMs: Date.now() - env.savedAt });
+            setLoading(false);
+            return;
+          }
+        } catch (e) {
+          console.warn("[useEscolasAuditoria] signature check failed, running full audit", e);
+        }
+      }
+    }
+    setCacheInfo({ fromCache: false, savedAt: null, ageMs: null });
     const tStart = performance.now();
     const memBefore = readMemory();
     const startedAt = new Date().toISOString();
@@ -490,7 +568,7 @@ export function useEscolasAuditoria() {
       // eslint-disable-next-line no-console
       console.info("[useEscolasAuditoria] perf", perf);
 
-      setData({
+      const finalResult: AuditoriaResult = {
         duplicates,
         similar,
         orphans,
@@ -503,9 +581,23 @@ export function useEscolasAuditoria() {
           orphans: orphans.reduce((s, o) => s + o.orphanCount, 0),
         },
         perf,
-      });
+      };
+      setData(finalResult);
       completePhase("orphans");
       setProgress({ phase: "done", label: PHASE_LABELS_HOOK.done, pct: 100 });
+
+      // Persist to cache with a signature derived from the rows we just loaded
+      writeCache({
+        savedAt: Date.now(),
+        signature: {
+          schools: schools.length,
+          farmers: farmers.length,
+          provinces: provinces.length,
+          municipalities: municipalities.length,
+        },
+        result: finalResult,
+      });
+      setCacheInfo({ fromCache: false, savedAt: Date.now(), ageMs: 0 });
     } catch (e) {
       console.error("[useEscolasAuditoria]", e);
       setError(e instanceof Error ? e : new Error(String(e)));
@@ -518,5 +610,7 @@ export function useEscolasAuditoria() {
     run();
   }, [run]);
 
-  return { data, loading, error, progress, refetch: run };
+  const refetch = useCallback(() => run({ force: true }), [run]);
+
+  return { data, loading, error, progress, cacheInfo, refetch };
 }

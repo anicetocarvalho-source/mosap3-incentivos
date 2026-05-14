@@ -14,9 +14,9 @@ import {
   School as SchoolIcon,
   RefreshCw,
 } from "lucide-react";
-import { useEscolasAuditoria, readAuditoriaPerfHistory, clearAuditoriaPerfHistory, type PerfMetrics } from "@/hooks/useEscolasAuditoria";
+import { useEscolasAuditoria, readAuditoriaPerfHistory, clearAuditoriaPerfHistory, clearAuditoriaCache, type PerfMetrics } from "@/hooks/useEscolasAuditoria";
 import { useMemo, useState } from "react";
-import { Gauge, Trash2, ChevronDown, ChevronUp } from "lucide-react";
+import { Gauge, Trash2, ChevronDown, ChevronUp, Database } from "lucide-react";
 
 const csvEscape = (v: any) => {
   const s = String(v ?? "");
@@ -134,7 +134,7 @@ function PerfHistoryTable({ history, onClear }: { history: PerfMetrics[]; onClea
 }
 
 const EscolasAuditoria = () => {
-  const { data, loading, progress, refetch } = useEscolasAuditoria();
+  const { data, loading, progress, cacheInfo, refetch } = useEscolasAuditoria();
   const [showPerf, setShowPerf] = useState(true);
   const [historyTick, setHistoryTick] = useState(0);
   const history = useMemo(() => readAuditoriaPerfHistory(), [data, historyTick]);
@@ -193,10 +193,24 @@ const EscolasAuditoria = () => {
             Verificação de duplicados, nomes similares e produtores órfãos por Escola de Campo
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={refetch} className="gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {cacheInfo.fromCache && cacheInfo.ageMs != null && (
+            <Badge variant="outline" className="gap-1 border-info/40 text-info">
+              <Database className="h-3 w-3" />
+              Cache · há {Math.max(1, Math.round(cacheInfo.ageMs / 60000))} min
+            </Badge>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              clearAuditoriaCache();
+              refetch();
+            }}
+            className="gap-2"
+          >
             <RefreshCw className="h-4 w-4" />
-            Re-executar
+            {cacheInfo.fromCache ? "Atualizar" : "Re-executar"}
           </Button>
           <Button asChild variant="ghost" size="sm">
             <Link to="/escolas">Voltar</Link>
