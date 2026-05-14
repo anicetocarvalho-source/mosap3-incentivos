@@ -60,7 +60,6 @@ const Mosap3PayCartoesSim = () => {
     searchColumns: ["full_name", "phone", "code", "bi"],
     filters,
     sort: { column: "sim_status_updated_at", dir: "desc", nullsFirst: false },
-    excludeEq: { column: "status", value: "Removido" },
   });
 
   // KPIs do servidor (1 query agregada)
@@ -70,7 +69,7 @@ const Mosap3PayCartoesSim = () => {
     queryFn: async () => {
       const { data, error } = await supabase.rpc("farmers_sim_kpis");
       if (error) throw error;
-      return data as { activo: number; pre_desactivado: number; barrado: number; removido: number; desconhecido: number };
+      return data as { activo: number; pendente: number; pre_desactivado: number; barrado: number; removido: number; desconhecido: number };
     },
   });
 
@@ -94,8 +93,7 @@ const Mosap3PayCartoesSim = () => {
       const all = await fetchAllPages<Farmer>(() => {
         let q: any = supabase
           .from("farmers")
-          .select(COLS, { count: "exact" })
-          .neq("status", "Removido");
+          .select(COLS, { count: "exact" });
         if (statusFilter !== "all") q = q.eq("sim_status", statusFilter);
         if (provFilter !== "all") q = q.eq("province", provFilter);
         const term = debSearch.trim();
@@ -120,7 +118,7 @@ const Mosap3PayCartoesSim = () => {
     }
   };
 
-  const counts = kpisQuery.data || { activo: 0, pre_desactivado: 0, barrado: 0, removido: 0, desconhecido: 0 };
+  const counts = kpisQuery.data || { activo: 0, pendente: 0, pre_desactivado: 0, barrado: 0, removido: 0, desconhecido: 0 };
 
   const KPI = ({ label, value, status }: { label: string; value: number; status: string }) => (
     <Card>
@@ -154,8 +152,9 @@ const Mosap3PayCartoesSim = () => {
         </Button>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
         <KPI label="Activos" value={counts.activo} status="Activo" />
+        <KPI label="Pendentes" value={counts.pendente} status="Pendente" />
         <KPI label="Pré desactivado" value={counts.pre_desactivado} status="Pré desactivado" />
         <KPI label="Barrados" value={counts.barrado} status="Barrado" />
         <KPI label="Removidos" value={counts.removido} status="Removido" />

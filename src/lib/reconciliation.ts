@@ -29,7 +29,7 @@ export interface DbFarmerRow {
   sim_status?: string | null;
 }
 
-export const SIM_STATUSES = ["Activo", "Removido", "Barrado", "Pré desactivado", "Desconhecido"] as const;
+export const SIM_STATUSES = ["Activo", "Pendente", "Removido", "Barrado", "Pré desactivado", "Desconhecido"] as const;
 export type SimStatus = typeof SIM_STATUSES[number];
 
 export const normalizeSimStatus = (raw?: string | null): SimStatus => {
