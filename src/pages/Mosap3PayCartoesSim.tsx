@@ -152,8 +152,9 @@ const Mosap3PayCartoesSim = () => {
         </Button>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
         <KPI label="Activos" value={counts.activo} status="Activo" />
+        <KPI label="Pendentes" value={counts.pendente} status="Pendente" />
         <KPI label="Pré desactivado" value={counts.pre_desactivado} status="Pré desactivado" />
         <KPI label="Barrados" value={counts.barrado} status="Barrado" />
         <KPI label="Removidos" value={counts.removido} status="Removido" />
