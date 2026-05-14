@@ -1,66 +1,64 @@
 import { motion } from "framer-motion";
-import { Search, Filter, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { Search, Filter, ChevronLeft, ChevronRight } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { TableRowsSkeleton, CardListSkeleton } from "@/components/ui/loading-skeletons";
 import { ErrorState } from "@/components/ui/error-state";
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { fetchAllPages } from "@/lib/supabaseFetchAll";
+import { useServerTable, useDebouncedValue } from "@/hooks/useServerTable";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 15;
 
 const Transacoes = () => {
   const [search, setSearch] = useState("");
   const [empresaFilter, setEmpresaFilter] = useState("all");
   const [page, setPage] = useState(1);
+  const debouncedSearch = useDebouncedValue(search, 300);
 
-  const { data: transactions = [], isLoading, isError, refetch } = useQuery({
-    queryKey: ["farmer_transactions"],
+  useEffect(() => { setPage(1); }, [debouncedSearch, empresaFilter]);
+
+  // Lista única de empresas (cacheada — só é puxada uma vez)
+  const { data: empresas = [] } = useQuery({
+    queryKey: ["tx_empresas_distinct"],
+    staleTime: 10 * 60 * 1000,
     queryFn: async () => {
-      return await fetchAllPages<any>(() =>
-        supabase
-          .from("farmer_transactions")
-          .select(
-            "*, farmers!farmer_transactions_farmer_code_fkey(full_name, province)",
-            { count: "exact" }
-          )
-          .order("created_at", { ascending: false })
-      );
+      const { data } = await supabase
+        .from("farmer_transactions")
+        .select("empresa")
+        .order("empresa", { ascending: true })
+        .limit(1000);
+      return Array.from(new Set((data || []).map((r: any) => r.empresa).filter(Boolean))).sort();
     },
   });
 
-  useEffect(() => { setPage(1); }, [search, empresaFilter]);
-
-  const empresas = [...new Set(transactions.map((t: any) => t.empresa))].sort();
-
-  const filtered = transactions.filter((t: any) => {
-    const name = t.farmers?.full_name || "";
-    const matchesSearch =
-      name.toLowerCase().includes(search.toLowerCase()) ||
-      t.farmer_code.toLowerCase().includes(search.toLowerCase()) ||
-      t.empresa.toLowerCase().includes(search.toLowerCase()) ||
-      t.product.toLowerCase().includes(search.toLowerCase());
-    const matchesEmpresa = empresaFilter === "all" || t.empresa === empresaFilter;
-    return matchesSearch && matchesEmpresa;
+  const { rows, total, isLoading, isError, refetch, isFetching } = useServerTable<any>({
+    table: "farmer_transactions",
+    columns: "id, farmer_code, empresa, product, valor, transaction_date, created_at, farmers!farmer_transactions_farmer_code_fkey(full_name, province)",
+    page,
+    pageSize: PAGE_SIZE,
+    search: debouncedSearch,
+    searchColumns: ["farmer_code", "empresa", "product"],
+    filters: { empresa: empresaFilter },
+    sort: { column: "created_at", dir: "desc" },
   });
 
-  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
-  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="page-title">Transações</h1>
-          <p className="text-muted-foreground text-sm mt-1">Histórico de todas as transações do sistema</p>
+          <p className="text-muted-foreground text-sm mt-1">
+            Histórico de transações ({total.toLocaleString("pt-AO")} no total)
+          </p>
         </div>
       </div>
 
@@ -68,7 +66,7 @@ const Transacoes = () => {
         <div className="relative max-w-sm flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Pesquisar transações..."
+            placeholder="Pesquisar por código, empresa, produto…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-10"
@@ -91,8 +89,7 @@ const Transacoes = () => {
         {isError ? (
           <Card><ErrorState onRetry={() => refetch()} /></Card>
         ) : (
-        <Card className="p-0 overflow-hidden">
-          {/* Desktop table */}
+        <Card className={`p-0 overflow-hidden transition-opacity ${isFetching && !isLoading ? "opacity-70" : ""}`}>
           <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -108,13 +105,13 @@ const Transacoes = () => {
               <tbody>
                 {isLoading ? (
                   <TableRowsSkeleton rows={6} cols={6} />
-                ) : paginated.length === 0 ? (
+                ) : rows.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="p-0">
                       <EmptyState size="sm" icon={Filter} description="Ajuste os filtros ou aguarde novas transações." />
                     </td>
                   </tr>
-                ) : paginated.map((t: any) => (
+                ) : rows.map((t: any) => (
                   <tr key={t.id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
                     <td className="px-6 py-3 font-mono text-xs text-muted-foreground">{t.farmer_code}</td>
                     <td className="px-4 py-3">
@@ -139,13 +136,12 @@ const Transacoes = () => {
             </table>
           </div>
 
-          {/* Mobile card list */}
           <div className="md:hidden divide-y divide-border">
             {isLoading ? (
               <CardListSkeleton count={5} />
-            ) : paginated.length === 0 ? (
+            ) : rows.length === 0 ? (
               <EmptyState size="sm" icon={Filter} description="Ajuste os filtros ou aguarde novas transações." />
-            ) : paginated.map((t: any) => (
+            ) : rows.map((t: any) => (
               <div key={t.id} className="p-3 space-y-1.5">
                 <div className="flex items-center justify-between gap-2">
                   <p className="font-medium text-sm truncate">{t.farmers?.full_name || "—"}</p>
@@ -166,12 +162,14 @@ const Transacoes = () => {
           </div>
 
           <div className="px-4 md:px-6 py-3 border-t border-border flex items-center justify-between text-xs md:text-sm text-muted-foreground">
-            <span>{Math.min((page - 1) * PAGE_SIZE + 1, filtered.length)}–{Math.min(page * PAGE_SIZE, filtered.length)} de {filtered.length} transações</span>
+            <span>
+              {total === 0 ? 0 : Math.min((page - 1) * PAGE_SIZE + 1, total)}–{Math.min(page * PAGE_SIZE, total)} de {total.toLocaleString("pt-AO")}
+            </span>
             <div className="flex items-center gap-2">
               <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>
                 <ChevronLeft className="h-4 w-4" />
               </Button>
-              <span className="text-sm font-medium">{page} / {totalPages || 1}</span>
+              <span className="text-sm font-medium">{page} / {totalPages}</span>
               <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage(page + 1)}>
                 <ChevronRight className="h-4 w-4" />
               </Button>
