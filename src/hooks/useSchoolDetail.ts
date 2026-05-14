@@ -100,7 +100,7 @@ export function useSchoolDetail(id: string | undefined) {
         name: dbSchool.name,
         province: provinceName,
         provinceSlug: provRes.data?.slug || "",
-        municipality: munRes.data?.name || "",
+        municipality: municipalityName,
         village: dbSchool.village || "",
         technician: dbSchool.technician || "",
         technicianPhone: dbSchool.technician_phone || "",
