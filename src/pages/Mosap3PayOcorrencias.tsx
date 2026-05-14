@@ -388,6 +388,105 @@ const Mosap3PayOcorrencias = () => {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={!!selected} onOpenChange={(open) => !open && setSelected(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-warning" />
+              Detalhe da ocorrência
+            </DialogTitle>
+            <DialogDescription>
+              Bloqueio reportado pelo operador POS — {selected && format(new Date(selected.created_at), "dd/MM/yyyy HH:mm")}
+            </DialogDescription>
+          </DialogHeader>
+
+          {selected && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <div className="text-xs text-muted-foreground">Código</div>
+                  <div className="font-mono">{selected.entity_id || "—"}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground">Estado SIM</div>
+                  <SimStatusBadge status={selected.details?.sim_status || "Desconhecido"} />
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground">Produtor</div>
+                  <div className="font-medium">{selected.details?.farmer_name || "—"}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground">Telefone</div>
+                  <div>{selected.details?.phone || "—"}</div>
+                </div>
+                <div className="col-span-2">
+                  <div className="text-xs text-muted-foreground">Motivo</div>
+                  <div className="text-sm">{selected.details?.reason || "—"}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground">Operador POS</div>
+                  <div>{selected.user_name || "—"}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground">Destinatários</div>
+                  <Badge variant="secondary">{selected.details?.recipients ?? 0}</Badge>
+                </div>
+              </div>
+
+              <Separator />
+
+              <div>
+                <div className="flex items-center gap-2 text-sm font-semibold mb-2">
+                  <History className="h-4 w-4" /> Histórico deste produtor
+                  {!historyLoading && (
+                    <Badge variant="outline" className="ml-1">{history.length}</Badge>
+                  )}
+                </div>
+                {historyLoading ? (
+                  <div className="flex items-center text-sm text-muted-foreground py-4">
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" /> A carregar histórico…
+                  </div>
+                ) : history.length === 0 ? (
+                  <div className="text-sm text-muted-foreground py-2">Sem outras ocorrências.</div>
+                ) : (
+                  <ScrollArea className="h-48 rounded-md border">
+                    <ul className="divide-y">
+                      {history.map((h) => (
+                        <li
+                          key={h.id}
+                          className={cn(
+                            "p-3 text-xs space-y-1",
+                            h.id === selected.id && "bg-muted/50"
+                          )}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="font-mono">{format(new Date(h.created_at), "dd/MM/yyyy HH:mm")}</span>
+                            <SimStatusBadge status={h.details?.sim_status || "Desconhecido"} />
+                          </div>
+                          <div className="text-muted-foreground">{h.details?.reason || "—"}</div>
+                          <div className="text-muted-foreground">POS: {h.user_name || "—"}</div>
+                        </li>
+                      ))}
+                    </ul>
+                  </ScrollArea>
+                )}
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button variant="outline" onClick={() => setSelected(null)}>Fechar</Button>
+            {selected?.entity_id && (
+              <Button asChild>
+                <Link to={`/agricultores/${selected.entity_id}`} onClick={() => setSelected(null)}>
+                  <ExternalLink className="h-4 w-4 mr-2" /> Abrir ficha do produtor
+                </Link>
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
