@@ -8,6 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Ban, ShieldAlert } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { InvoicePDF, generateFiscalHash, buildQRContent, type InvoiceData } from "@/components/InvoicePDF";
@@ -244,6 +246,31 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
   const isSimBlocked = (status: string | null | undefined) =>
     status === "Barrado" || status === "Removido";
 
+  const simStatusReason = (status: string | null | undefined): { title: string; reason: string; recomendacao: string } | null => {
+    switch (status) {
+      case "Barrado":
+        return {
+          title: "Cartão SIM Barrado",
+          reason: "O cartão SIM do produtor encontra-se barrado pela operadora ou foi bloqueado administrativamente por irregularidade detectada na reconciliação.",
+          recomendacao: "Encaminhe o produtor ao gestor de incentivos para regularização antes de qualquer compra.",
+        };
+      case "Removido":
+        return {
+          title: "Cartão SIM Removido",
+          reason: "O cartão SIM foi removido do registo do produtor (cancelamento, perda, devolução ou substituição não concluída).",
+          recomendacao: "É necessário registar/substituir o SIM e reactivar o cadastro antes de processar pagamentos.",
+        };
+      case "Pré desactivado":
+        return {
+          title: "Cartão SIM Pré desactivado",
+          reason: "O SIM está marcado para desactivação iminente. As vendas ainda são permitidas, mas serão bloqueadas após confirmação.",
+          recomendacao: "Confirme com o produtor antes de finalizar a transação.",
+        };
+      default:
+        return null;
+    }
+  };
+
   const notifySimBlockedFarmer = async (
     f: Farmer,
     event: "identificacao_pos" | "tentativa_pagamento"
@@ -264,7 +291,11 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
 
   const selectFarmerFromSuggestion = async (f: Farmer) => {
     if (isSimBlocked(f.sim_status)) {
-      toast.error(`Venda bloqueada — cartão SIM ${f.sim_status}. Produtor ${f.full_name} (${f.code}) não pode efectuar compras.`);
+      const r = simStatusReason(f.sim_status);
+      toast.error(`⛔ ${r?.title} — ${f.full_name} (${f.code})`, {
+        description: r?.reason,
+        duration: 8000,
+      });
       setFarmer(f);
       setFarmerSearch(f.code);
       setShowSuggestions(false);
@@ -494,7 +525,11 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
     if (!farmer || cart.length === 0 || !selectedSupplierId) return;
 
     if (isSimBlocked(farmer.sim_status)) {
-      toast.error(`Venda bloqueada — cartão SIM ${farmer.sim_status}.`);
+      const r = simStatusReason(farmer.sim_status);
+      toast.error(`⛔ ${r?.title} — pagamento recusado`, {
+        description: `${r?.reason} ${r?.recomendacao}`,
+        duration: 8000,
+      });
       notifySimBlockedFarmer(farmer, "tentativa_pagamento");
       return;
     }
@@ -1225,15 +1260,27 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
                       {farmerBalance <= 0 && (
                         <p className="text-[10px] text-destructive font-medium">⚠ Sem saldo — compras bloqueadas</p>
                       )}
-                      {isSimBlocked(farmer.sim_status) && (
-                        <p className="text-[10px] text-destructive font-bold">⛔ SIM {farmer.sim_status} — venda bloqueada</p>
-                      )}
-                      {farmer.sim_status === "Pré desactivado" && (
-                        <p className="text-[10px] text-warning font-medium">⚠ SIM Pré desactivado</p>
-                      )}
                     </div>
                   </div>
                 )}
+                {farmer && (isSimBlocked(farmer.sim_status) || farmer.sim_status === "Pré desactivado") && (() => {
+                  const r = simStatusReason(farmer.sim_status);
+                  if (!r) return null;
+                  const blocked = isSimBlocked(farmer.sim_status);
+                  return (
+                    <Alert variant={blocked ? "destructive" : "default"} className={`mt-3 ${blocked ? "" : "border-warning bg-warning/10 text-warning-foreground"}`}>
+                      {blocked ? <Ban className="h-4 w-4" /> : <ShieldAlert className="h-4 w-4 text-warning" />}
+                      <AlertTitle className="font-bold">
+                        {blocked ? "⛔ Venda recusada — " : "⚠ Atenção — "}{r.title}
+                      </AlertTitle>
+                      <AlertDescription className="text-xs space-y-1 mt-1">
+                        <p><strong>Estado do SIM:</strong> {farmer.sim_status}</p>
+                        <p><strong>Motivo:</strong> {r.reason}</p>
+                        <p><strong>Recomendação:</strong> {r.recomendacao}</p>
+                      </AlertDescription>
+                    </Alert>
+                  );
+                })()}
               </CardContent>
             </Card>
 
@@ -1368,7 +1415,13 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
                       <CreditCard className="h-4 w-4 mr-2" /> Processar Pagamento
                     </Button>
                     {farmer && isSimBlocked(farmer.sim_status) && (
-                      <p className="text-xs text-destructive text-center mt-2 font-bold">⛔ Cartão SIM {farmer.sim_status} — venda bloqueada</p>
+                      <Alert variant="destructive" className="mt-2">
+                        <Ban className="h-4 w-4" />
+                        <AlertTitle className="text-xs font-bold">⛔ Pagamento recusado — SIM {farmer.sim_status}</AlertTitle>
+                        <AlertDescription className="text-[11px]">
+                          {simStatusReason(farmer.sim_status)?.recomendacao}
+                        </AlertDescription>
+                      </Alert>
                     )}
                     {farmer && farmerBalance <= 0 && (
                       <p className="text-xs text-destructive text-center mt-2 font-medium">⚠ Produtor sem saldo de incentivo</p>
