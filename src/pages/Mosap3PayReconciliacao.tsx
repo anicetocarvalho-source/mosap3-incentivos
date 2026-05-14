@@ -102,7 +102,7 @@ const Mosap3PayReconciliacao = () => {
       const all = await fetchAllPages<DbFarmerRow>(() =>
         supabase
           .from("farmers")
-          .select("code, full_name, phone, province, municipality, status, saldo_final", { count: "exact" })
+          .select("code, full_name, phone, province, municipality, status, saldo_final, sim_status", { count: "exact" })
       );
       setDbRows(all);
     } catch (e: any) {
