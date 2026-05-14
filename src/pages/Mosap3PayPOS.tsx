@@ -1612,8 +1612,8 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
               <Send className="h-4 w-4 text-primary" /> Contactar gestor
             </AlertDialogTitle>
             <AlertDialogDescription asChild>
-              <div className="space-y-2 text-sm">
-                <p>Esta ocorrência será enviada via sino in-app a todos os gestores do sistema. Confirma o envio?</p>
+              <div className="space-y-3 text-sm">
+                <p>Esta ocorrência será enviada via sino in-app aos gestores selecionados. Confirma o envio?</p>
                 {farmer && (() => {
                   const r = simStatusReason(farmer.sim_status);
                   return (
@@ -1626,13 +1626,49 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
                     </div>
                   );
                 })()}
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <Label className="text-xs font-semibold">Destinatários</Label>
+                    <Select value={managerRoleFilter} onValueChange={setManagerRoleFilter} disabled={managersLoading || managers.length === 0}>
+                      <SelectTrigger className="h-8 w-[180px] text-xs">
+                        <SelectValue placeholder="Todas as funções" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__all__">Todas as funções</SelectItem>
+                        {availableManagerRoles.map((r) => (
+                          <SelectItem key={r} value={r}>{r}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="rounded-md border bg-background max-h-44 overflow-auto">
+                    {managersLoading ? (
+                      <p className="p-3 text-xs text-muted-foreground">A carregar gestores…</p>
+                    ) : filteredManagers.length === 0 ? (
+                      <p className="p-3 text-xs text-muted-foreground">Sem gestores para esta função.</p>
+                    ) : (
+                      <ul className="divide-y">
+                        {filteredManagers.map((m) => (
+                          <li key={`${m.user_id}-${m.role}`} className="flex items-center justify-between gap-2 px-3 py-1.5 text-xs">
+                            <span className="truncate">{m.full_name || "(sem nome)"}</span>
+                            <Badge variant="outline" className="text-[10px]">{m.role}</Badge>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    {filteredManagers.length} destinatário(s) {managerRoleFilter !== "__all__" ? `com função "${managerRoleFilter}"` : "no total"}.
+                  </p>
+                </div>
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={contactingManager}>Cancelar</AlertDialogCancel>
             <AlertDialogAction
-              disabled={contactingManager || !farmer}
+              disabled={contactingManager || !farmer || filteredManagers.length === 0}
               onClick={async (e) => {
                 e.preventDefault();
                 if (!farmer) return;
@@ -1641,7 +1677,7 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
               }}
             >
               <Send className="h-4 w-4 mr-2" />
-              {contactingManager ? "A enviar…" : "Confirmar e enviar"}
+              {contactingManager ? "A enviar…" : `Enviar a ${filteredManagers.length}`}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
