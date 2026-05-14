@@ -199,6 +199,7 @@ export function useEscolasAuditoria() {
         if (arr) arr.push(sn);
         else byName.set(sn.nameN, [sn]);
       }
+      mark("normalizeSchools");
 
       // Helper for any school's real farmer count using triplet map (with fallback when prov/mun empty)
       const realCount = (sn: SchoolNorm): number => {
