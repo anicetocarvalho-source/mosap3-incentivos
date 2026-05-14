@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { fetchAllPages } from "@/lib/supabaseFetchAll";
+import { fetchAllPages, streamAllPages } from "@/lib/supabaseFetchAll";
 import { normalizeName, levenshtein } from "@/lib/stringSimilarity";
 
 export type DuplicateRow = {
