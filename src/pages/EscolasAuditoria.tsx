@@ -14,7 +14,9 @@ import {
   School as SchoolIcon,
   RefreshCw,
 } from "lucide-react";
-import { useEscolasAuditoria } from "@/hooks/useEscolasAuditoria";
+import { useEscolasAuditoria, readAuditoriaPerfHistory, clearAuditoriaPerfHistory, type PerfMetrics } from "@/hooks/useEscolasAuditoria";
+import { useMemo, useState } from "react";
+import { Gauge, Trash2, ChevronDown, ChevronUp } from "lucide-react";
 
 const csvEscape = (v: any) => {
   const s = String(v ?? "");
