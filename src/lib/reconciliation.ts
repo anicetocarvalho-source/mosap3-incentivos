@@ -26,6 +26,22 @@ export interface DbFarmerRow {
   municipality: string | null;
   status: string;
   saldo_final: string | null;
+  sim_status?: string | null;
+}
+
+export const SIM_STATUSES = ["Activo", "Removido", "Barrado", "Pré desactivado", "Desconhecido"] as const;
+export type SimStatus = typeof SIM_STATUSES[number];
+
+export const normalizeSimStatus = (raw?: string | null): SimStatus => {
+  if (!raw) return "Desconhecido";
+  const v = String(raw).trim();
+  const lower = v.toLowerCase();
+  if (lower === "activo" || lower === "ativo") return "Activo";
+  if (lower === "removido") return "Removido";
+  if (lower === "barrado") return "Barrado";
+  if (lower.startsWith("pré") || lower.startsWith("pre")) return "Pré desactivado";
+  return "Desconhecido";
+};
 }
 
 const PROVINCE_MAP: Record<string, string> = {
