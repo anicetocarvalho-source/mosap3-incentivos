@@ -293,11 +293,37 @@ const Mosap3PayOcorrencias = () => {
             Bloqueios reportados pelos operadores POS por SIM Barrado/Removido.
           </p>
         </div>
-        <Button onClick={exportCsv} variant="outline" disabled={!total || exporting}>
-          {exporting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
-          Exportar CSV
-        </Button>
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Radio className={cn("h-3 w-3", realtimeOn ? "text-success animate-pulse" : "text-muted-foreground")} />
+            {realtimeOn ? "Tempo real ativo" : "Tempo real indisponível"}
+            {lastUpdated && (
+              <span className="hidden sm:inline">· Atualizado {format(lastUpdated, "HH:mm:ss")}</span>
+            )}
+          </span>
+          <Button onClick={reload} variant="outline" size="sm" disabled={loading}>
+            <RefreshCw className={cn("h-4 w-4 mr-2", loading && "animate-spin")} /> Atualizar
+          </Button>
+          <Button onClick={exportCsv} variant="outline" size="sm" disabled={!total || exporting}>
+            {exporting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
+            Exportar CSV
+          </Button>
+        </div>
       </div>
+
+      {pendingNew > 0 && (
+        <div className="rounded-md border border-warning/40 bg-warning/10 px-4 py-2 flex items-center justify-between gap-3">
+          <div className="text-sm flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 text-warning" />
+            <span>
+              {pendingNew} nova{pendingNew > 1 ? "s" : ""} ocorrência{pendingNew > 1 ? "s" : ""} disponíve{pendingNew > 1 ? "is" : "l"}.
+            </span>
+          </div>
+          <Button size="sm" onClick={reload}>
+            <RefreshCw className="h-4 w-4 mr-2" /> Ver agora
+          </Button>
+        </div>
+      )}
 
       <Card>
         <CardHeader>
