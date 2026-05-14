@@ -30,17 +30,16 @@ Deno.serve(async (req) => {
       let chunks = 0;
       for (let i = 0; i < phones.length; i += CHUNK) {
         const slice = phones.slice(i, i + CHUNK);
-        const { data, error } = await admin
+        const { error, count } = await admin
           .from("farmers")
           .update({
             sim_status: status,
             sim_status_source: "operadora_unitel",
             sim_status_updated_at: nowIso,
-          })
-          .in("phone", slice)
-          .select("code");
+          }, { count: "exact" })
+          .in("phone", slice);
         if (error) throw new Error(`UPDATE failed (${status}, chunk ${chunks}): ${error.message}`);
-        matched += data?.length ?? 0;
+        matched += count ?? 0;
         chunks += 1;
       }
       stats[status] = { total: phones.length, matched, chunks };
