@@ -26,7 +26,22 @@ export interface DbFarmerRow {
   municipality: string | null;
   status: string;
   saldo_final: string | null;
+  sim_status?: string | null;
 }
+
+export const SIM_STATUSES = ["Activo", "Removido", "Barrado", "Pré desactivado", "Desconhecido"] as const;
+export type SimStatus = typeof SIM_STATUSES[number];
+
+export const normalizeSimStatus = (raw?: string | null): SimStatus => {
+  if (!raw) return "Desconhecido";
+  const v = String(raw).trim();
+  const lower = v.toLowerCase();
+  if (lower === "activo" || lower === "ativo") return "Activo";
+  if (lower === "removido") return "Removido";
+  if (lower === "barrado") return "Barrado";
+  if (lower.startsWith("pré") || lower.startsWith("pre")) return "Pré desactivado";
+  return "Desconhecido";
+};
 
 const PROVINCE_MAP: Record<string, string> = {
   BENGUELA: "Benguela",
@@ -225,7 +240,7 @@ export function parseSheet(rawRows: any[]): ParsedSheet {
 export interface FarmerDiff {
   phone: string;
   dbCode: string;
-  field: "full_name" | "province" | "municipality" | "saldo_final";
+  field: "full_name" | "province" | "municipality" | "saldo_final" | "sim_status";
   current: string;
   proposed: string;
 }
@@ -240,6 +255,7 @@ export function computeDiffs(db: DbFarmerRow[], xl: ExcelFarmerRow[]) {
   const provinceDiffs: FarmerDiff[] = [];
   const municipalityDiffs: FarmerDiff[] = [];
   const saldoDiffs: FarmerDiff[] = [];
+  const simStatusDiffs: FarmerDiff[] = [];
 
   for (const x of xl) {
     const d = dbByPhone.get(x.msisdn);
@@ -272,6 +288,17 @@ export function computeDiffs(db: DbFarmerRow[], xl: ExcelFarmerRow[]) {
         proposed: formatSaldoBR(x.saldoMosap),
       });
     }
+    const propSim = normalizeSimStatus(x.estadoNumero);
+    const dbSim = normalizeSimStatus(d.sim_status);
+    if (propSim !== dbSim) {
+      simStatusDiffs.push({
+        phone: x.msisdn,
+        dbCode: d.code,
+        field: "sim_status",
+        current: dbSim,
+        proposed: propSim,
+      });
+    }
   }
 
   return {
@@ -282,6 +309,7 @@ export function computeDiffs(db: DbFarmerRow[], xl: ExcelFarmerRow[]) {
     provinceDiffs,
     municipalityDiffs,
     saldoDiffs,
+    simStatusDiffs,
     onlyDbCount: db.filter((d) => !xlByPhone.has(String(d.phone || ""))).length,
   };
 }

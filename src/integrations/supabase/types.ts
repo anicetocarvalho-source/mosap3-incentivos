@@ -824,6 +824,9 @@ export type Database = {
           registered_by: string | null
           saldo_final: string | null
           school: string | null
+          sim_status: string
+          sim_status_source: string | null
+          sim_status_updated_at: string | null
           status: string
           total_gasto: string | null
           updated_at: string
@@ -851,6 +854,9 @@ export type Database = {
           registered_by?: string | null
           saldo_final?: string | null
           school?: string | null
+          sim_status?: string
+          sim_status_source?: string | null
+          sim_status_updated_at?: string | null
           status?: string
           total_gasto?: string | null
           updated_at?: string
@@ -878,6 +884,9 @@ export type Database = {
           registered_by?: string | null
           saldo_final?: string | null
           school?: string | null
+          sim_status?: string
+          sim_status_source?: string | null
+          sim_status_updated_at?: string | null
           status?: string
           total_gasto?: string | null
           updated_at?: string
@@ -1657,6 +1666,45 @@ export type Database = {
           product_category?: string
           season_name?: string
           start_date?: string
+        }
+        Relationships: []
+      }
+      sim_status_history: {
+        Row: {
+          changed_by: string | null
+          changed_by_name: string | null
+          created_at: string
+          farmer_code: string
+          id: string
+          new_status: string
+          notes: string | null
+          old_status: string | null
+          phone: string | null
+          source: string
+        }
+        Insert: {
+          changed_by?: string | null
+          changed_by_name?: string | null
+          created_at?: string
+          farmer_code: string
+          id?: string
+          new_status: string
+          notes?: string | null
+          old_status?: string | null
+          phone?: string | null
+          source?: string
+        }
+        Update: {
+          changed_by?: string | null
+          changed_by_name?: string | null
+          created_at?: string
+          farmer_code?: string
+          id?: string
+          new_status?: string
+          notes?: string | null
+          old_status?: string | null
+          phone?: string | null
+          source?: string
         }
         Relationships: []
       }

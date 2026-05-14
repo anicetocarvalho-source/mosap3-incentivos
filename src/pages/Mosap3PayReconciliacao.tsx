@@ -47,6 +47,7 @@ const Mosap3PayReconciliacao = () => {
   const [selProv, setSelProv] = useState<Set<string>>(new Set());
   const [selMun, setSelMun] = useState<Set<string>>(new Set());
   const [selSaldo, setSelSaldo] = useState<Set<string>>(new Set());
+  const [selSim, setSelSim] = useState<Set<string>>(new Set());
   const [progress, setProgress] = useState<{ pct: number; label: string } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const qc = useQueryClient();
@@ -102,7 +103,7 @@ const Mosap3PayReconciliacao = () => {
       const all = await fetchAllPages<DbFarmerRow>(() =>
         supabase
           .from("farmers")
-          .select("code, full_name, phone, province, municipality, status, saldo_final", { count: "exact" })
+          .select("code, full_name, phone, province, municipality, status, saldo_final, sim_status", { count: "exact" })
       );
       setDbRows(all);
     } catch (e: any) {
@@ -125,6 +126,7 @@ const Mosap3PayReconciliacao = () => {
     setSelProv(new Set());
     setSelMun(new Set());
     setSelSaldo(new Set());
+    setSelSim(new Set());
     if (fileRef.current) fileRef.current.value = "";
   };
 
@@ -168,6 +170,8 @@ const Mosap3PayReconciliacao = () => {
         municipality: normalizeMunicipality(r.region) || null,
         saldo_final: r.saldoMosap.toFixed(2).replace(".", ","),
         status: r.estadoNumero === "Removido" ? "Removido" : "Pendente",
+        sim_status: (r.estadoNumero && ["Activo","Removido","Barrado"].includes(r.estadoNumero)) ? r.estadoNumero : (r.estadoNumero?.toLowerCase().startsWith("pré") || r.estadoNumero?.toLowerCase().startsWith("pre")) ? "Pré desactivado" : "Desconhecido",
+        sim_status_source: "reconciliacao",
       }));
       const { error } = await supabase.from("farmers").insert(batch);
       if (error) fail += batch.length;
@@ -184,7 +188,7 @@ const Mosap3PayReconciliacao = () => {
   const applyDiffs = async (
     items: FarmerDiff[],
     selected: Set<string>,
-    field: "full_name" | "province" | "municipality" | "saldo_final",
+    field: "full_name" | "province" | "municipality" | "saldo_final" | "sim_status",
     label: string,
   ) => {
     const targets = items.filter((d) => selected.has(d.dbCode));
@@ -194,9 +198,11 @@ const Mosap3PayReconciliacao = () => {
     for (let i = 0; i < targets.length; i += BATCH) {
       const batch = targets.slice(i, i + BATCH);
       const results = await Promise.all(
-        batch.map((d) =>
-          supabase.from("farmers").update({ [field]: d.proposed }).eq("code", d.dbCode)
-        )
+        batch.map((d) => {
+          const payload: Record<string, any> = { [field]: d.proposed };
+          if (field === "sim_status") payload.sim_status_source = "reconciliacao";
+          return supabase.from("farmers").update(payload).eq("code", d.dbCode);
+        })
       );
       results.forEach((r) => (r.error ? fail++ : ok++));
       setProgress({ pct: Math.round(((i + batch.length) / targets.length) * 100), label: `${i + batch.length}/${targets.length}` });
@@ -338,6 +344,9 @@ const Mosap3PayReconciliacao = () => {
               <TabsTrigger value="saldo" className="gap-2">
                 <Coins className="h-3.5 w-3.5" />Saldos <Badge variant="secondary">{diffs.saldoDiffs.length}</Badge>
               </TabsTrigger>
+              <TabsTrigger value="sim" className="gap-2">
+                <Edit3 className="h-3.5 w-3.5" />Estado SIM <Badge variant="secondary">{diffs.simStatusDiffs.length}</Badge>
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="new">
@@ -420,6 +429,17 @@ const Mosap3PayReconciliacao = () => {
                   qc.invalidateQueries({ queryKey: ["farmers_list"] });
                   toast.success(`${ok} saldos sincronizados${fail ? `, ${fail} falharam` : ""}`);
                 }}
+              />
+            </TabsContent>
+
+            <TabsContent value="sim">
+              <DiffTab
+                title="Estado SIM (Unitel vs BD)"
+                rows={diffs.simStatusDiffs}
+                selected={selSim}
+                onToggle={(k) => toggle(selSim, setSelSim, k)}
+                onToggleAll={() => toggleAll(selSim, setSelSim, diffs.simStatusDiffs.map((d) => d.dbCode))}
+                onApply={async () => { await applyDiffs(diffs.simStatusDiffs, selSim, "sim_status", "estados de SIM"); setSelSim(new Set()); }}
               />
             </TabsContent>
           </Tabs>
