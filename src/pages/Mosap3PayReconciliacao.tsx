@@ -47,6 +47,7 @@ const Mosap3PayReconciliacao = () => {
   const [selProv, setSelProv] = useState<Set<string>>(new Set());
   const [selMun, setSelMun] = useState<Set<string>>(new Set());
   const [selSaldo, setSelSaldo] = useState<Set<string>>(new Set());
+  const [selSim, setSelSim] = useState<Set<string>>(new Set());
   const [progress, setProgress] = useState<{ pct: number; label: string } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const qc = useQueryClient();
