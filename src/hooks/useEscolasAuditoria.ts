@@ -40,7 +40,72 @@ export type AuditoriaResult = {
     similarPairs: number;
     orphans: number;
   };
+  perf: PerfMetrics;
 };
+
+export type PerfPhase =
+  | "fetch"
+  | "indexFarmers"
+  | "normalizeSchools"
+  | "duplicates"
+  | "similar"
+  | "orphans"
+  | "total";
+
+export type PerfMetrics = {
+  startedAt: string; // ISO
+  phases: Record<PerfPhase, number>; // ms
+  rows: { schools: number; provinces: number; municipalities: number; farmers: number };
+  memory: {
+    supported: boolean;
+    usedJSHeapMB?: number; // after run
+    deltaJSHeapMB?: number; // after - before
+    totalJSHeapMB?: number;
+    jsHeapLimitMB?: number;
+  };
+};
+
+export type PerfHistoryEntry = PerfMetrics;
+
+const PERF_HISTORY_KEY = "escolas_auditoria_perf_history_v1";
+const PERF_HISTORY_MAX = 20;
+
+export function readAuditoriaPerfHistory(): PerfHistoryEntry[] {
+  try {
+    const raw = localStorage.getItem(PERF_HISTORY_KEY);
+    if (!raw) return [];
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) ? arr : [];
+  } catch {
+    return [];
+  }
+}
+
+export function clearAuditoriaPerfHistory() {
+  try {
+    localStorage.removeItem(PERF_HISTORY_KEY);
+  } catch {
+    /* noop */
+  }
+}
+
+function pushPerfHistory(entry: PerfHistoryEntry) {
+  try {
+    const list = readAuditoriaPerfHistory();
+    list.push(entry);
+    while (list.length > PERF_HISTORY_MAX) list.shift();
+    localStorage.setItem(PERF_HISTORY_KEY, JSON.stringify(list));
+  } catch {
+    /* noop */
+  }
+}
+
+const toMB = (b: number) => Math.round((b / (1024 * 1024)) * 100) / 100;
+function readMemory(): { used: number; total: number; limit: number } | null {
+  const m = (performance as any).memory;
+  if (!m || typeof m.usedJSHeapSize !== "number") return null;
+  return { used: m.usedJSHeapSize, total: m.totalJSHeapSize, limit: m.jsHeapSizeLimit };
+}
 
 const KEY_SEP = "\u0001";
 
@@ -52,6 +117,16 @@ export function useEscolasAuditoria() {
   const run = useCallback(async () => {
     setLoading(true);
     setError(null);
+    const tStart = performance.now();
+    const memBefore = readMemory();
+    const startedAt = new Date().toISOString();
+    const phases: Partial<Record<PerfPhase, number>> = {};
+    let tMark = tStart;
+    const mark = (phase: PerfPhase) => {
+      const now = performance.now();
+      phases[phase] = Math.round((now - tMark) * 100) / 100;
+      tMark = now;
+    };
     try {
       const [schools, provinces, municipalities, farmers] = await Promise.all([
         fetchAllPages<any>(() =>
@@ -66,6 +141,7 @@ export function useEscolasAuditoria() {
             .neq("status", "Removido")
         ),
       ]);
+      mark("fetch");
 
       const provMap = new Map<string, string>(provinces.map((p) => [p.id, p.name as string]));
       const munMap = new Map<string, string>(municipalities.map((m) => [m.id, m.name as string]));
@@ -92,6 +168,7 @@ export function useEscolasAuditoria() {
         if (arr) arr.push(i);
         else farmersBySchool.set(sN, [i]);
       }
+      mark("indexFarmers");
 
       // ── Pre-normalize schools & group by normalized name
       type SchoolNorm = {
@@ -122,6 +199,7 @@ export function useEscolasAuditoria() {
         if (arr) arr.push(sn);
         else byName.set(sn.nameN, [sn]);
       }
+      mark("normalizeSchools");
 
       // Helper for any school's real farmer count using triplet map (with fallback when prov/mun empty)
       const realCount = (sn: SchoolNorm): number => {
@@ -164,6 +242,7 @@ export function useEscolasAuditoria() {
           a.province.localeCompare(b.province) ||
           a.municipality.localeCompare(b.municipality)
       );
+      mark("duplicates");
 
       // Cache farmer counts per school id (used by similar tab)
       const countById = new Map<string, number>();
@@ -246,6 +325,7 @@ export function useEscolasAuditoria() {
       }
 
       similar.sort((a, b) => a.distance - b.distance || a.a.name.localeCompare(b.a.name));
+      mark("similar");
 
       // ── Tab C: orphans — single pass per school name using the index built earlier
       const orphans: OrphanRow[] = [];
@@ -278,8 +358,43 @@ export function useEscolasAuditoria() {
         }
       }
       orphans.sort((a, b) => b.orphanCount - a.orphanCount);
+      mark("orphans");
 
       const duplicateNames = [...byName.values()].reduce((n, g) => n + (g.length > 1 ? 1 : 0), 0);
+
+      const memAfter = readMemory();
+      const totalMs = Math.round((performance.now() - tStart) * 100) / 100;
+      const perf: PerfMetrics = {
+        startedAt,
+        phases: {
+          fetch: phases.fetch || 0,
+          indexFarmers: phases.indexFarmers || 0,
+          normalizeSchools: phases.normalizeSchools || 0,
+          duplicates: phases.duplicates || 0,
+          similar: phases.similar || 0,
+          orphans: phases.orphans || 0,
+          total: totalMs,
+        },
+        rows: {
+          schools: schools.length,
+          provinces: provinces.length,
+          municipalities: municipalities.length,
+          farmers: farmers.length,
+        },
+        memory: memAfter
+          ? {
+              supported: true,
+              usedJSHeapMB: toMB(memAfter.used),
+              deltaJSHeapMB: memBefore ? toMB(memAfter.used - memBefore.used) : undefined,
+              totalJSHeapMB: toMB(memAfter.total),
+              jsHeapLimitMB: toMB(memAfter.limit),
+            }
+          : { supported: false },
+      };
+      pushPerfHistory(perf);
+      // eslint-disable-next-line no-console
+      console.info("[useEscolasAuditoria] perf", perf);
+
       setData({
         duplicates,
         similar,
@@ -292,6 +407,7 @@ export function useEscolasAuditoria() {
           similarPairs: similar.length,
           orphans: orphans.reduce((s, o) => s + o.orphanCount, 0),
         },
+        perf,
       });
     } catch (e) {
       console.error("[useEscolasAuditoria]", e);
