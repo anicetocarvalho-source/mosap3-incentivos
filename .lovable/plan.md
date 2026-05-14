@@ -1,62 +1,60 @@
 ## Objectivo
 
-Alinhar todos os agregados financeiros e de relatórios com o Dashboard global (15.166 agricultores, incluindo Removidos) e travar futuras divergências com testes automáticos.
+Criar testes automáticos de paridade entre o módulo de **Relatórios** (`useReportData`) e a **Lista de Agricultores** (`useFarmersList` / `applyFarmerScopeFilter`), garantindo que ambos partem do mesmo universo de produtores e que a regra "Removidos contam em todos os agregados" se mantém no tempo.
 
-## 1. Alinhar código (remover exclusão de Removidos)
+## Contexto
 
-| Ficheiro | Linha(s) a alterar | Mudança |
-|---|---|---|
-| `src/hooks/useFinancialSummary.ts` | 55 | Remover `.neq("status","Removido")` e actualizar JSDoc (linha 40). |
-| `src/components/dashboard/EcaBalanceTable.tsx` | 43, 65 | Remover ambos os `.neq("status","Removido")` (lista de províncias e agregação por ECA). |
-| `src/hooks/useReportData.ts` | 41, 100, 162, 193, 233 | Remover os 5 `.neq("status","Removido")`. |
+- `src/hooks/useReportData.ts` já não aplica `.neq("status","Removido")` em nenhum dos 5 relatórios (Produção, Pecuária, Agricultores, Incentivos, Compras).
+- A Lista (`/agricultores`) continua a esconder Removidos por defeito (opt‑in via `includeRemoved`).
+- Já existem `dashboard-list-parity.test.ts` e `financial-summary-parity.test.ts`. Falta cobrir Relatórios.
 
-Resultado: cards de resumo financeiro, tabela de saldos por ECA e Relatórios passam a contar 15.166 produtores, batendo com o Dashboard e a Lista.
+## Ficheiro novo: `src/test/reports-list-parity.test.ts`
 
-## 2. Novos testes de paridade
+Mock partilhado do cliente Supabase com dataset determinístico (~150 produtores em 3 províncias activas + 1 província só com Removidos), `farmer_parcels`, `farmer_production`, `livestock`, `livestock_production`, `farmer_incentives`, `farmer_transactions`. Os datasets reutilizam o helper já usado em `financial-summary-parity.test.ts` (mesma estrutura de mock chainable).
 
-Ficheiro novo: `src/test/financial-summary-parity.test.ts`
+Casos de teste:
 
-Mock do cliente Supabase com um dataset partilhado (~150 produtores: 138 activos em 3 províncias + 14 Removidos numa 4ª província) e estes casos:
+1. **Produção (`producao_provincia`)** inclui Removidos
+   - Soma de `agricultores` em todas as linhas == total da Lista com `includeRemoved: true`.
+   - Província só com Removidos aparece no relatório com `agricultores > 0`.
 
-1. **`useFinancialSummary` por província** — soma de `recebido`/`gasto`/`saldo` igual à soma directa do dataset filtrado por essa província **incluindo Removidos**.
-2. **`useFinancialSummary` por ECA** — mesma regra com filtro `school` (ilike).
-3. **Sem filtros** — hook devolve `EMPTY` (regra actual mantém-se).
-4. **`EcaBalanceTable`** — agregação por escola dentro de uma província conta Removidos; total das linhas == nº de produtores da Lista nessa província.
-5. **`useReportData` (`farmersByProvince`)** — totais por província batem com a contagem da Lista (Removidos incluídos).
+2. **Pecuária (`pecuaria_provincia`)** inclui Removidos
+   - Produtores únicos com livestock incluem códigos de Removidos.
 
-Ficheiro a estender: `src/test/dashboard-list-parity.test.ts`
+3. **Agricultores por estado (`agricultores_estado`)**
+   - `Σ row.total` == Lista com `includeRemoved: true`.
+   - `Σ row.total` − Lista com `includeRemoved: false` == nº de Removidos.
+   - Filtro `estado = "Removido"` devolve apenas Removidos e bate com Lista filtrada por status.
 
-Adicionar 2 testes cross-source:
+4. **Incentivos (`incentivos_distribuidos`)**
+   - `Σ beneficiarios` ⊆ universo de produtores incluindo Removidos.
+   - `Σ totalKz` == soma directa dos `farmer_incentives.amount` no mock (sem exclusão).
 
-6. **Lista (admin) vs `useFinancialSummary` global** — soma agregada por todas as províncias do hook == total da Lista.
-7. **`dashboard_kpis.total_recebido` vs soma de `useFinancialSummary` em todas as províncias** — diferença = 0 (única fonte de verdade financeira).
+5. **Compras (`compras_transacoes`)**
+   - `Σ transacoes` e `Σ volumeKz` == totais directos do mock, incluindo transacções de Removidos.
 
-## 3. Memória do projecto
+6. **Cross‑source: Relatórios vs Lista (admin global)**
+   - `fetchAgricultores({all})` total == `useFarmersList({includeRemoved:true})` count.
+   - `fetchAgricultores({all}).total − useFarmersList({includeRemoved:false}).count == nº Removidos`.
 
-Adicionar uma core rule curta em `mem://index.md`:
+7. **Filtro geográfico cascata**
+   - `fetchAgricultores({provincia:"Huíla"})` == Lista filtrada por `province=Huíla` (com Removidos).
 
-> "Removidos são contados em TODOS os agregados (Dashboard, financeiros, Relatórios, ECA). Nunca usar `.neq('status','Removido')` em queries de contagem/soma. Excepção: lista de produtores por defeito esconde Removidos (reciclagem)."
+8. **Guarda‑costas anti‑regressão**
+   - Inspecciona o código fonte de `useReportData.ts` (lê o ficheiro com `fs`) e falha se reaparecer `.neq("status", "Removido")` em qualquer das 5 funções `fetch*`. Isto trava reintroduções acidentais mesmo sem dados.
 
-## Detalhes técnicos
+## Pequena extensão: `src/test/dashboard-list-parity.test.ts`
 
-- O mock do Supabase segue o padrão já existente em `src/test/dashboard-list-parity.test.ts` (`vi.mock` com `get supabase()` para evitar problemas de hoisting).
-- Não toca em SQL — as funções `dashboard_kpis`/`dashboard_charts` já incluem Removidos (migration anterior).
-- `useFarmersList` mantém comportamento actual (`includeRemoved` opt-in). Só os hooks de **agregação** mudam.
-- Não altera RLS, autenticação nem layouts.
+Adicionar 1 teste cruzado:
+- `dashboard_kpis.total_farmers` == `Σ fetchAgricultores().total` (relatório agricultores_estado sem filtros).
 
-## O que NÃO muda
+## O que **não** muda
 
-- `recalc_school_farmer_counts`, `recalc_school_for_name`, `detect_farmer_anomalies` — continuam a excluir Removidos (regra de negócio das ECAs).
-- Página `/agricultores` continua a mostrar Removidos com opacidade reduzida e botão Restaurar.
-- Nenhuma mudança visual ou de UX.
+- Sem alterações a `useReportData.ts`, `useFinancialSummary.ts`, `EcaBalanceTable.tsx` ou a qualquer componente de UI/SQL/RLS.
+- Sem alterações às páginas que legitimamente excluem Removidos (`Producao.tsx`, `Parcelas.tsx`, `Incentivos.tsx`, `Mosap3PayCartoesSim.tsx`, `useEscolasAuditoria.ts`, `useSchoolDetail.ts`, `Agricultores.tsx`) — são selectors/dropdowns ou auditorias ECA, fora do âmbito de agregados financeiros/produtivos.
 
 ## Resultado esperado
 
-| Indicador | Antes | Depois |
-|---|---|---|
-| Dashboard `total_farmers` | 15.166 | 15.166 |
-| Lista de Agricultores | 15.166 | 15.166 |
-| Cards financeiros por província | 13.803 | **15.166** |
-| Tabela Saldos por ECA | só activos | **inclui Removidos** |
-| Relatórios | só activos | **inclui Removidos** |
-| Testes de paridade | 5 | **12** |
+- 8 novos testes em `reports-list-parity.test.ts` + 1 cruzado em `dashboard-list-parity.test.ts`.
+- Suíte total: 33 → ~42 testes, todos a passar.
+- Qualquer reintrodução futura de `.neq("status","Removido")` em `useReportData.ts` falha imediatamente em CI.
