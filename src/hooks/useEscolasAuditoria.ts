@@ -358,8 +358,43 @@ export function useEscolasAuditoria() {
         }
       }
       orphans.sort((a, b) => b.orphanCount - a.orphanCount);
+      mark("orphans");
 
       const duplicateNames = [...byName.values()].reduce((n, g) => n + (g.length > 1 ? 1 : 0), 0);
+
+      const memAfter = readMemory();
+      const totalMs = Math.round((performance.now() - tStart) * 100) / 100;
+      const perf: PerfMetrics = {
+        startedAt,
+        phases: {
+          fetch: phases.fetch || 0,
+          indexFarmers: phases.indexFarmers || 0,
+          normalizeSchools: phases.normalizeSchools || 0,
+          duplicates: phases.duplicates || 0,
+          similar: phases.similar || 0,
+          orphans: phases.orphans || 0,
+          total: totalMs,
+        },
+        rows: {
+          schools: schools.length,
+          provinces: provinces.length,
+          municipalities: municipalities.length,
+          farmers: farmers.length,
+        },
+        memory: memAfter
+          ? {
+              supported: true,
+              usedJSHeapMB: toMB(memAfter.used),
+              deltaJSHeapMB: memBefore ? toMB(memAfter.used - memBefore.used) : undefined,
+              totalJSHeapMB: toMB(memAfter.total),
+              jsHeapLimitMB: toMB(memAfter.limit),
+            }
+          : { supported: false },
+      };
+      pushPerfHistory(perf);
+      // eslint-disable-next-line no-console
+      console.info("[useEscolasAuditoria] perf", perf);
+
       setData({
         duplicates,
         similar,
@@ -372,6 +407,7 @@ export function useEscolasAuditoria() {
           similarPairs: similar.length,
           orphans: orphans.reduce((s, o) => s + o.orphanCount, 0),
         },
+        perf,
       });
     } catch (e) {
       console.error("[useEscolasAuditoria]", e);
