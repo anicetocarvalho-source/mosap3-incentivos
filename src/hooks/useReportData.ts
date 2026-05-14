@@ -38,7 +38,7 @@ export type ProducaoRow = {
 
 async function fetchProducao(filters: ReportFilters): Promise<ProducaoRow[]> {
   const farmers = await fetchAllPages<any>(() => {
-    let q = supabase.from("farmers").select("code, province, school", { count: "exact" }).neq("status", "Removido");
+    let q = supabase.from("farmers").select("code, province, school", { count: "exact" });
     if (!isAll(filters.provincia)) q = q.eq("province", filters.provincia);
     if (!isAll(filters.municipio)) q = q.eq("municipality", filters.municipio);
     if (!isAll(filters.escola)) q = q.eq("school", filters.escola);
@@ -97,7 +97,7 @@ export type PecuariaRow = {
 
 async function fetchPecuaria(filters: ReportFilters): Promise<PecuariaRow[]> {
   const farmers = await fetchAllPages<any>(() => {
-    let q = supabase.from("farmers").select("code, province, school", { count: "exact" }).neq("status", "Removido");
+    let q = supabase.from("farmers").select("code, province, school", { count: "exact" });
     if (!isAll(filters.provincia)) q = q.eq("province", filters.provincia);
     if (!isAll(filters.municipio)) q = q.eq("municipality", filters.municipio);
     if (!isAll(filters.escola)) q = q.eq("school", filters.escola);
@@ -159,7 +159,7 @@ export type AgricultoresRow = {
 
 async function fetchAgricultores(filters: ReportFilters): Promise<AgricultoresRow[]> {
   const data = await fetchAllPages<any>(() => {
-    let q = supabase.from("farmers").select("province, status, created_at", { count: "exact" }).neq("status", "Removido");
+    let q = supabase.from("farmers").select("province, status, created_at", { count: "exact" });
     if (!isAll(filters.provincia)) q = q.eq("province", filters.provincia);
     if (!isAll(filters.municipio)) q = q.eq("municipality", filters.municipio);
     if (!isAll(filters.escola)) q = q.eq("school", filters.escola);
@@ -190,7 +190,7 @@ export type IncentivosRow = {
 
 async function fetchIncentivos(filters: ReportFilters): Promise<IncentivosRow[]> {
   const farmers = await fetchAllPages<any>(() => {
-    let q = supabase.from("farmers").select("code, province, school", { count: "exact" }).neq("status", "Removido");
+    let q = supabase.from("farmers").select("code, province, school", { count: "exact" });
     if (!isAll(filters.provincia)) q = q.eq("province", filters.provincia);
     if (!isAll(filters.municipio)) q = q.eq("municipality", filters.municipio);
     if (!isAll(filters.escola)) q = q.eq("school", filters.escola);
@@ -230,7 +230,7 @@ export type ComprasRow = {
 
 async function fetchCompras(filters: ReportFilters): Promise<ComprasRow[]> {
   const farmers = await fetchAllPages<any>(() => {
-    let q = supabase.from("farmers").select("code, province", { count: "exact" }).neq("status", "Removido");
+    let q = supabase.from("farmers").select("code, province", { count: "exact" });
     if (!isAll(filters.provincia)) q = q.eq("province", filters.provincia);
     if (!isAll(filters.municipio)) q = q.eq("municipality", filters.municipio);
     if (!isAll(filters.escola)) q = q.eq("school", filters.escola);

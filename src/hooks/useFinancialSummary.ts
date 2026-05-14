@@ -37,7 +37,7 @@ const EMPTY: FinancialSummary = {
  * Resumo financeiro agregado dos agricultores filtrados por província e/ou ECA.
  * - Soma valor_recebido, total_gasto e saldo_final (formato PT-AO).
  * - Conta beneficiários (valor_recebido > 0) e calcula taxa de utilização.
- * - Exclui produtores com status = 'Removido'.
+ * - Inclui Removidos (alinhamento com Dashboard global).
  */
 export function useFinancialSummary(filters: FinancialSummaryFilters) {
   const { province, school, enabled = true } = filters;
@@ -52,7 +52,7 @@ export function useFinancialSummary(filters: FinancialSummaryFilters) {
         let q = supabase
           .from("farmers")
           .select("code, valor_recebido, total_gasto", { count: "exact" })
-          .neq("status", "Removido");
+          ;
         if (province) q = q.eq("province", province);
         if (school) q = q.ilike("school", school);
         return q;
