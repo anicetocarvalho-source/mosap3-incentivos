@@ -20,6 +20,7 @@ interface Farmer {
   patec: number | null;
   photo_frontal_url: string | null;
   saldo_final: string | null;
+  sim_status: string | null;
 }
 
 interface Product {
