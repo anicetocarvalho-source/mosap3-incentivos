@@ -26,12 +26,21 @@ import {
 
 const BATCH = 50;
 
+type ValidationReport = {
+  totalRaw: number;
+  invalidRows: import("@/lib/reconciliation").InvalidRow[];
+  duplicateMsisdns: string[];
+  missingByField: Record<import("@/lib/reconciliation").MissingField, number>;
+};
+
 const Mosap3PayReconciliacao = () => {
   const [fileName, setFileName] = useState("");
   const [loading, setLoading] = useState(false);
   const [parsing, setParsing] = useState(false);
   const [xlRows, setXlRows] = useState<ExcelFarmerRow[]>([]);
   const [dbRows, setDbRows] = useState<DbFarmerRow[]>([]);
+  const [validation, setValidation] = useState<ValidationReport | null>(null);
+  const [acceptValidation, setAcceptValidation] = useState(false);
   const [selNew, setSelNew] = useState<Set<string>>(new Set());
   const [selRemove, setSelRemove] = useState<Set<string>>(new Set());
   const [selName, setSelName] = useState<Set<string>>(new Set());
@@ -43,9 +52,10 @@ const Mosap3PayReconciliacao = () => {
   const qc = useQueryClient();
 
   const diffs = useMemo(() => {
+    if (!acceptValidation) return null;
     if (!xlRows.length || !dbRows.length) return null;
     return computeDiffs(dbRows, xlRows);
-  }, [xlRows, dbRows]);
+  }, [xlRows, dbRows, acceptValidation]);
 
   const handleFile = useCallback(async (file: File) => {
     setFileName(file.name);
