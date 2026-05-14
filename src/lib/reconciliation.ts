@@ -255,6 +255,7 @@ export function computeDiffs(db: DbFarmerRow[], xl: ExcelFarmerRow[]) {
   const provinceDiffs: FarmerDiff[] = [];
   const municipalityDiffs: FarmerDiff[] = [];
   const saldoDiffs: FarmerDiff[] = [];
+  const simStatusDiffs: FarmerDiff[] = [];
 
   for (const x of xl) {
     const d = dbByPhone.get(x.msisdn);
