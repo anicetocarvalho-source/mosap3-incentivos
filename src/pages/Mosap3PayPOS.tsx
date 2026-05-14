@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Ban, ShieldAlert, Send } from "lucide-react";
@@ -87,6 +88,7 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
   const [productSearch, setProductSearch] = useState("");
   const [processing, setProcessing] = useState(false);
   const [contactingManager, setContactingManager] = useState(false);
+  const [contactConfirmOpen, setContactConfirmOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [receiptOpen, setReceiptOpen] = useState(false);
   const [lastSaleCode, setLastSaleCode] = useState("");
@@ -1316,7 +1318,7 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
                             size="sm"
                             variant="outline"
                             className="mt-2 h-7 text-xs gap-1.5 bg-background hover:bg-background/80"
-                            onClick={() => contactarGestor(farmer)}
+                            onClick={() => setContactConfirmOpen(true)}
                             disabled={contactingManager}
                           >
                             <Send className="h-3 w-3" />
@@ -1576,6 +1578,48 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
           </div>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={contactConfirmOpen} onOpenChange={setContactConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Send className="h-4 w-4 text-primary" /> Contactar gestor
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2 text-sm">
+                <p>Esta ocorrência será enviada via sino in-app a todos os gestores do sistema. Confirma o envio?</p>
+                {farmer && (() => {
+                  const r = simStatusReason(farmer.sim_status);
+                  return (
+                    <div className="rounded-md border bg-muted/40 p-3 space-y-1 text-xs">
+                      <p><strong>Agricultor:</strong> {farmer.full_name}</p>
+                      <p><strong>Código:</strong> {farmer.code}</p>
+                      {farmer.phone && <p><strong>Telefone:</strong> {farmer.phone}</p>}
+                      <p><strong>Estado do SIM:</strong> {farmer.sim_status}</p>
+                      {r && <p><strong>Motivo:</strong> {r.reason}</p>}
+                    </div>
+                  );
+                })()}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={contactingManager}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={contactingManager || !farmer}
+              onClick={async (e) => {
+                e.preventDefault();
+                if (!farmer) return;
+                await contactarGestor(farmer);
+                setContactConfirmOpen(false);
+              }}
+            >
+              <Send className="h-4 w-4 mr-2" />
+              {contactingManager ? "A enviar…" : "Confirmar e enviar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
