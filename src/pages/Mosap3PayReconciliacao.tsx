@@ -61,22 +61,41 @@ const Mosap3PayReconciliacao = () => {
     setFileName(file.name);
     setParsing(true);
     setLoading(true);
+    setAcceptValidation(false);
+    setValidation(null);
+    setXlRows([]);
+    setDbRows([]);
     try {
       const buf = await file.arrayBuffer();
       const wb = XLSX.read(new Uint8Array(buf), { type: "array" });
       const sheetName = wb.SheetNames.find((n) => n.toLowerCase().includes("detalh")) || wb.SheetNames[0];
       const ws = wb.Sheets[sheetName];
       const json: any[] = XLSX.utils.sheet_to_json(ws, { defval: null });
-      const { rows, headerErrors } = parseSheet(json);
-      if (headerErrors.length) {
-        toast.error(headerErrors.join("; "));
-        setXlRows([]);
+      const parsed = parseSheet(json);
+      if (parsed.headerErrors.length) {
+        toast.error(parsed.headerErrors.join("; "));
         setLoading(false);
         setParsing(false);
         return;
       }
-      setXlRows(rows);
+      setXlRows(parsed.rows);
+      setValidation({
+        totalRaw: parsed.totalRaw,
+        invalidRows: parsed.invalidRows,
+        duplicateMsisdns: parsed.duplicateMsisdns,
+        missingByField: parsed.missingByField,
+      });
       setParsing(false);
+
+      const blocking = parsed.invalidRows.filter((r) => r.blocking).length;
+      const warnings = parsed.invalidRows.length - blocking;
+      if (parsed.invalidRows.length) {
+        toast.warning(
+          `Validação: ${blocking} linha(s) descartada(s), ${warnings} com avisos. Reveja antes de aprovar.`,
+        );
+      } else {
+        toast.success(`${parsed.rows.length} linhas válidas no Excel`);
+      }
 
       // Carrega BD
       toast.info("A carregar dados da base de dados…");
@@ -86,7 +105,6 @@ const Mosap3PayReconciliacao = () => {
           .select("code, full_name, phone, province, municipality, status, saldo_final", { count: "exact" })
       );
       setDbRows(all);
-      toast.success(`${rows.length} linhas no Excel · ${all.length} agricultores na BD`);
     } catch (e: any) {
       toast.error(`Erro a processar: ${e.message || e}`);
     } finally {
