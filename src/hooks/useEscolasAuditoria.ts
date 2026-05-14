@@ -42,6 +42,8 @@ export type AuditoriaResult = {
   };
 };
 
+const KEY_SEP = "\u0001";
+
 export function useEscolasAuditoria() {
   const [data, setData] = useState<AuditoriaResult | null>(null);
   const [loading, setLoading] = useState(true);
@@ -58,158 +60,226 @@ export function useEscolasAuditoria() {
         fetchAllPages<any>(() => supabase.from("provinces").select("id,name", { count: "exact" })),
         fetchAllPages<any>(() => supabase.from("municipalities").select("id,name", { count: "exact" })),
         fetchAllPages<any>(() =>
-          supabase.from("farmers").select("code,full_name,school,province,municipality,status", { count: "exact" }).neq("status", "Removido")
+          supabase
+            .from("farmers")
+            .select("code,full_name,school,province,municipality,status", { count: "exact" })
+            .neq("status", "Removido")
         ),
       ]);
 
-      const provMap = new Map(provinces.map((p) => [p.id, p.name as string]));
-      const munMap = new Map(municipalities.map((m) => [m.id, m.name as string]));
+      const provMap = new Map<string, string>(provinces.map((p) => [p.id, p.name as string]));
+      const munMap = new Map<string, string>(municipalities.map((m) => [m.id, m.name as string]));
 
-      // Index farmers per (normalized school, province, municipality)
-      type FarmerLite = { code: string; name: string; school: string; province: string; municipality: string };
-      const fNorm: FarmerLite[] = farmers.map((f) => ({
-        code: f.code,
-        name: f.full_name,
-        school: normalizeName(f.school),
-        province: normalizeName(f.province),
-        municipality: normalizeName(f.municipality),
-      }));
+      // ── Single pass over farmers: build (school|prov|mun) -> count and (school) -> list of indices
+      // We avoid materializing a normalized parallel array; we keep only what's needed.
+      const triKey = (s: string, p: string, m: string) => s + KEY_SEP + p + KEY_SEP + m;
+      const tripletCount = new Map<string, number>(); // school|prov|mun -> count
+      const farmersBySchool = new Map<string, number[]>(); // schoolNorm -> indices into `farmers`
+      const farmerNormProv: string[] = new Array(farmers.length);
+      const farmerNormMun: string[] = new Array(farmers.length);
 
-      // Group schools by normalized name
-      const byName = new Map<string, any[]>();
-      schools.forEach((s) => {
-        const key = normalizeName(s.name);
-        const arr = byName.get(key) || [];
-        arr.push(s);
-        byName.set(key, arr);
+      for (let i = 0; i < farmers.length; i++) {
+        const f = farmers[i];
+        const sN = normalizeName(f.school);
+        if (!sN) continue;
+        const pN = normalizeName(f.province);
+        const mN = normalizeName(f.municipality);
+        farmerNormProv[i] = pN;
+        farmerNormMun[i] = mN;
+        const k = triKey(sN, pN, mN);
+        tripletCount.set(k, (tripletCount.get(k) || 0) + 1);
+        const arr = farmersBySchool.get(sN);
+        if (arr) arr.push(i);
+        else farmersBySchool.set(sN, [i]);
+      }
+
+      // ── Pre-normalize schools & group by normalized name
+      type SchoolNorm = {
+        s: any;
+        nameN: string;
+        provName: string;
+        munName: string;
+        provN: string;
+        munN: string;
+      };
+      const schoolsN: SchoolNorm[] = schools.map((s) => {
+        const provName = provMap.get(s.province_id) || "";
+        const munName = munMap.get(s.municipality_id) || "";
+        return {
+          s,
+          nameN: normalizeName(s.name),
+          provName,
+          munName,
+          provN: normalizeName(provName),
+          munN: normalizeName(munName),
+        };
       });
 
-      // Tab A — exact duplicates
-      const duplicates: DuplicateRow[] = [];
-      byName.forEach((group) => {
-        if (group.length < 2) return;
-        group.forEach((s) => {
-          const provinceName = provMap.get(s.province_id) || "";
-          const municipalityName = munMap.get(s.municipality_id) || "";
-          const sN = normalizeName(s.name);
-          const pN = normalizeName(provinceName);
-          const mN = normalizeName(municipalityName);
-          const real = fNorm.filter((f) => {
-            if (f.school !== sN) return false;
-            if (pN && f.province !== pN) return false;
-            if (mN && f.municipality !== mN) return false;
-            return true;
-          }).length;
-          duplicates.push({
-            schoolId: s.id,
-            name: s.name,
-            province: provinceName,
-            municipality: municipalityName,
-            village: s.village,
-            real,
-            cached: s.total_farmers || 0,
-            delta: real - (s.total_farmers || 0),
-            ok: real === (s.total_farmers || 0),
-          });
-        });
-      });
-      duplicates.sort((a, b) =>
-        a.name.localeCompare(b.name) || a.province.localeCompare(b.province) || a.municipality.localeCompare(b.municipality)
-      );
+      const byName = new Map<string, SchoolNorm[]>();
+      for (const sn of schoolsN) {
+        if (!sn.nameN) continue;
+        const arr = byName.get(sn.nameN);
+        if (arr) arr.push(sn);
+        else byName.set(sn.nameN, [sn]);
+      }
 
-      // Helper: count farmers per school row (for similar pairs)
-      const countFor = (s: any) => {
-        const sN = normalizeName(s.name);
-        const pN = normalizeName(provMap.get(s.province_id) || "");
-        const mN = normalizeName(munMap.get(s.municipality_id) || "");
-        return fNorm.filter((f) => f.school === sN && (!pN || f.province === pN) && (!mN || f.municipality === mN)).length;
+      // Helper for any school's real farmer count using triplet map (with fallback when prov/mun empty)
+      const realCount = (sn: SchoolNorm): number => {
+        if (sn.provN && sn.munN) return tripletCount.get(triKey(sn.nameN, sn.provN, sn.munN)) || 0;
+        // Fallback: scan only farmers of this school name (rare path)
+        const idxs = farmersBySchool.get(sn.nameN);
+        if (!idxs) return 0;
+        let c = 0;
+        for (const i of idxs) {
+          if (sn.provN && farmerNormProv[i] !== sn.provN) continue;
+          if (sn.munN && farmerNormMun[i] !== sn.munN) continue;
+          c++;
+        }
+        return c;
       };
 
-      // Tab B — similar names (different normalized names but close)
-      const uniqueNames = [...byName.keys()].filter(Boolean);
+      // ── Tab A: exact duplicates
+      const duplicates: DuplicateRow[] = [];
+      for (const group of byName.values()) {
+        if (group.length < 2) continue;
+        for (const sn of group) {
+          const real = realCount(sn);
+          const cached = sn.s.total_farmers || 0;
+          duplicates.push({
+            schoolId: sn.s.id,
+            name: sn.s.name,
+            province: sn.provName,
+            municipality: sn.munName,
+            village: sn.s.village,
+            real,
+            cached,
+            delta: real - cached,
+            ok: real === cached,
+          });
+        }
+      }
+      duplicates.sort(
+        (a, b) =>
+          a.name.localeCompare(b.name) ||
+          a.province.localeCompare(b.province) ||
+          a.municipality.localeCompare(b.municipality)
+      );
+
+      // Cache farmer counts per school id (used by similar tab)
+      const countById = new Map<string, number>();
+      for (const sn of schoolsN) countById.set(sn.s.id, realCount(sn));
+
+      // ── Tab B: similar names — bucket by length to avoid O(N²) full scan
+      const uniqueNames = [...byName.keys()];
+      uniqueNames.sort();
+      const byLen = new Map<number, string[]>();
+      for (const n of uniqueNames) {
+        const arr = byLen.get(n.length);
+        if (arr) arr.push(n);
+        else byLen.set(n.length, [n]);
+      }
+
       const similar: SimilarPair[] = [];
       const seenPair = new Set<string>();
-      for (let i = 0; i < uniqueNames.length; i++) {
-        for (let j = i + 1; j < uniqueNames.length; j++) {
-          const x = uniqueNames[i];
-          const y = uniqueNames[j];
-          let reason: SimilarPair["reason"] | null = null;
-          let distance = 0;
-          if (x === y) {
-            reason = "normalized_equal";
-          } else if (Math.abs(x.length - y.length) <= 8 && (x.includes(y) || y.includes(x)) && Math.min(x.length, y.length) >= 4) {
-            reason = "containment";
-            distance = Math.abs(x.length - y.length);
-          } else if (Math.abs(x.length - y.length) <= 2) {
-            const d = levenshtein(x, y);
-            if (d <= 2 && d > 0) {
-              reason = "levenshtein";
-              distance = d;
-            }
+
+      const buildPairs = (xName: string, yName: string, reason: SimilarPair["reason"], distance: number) => {
+        const groupX = byName.get(xName)!;
+        const groupY = byName.get(yName)!;
+        for (const sa of groupX) {
+          for (const sb of groupY) {
+            const k = sa.s.id < sb.s.id ? sa.s.id + "|" + sb.s.id : sb.s.id + "|" + sa.s.id;
+            if (seenPair.has(k)) continue;
+            seenPair.add(k);
+            similar.push({
+              a: {
+                id: sa.s.id,
+                name: sa.s.name,
+                province: sa.provName,
+                municipality: sa.munName,
+                farmers: countById.get(sa.s.id) || 0,
+              },
+              b: {
+                id: sb.s.id,
+                name: sb.s.name,
+                province: sb.provName,
+                municipality: sb.munName,
+                farmers: countById.get(sb.s.id) || 0,
+              },
+              distance,
+              reason,
+            });
           }
-          if (!reason) continue;
-          // Build pair from each school in group X × group Y (cap to first 1)
-          const groupX = byName.get(x)!;
-          const groupY = byName.get(y)!;
-          for (const sa of groupX) {
-            for (const sb of groupY) {
-              const k = [sa.id, sb.id].sort().join("|");
-              if (seenPair.has(k)) continue;
-              seenPair.add(k);
-              similar.push({
-                a: {
-                  id: sa.id,
-                  name: sa.name,
-                  province: provMap.get(sa.province_id) || "",
-                  municipality: munMap.get(sa.municipality_id) || "",
-                  farmers: countFor(sa),
-                },
-                b: {
-                  id: sb.id,
-                  name: sb.name,
-                  province: provMap.get(sb.province_id) || "",
-                  municipality: munMap.get(sb.municipality_id) || "",
-                  farmers: countFor(sb),
-                },
-                distance,
-                reason,
-              });
+        }
+      };
+
+      // Levenshtein ≤ 2 → only compare names with |len diff| ≤ 2
+      for (const [len, names] of byLen) {
+        for (const otherLen of [len, len + 1, len + 2]) {
+          const others = byLen.get(otherLen);
+          if (!others) continue;
+          const sameBucket = otherLen === len;
+          for (let i = 0; i < names.length; i++) {
+            const x = names[i];
+            const startJ = sameBucket ? i + 1 : 0;
+            for (let j = startJ; j < others.length; j++) {
+              const y = others[j];
+              if (x === y) continue;
+              const d = levenshtein(x, y);
+              if (d > 0 && d <= 2) buildPairs(x, y, "levenshtein", d);
             }
           }
         }
       }
+
+      // Containment: shorter name ⊂ longer name (only when not already similar)
+      // Use a sorted-by-length list to compare each shorter name against longer ones.
+      const namesByLen = uniqueNames.slice().sort((a, b) => a.length - b.length);
+      for (let i = 0; i < namesByLen.length; i++) {
+        const x = namesByLen[i];
+        if (x.length < 4) continue;
+        for (let j = i + 1; j < namesByLen.length; j++) {
+          const y = namesByLen[j];
+          if (y.length - x.length > 8) break;
+          if (y.length === x.length) continue;
+          if (y.includes(x)) buildPairs(x, y, "containment", y.length - x.length);
+        }
+      }
+
       similar.sort((a, b) => a.distance - b.distance || a.a.name.localeCompare(b.a.name));
 
-      // Tab C — orphans: farmers whose school name matches some school but province/municipality don't match ANY school with that name
+      // ── Tab C: orphans — single pass per school name using the index built earlier
       const orphans: OrphanRow[] = [];
-      byName.forEach((group, key) => {
-        if (!key) return;
-        const acceptableLocations = new Set(
-          group.map(
-            (s) => `${normalizeName(provMap.get(s.province_id) || "")}|${normalizeName(munMap.get(s.municipality_id) || "")}`
-          )
-        );
-        const orphFarmers = farmers.filter((f) => {
-          if (normalizeName(f.school) !== key) return false;
-          const loc = `${normalizeName(f.province)}|${normalizeName(f.municipality)}`;
-          return !acceptableLocations.has(loc);
-        });
-        if (orphFarmers.length > 0) {
-          orphans.push({
-            schoolName: group[0].name,
-            orphanCount: orphFarmers.length,
-            examples: orphFarmers.slice(0, 5).map((f) => ({
+      for (const [key, group] of byName) {
+        const idxs = farmersBySchool.get(key);
+        if (!idxs || idxs.length === 0) continue;
+
+        // Allowed (province|municipality) tuples for this school name
+        const allowed = new Set<string>();
+        for (const sn of group) allowed.add(sn.provN + KEY_SEP + sn.munN);
+
+        let count = 0;
+        const examples: OrphanRow["examples"] = [];
+        for (const i of idxs) {
+          const loc = farmerNormProv[i] + KEY_SEP + farmerNormMun[i];
+          if (allowed.has(loc)) continue;
+          count++;
+          if (examples.length < 5) {
+            const f = farmers[i];
+            examples.push({
               code: f.code,
               name: f.full_name,
               province: f.province || "",
               municipality: f.municipality || "",
-            })),
-          });
+            });
+          }
         }
-      });
+        if (count > 0) {
+          orphans.push({ schoolName: group[0].s.name, orphanCount: count, examples });
+        }
+      }
       orphans.sort((a, b) => b.orphanCount - a.orphanCount);
 
-      const duplicateNames = [...byName.values()].filter((g) => g.length > 1).length;
+      const duplicateNames = [...byName.values()].reduce((n, g) => n + (g.length > 1 ? 1 : 0), 0);
       setData({
         duplicates,
         similar,
@@ -218,7 +288,7 @@ export function useEscolasAuditoria() {
           schools: schools.length,
           duplicateNames,
           duplicateRows: duplicates.length,
-          discrepant: duplicates.filter((d) => !d.ok).length,
+          discrepant: duplicates.reduce((n, d) => n + (d.ok ? 0 : 1), 0),
           similarPairs: similar.length,
           orphans: orphans.reduce((s, o) => s + o.orphanCount, 0),
         },
