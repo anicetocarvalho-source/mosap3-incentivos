@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, Search, Download, Loader2, Filter } from "lucide-react";
+import { Link } from "react-router-dom";
+import { AlertTriangle, Search, Download, Loader2, Filter, Eye, ExternalLink, History } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -10,6 +11,9 @@ import { Badge } from "@/components/ui/badge";
 import { SimStatusBadge } from "@/components/cartoes-sim/SimStatusBadge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Separator } from "@/components/ui/separator";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { format } from "date-fns";
 import { pt } from "date-fns/locale";
 import { CalendarIcon } from "lucide-react";
