@@ -111,7 +111,7 @@ const Dashboard = () => {
           <KpiCard
             title="Produtores"
             value={formatNumber(stats.totalFarmers)}
-            subtitle={`${formatNumber(stats.totalApproved)} aprovados`}
+            subtitle={`do total de ${formatNumber(18000)}`}
             icon={Users}
             accent="primary"
             delay={0.05}
