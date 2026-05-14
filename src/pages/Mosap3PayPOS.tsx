@@ -1260,15 +1260,27 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
                       {farmerBalance <= 0 && (
                         <p className="text-[10px] text-destructive font-medium">⚠ Sem saldo — compras bloqueadas</p>
                       )}
-                      {isSimBlocked(farmer.sim_status) && (
-                        <p className="text-[10px] text-destructive font-bold">⛔ SIM {farmer.sim_status} — venda bloqueada</p>
-                      )}
-                      {farmer.sim_status === "Pré desactivado" && (
-                        <p className="text-[10px] text-warning font-medium">⚠ SIM Pré desactivado</p>
-                      )}
                     </div>
                   </div>
                 )}
+                {farmer && (isSimBlocked(farmer.sim_status) || farmer.sim_status === "Pré desactivado") && (() => {
+                  const r = simStatusReason(farmer.sim_status);
+                  if (!r) return null;
+                  const blocked = isSimBlocked(farmer.sim_status);
+                  return (
+                    <Alert variant={blocked ? "destructive" : "default"} className={`mt-3 ${blocked ? "" : "border-warning bg-warning/10 text-warning-foreground"}`}>
+                      {blocked ? <Ban className="h-4 w-4" /> : <ShieldAlert className="h-4 w-4 text-warning" />}
+                      <AlertTitle className="font-bold">
+                        {blocked ? "⛔ Venda recusada — " : "⚠ Atenção — "}{r.title}
+                      </AlertTitle>
+                      <AlertDescription className="text-xs space-y-1 mt-1">
+                        <p><strong>Estado do SIM:</strong> {farmer.sim_status}</p>
+                        <p><strong>Motivo:</strong> {r.reason}</p>
+                        <p><strong>Recomendação:</strong> {r.recomendacao}</p>
+                      </AlertDescription>
+                    </Alert>
+                  );
+                })()}
               </CardContent>
             </Card>
 
