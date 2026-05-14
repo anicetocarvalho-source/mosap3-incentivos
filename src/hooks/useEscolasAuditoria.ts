@@ -242,6 +242,7 @@ export function useEscolasAuditoria() {
           a.province.localeCompare(b.province) ||
           a.municipality.localeCompare(b.municipality)
       );
+      mark("duplicates");
 
       // Cache farmer counts per school id (used by similar tab)
       const countById = new Map<string, number>();
