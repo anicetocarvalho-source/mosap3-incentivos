@@ -141,6 +141,7 @@ export function useEscolasAuditoria() {
             .neq("status", "Removido")
         ),
       ]);
+      mark("fetch");
 
       const provMap = new Map<string, string>(provinces.map((p) => [p.id, p.name as string]));
       const munMap = new Map<string, string>(municipalities.map((m) => [m.id, m.name as string]));
