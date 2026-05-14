@@ -9,6 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { useProvincesData } from "@/hooks/useProvincesData";
 import { ValidateSchoolCountsButton } from "@/components/escolas/ValidateSchoolCountsButton";
+import { Button } from "@/components/ui/button";
+import { ShieldCheck } from "lucide-react";
 
 /* ─── Angola province approximate center coords for the map ─── */
 const PROVINCE_COORDS: Record<string, [number, number]> = {
@@ -206,7 +208,15 @@ const EscolasCampo = () => {
             Gestão e acompanhamento das escolas de campo por província
           </p>
         </div>
-        <ValidateSchoolCountsButton />
+        <div className="flex gap-2">
+          <ValidateSchoolCountsButton />
+          <Button asChild variant="outline" size="sm" className="gap-2">
+            <Link to="/escolas/auditoria">
+              <ShieldCheck className="h-4 w-4" />
+              Auditoria
+            </Link>
+          </Button>
+        </div>
       </div>
 
       {/* Stats row */}

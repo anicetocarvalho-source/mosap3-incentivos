@@ -1,35 +1,73 @@
-## Diagnóstico
+# Auditoria de ECAs (Escolas de Campo)
 
-A escola que está a abrir é **"1 De Maio" — Balombo / Benguela** (id `6b5c61…08caa`).
+## Contexto
 
-Na base de dados existem **três escolas com o mesmo nome "1 De Maio"** em municípios diferentes:
+A correcção feita em `useSchoolDetail` resolveu o caso "1 De Maio" (Balombo). Mas a base de dados tem:
 
-| Província | Município | Produtores |
-|---|---|---|
-| Benguela | **Cubal** | 56 |
-| Benguela | **Balombo** | 20 |
-| Huíla | Quipungo | 45 |
+- **38 nomes de escolas duplicados** distribuídos por **89 registos** (ex.: `Boa Esperanca` aparece 5×, `4 De Abril` e `Boa Vida` 4×, `1 De Maio`, `4 De Fevereiro`, `Elavoko`, `Rei Mandume`, `Tuapandula`, `Tuayovoka` 3× cada).
+- **Nomes muito parecidos** que provavelmente são a mesma escola escrita de forma diferente (ex.: `Elavoko` vs `Elavoco`, `Tuapandula` vs `Twapandula`, `Tuayovoka` vs `Twayovoka`, `Uniao Faz A Forca` vs `A Uniao Faz A Forca`, `Santo  Antonio` com espaço duplo, `Kuatoko` vs `Kuatoko Namukueno`).
 
-O hook `useSchoolDetail` filtra os produtores por **nome da escola + província**, mas **ignora o município**. Resultado: para a escola de Balombo soma também os 56 produtores de Cubal → **76**. O número correcto é **20**.
+O botão `Validar contagens` na página `/escolas` já cobre o **caso 1** (duplicados exactos). Falta cobrir os **casos restantes** e tornar a auditoria navegável.
 
-A causa é a tabela `farmers` guardar a escola como texto (`school`) sem `school_id`, e o filtro actual só comparar `school` + `province`.
+## O que vou construir
 
-## Correcção
+### 1. Página dedicada `/escolas/auditoria`
 
-1. **`src/hooks/useSchoolDetail.ts`**
-   - Adicionar comparação por município à query de produtores: além de `school` e `province`, exigir que `farmers.municipality` (normalizado, lowercase, trim) seja igual ao município da escola obtido via `municipalities`.
-   - Manter `.ilike("school", dbSchool.name)` na query Supabase e reforçar com filtro no cliente (igual ao padrão actual) incluindo agora o município.
-   - Tratar caso em que `farmers.municipality` está vazio: nesse caso, não incluir o produtor (evita arrastar duplicados sem município definido para a escola errada).
+Acessível via novo botão **"Auditoria"** no cabeçalho de `/escolas` (ao lado de "Validar contagens"). Apenas para Admin / Gestor de Incentivos.
 
-2. **Confirmação visual**
-   - Após a correcção, abrir `/escolas/6b5c6129-…` deve mostrar 20 produtores.
-   - As outras duas escolas com nome "1 De Maio" (Cubal e Quipungo) continuam a mostrar 56 e 45 respectivamente.
+Estrutura em **3 separadores**:
 
-## Fora do âmbito
+#### Tab A — Duplicados exactos (mesmo nome)
+Lista as 89 escolas com nome repetido, agrupadas por nome:
 
-- **Não** vou recalcular nem actualizar a coluna `schools.total_farmers` (usada nas listas `/escolas` e `/escolas/provincia/...`). Posso fazê-lo num passo seguinte se quiser que os contadores das listas também fiquem correctos — diga.
-- **Não** vou introduzir `school_id` na tabela `farmers` (mudança estrutural maior).
+| Nome | Província | Município | Real | Cache | Δ | Estado | Ações |
+|---|---|---|---:|---:|---:|---|---|
+| 1 De Maio | Benguela | Balombo | 20 | 76 | −56 | ⚠️ | Abrir ECA |
 
-## Ficheiros alterados
+- "Real" = produtores filtrados por `school + province + município` (mesma lógica de `useSchoolDetail`).
+- "Cache" = `schools.total_farmers`.
+- Linha vermelha quando `Real ≠ Cache`.
+- Resumo no topo: total de ECAs auditadas, total com discrepância, somatório de produtores "perdidos/sobrantes".
 
-- `src/hooks/useSchoolDetail.ts` (filtro de produtores)
+#### Tab B — Nomes similares (potenciais duplicados ortográficos)
+Compara todos os nomes de escolas par a par (após normalização: minúsculas, sem acentos, espaços colapsados) e mostra pares com:
+- distância de Levenshtein ≤ 2, **ou**
+- um nome contido no outro (ex.: `Kuatoko` ⊂ `Kuatoko Namukueno`), **ou**
+- igualdade após colapsar espaços/acentos (apanha o caso `Santo  Antonio`).
+
+Tabela:
+
+| Nome A (Município/Província) | Nome B (Município/Província) | Distância | Nº produtores A | Nº produtores B | Ação |
+|---|---|---:|---:|---:|---|
+| Elavoko (Cuvango/Huíla) | Elavoco (Cuvango/Huíla) | 1 | 12 | 8 | Abrir ambas |
+
+Útil para o utilizador decidir se são a mesma ECA mal escrita.
+
+#### Tab C — Produtores "órfãos" por escola
+Para cada ECA, conta produtores cujo `farmers.school` bate com o nome mas o `province` ou `municipality` não bate com nenhuma das ECAs com esse nome — ou seja, produtores que nunca aparecem em nenhum detalhe de ECA. Mostra apenas linhas com órfãos > 0.
+
+### 2. Exportação
+Botão **"Exportar CSV"** em cada tab para enviar ao Gestor de Incentivos.
+
+### 3. Não vou (fora de âmbito)
+- **Não** vou fundir/renomear escolas automaticamente — só sinalizar.
+- **Não** vou actualizar a coluna `schools.total_farmers` (continua a ser o cache informativo das listagens). Se quiser, faço num passo seguinte um botão "Recalcular caches" que corre uma query `UPDATE schools SET total_farmers = ...`.
+- **Não** vou introduzir `school_id` em `farmers` (mudança estrutural maior).
+
+## Detalhes técnicos
+
+- Nova rota `src/pages/EscolasAuditoria.tsx` registada em `src/App.tsx` dentro do `ProtectedRoute` + `RoleGuard` (`admin`, `gestor_incentivos`).
+- Novo hook `src/hooks/useEscolasAuditoria.ts` que carrega numa só passagem: `schools` + `provinces` + `municipalities` + `farmers` (apenas colunas necessárias, paginação via `fetchAllPages`) e devolve já as 3 estruturas de dados das tabs.
+- Função utilitária `src/lib/stringSimilarity.ts` com `normalize()` (lowercase + `normalize("NFD")` + remoção de diacríticos + colapso de espaços) e `levenshtein(a,b)` (implementação O(n·m) em ~30 linhas, suficiente para ~máx. 500 escolas → 125k pares ainda no cliente).
+- Botão "Auditoria" adicionado em `src/pages/EscolasCampo.tsx` ao lado de `ValidateSchoolCountsButton`.
+- Reutiliza componentes shadcn (`Tabs`, `Table`, `Badge`, `Button`).
+
+## Ficheiros a alterar / criar
+
+- criar `src/pages/EscolasAuditoria.tsx`
+- criar `src/hooks/useEscolasAuditoria.ts`
+- criar `src/lib/stringSimilarity.ts`
+- editar `src/App.tsx` (rota nova)
+- editar `src/pages/EscolasCampo.tsx` (botão "Auditoria")
+
+Confirma e implemento.
