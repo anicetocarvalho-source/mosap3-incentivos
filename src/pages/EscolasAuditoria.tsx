@@ -106,6 +106,50 @@ const EscolasAuditoria = () => {
         ))}
       </div>
 
+      {data.perf && (
+        <Card className="overflow-hidden">
+          <button
+            onClick={() => setShowPerf((v) => !v)}
+            className="w-full flex items-center justify-between px-4 py-2 hover:bg-muted/50 transition-colors"
+          >
+            <div className="flex items-center gap-2 text-sm flex-wrap">
+              <Gauge className="h-4 w-4 text-info" />
+              <span className="font-medium">Performance</span>
+              <Badge variant="outline" className="font-mono">
+                {data.perf.phases.total.toFixed(0)} ms
+              </Badge>
+              {data.perf.memory.supported && data.perf.memory.usedJSHeapMB != null && (
+                <Badge variant="outline" className="font-mono">
+                  {data.perf.memory.usedJSHeapMB} MB
+                  {data.perf.memory.deltaJSHeapMB != null && (
+                    <span className={data.perf.memory.deltaJSHeapMB >= 0 ? "text-warning ml-1" : "text-success ml-1"}>
+                      ({data.perf.memory.deltaJSHeapMB >= 0 ? "+" : ""}
+                      {data.perf.memory.deltaJSHeapMB})
+                    </span>
+                  )}
+                </Badge>
+              )}
+              <span className="text-xs text-muted-foreground">
+                {data.perf.rows.farmers.toLocaleString("pt-AO")} produtores · {data.perf.rows.schools} escolas
+              </span>
+            </div>
+            {showPerf ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          </button>
+          {showPerf && (
+            <div className="border-t p-4 space-y-4">
+              <PerfPhasesTable perf={data.perf} />
+              <PerfHistoryTable
+                history={history}
+                onClear={() => {
+                  clearAuditoriaPerfHistory();
+                  setHistoryTick((t) => t + 1);
+                }}
+              />
+            </div>
+          )}
+        </Card>
+      )}
+
       <Tabs defaultValue="duplicates">
         <TabsList>
           <TabsTrigger value="duplicates">Duplicados ({totals.duplicateRows})</TabsTrigger>
