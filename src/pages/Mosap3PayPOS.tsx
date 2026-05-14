@@ -277,6 +277,26 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
     }
   };
 
+  const loadManagers = async () => {
+    setManagersLoading(true);
+    try {
+      const { data, error } = await supabase.rpc("list_backoffice_managers", { _role: null });
+      if (error) throw error;
+      setManagers((data ?? []) as any);
+    } catch (e) {
+      console.warn("loadManagers failed", e);
+      setManagers([]);
+    } finally {
+      setManagersLoading(false);
+    }
+  };
+
+  const filteredManagers = managerRoleFilter === "__all__"
+    ? managers
+    : managers.filter((m) => m.role === managerRoleFilter);
+
+  const availableManagerRoles = Array.from(new Set(managers.map((m) => m.role))).sort();
+
   const contactarGestor = async (f: Farmer) => {
     const r = simStatusReason(f.sim_status);
     if (!r) return;
@@ -284,9 +304,11 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
     try {
       const title = `⛔ Apoio solicitado — SIM ${f.sim_status}`;
       const body = `Operador POS sinalizou bloqueio: agricultor ${f.full_name} (${f.code})${f.phone ? ` · Tel: ${f.phone}` : ""}. Motivo: ${r.reason}`;
-      const { error } = await supabase.rpc("notify_all_users", {
+      const roleArg = managerRoleFilter === "__all__" ? null : managerRoleFilter;
+      const { data: count, error } = await supabase.rpc("notify_users_by_role", {
         _title: title,
         _body: body,
+        _role: roleArg,
         _category: "cartoes_sim",
         _entity_type: "farmer",
         _entity_id: f.code,
@@ -297,11 +319,11 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
           action: "pos_contact_manager_sim_blocked",
           entity_type: "farmer",
           entity_id: f.code,
-          details: { sim_status: f.sim_status, farmer_name: f.full_name, phone: f.phone, reason: r.reason } as any,
+          details: { sim_status: f.sim_status, farmer_name: f.full_name, phone: f.phone, reason: r.reason, role_filter: roleArg, recipients: count } as any,
         });
       } catch {}
-      toast.success("Gestores notificados", {
-        description: `Ocorrência do agricultor ${f.code} enviada via sino in-app.`,
+      toast.success(`${count ?? 0} gestor(es) notificado(s)`, {
+        description: `Ocorrência do agricultor ${f.code} enviada via sino in-app${roleArg ? ` (função: ${roleArg})` : ""}.`,
       });
     } catch (e: any) {
       toast.error("Não foi possível notificar os gestores", { description: e?.message ?? String(e) });
@@ -309,6 +331,7 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
       setContactingManager(false);
     }
   };
+
   const notifySimBlockedFarmer = async (
     f: Farmer,
     event: "identificacao_pos" | "tentativa_pagamento"
