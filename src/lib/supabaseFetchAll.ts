@@ -47,3 +47,30 @@ export async function fetchAllPages<T>(
 
   return all;
 }
+
+/**
+ * Versão "streaming" — chama `onPage(rows, pageIdx, totalPages)` para cada página
+ * sem nunca acumular todos os dados em memória. Páginas são processadas
+ * sequencialmente para garantir back-pressure (a CPU consome antes da próxima
+ * descarga). Ideal para datasets grandes onde só interessam agregados.
+ */
+export async function streamAllPages<T>(
+  buildQuery: () => any,
+  onPage: (rows: T[], pageIdx: number, totalPages: number) => void | Promise<void>,
+  pageSize: number = PAGE_SIZE
+): Promise<{ totalRows: number; pages: number }> {
+  const first = await buildQuery().range(0, pageSize - 1);
+  if (first.error) throw first.error;
+  const total = (first.count as number | null) ?? (first.data?.length ?? 0);
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  await onPage((first.data as T[]) || [], 0, totalPages);
+
+  for (let pageIdx = 1; pageIdx < totalPages; pageIdx++) {
+    const from = pageIdx * pageSize;
+    const to = from + pageSize - 1;
+    const res = await buildQuery().range(from, to);
+    if (res.error) throw res.error;
+    await onPage((res.data as T[]) || [], pageIdx, totalPages);
+  }
+  return { totalRows: total, pages: totalPages };
+}
