@@ -1,0 +1,1 @@
+ALTER TABLE public.farmers ENABLE TRIGGER trg_on_sim_status_changed;

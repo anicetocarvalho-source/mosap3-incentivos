@@ -1,60 +1,44 @@
-## Objectivo
+## Diagnóstico
 
-Criar testes automáticos de paridade entre o módulo de **Relatórios** (`useReportData`) e a **Lista de Agricultores** (`useFarmersList` / `applyFarmerScopeFilter`), garantindo que ambos partem do mesmo universo de produtores e que a regra "Removidos contam em todos os agregados" se mantém no tempo.
+Confirmei na BD: **15.166 agricultores** todos com `sim_status = 'Desconhecido'`. O ficheiro Excel `ALL_MOSAP_003-2.xlsx` (folha **"Detalhe"**) traz exactamente **15.166 linhas** com a coluna **STATUS** preenchida:
 
-## Contexto
+- `Activo` → 13.741
+- `Pendente` → 1.425
 
-- `src/hooks/useReportData.ts` já não aplica `.neq("status","Removido")` em nenhum dos 5 relatórios (Produção, Pecuária, Agricultores, Incentivos, Compras).
-- A Lista (`/agricultores`) continua a esconder Removidos por defeito (opt‑in via `includeRemoved`).
-- Já existem `dashboard-list-parity.test.ts` e `financial-summary-parity.test.ts`. Falta cobrir Relatórios.
+A página `/mosap3pay/cartoes-sim` mostra tudo "Desconhecido" porque os dados nunca foram importados. Além disso, exclui Removidos (linha 63: `excludeEq: { column: "status", value: "Removido" }`) — viola a regra de Core "Removidos contam em todos os agregados".
 
-## Ficheiro novo: `src/test/reports-list-parity.test.ts`
+A constraint actual de `sim_status` é `('Activo','Removido','Barrado','Pré desactivado','Desconhecido')` — não inclui `Pendente`, que é o valor real devolvido pelo operador para 1.425 SIMs.
 
-Mock partilhado do cliente Supabase com dataset determinístico (~150 produtores em 3 províncias activas + 1 província só com Removidos), `farmer_parcels`, `farmer_production`, `livestock`, `livestock_production`, `farmer_incentives`, `farmer_transactions`. Os datasets reutilizam o helper já usado em `financial-summary-parity.test.ts` (mesma estrutura de mock chainable).
+## Plano
 
-Casos de teste:
+### 1. Migration — alargar enum de `sim_status`
 
-1. **Produção (`producao_provincia`)** inclui Removidos
-   - Soma de `agricultores` em todas as linhas == total da Lista com `includeRemoved: true`.
-   - Província só com Removidos aparece no relatório com `agricultores > 0`.
+- Adicionar `'Pendente'` à `farmers_sim_status_check`.
+- Actualizar `farmers_sim_kpis()` RPC para devolver também `pendente` e contar TODOS os agricultores (sem `.neq Removido`, já é o caso).
 
-2. **Pecuária (`pecuaria_provincia`)** inclui Removidos
-   - Produtores únicos com livestock incluem códigos de Removidos.
+### 2. Importação do Excel para a BD (one-shot via insert tool)
 
-3. **Agricultores por estado (`agricultores_estado`)**
-   - `Σ row.total` == Lista com `includeRemoved: true`.
-   - `Σ row.total` − Lista com `includeRemoved: false` == nº de Removidos.
-   - Filtro `estado = "Removido"` devolve apenas Removidos e bate com Lista filtrada por status.
+- Copiar `ALL_MOSAP_003-2.xlsx` para `/tmp`, ler folha "Detalhe", extrair `MSISDN` + `STATUS`.
+- Gerar `UPDATE public.farmers SET sim_status = ?, sim_status_source = 'operadora_unitel', sim_status_updated_at = now() WHERE phone = ?` em blocos de 50 (regra Core).
+- Estados aceites: `Activo`, `Pendente`. Qualquer outro → `Desconhecido`.
+- Trigger existente `on_sim_status_changed` regista automaticamente em `sim_status_history` cada alteração.
+- Reportar no fim: nº de matches, nº de telefones do Excel sem agricultor correspondente, contagem final por estado.
 
-4. **Incentivos (`incentivos_distribuidos`)**
-   - `Σ beneficiarios` ⊆ universo de produtores incluindo Removidos.
-   - `Σ totalKz` == soma directa dos `farmer_incentives.amount` no mock (sem exclusão).
+### 3. Frontend — `src/pages/Mosap3PayCartoesSim.tsx`
 
-5. **Compras (`compras_transacoes`)**
-   - `Σ transacoes` e `Σ volumeKz` == totais directos do mock, incluindo transacções de Removidos.
+- **Remover** `excludeEq: { column: "status", value: "Removido" }` (linha 63) → tabela passa a mostrar 15.166.
+- **Remover** `.neq("status", "Removido")` no `exportCsv` (linha 98).
+- Adicionar KPI card **"Pendente"** (5→6 cards, ajustar grid para `md:grid-cols-6`).
+- Adicionar `'Pendente'` em `SIM_STATUSES` (`src/lib/reconciliation.ts`).
+- Adicionar variante `'Pendente'` em `SimStatusBadge` (cor `warning`).
 
-6. **Cross‑source: Relatórios vs Lista (admin global)**
-   - `fetchAgricultores({all})` total == `useFarmersList({includeRemoved:true})` count.
-   - `fetchAgricultores({all}).total − useFarmersList({includeRemoved:false}).count == nº Removidos`.
+### 4. Validação
 
-7. **Filtro geográfico cascata**
-   - `fetchAgricultores({provincia:"Huíla"})` == Lista filtrada por `province=Huíla` (com Removidos).
+- Query final: `select sim_status, count(*) from farmers group by 1` → soma deve dar 15.166.
+- Página deve mostrar "15 166 resultados" no rodapé e os 6 KPIs devem somar 15.166.
 
-8. **Guarda‑costas anti‑regressão**
-   - Inspecciona o código fonte de `useReportData.ts` (lê o ficheiro com `fs`) e falha se reaparecer `.neq("status", "Removido")` em qualquer das 5 funções `fetch*`. Isto trava reintroduções acidentais mesmo sem dados.
+## Fora de âmbito
 
-## Pequena extensão: `src/test/dashboard-list-parity.test.ts`
-
-Adicionar 1 teste cruzado:
-- `dashboard_kpis.total_farmers` == `Σ fetchAgricultores().total` (relatório agricultores_estado sem filtros).
-
-## O que **não** muda
-
-- Sem alterações a `useReportData.ts`, `useFinancialSummary.ts`, `EcaBalanceTable.tsx` ou a qualquer componente de UI/SQL/RLS.
-- Sem alterações às páginas que legitimamente excluem Removidos (`Producao.tsx`, `Parcelas.tsx`, `Incentivos.tsx`, `Mosap3PayCartoesSim.tsx`, `useEscolasAuditoria.ts`, `useSchoolDetail.ts`, `Agricultores.tsx`) — são selectors/dropdowns ou auditorias ECA, fora do âmbito de agregados financeiros/produtivos.
-
-## Resultado esperado
-
-- 8 novos testes em `reports-list-parity.test.ts` + 1 cruzado em `dashboard-list-parity.test.ts`.
-- Suíte total: 33 → ~42 testes, todos a passar.
-- Qualquer reintrodução futura de `.neq("status","Removido")` em `useReportData.ts` falha imediatamente em CI.
+- Não mexer em `useReportData`, financeiros, Dashboard global (já alinhados na sessão anterior).
+- Não tocar em RLS nem auth.
+- Não alterar lógica de reconciliação (`src/lib/reconciliation.ts` para além do enum).
