@@ -342,6 +342,9 @@ const Mosap3PayReconciliacao = () => {
               <TabsTrigger value="saldo" className="gap-2">
                 <Coins className="h-3.5 w-3.5" />Saldos <Badge variant="secondary">{diffs.saldoDiffs.length}</Badge>
               </TabsTrigger>
+              <TabsTrigger value="sim" className="gap-2">
+                <Edit3 className="h-3.5 w-3.5" />Estado SIM <Badge variant="secondary">{diffs.simStatusDiffs.length}</Badge>
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="new">
