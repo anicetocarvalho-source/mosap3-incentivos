@@ -419,7 +419,7 @@ export function useEscolasAuditoria() {
           schools: schools.length,
           provinces: provinces.length,
           municipalities: municipalities.length,
-          farmers: farmers.length,
+          farmers: farmersTotal,
         },
         memory: { supported: false },
       });
@@ -565,7 +565,7 @@ export function useEscolasAuditoria() {
           schools: schools.length,
           provinces: provinces.length,
           municipalities: municipalities.length,
-          farmers: farmers.length,
+          farmers: farmersTotal,
         },
         memory: memAfter
           ? {
@@ -604,7 +604,7 @@ export function useEscolasAuditoria() {
         savedAt: Date.now(),
         signature: {
           schools: schools.length,
-          farmers: farmers.length,
+          farmers: farmersTotal,
           provinces: provinces.length,
           municipalities: municipalities.length,
         },
