@@ -32,6 +32,7 @@ import {
   Receipt,
   PhoneOff,
   Wand2,
+  AlertTriangle,
 } from "lucide-react";
 import mosapLogo from "@/assets/mosap3-logo.png";
 import { useAuth } from "@/hooks/useAuth";
