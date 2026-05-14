@@ -366,6 +366,11 @@ const Mosap3PayOcorrencias = () => {
                       <span>{format(new Date(r.created_at), "dd/MM/yyyy HH:mm")}</span>
                       <span>POS: {r.user_name || "—"}</span>
                     </div>
+                    <div className="pt-2">
+                      <Button variant="outline" size="sm" className="w-full" onClick={() => setSelected(r)}>
+                        <Eye className="h-4 w-4 mr-2" /> Ver detalhe
+                      </Button>
+                    </div>
                   </div>
                 ))}
               </div>
