@@ -1578,6 +1578,48 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
           </div>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={contactConfirmOpen} onOpenChange={setContactConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Send className="h-4 w-4 text-primary" /> Contactar gestor
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2 text-sm">
+                <p>Esta ocorrência será enviada via sino in-app a todos os gestores do sistema. Confirma o envio?</p>
+                {farmer && (() => {
+                  const r = simStatusReason(farmer.sim_status);
+                  return (
+                    <div className="rounded-md border bg-muted/40 p-3 space-y-1 text-xs">
+                      <p><strong>Agricultor:</strong> {farmer.full_name}</p>
+                      <p><strong>Código:</strong> {farmer.code}</p>
+                      {farmer.phone && <p><strong>Telefone:</strong> {farmer.phone}</p>}
+                      <p><strong>Estado do SIM:</strong> {farmer.sim_status}</p>
+                      {r && <p><strong>Motivo:</strong> {r.reason}</p>}
+                    </div>
+                  );
+                })()}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={contactingManager}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={contactingManager || !farmer}
+              onClick={async (e) => {
+                e.preventDefault();
+                if (!farmer) return;
+                await contactarGestor(farmer);
+                setContactConfirmOpen(false);
+              }}
+            >
+              <Send className="h-4 w-4 mr-2" />
+              {contactingManager ? "A enviar…" : "Confirmar e enviar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
