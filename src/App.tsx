@@ -3,6 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/hooks/useAuth";
 import EscolasCampo from "@/pages/EscolasCampo";
+import EscolasAuditoria from "@/pages/EscolasAuditoria";
 import EscolaDetalhe from "@/pages/EscolaDetalhe";
 import ProvinciaEscolas from "@/pages/ProvinciaEscolas";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -89,6 +90,7 @@ const App = () => (
               <Route path="/cartoes-id" element={<CartoesId />} />
               <Route path="/cartoes-id/lote" element={<CartaoIdLote />} />
               <Route path="/escolas" element={<EscolasCampo />} />
+              <Route path="/escolas/auditoria" element={<RoleGuard allowedRoles={["admin", "gestor_incentivos"]}><EscolasAuditoria /></RoleGuard>} />
               <Route path="/escolas/provincia/:slug" element={<ProvinciaEscolas />} />
               <Route path="/escolas/:id" element={<EscolaDetalhe />} />
               <Route path="/escolas/:id/ficha" element={<FichaEscola />} />
