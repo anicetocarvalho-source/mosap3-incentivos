@@ -183,6 +183,13 @@ export function normalizeStoredAuthSessionClockSkew(): void {
 
   if (!payload || !extracted) return;
 
+  // One-time cleanup: if a previous buggy version stretched expires_at,
+  // drop the stored session entirely so the user re-authenticates cleanly.
+  if (isStretchedSession(extracted.session)) {
+    clearStoredSession();
+    return;
+  }
+
   const { session, adjusted } = normalizeSessionShape(extracted.session);
   if (!adjusted) return;
 
