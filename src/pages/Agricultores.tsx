@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
-import { Plus, Search, Download, Eye, Edit, Package, ChevronLeft, ChevronRight, Trash2, RotateCcw, MoreHorizontal, Wallet, ArrowUp, ArrowDown, ArrowUpDown, AlertTriangle } from "lucide-react";
+import { Plus, Search, Download, Eye, Edit, Package, ChevronLeft, ChevronRight, Trash2, RotateCcw, MoreHorizontal, Wallet, ArrowUp, ArrowDown, ArrowUpDown, AlertTriangle, Loader2 } from "lucide-react";
 import FarmerAvatar from "@/components/FarmerAvatar";
 import { Link, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,6 @@ import { Card } from "@/components/ui/card";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { TableRowsSkeleton, CardListSkeleton } from "@/components/ui/loading-skeletons";
 import {
@@ -23,16 +22,17 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import FarmerRegistrationForm from "@/components/FarmerRegistrationForm";
 import FarmerFinancialSummaryDialog from "@/components/FarmerFinancialSummaryDialog";
 import BulkImportDialog from "@/components/agricultores/BulkImportDialog";
-import { useFarmersList } from "@/hooks/useFarmersList";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { ErrorState } from "@/components/ui/error-state";
+import { useAuth } from "@/hooks/useAuth";
+import { resolveScope, applyFarmerScopeFilter, type ResolvedScope } from "@/lib/farmerScope";
+import { useDebouncedValue } from "@/hooks/useServerTable";
+import { fetchAllPages } from "@/lib/supabaseFetchAll";
+import { parseAmount as parsePtAo, formatKzCompact } from "@/lib/numberFormat";
 
 const PAGE_SIZE = 15;
-
-// Parser unificado (suporta formato EN-US "200,000.00" e PT "200.000,00")
-import { parseAmount as parsePtAo, formatKzCompact } from "@/lib/numberFormat";
 
 const fmtKz = (s: string | null | undefined): string => formatKzCompact(s);
 
@@ -42,6 +42,10 @@ const statusDotClass = (status: string): string => {
   if (s === "pendente" || s === "validado") return "bg-warning";
   return "bg-destructive";
 };
+
+const COLUMNS = "id, code, full_name, phone, province, municipality, school, status, photo_frontal_url, patec, valor_recebido, total_gasto, saldo_final, bi, created_at";
+
+const escapeIlike = (s: string) => s.replace(/[%,()*]/g, " ").trim();
 
 const Agricultores = () => {
   const [searchParams] = useSearchParams();
@@ -57,39 +61,53 @@ const Agricultores = () => {
   const [page, setPage] = useState(1);
   const [deleteTarget, setDeleteTarget] = useState<any>(null);
   const [summaryTarget, setSummaryTarget] = useState<any>(null);
-  const [sortBy, setSortBy] = useState<"name" | "recebido" | "usado" | null>(null);
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
-  const { farmers, loading, error: farmersError, refetch: refetchFarmers } = useFarmersList({ includeRemoved: true });
+  const [sortBy, setSortBy] = useState<"name" | "recebido" | "usado">("name");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [exporting, setExporting] = useState(false);
+
+  const debouncedSearch = useDebouncedValue(search, 300);
+  const { user, roles, authReady } = useAuth();
   const queryClient = useQueryClient();
+
+  // Resolve geo scope (cacheado)
+  const { data: scope } = useQuery<ResolvedScope>({
+    queryKey: ["farmer_scope", user?.id, roles.join(",")],
+    enabled: !!user && authReady,
+    staleTime: 5 * 60 * 1000,
+    queryFn: () => resolveScope(user!.id, roles),
+  });
 
   const { data: provinces = [] } = useQuery({
     queryKey: ["provinces_list"],
+    staleTime: 10 * 60 * 1000,
     queryFn: async () => {
       const { data } = await supabase.from("provinces").select("id, name").order("name");
       return data || [];
     },
   });
 
-  // Municípios únicos derivados dos próprios agricultores da província selecionada
-  const availableMunicipalities = Array.from(new Set(
-    farmers
-      .filter(f => filterProvince === "all" || (f.province || "").toLowerCase() === filterProvince.toLowerCase())
-      .map(f => f.municipality)
-      .filter((m): m is string => !!m && m.trim() !== "")
-  )).sort((a, b) => a.localeCompare(b));
+  // Municípios disponíveis para a província seleccionada
+  const { data: availableMunicipalities = [] } = useQuery<string[]>({
+    queryKey: ["municipalities_for_province", filterProvince],
+    enabled: filterProvince !== "all",
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("farmers")
+        .select("municipality")
+        .ilike("province", filterProvince)
+        .neq("status", "Removido")
+        .limit(2000);
+      return Array.from(new Set((data || []).map((r: any) => r.municipality).filter(Boolean))).sort();
+    },
+  });
 
-  // Reset município quando muda a província
   useEffect(() => { setFilterMunicipality("all"); }, [filterProvince]);
-
-  useEffect(() => { setPage(1); }, [search, filterPatec, filterStatus, filterProvince, filterMunicipality, sortBy, sortDir]);
+  useEffect(() => { setPage(1); }, [debouncedSearch, filterPatec, filterStatus, filterProvince, filterMunicipality, sortBy, sortDir]);
 
   const handleSort = (col: "name" | "recebido" | "usado") => {
-    if (sortBy === col) {
-      setSortDir(sortDir === "asc" ? "desc" : "asc");
-    } else {
-      setSortBy(col);
-      setSortDir(col === "name" ? "asc" : "desc");
-    }
+    if (sortBy === col) setSortDir(sortDir === "asc" ? "desc" : "asc");
+    else { setSortBy(col); setSortDir(col === "name" ? "asc" : "desc"); }
   };
 
   const SortIcon = ({ col }: { col: "name" | "recebido" | "usado" }) => {
@@ -97,49 +115,87 @@ const Agricultores = () => {
     return sortDir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />;
   };
 
-  const filtered = farmers.filter((f) => {
-    const matchesSearch =
-      f.full_name.toLowerCase().includes(search.toLowerCase()) ||
-      f.code.toLowerCase().includes(search.toLowerCase()) ||
-      (f.province || "").toLowerCase().includes(search.toLowerCase());
-    const matchesPatec =
-      filterPatec === "all" ||
-      (filterPatec === "none" && !f.patec) ||
-      String(f.patec) === filterPatec;
-    const matchesStatus =
-      filterStatus === "all" ||
-      f.status.toLowerCase() === filterStatus.toLowerCase();
-    const matchesProvince =
-      filterProvince === "all" ||
-      (f.province || "").toLowerCase() === filterProvince.toLowerCase();
-    const matchesMunicipality =
-      filterMunicipality === "all" ||
-      (f.municipality || "").toLowerCase() === filterMunicipality.toLowerCase();
-    return matchesSearch && matchesPatec && matchesStatus && matchesProvince && matchesMunicipality;
+  // Query principal — só a página visível
+  const buildQuery = (selectExpr: string, opts: { withCount?: boolean } = {}) => {
+    let q: any = supabase.from("farmers").select(selectExpr, opts.withCount ? { count: "exact" } : undefined);
+    if (scope) q = applyFarmerScopeFilter(q, scope, { includeRemoved: true });
+    if (filterProvince !== "all") q = q.ilike("province", filterProvince);
+    if (filterMunicipality !== "all") q = q.ilike("municipality", filterMunicipality);
+    if (filterStatus !== "all") q = q.ilike("status", filterStatus);
+    if (filterPatec === "none") q = q.is("patec", null);
+    else if (filterPatec !== "all") q = q.eq("patec", Number(filterPatec));
+
+    const term = escapeIlike(debouncedSearch);
+    if (term) {
+      // Pesquisa por nome / código / telefone / província (apoiada em índices trigram)
+      q = q.or([
+        `full_name.ilike.%${term}%`,
+        `code.ilike.%${term}%`,
+        `phone.ilike.%${term}%`,
+        `province.ilike.%${term}%`,
+      ].join(","));
+    }
+    return q;
+  };
+
+  const orderColumn = sortBy === "name" ? "full_name" : "created_at";
+
+  const listQuery = useQuery({
+    queryKey: ["farmers_list_srv", scope?.scope, scope?.provinces.join(","), scope?.ecas.join(","), debouncedSearch, filterPatec, filterStatus, filterProvince, filterMunicipality, sortBy, sortDir, page],
+    enabled: !!scope && authReady,
+    staleTime: 30_000,
+    placeholderData: keepPreviousData,
+    queryFn: async () => {
+      let q = buildQuery(COLUMNS, { withCount: true });
+      q = q.order(orderColumn, { ascending: sortDir === "asc" });
+      const from = (page - 1) * PAGE_SIZE;
+      const to = from + PAGE_SIZE - 1;
+      const { data, count, error } = await q.range(from, to);
+      if (error) throw error;
+      return { rows: (data || []) as any[], total: count ?? 0 };
+    },
   });
 
-  const sorted = sortBy
-    ? [...filtered].sort((a, b) => {
-        let av: number | string = 0;
-        let bv: number | string = 0;
-        if (sortBy === "name") {
-          av = (a.full_name || "").toLowerCase();
-          bv = (b.full_name || "").toLowerCase();
-        } else if (sortBy === "recebido") {
-          av = parsePtAo(a.valor_recebido);
-          bv = parsePtAo(b.valor_recebido);
-        } else if (sortBy === "usado") {
-          av = parsePtAo(a.total_gasto);
-          bv = parsePtAo(b.total_gasto);
-        }
-        if (av < bv) return sortDir === "asc" ? -1 : 1;
-        if (av > bv) return sortDir === "asc" ? 1 : -1;
-        return 0;
-      })
-    : filtered;
+  const rawRows = listQuery.data?.rows ?? [];
+  const total = listQuery.data?.total ?? 0;
 
-  const totalPages = Math.ceil(sorted.length / PAGE_SIZE);
-  const paginated = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  // Sort numérico in-page para colunas monetárias (texto PT-AO)
+  const paginated = useMemo(() => {
+    if (sortBy === "name") return rawRows;
+    return [...rawRows].sort((a, b) => {
+      const av = parsePtAo(sortBy === "recebido" ? a.valor_recebido : a.total_gasto);
+      const bv = parsePtAo(sortBy === "recebido" ? b.valor_recebido : b.total_gasto);
+      return sortDir === "asc" ? av - bv : bv - av;
+    });
+  }, [rawRows, sortBy, sortDir]);
+
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+  // Sugestões de pesquisa (a partir da página actual; nome completo já vem incluído)
+  const suggestions = useMemo(() => {
+    if (!showSearchSuggestions || debouncedSearch.length < 2) return [];
+    return rawRows.slice(0, 8);
+  }, [rawRows, showSearchSuggestions, debouncedSearch]);
+
+  // CSV: só carrega tudo quando o utilizador clica "Exportar"
+  const handleExportCSV = async () => {
+    setExporting(true);
+    try {
+      const all = await fetchAllPages<any>(() => buildQuery(COLUMNS, { withCount: true }).order(orderColumn, { ascending: sortDir === "asc" }));
+      const headers = ["Código", "Nome", "BI", "Telefone", "Província", "Município", "Escola", "PATEC", "Estado", "Recebido", "Usado"];
+      const rows = all.map((f: any) => [f.code, f.full_name, f.bi || "", f.phone || "", f.province || "", f.municipality || "", f.school || "", f.patec || "", f.status, f.valor_recebido || "", f.total_gasto || ""]);
+      const csv = [headers, ...rows].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
+      const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = `agricultores_${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click(); URL.revokeObjectURL(url);
+      toast.success(`${all.length.toLocaleString("pt-AO")} agricultores exportados`);
+    } catch (e: any) {
+      toast.error("Erro ao exportar: " + (e?.message || "desconhecido"));
+    }
+    setExporting(false);
+  };
 
   const handleEdit = (farmer: any) => {
     setEditingFarmer({
@@ -160,44 +216,28 @@ const Agricultores = () => {
     if (!open) setEditingFarmer(null);
   };
 
-  const handleExportCSV = () => {
-    const headers = ["Código", "Nome", "BI", "Telefone", "Província", "Município", "Escola", "PATEC", "Estado", "Recebido", "Usado"];
-    const rows = sorted.map(f => [f.code, f.full_name, f.bi || "", f.phone || "", f.province || "", f.municipality || "", f.school || "", f.patec || "", f.status, f.valor_recebido || "", f.total_gasto || ""]);
-    const csv = [headers, ...rows].map(r => r.map(c => `"${c}"`).join(",")).join("\n");
-    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url; a.download = `agricultores_${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click(); URL.revokeObjectURL(url);
-  };
-
   const handleDelete = async () => {
     if (!deleteTarget) return;
-    const { error } = await supabase
-      .from("farmers")
-      .update({ status: "Removido" })
-      .eq("code", deleteTarget.code);
-    if (error) {
-      toast.error("Erro ao remover agricultor");
-    } else {
+    const { error } = await supabase.from("farmers").update({ status: "Removido" }).eq("code", deleteTarget.code);
+    if (error) toast.error("Erro ao remover agricultor");
+    else {
       toast.success(`${deleteTarget.full_name} marcado como Removido`);
-      queryClient.invalidateQueries({ queryKey: ["farmers_list"] });
+      queryClient.invalidateQueries({ queryKey: ["farmers_list_srv"] });
     }
     setDeleteTarget(null);
   };
 
   const handleRestore = async (farmer: any) => {
-    const { error } = await supabase
-      .from("farmers")
-      .update({ status: "Ativo" })
-      .eq("code", farmer.code);
-    if (error) {
-      toast.error("Erro ao restaurar agricultor");
-    } else {
+    const { error } = await supabase.from("farmers").update({ status: "Ativo" }).eq("code", farmer.code);
+    if (error) toast.error("Erro ao restaurar agricultor");
+    else {
       toast.success(`${farmer.full_name} restaurado como Ativo`);
-      queryClient.invalidateQueries({ queryKey: ["farmers_list"] });
+      queryClient.invalidateQueries({ queryKey: ["farmers_list_srv"] });
     }
   };
+
+  const loading = listQuery.isLoading;
+  const fetching = listQuery.isFetching && !loading;
 
   return (
     <div className="space-y-4 md:space-y-6">
@@ -217,48 +257,39 @@ const Agricultores = () => {
         <FarmerRegistrationForm open={dialogOpen} onOpenChange={handleCloseDialog} editData={editingFarmer} />
       </div>
 
-      {farmersError && !loading && (
-        <ErrorState onRetry={refetchFarmers} />
+      {listQuery.isError && (
+        <ErrorState onRetry={() => listQuery.refetch()} />
       )}
 
-      {/* Filters */}
       <Card className="p-3 md:p-4">
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 md:gap-3">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10" />
             <Input
-              placeholder="Pesquisar nome, ID, província..."
+              placeholder="Pesquisar nome, ID, telefone, província..."
               className="pl-10 text-sm"
               value={search}
               onChange={(e) => { setSearch(e.target.value); setShowSearchSuggestions(e.target.value.length >= 2); }}
               onFocus={() => search.length >= 2 && setShowSearchSuggestions(true)}
               onBlur={() => setTimeout(() => setShowSearchSuggestions(false), 200)}
             />
-            {showSearchSuggestions && (() => {
-              const suggestions = farmers.filter((f) =>
-                f.full_name.toLowerCase().includes(search.toLowerCase()) ||
-                f.code.toLowerCase().includes(search.toLowerCase()) ||
-                (f.phone && f.phone.includes(search))
-              ).slice(0, 8);
-              if (suggestions.length === 0) return null;
-              return (
-                <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-popover border border-border rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                  {suggestions.map((s) => (
-                    <Link
-                      key={s.id}
-                      to={`/agricultores/${s.code}`}
-                      className="flex items-center gap-2 px-3 py-2 hover:bg-accent text-sm border-b border-border last:border-0"
-                    >
-                      <FarmerAvatar photoUrl={s.photo_frontal_url} name={s.full_name} size="sm" />
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium truncate">{s.full_name}</p>
-                        <p className="text-xs text-muted-foreground">{s.code} • {s.province || "—"} • {s.phone || "—"}</p>
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              );
-            })()}
+            {showSearchSuggestions && suggestions.length > 0 && (
+              <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-popover border border-border rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                {suggestions.map((s: any) => (
+                  <Link
+                    key={s.id}
+                    to={`/agricultores/${s.code}`}
+                    className="flex items-center gap-2 px-3 py-2 hover:bg-accent text-sm border-b border-border last:border-0"
+                  >
+                    <FarmerAvatar photoUrl={s.photo_frontal_url} name={s.full_name} size="sm" />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium truncate">{s.full_name}</p>
+                      <p className="text-xs text-muted-foreground">{s.code} • {s.province || "—"} • {s.phone || "—"}</p>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Select value={filterProvince} onValueChange={setFilterProvince}>
@@ -270,14 +301,8 @@ const Agricultores = () => {
                 ))}
               </SelectContent>
             </Select>
-            <Select
-              value={filterMunicipality}
-              onValueChange={setFilterMunicipality}
-              disabled={availableMunicipalities.length === 0}
-            >
-              <SelectTrigger className="w-full sm:w-40 text-xs md:text-sm">
-                <SelectValue placeholder="Município" />
-              </SelectTrigger>
+            <Select value={filterMunicipality} onValueChange={setFilterMunicipality} disabled={availableMunicipalities.length === 0}>
+              <SelectTrigger className="w-full sm:w-40 text-xs md:text-sm"><SelectValue placeholder="Município" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todos municípios</SelectItem>
                 {availableMunicipalities.map((m) => (
@@ -309,31 +334,19 @@ const Agricultores = () => {
               </SelectContent>
             </Select>
             {(filterProvince !== "all" || filterMunicipality !== "all" || filterStatus !== "all" || filterPatec !== "all") && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-xs h-9"
-                onClick={() => {
-                  setFilterProvince("all");
-                  setFilterMunicipality("all");
-                  setFilterStatus("all");
-                  setFilterPatec("all");
-                }}
-              >
+              <Button variant="ghost" size="sm" className="text-xs h-9" onClick={() => { setFilterProvince("all"); setFilterMunicipality("all"); setFilterStatus("all"); setFilterPatec("all"); }}>
                 Limpar filtros
               </Button>
             )}
-            <Button variant="outline" size="icon" className="flex-shrink-0 ml-auto" onClick={handleExportCSV} title="Exportar CSV (respeita filtros)">
-              <Download className="h-4 w-4" />
+            <Button variant="outline" size="icon" className="flex-shrink-0 ml-auto" onClick={handleExportCSV} title="Exportar CSV (respeita filtros)" disabled={exporting}>
+              {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
             </Button>
           </div>
         </div>
       </Card>
 
-      {/* Table / Cards */}
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
-        <Card className="p-0 overflow-hidden">
-          {/* Desktop table */}
+        <Card className={`p-0 overflow-hidden transition-opacity ${fetching ? "opacity-70" : ""}`}>
           <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -367,7 +380,7 @@ const Agricultores = () => {
                   <tr><td colSpan={8} className="p-0"><EmptyState size="sm" icon={Search} description="Não foram encontrados agricultores com os filtros actuais." /></td></tr>
                 ) : (
                   <TooltipProvider delayDuration={200}>
-                    {paginated.map((f) => (
+                    {paginated.map((f: any) => (
                       <tr key={f.id} className={`border-b border-border last:border-0 hover:bg-muted/30 transition-colors ${f.status === "Removido" ? "opacity-60" : ""}`}>
                         <td className="px-6 py-3">
                           <div className="flex items-center gap-3">
@@ -461,13 +474,12 @@ const Agricultores = () => {
             </table>
           </div>
 
-          {/* Mobile card list */}
           <div className="md:hidden divide-y divide-border">
             {loading ? (
               <CardListSkeleton count={5} />
             ) : paginated.length === 0 ? (
               <EmptyState size="sm" icon={Search} description="Não foram encontrados agricultores com os filtros actuais." />
-            ) : paginated.map((f) => (
+            ) : paginated.map((f: any) => (
               <div key={f.id} className="p-3 flex items-center gap-3">
                 <FarmerAvatar photoUrl={f.photo_frontal_url} name={f.full_name} size="h-10 w-10" />
                 <div className="flex-1 min-w-0">
@@ -501,17 +513,18 @@ const Agricultores = () => {
           </div>
 
           <div className="px-4 md:px-6 py-3 border-t border-border flex items-center justify-between text-xs md:text-sm text-muted-foreground">
-            <span>{sorted.length > 0 ? (page - 1) * PAGE_SIZE + 1 : 0}–{Math.min(page * PAGE_SIZE, sorted.length)} de {sorted.length} agricultores</span>
+            <span>
+              {total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, total)} de {total.toLocaleString("pt-AO")} agricultores
+            </span>
             <div className="flex items-center gap-2">
               <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)}><ChevronLeft className="h-4 w-4" /></Button>
-              <span className="text-sm font-medium">{page} / {totalPages || 1}</span>
+              <span className="text-sm font-medium">{page} / {totalPages}</span>
               <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage(page + 1)}><ChevronRight className="h-4 w-4" /></Button>
             </div>
           </div>
         </Card>
       </motion.div>
 
-      {/* Delete confirmation */}
       <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
