@@ -1,62 +1,41 @@
-## Validação — Resultado
+## Problema
 
-Cruzei os **1.363 agricultores marcados como `Removido`** com a folha `Detalhe` do anexo `ALL_MOSAP_003-5.xlsx` (15.166 linhas) usando os últimos 9 dígitos do MSISDN:
+No Terminal POS (`/mosap3pay/pos`) a pesquisa de agricultor não devolve todos os registos:
+1. A consulta tem `.limit(8)` — quando há mais de 8 correspondências, os restantes nunca aparecem.
+2. A pesquisa por telefone faz `phone.ilike.%q%` literal — se o utilizador digitar `923xxxxxx` mas a BD guarda `244923xxxxxx` (formato PT-AO), não há match.
 
-| Métrica | Valor |
-|---|---|
-| Removidos no nosso sistema | **1.363** |
-| Encontrados no anexo (Estado MOSAP3 = Activo) | **1.363 (100%)** |
-| Não encontrados no anexo | **0** |
-| Removidos com duplicado entre os ativos da BD (últimos 9 dígitos) | **0** |
-| Removidos com `valor_recebido` já registado | 1.100 |
+## Alterações (apenas em `src/pages/Mosap3PayPOS.tsx`, bloco linhas 202-216)
 
-**Conclusão:** Os 1.363 estão **todos legítimos** no sistema MOSAP3 da operadora — não são duplicados de nenhum agricultor activo. A marcação `Removido` foi indevida (resultado das duas vagas de 17:54 e 18:26 de hoje, esta última no mesmo timestamp do `bulk_link_orphan_phones`).
+### 1. Aumentar limite e melhorar UX da lista
+- Subir `.limit(8)` para `.limit(50)`.
+- Manter o dropdown com `max-height` + scroll (já existente) para mostrar todos sem inundar o ecrã.
+- Adicionar contador discreto no rodapé do dropdown: "A mostrar X resultados — refine a pesquisa para ver mais" quando `length === 50`.
 
----
+### 2. Normalizar pesquisa por telefone
+Construir uma variante normalizada do termo de pesquisa antes de montar o `.or()`:
 
-## Plano
-
-### 1. Restaurar estado dos 1.363
-Migração que faz `UPDATE farmers SET status = 'Pendente'` apenas para os agricultores que cumprem **todas** as condições (defensivo, evita afectar outros registos):
-
-- `status = 'Removido'`
-- `bi IS NULL` AND `school IS NULL` AND `registered_by IS NULL`
-- `phone IS NOT NULL`
-- `updated_at` ∈ {17:54:34 e 18:26:28 de 2026-05-14}
-
-Estes 1.363 voltam ao estado `Pendente` (não vão para `Aprovado` porque ainda estão sem BI / escola / foto / extensionista).
-
-### 2. Enriquecer com dados do anexo
-Para cada um dos 1.363, cruzar pelos últimos 9 dígitos do telefone e preencher:
-
-| Campo BD | Origem no anexo | Regra |
-|---|---|---|
-| `sim_status` | `Estado_Numero` (Activo) | `'Ativo'`; `sim_status_source = 'unitel_export_2026-05-14'`; `sim_status_updated_at = now()` |
-| `valor_recebido` | `SALDO_DISPONIVEL_MOSAP` | Apenas se actual = `'0,00'` (não sobrescreve valores já reconciliados) |
-| `province` / `municipality` | `PROVINCE` / `REGION` | Apenas se actual `IS NULL` (preserva o que já temos) |
-
-A operação é feita por **insert tool** (UPDATE em blocos de 50 — regra do projecto), não por migração de schema.
-
-### 3. Registo de auditoria
-Inserir uma linha em `audit_logs`:
-
-```
-action  : bulk_restore_removidos_unitel
-entity  : farmers (1363)
-details : { source: 'ALL_MOSAP_003-5.xlsx', total: 1363, províncias: {...} }
+```text
+qDigits   = q.replace(/\D/g, '')
+qPhoneAlt = qDigits sem prefixo 244 (se começar) ou com 244 prepended (se 9 dígitos a começar por 9)
 ```
 
-### 4. Ficheiro organizado para o utilizador
-Gerar `/mnt/documents/removidos_reconciliados_v1.xlsx` com 3 folhas:
+Ramos do `.or()` ficam:
+- `full_name.ilike.%q%`
+- `code.ilike.%q%`
+- `bi.ilike.%q%`
+- `phone.ilike.%qDigits%` (se `qDigits.length >= 3`)
+- `phone.ilike.%qPhoneAlt%` (se diferente de `qDigits`)
 
-- **Resumo** — totais por província/município, valor total restaurado, estado SIM, antes/depois.
-- **Detalhe (1.363)** — Código MOSAP3 · Nome · Telefone · Província · Município · Estado SIM (anexo) · Saldo MOSAP (anexo) · Saldo eMoney (anexo) · Estado actual BD (antes/depois) · Já tinha valor_recebido (S/N).
-- **Auditoria** — origem da decisão, timestamps das duas vagas, ID do registo de audit_logs.
+Isto garante que digitar `923456789`, `244923456789` ou `+244 923 456 789` encontra o mesmo agricultor.
 
----
+### 3. (Opcional, mesmo bloco) Reduzir mínimo para 1 carácter quando o termo for puramente numérico (códigos curtos), mantendo 2 caracteres para texto.
 
 ## Fora de âmbito
+- Não mexer em RLS, edge functions, esquema da BD, layout do POS ou qualquer outro ficheiro.
+- Não alterar a pesquisa global (`/`) nem outros ecrãs com pesquisa de agricultor.
 
-- Não vou atribuir-lhes escola/BI/foto — isso exige decisão de campo do extensionista.
-- Não vou tocar em nenhum dos 13.803 agricultores activos.
-- Não vou alterar a regra global "Removidos contam em todos os agregados" — após a restauração os contadores ficam: 13.803 + 1.363 = 15.166 activos+pendentes, alinhado com o anexo.
+## Validação
+Após implementar:
+- Testar pesquisa por nome comum (ex.: "Maria") — deve listar até 50 com indicador "refine para ver mais".
+- Testar telefone em 3 formatos (`923…`, `244923…`, `+244 923…`) — todos devem encontrar o mesmo registo.
+- Confirmar que clicar numa sugestão continua a carregar saldo, PATEC e produtos como antes.
