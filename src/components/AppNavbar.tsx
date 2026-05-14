@@ -110,6 +110,7 @@ export const navItems: NavItem[] = [
       { label: "Relatórios", path: "/mosap3pay/relatorios", icon: BarChart3 },
       { label: "Reconciliação", path: "/mosap3pay/reconciliacao", icon: Wand2 },
       { label: "Cartões SIM", path: "/mosap3pay/cartoes-sim", icon: Smartphone },
+      { label: "Ocorrências", path: "/mosap3pay/ocorrencias", icon: AlertTriangle },
       { label: "Auditoria", path: "/mosap3pay/auditoria", icon: Shield },
       { label: "Configurações", path: "/mosap3pay/configuracoes", icon: Settings },
     ],
