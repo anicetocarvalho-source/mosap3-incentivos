@@ -288,6 +288,17 @@ export function computeDiffs(db: DbFarmerRow[], xl: ExcelFarmerRow[]) {
         proposed: formatSaldoBR(x.saldoMosap),
       });
     }
+    const propSim = normalizeSimStatus(x.estadoNumero);
+    const dbSim = normalizeSimStatus(d.sim_status);
+    if (propSim !== dbSim) {
+      simStatusDiffs.push({
+        phone: x.msisdn,
+        dbCode: d.code,
+        field: "sim_status",
+        current: dbSim,
+        proposed: propSim,
+      });
+    }
   }
 
   return {
@@ -298,6 +309,7 @@ export function computeDiffs(db: DbFarmerRow[], xl: ExcelFarmerRow[]) {
     provinceDiffs,
     municipalityDiffs,
     saldoDiffs,
+    simStatusDiffs,
     onlyDbCount: db.filter((d) => !xlByPhone.has(String(d.phone || ""))).length,
   };
 }
