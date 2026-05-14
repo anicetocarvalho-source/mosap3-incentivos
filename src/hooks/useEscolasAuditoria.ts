@@ -183,6 +183,8 @@ export function useEscolasAuditoria() {
         ),
       ]);
       mark("fetch");
+      completePhase("fetch");
+      await advance("indexFarmers");
 
       const provMap = new Map<string, string>(provinces.map((p) => [p.id, p.name as string]));
       const munMap = new Map<string, string>(municipalities.map((m) => [m.id, m.name as string]));
