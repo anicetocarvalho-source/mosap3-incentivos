@@ -307,7 +307,7 @@ export default function TelefonesOrfaos() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filtered.slice(0, 500).map((r) => {
+                  {pageRows.map((r) => {
                     const o = origemOf(r);
                     return (
                       <TableRow key={r.id}>
