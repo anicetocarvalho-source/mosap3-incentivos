@@ -613,6 +613,57 @@ export type Database = {
           },
         ]
       }
+      farmer_notifications: {
+        Row: {
+          body: string
+          channel: string
+          created_at: string
+          created_by: string | null
+          error_message: string | null
+          farmer_code: string
+          id: string
+          phone: string | null
+          sent_at: string | null
+          sim_status: string | null
+          source: string | null
+          status: string
+          title: string
+          trigger_event: string | null
+        }
+        Insert: {
+          body: string
+          channel: string
+          created_at?: string
+          created_by?: string | null
+          error_message?: string | null
+          farmer_code: string
+          id?: string
+          phone?: string | null
+          sent_at?: string | null
+          sim_status?: string | null
+          source?: string | null
+          status?: string
+          title: string
+          trigger_event?: string | null
+        }
+        Update: {
+          body?: string
+          channel?: string
+          created_at?: string
+          created_by?: string | null
+          error_message?: string | null
+          farmer_code?: string
+          id?: string
+          phone?: string | null
+          sent_at?: string | null
+          sim_status?: string | null
+          source?: string | null
+          status?: string
+          title?: string
+          trigger_event?: string | null
+        }
+        Relationships: []
+      }
       farmer_parcels: {
         Row: {
           area: string
@@ -2188,6 +2239,17 @@ export type Database = {
           _title: string
         }
         Returns: undefined
+      }
+      notify_farmer_sim_blocked: {
+        Args: {
+          _event: string
+          _farmer_code: string
+          _farmer_name: string
+          _phone: string
+          _sim_status: string
+          _source?: string
+        }
+        Returns: Json
       }
       parse_ptao_numeric: { Args: { _s: string }; Returns: number }
       recalc_all_farmer_totals: { Args: never; Returns: number }
