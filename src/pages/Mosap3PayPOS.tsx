@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Ban, ShieldAlert } from "lucide-react";
+import { Ban, ShieldAlert, Send } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { InvoicePDF, generateFiscalHash, buildQRContent, type InvoiceData } from "@/components/InvoicePDF";
@@ -86,6 +86,7 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [productSearch, setProductSearch] = useState("");
   const [processing, setProcessing] = useState(false);
+  const [contactingManager, setContactingManager] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [receiptOpen, setReceiptOpen] = useState(false);
   const [lastSaleCode, setLastSaleCode] = useState("");
@@ -271,6 +272,38 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
     }
   };
 
+  const contactarGestor = async (f: Farmer) => {
+    const r = simStatusReason(f.sim_status);
+    if (!r) return;
+    setContactingManager(true);
+    try {
+      const title = `⛔ Apoio solicitado — SIM ${f.sim_status}`;
+      const body = `Operador POS sinalizou bloqueio: agricultor ${f.full_name} (${f.code})${f.phone ? ` · Tel: ${f.phone}` : ""}. Motivo: ${r.reason}`;
+      const { error } = await supabase.rpc("notify_all_users", {
+        _title: title,
+        _body: body,
+        _category: "cartoes_sim",
+        _entity_type: "farmer",
+        _entity_id: f.code,
+      });
+      if (error) throw error;
+      try {
+        await supabase.from("audit_logs").insert({
+          action: "pos_contact_manager_sim_blocked",
+          entity_type: "farmer",
+          entity_id: f.code,
+          details: { sim_status: f.sim_status, farmer_name: f.full_name, phone: f.phone, reason: r.reason } as any,
+        });
+      } catch {}
+      toast.success("Gestores notificados", {
+        description: `Ocorrência do agricultor ${f.code} enviada via sino in-app.`,
+      });
+    } catch (e: any) {
+      toast.error("Não foi possível notificar os gestores", { description: e?.message ?? String(e) });
+    } finally {
+      setContactingManager(false);
+    }
+  };
   const notifySimBlockedFarmer = async (
     f: Farmer,
     event: "identificacao_pos" | "tentativa_pagamento"
@@ -1277,6 +1310,19 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
                         <p><strong>Estado do SIM:</strong> {farmer.sim_status}</p>
                         <p><strong>Motivo:</strong> {r.reason}</p>
                         <p><strong>Recomendação:</strong> {r.recomendacao}</p>
+                        {blocked && (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="mt-2 h-7 text-xs gap-1.5 bg-background hover:bg-background/80"
+                            onClick={() => contactarGestor(farmer)}
+                            disabled={contactingManager}
+                          >
+                            <Send className="h-3 w-3" />
+                            {contactingManager ? "A enviar…" : "Contactar gestor"}
+                          </Button>
+                        )}
                       </AlertDescription>
                     </Alert>
                   );
