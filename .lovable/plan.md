@@ -1,55 +1,69 @@
-## Diagnóstico
+# Reflectir a real quantidade de agricultores em todas as páginas
 
-Em base de dados existem apenas **12 telefones verdadeiramente órfãos** (1.215.840,00 Kz). Confirmado em duas queries independentes:
+## Diagnóstico (números reais na BD)
 
-```text
-total = 3.399
-auto-associados (linked + notes "Auto…") = 3.387
-manuais = 0
-pendentes (linked_farmer_code IS NULL) = 12
+| Métrica | Valor real | Onde aparece desactualizado |
+|---|---|---|
+| Total de produtores | **15.166** (13.803 ativos + 1.363 Removidos) | Dashboard ✅ correcto (RPC devolve 15.166) |
+| Tabela `schools` | **733** escolas | Dashboard mostra **681** (DISTINCT em `farmers.school` texto) |
+| Tabela `municipalities` | **8** municípios | Dashboard mostra **19** (DISTINCT em `farmers.municipality` texto livre) |
+| `Σ schools.total_farmers` (cache) | **11.934** | Devia ser **15.166** — falta 3.232 |
+
+### Onde está o erro
+
+**1. Cache `schools.total_farmers` está desactualizada**
+- 40 escolas têm `total_farmers` diferente do real (somando por nome+município+província).
+- Σ contagem real por escola = 10.908; Σ cache = 11.934.
+- 4.275 produtores têm `school = NULL`/vazio → não contam para nenhuma escola.
+- **Páginas afectadas:** `EscolasCampo`, `ProvinciaEscolas`, `FichaEscola`, `EscolaDetalhe` (parcialmente — já recalcula em runtime).
+
+**2. RPC `dashboard_kpis` calcula `total_schools` e `total_municipalities` com `DISTINCT` sobre o texto livre em `farmers`**
+- `total_schools = 681` → devia ler de `schools` (733).
+- `total_municipalities = 19` → devia ler de `municipalities` (8). Os 19 vêm de variações ortográficas no campo texto.
+
+**3. Produtores "órfãos" de escola (4.275)**
+- Têm `province` e `municipality` preenchidos mas `school` vazio. Não aparecem em nenhuma ficha de escola.
+- Existe já a página `/escolas/auditoria` que detecta divergências de nome — mas não cobre o caso "sem escola".
+
+## Plano de correcção
+
+### 1. Migração: recalcular cache `schools.total_farmers`
+Função SQL idempotente que faz, para cada `schools.id`:
+```sql
+UPDATE schools s SET total_farmers = (
+  SELECT count(*) FROM farmers f
+  WHERE lower(trim(f.school))       = lower(trim(s.name))
+    AND lower(trim(f.municipality)) = lower(trim(m.name))
+    AND lower(trim(f.province))     = lower(trim(p.name))
+)
+FROM municipalities m, provinces p
+WHERE s.municipality_id = m.id AND s.province_id = p.id;
 ```
+Adicionar trigger em `farmers` (INSERT/UPDATE/DELETE) que invoca a mesma função para as escolas afectadas, mantendo a cache automaticamente sincronizada.
 
-A página mostra ~1.000 pendentes. A causa é o **service worker PWA**: em `vite.config.ts` o padrão `^https://*.supabase.co/rest/v1/*` está em `NetworkFirst` com cache de 24h. Como a primeira página (`amount` desc, range 0-999) foi cacheada **antes** da reconciliação automática (quando ainda havia ~1.000 NULLs no topo), o browser continua a servir esse snapshot em cima de Ctrl+Shift+R (o hard reload limpa cache HTTP do browser, não a Cache API do SW).
+### 2. Migração: corrigir `dashboard_kpis`
+- `total_schools := (SELECT count(*) FROM schools)`
+- `total_municipalities := (SELECT count(*) FROM municipalities)`
+- Quando `p_scope='province'`, restringir os COUNT a `WHERE province_id IN (...)`.
 
-## Alterações
+### 3. Auditoria visual: marcar produtores sem escola
+Na página `/escolas/auditoria`, adicionar um cartão extra:
+> **4.275 produtores sem escola atribuída** (lista exportável, com botão para abrir cada um em `/agricultores/:code`).
 
-### 1. Bypass de cache para `orphan_phones` (frontend)
+### 4. Verificação final
+Após migração, executar e mostrar ao utilizador:
+- `Σ schools.total_farmers` deve passar de 11.934 → 15.166 (ou 15.166 − 4.275 = 10.891 se mantivermos só os com escola; preferimos atribuir ou registar como anomalia).
+- Dashboard: Escolas = 733, Municípios = 8.
+- `EscolasCampo`/`ProvinciaEscolas`: somatórios coerentes com `/agricultores`.
 
-Em `src/pages/TelefonesOrfaos.tsx`, alterar o `load` para forçar resposta fresca:
+## Fora de âmbito
 
-- Adicionar header `Cache-Control: no-cache` à query (via `supabase.from(...).select(..., { head: false }).abortSignal(...)` não suporta headers; em alternativa, anexar um query-param "cache-buster" `?_=${Date.now()}` recriando o URL não é trivial via SDK).
-- **Solução prática:** dentro do `load`, primeiro chamar `caches.delete('supabase-api')` (apaga o bucket Workbox correspondente) e só depois invocar `fetchAllPages`. Isto garante que cada `Atualizar` traz dados reais.
-- Mostrar timestamp "Última actualização: HH:MM:SS" junto ao botão Atualizar para o utilizador perceber que os dados são frescos.
+- Reatribuir manualmente os 4.275 produtores a escolas (precisa decisão de negócio — fica na página de auditoria como lista para acção).
+- Alterações de RLS, autenticação ou outras páginas não relacionadas com contagem.
+- Página `/agricultores` (já correcta — esconde Removidos por design, conforme regra Core).
 
-### 2. Excluir `orphan_phones` do cache do SW (definitivo)
+## Ficheiros que vão mudar
 
-Em `vite.config.ts`, antes do padrão genérico Supabase REST, adicionar regra `NetworkOnly` para esta tabela:
-
-```ts
-{
-  urlPattern: /^https:\/\/.*\.supabase\.co\/rest\/v1\/orphan_phones.*/i,
-  handler: "NetworkOnly",
-},
-```
-
-Assim, futuras visitas nunca apanham dados desactualizados desta tabela (que é sempre admin-only e pequena).
-
-### 3. Botão "Reconciliar pendentes agora"
-
-Acrescentar acção no `PageHeader` (visível só para admin) que invoca a RPC já existente `bulk_insert_orphan_phones` com payload vazio `[]`. A função normaliza/agrega e tenta auto-associar todos os pendentes pelos últimos 9 dígitos — útil quando novos agricultores são criados depois do upload original. O toast mostra `auto_linked` e `still_orphan` devolvidos pela RPC.
-
-### 4. Aviso visual quando o SW serve dados antigos
-
-Comparar o `count(*)` lido com o cabeçalho `Content-Range` da primeira página de `fetchAllPages`. Se diferir do número de linhas obtidas, mostrar `Alert` warning a sugerir recarregamento.
-
-## Fora do âmbito
-
-- Sem alterações de schema, RLS ou da função `bulk_insert_orphan_phones`.
-- Sem mexer noutras páginas que consumam `orphan_phones`.
-- Sem alterar outras regras Workbox (apenas adicionar a entrada específica para `orphan_phones`).
-
-## Resultado esperado
-
-- Cards passam a mostrar **Pendentes: 12 (1.215.840,00 Kz)** imediatamente após o próximo carregamento da página.
-- Re-deploys posteriores deixam de exibir contagens fantasma porque a tabela é sempre lida da rede.
-- Admin pode forçar nova reconciliação a qualquer momento sem precisar reabrir o ficheiro CSV.
+- Nova migração SQL: função `recompute_school_farmer_counts()` + trigger em `farmers` + alteração do `dashboard_kpis`.
+- `src/pages/EscolasAuditoria.tsx`: novo cartão "produtores sem escola".
+- `src/hooks/useEscolasAuditoria.ts`: query auxiliar para listar produtores órfãos de escola.
