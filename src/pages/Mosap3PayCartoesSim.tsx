@@ -118,7 +118,7 @@ const Mosap3PayCartoesSim = () => {
     }
   };
 
-  const counts = kpisQuery.data || { activo: 0, pre_desactivado: 0, barrado: 0, removido: 0, desconhecido: 0 };
+  const counts = kpisQuery.data || { activo: 0, pendente: 0, pre_desactivado: 0, barrado: 0, removido: 0, desconhecido: 0 };
 
   const KPI = ({ label, value, status }: { label: string; value: number; status: string }) => (
     <Card>
