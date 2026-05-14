@@ -117,6 +117,8 @@ const Mosap3PayReconciliacao = () => {
     setFileName("");
     setXlRows([]);
     setDbRows([]);
+    setValidation(null);
+    setAcceptValidation(false);
     setSelNew(new Set());
     setSelRemove(new Set());
     setSelName(new Set());
