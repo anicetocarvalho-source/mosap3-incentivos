@@ -40,7 +40,72 @@ export type AuditoriaResult = {
     similarPairs: number;
     orphans: number;
   };
+  perf: PerfMetrics;
 };
+
+export type PerfPhase =
+  | "fetch"
+  | "indexFarmers"
+  | "normalizeSchools"
+  | "duplicates"
+  | "similar"
+  | "orphans"
+  | "total";
+
+export type PerfMetrics = {
+  startedAt: string; // ISO
+  phases: Record<PerfPhase, number>; // ms
+  rows: { schools: number; provinces: number; municipalities: number; farmers: number };
+  memory: {
+    supported: boolean;
+    usedJSHeapMB?: number; // after run
+    deltaJSHeapMB?: number; // after - before
+    totalJSHeapMB?: number;
+    jsHeapLimitMB?: number;
+  };
+};
+
+export type PerfHistoryEntry = PerfMetrics;
+
+const PERF_HISTORY_KEY = "escolas_auditoria_perf_history_v1";
+const PERF_HISTORY_MAX = 20;
+
+export function readAuditoriaPerfHistory(): PerfHistoryEntry[] {
+  try {
+    const raw = localStorage.getItem(PERF_HISTORY_KEY);
+    if (!raw) return [];
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) ? arr : [];
+  } catch {
+    return [];
+  }
+}
+
+export function clearAuditoriaPerfHistory() {
+  try {
+    localStorage.removeItem(PERF_HISTORY_KEY);
+  } catch {
+    /* noop */
+  }
+}
+
+function pushPerfHistory(entry: PerfHistoryEntry) {
+  try {
+    const list = readAuditoriaPerfHistory();
+    list.push(entry);
+    while (list.length > PERF_HISTORY_MAX) list.shift();
+    localStorage.setItem(PERF_HISTORY_KEY, JSON.stringify(list));
+  } catch {
+    /* noop */
+  }
+}
+
+const toMB = (b: number) => Math.round((b / (1024 * 1024)) * 100) / 100;
+function readMemory(): { used: number; total: number; limit: number } | null {
+  const m = (performance as any).memory;
+  if (!m || typeof m.usedJSHeapSize !== "number") return null;
+  return { used: m.usedJSHeapSize, total: m.totalJSHeapSize, limit: m.jsHeapSizeLimit };
+}
 
 const KEY_SEP = "\u0001";
 
