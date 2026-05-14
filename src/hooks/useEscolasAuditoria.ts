@@ -370,16 +370,9 @@ export function useEscolasAuditoria() {
       // Helper for any school's real farmer count using triplet map (with fallback when prov/mun empty)
       const realCount = (sn: SchoolNorm): number => {
         if (sn.provN && sn.munN) return tripletCount.get(triKey(sn.nameN, sn.provN, sn.munN)) || 0;
-        // Fallback: scan only farmers of this school name (rare path)
-        const idxs = farmersBySchool.get(sn.nameN);
-        if (!idxs) return 0;
-        let c = 0;
-        for (const i of idxs) {
-          if (sn.provN && farmerNormProv[i] !== sn.provN) continue;
-          if (sn.munN && farmerNormMun[i] !== sn.munN) continue;
-          c++;
-        }
-        return c;
+        if (sn.provN) return bySchoolProv.get(sn.nameN + KEY_SEP + sn.provN) || 0;
+        if (sn.munN) return bySchoolMun.get(sn.nameN + KEY_SEP + sn.munN) || 0;
+        return byNameTotal.get(sn.nameN) || 0;
       };
 
       // ── Tab A: exact duplicates
