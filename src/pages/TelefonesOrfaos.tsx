@@ -370,16 +370,20 @@ export default function TelefonesOrfaos() {
                   })}
                 </TableBody>
               </Table>
-              {filtered.length > 500 && (
-                <div className="p-3 text-center text-xs text-muted-foreground border-t">
-                  A mostrar 500 de {filtered.length}. Filtre ou exporte CSV para ver todos.
-                </div>
-              )}
+              <PaginationBar
+                page={currentPage}
+                totalPages={totalPages}
+                pageSize={pageSize}
+                total={filtered.length}
+                onPage={setPage}
+                onPageSize={setPageSize}
+              />
             </div>
 
             {/* Mobile */}
-            <div className="md:hidden divide-y">
-              {filtered.slice(0, 200).map((r) => {
+            <div className="md:hidden">
+              <div className="divide-y">
+              {pageRows.map((r) => {
                 const o = origemOf(r);
                 return (
                   <div key={r.id} className="p-3 space-y-2">
