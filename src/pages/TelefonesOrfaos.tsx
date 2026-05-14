@@ -16,7 +16,13 @@ import {
   Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList,
 } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { PhoneOff, Download, Link2, Search, RefreshCw, CheckCircle2, Unlink } from "lucide-react";
+import {
+  Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
+  PhoneOff, Download, Link2, Search, RefreshCw, CheckCircle2, Unlink,
+  AlertTriangle, Sparkles, UserCheck,
+} from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -37,15 +43,26 @@ type FarmerOption = {
   province: string | null;
 };
 
+type Origem = "auto" | "manual" | "pendente";
+
 const formatKz = (n: number) =>
   new Intl.NumberFormat("pt-AO", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
+
+const formatDate = (iso: string | null) =>
+  iso ? new Date(iso).toLocaleString("pt-AO", { dateStyle: "short", timeStyle: "short" }) : "—";
+
+const origemOf = (r: OrphanRow): Origem => {
+  if (!r.linked_farmer_code) return "pendente";
+  if ((r.notes ?? "").toLowerCase().startsWith("auto")) return "auto";
+  return "manual";
+};
 
 export default function TelefonesOrfaos() {
   const { isAdmin } = useAuth();
   const [rows, setRows] = useState<OrphanRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState<"todos" | "pendentes" | "associados">("pendentes");
+  const [filter, setFilter] = useState<"todos" | "pendentes" | "auto" | "manual">("pendentes");
   const [linkDialog, setLinkDialog] = useState<OrphanRow | null>(null);
 
   const load = async () => {
@@ -66,45 +83,57 @@ export default function TelefonesOrfaos() {
 
   const filtered = useMemo(() => {
     return rows.filter((r) => {
-      if (filter === "pendentes" && r.linked_farmer_code) return false;
-      if (filter === "associados" && !r.linked_farmer_code) return false;
+      const o = origemOf(r);
+      if (filter === "pendentes" && o !== "pendente") return false;
+      if (filter === "auto" && o !== "auto") return false;
+      if (filter === "manual" && o !== "manual") return false;
       if (search.trim()) {
         const q = search.toLowerCase();
         return r.phone.includes(q) || (r.linked_farmer_code?.toLowerCase().includes(q) ?? false);
       }
       return true;
+    }).sort((a, b) => {
+      // pendentes primeiro, depois valor desc
+      const oa = origemOf(a), ob = origemOf(b);
+      if (oa === "pendente" && ob !== "pendente") return -1;
+      if (ob === "pendente" && oa !== "pendente") return 1;
+      return Number(b.amount) - Number(a.amount);
     });
   }, [rows, filter, search]);
 
   const totals = useMemo(() => {
-    const total = rows.reduce((s, r) => s + Number(r.amount), 0);
-    const pendentes = rows.filter((r) => !r.linked_farmer_code);
-    const associados = rows.filter((r) => r.linked_farmer_code);
+    let pendCount = 0, autoCount = 0, manualCount = 0;
+    let pendKz = 0, autoKz = 0, manualKz = 0, totalKz = 0;
+    for (const r of rows) {
+      const v = Number(r.amount) || 0;
+      totalKz += v;
+      const o = origemOf(r);
+      if (o === "pendente") { pendCount++; pendKz += v; }
+      else if (o === "auto") { autoCount++; autoKz += v; }
+      else { manualCount++; manualKz += v; }
+    }
     return {
-      count: rows.length,
-      pendentesCount: pendentes.length,
-      associadosCount: associados.length,
-      totalKz: total,
-      pendentesKz: pendentes.reduce((s, r) => s + Number(r.amount), 0),
-      associadosKz: associados.reduce((s, r) => s + Number(r.amount), 0),
+      count: rows.length, totalKz,
+      pendCount, pendKz,
+      autoCount, autoKz,
+      manualCount, manualKz,
     };
   }, [rows]);
 
   const exportCsv = () => {
-    const header = "telefone,valor_kz,estado,agricultor_associado,data_associacao,notas\n";
+    const header = "telefone,valor_kz,origem,agricultor_associado,data_associacao,notas\n";
     const csv = filtered
-      .map((r) =>
-        [
+      .map((r) => {
+        const o = origemOf(r);
+        return [
           r.phone,
           r.amount.toFixed(2),
-          r.linked_farmer_code ? "Associado" : "Pendente",
+          o === "auto" ? "Auto" : o === "manual" ? "Manual" : "Pendente",
           r.linked_farmer_code ?? "",
           r.linked_at ?? "",
           (r.notes ?? "").replace(/"/g, '""'),
-        ]
-          .map((v) => `"${v}"`)
-          .join(","),
-      )
+        ].map((v) => `"${v}"`).join(",");
+      })
       .join("\n");
     const blob = new Blob([header + csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
@@ -156,22 +185,53 @@ export default function TelefonesOrfaos() {
         }
       />
 
+      {/* Banner reconciliação automática */}
+      {totals.autoCount > 0 && (
+        <Card className="p-3 border-success/40 bg-success/5 flex items-start gap-3">
+          <Sparkles className="h-5 w-5 text-success shrink-0 mt-0.5" />
+          <div className="text-sm">
+            <div className="font-medium text-success">Reconciliação automática concluída</div>
+            <div className="text-muted-foreground">
+              <strong>{totals.autoCount.toLocaleString("pt-AO")}</strong> telefones associados
+              automaticamente ({formatKz(totals.autoKz)} Kz) por correspondência dos últimos 9 dígitos.
+              {totals.pendCount > 0 ? (
+                <> Restam <strong className="text-warning">{totals.pendCount}</strong> casos
+                  ({formatKz(totals.pendKz)} Kz) para revisão manual.</>
+              ) : (
+                <> Não restam casos pendentes.</>
+              )}
+            </div>
+          </div>
+        </Card>
+      )}
+
       {/* Stat cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <Card className="p-4">
           <div className="text-xs text-muted-foreground">Total de órfãos</div>
           <div className="text-2xl font-bold mt-1">{totals.count.toLocaleString("pt-AO")}</div>
           <div className="text-xs text-muted-foreground mt-1">{formatKz(totals.totalKz)} Kz</div>
         </Card>
-        <Card className="p-4 border-warning/30">
-          <div className="text-xs text-warning">Pendentes</div>
-          <div className="text-2xl font-bold mt-1">{totals.pendentesCount.toLocaleString("pt-AO")}</div>
-          <div className="text-xs text-muted-foreground mt-1">{formatKz(totals.pendentesKz)} Kz</div>
+        <Card className={`p-4 ${totals.pendCount > 0 ? "border-warning/40 bg-warning/5" : "border-muted"}`}>
+          <div className="text-xs text-warning flex items-center gap-1">
+            {totals.pendCount > 0 && <AlertTriangle className="h-3 w-3" />} Pendentes
+          </div>
+          <div className="text-2xl font-bold mt-1">{totals.pendCount.toLocaleString("pt-AO")}</div>
+          <div className="text-xs text-muted-foreground mt-1">{formatKz(totals.pendKz)} Kz</div>
         </Card>
         <Card className="p-4 border-success/30">
-          <div className="text-xs text-success">Associados</div>
-          <div className="text-2xl font-bold mt-1">{totals.associadosCount.toLocaleString("pt-AO")}</div>
-          <div className="text-xs text-muted-foreground mt-1">{formatKz(totals.associadosKz)} Kz</div>
+          <div className="text-xs text-success flex items-center gap-1">
+            <Sparkles className="h-3 w-3" /> Auto-associados
+          </div>
+          <div className="text-2xl font-bold mt-1">{totals.autoCount.toLocaleString("pt-AO")}</div>
+          <div className="text-xs text-muted-foreground mt-1">{formatKz(totals.autoKz)} Kz</div>
+        </Card>
+        <Card className="p-4 border-primary/30">
+          <div className="text-xs text-primary flex items-center gap-1">
+            <UserCheck className="h-3 w-3" /> Manuais
+          </div>
+          <div className="text-2xl font-bold mt-1">{totals.manualCount.toLocaleString("pt-AO")}</div>
+          <div className="text-xs text-muted-foreground mt-1">{formatKz(totals.manualKz)} Kz</div>
         </Card>
       </div>
 
@@ -186,16 +246,20 @@ export default function TelefonesOrfaos() {
             className="pl-9"
           />
         </div>
-        <div className="flex gap-1">
-          {(["pendentes", "associados", "todos"] as const).map((f) => (
+        <div className="flex gap-1 flex-wrap">
+          {([
+            { key: "pendentes", label: "Pendentes" },
+            { key: "auto", label: "Auto" },
+            { key: "manual", label: "Manuais" },
+            { key: "todos", label: "Todos" },
+          ] as const).map((f) => (
             <Button
-              key={f}
+              key={f.key}
               size="sm"
-              variant={filter === f ? "default" : "outline"}
-              onClick={() => setFilter(f)}
-              className="capitalize"
+              variant={filter === f.key ? "default" : "outline"}
+              onClick={() => setFilter(f.key)}
             >
-              {f}
+              {f.label}
             </Button>
           ))}
         </div>
@@ -211,10 +275,10 @@ export default function TelefonesOrfaos() {
           </div>
         ) : filtered.length === 0 ? (
           <div className="p-8 text-center text-muted-foreground">
-            Nenhum telefone {filter === "pendentes" ? "pendente" : filter === "associados" ? "associado" : ""} encontrado.
+            Nenhum telefone encontrado com os filtros actuais.
           </div>
         ) : (
-          <>
+          <TooltipProvider delayDuration={200}>
             {/* Desktop */}
             <div className="hidden md:block">
               <Table>
@@ -222,47 +286,75 @@ export default function TelefonesOrfaos() {
                   <TableRow>
                     <TableHead>Telefone</TableHead>
                     <TableHead className="text-right">Valor (Kz)</TableHead>
-                    <TableHead>Estado</TableHead>
+                    <TableHead>Origem</TableHead>
                     <TableHead>Agricultor</TableHead>
+                    <TableHead>Data</TableHead>
+                    <TableHead>Notas</TableHead>
                     <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filtered.slice(0, 500).map((r) => (
-                    <TableRow key={r.id}>
-                      <TableCell className="font-mono">{r.phone}</TableCell>
-                      <TableCell className="text-right font-medium">{formatKz(Number(r.amount))}</TableCell>
-                      <TableCell>
-                        {r.linked_farmer_code ? (
-                          <Badge variant="outline" className="border-success/40 text-success">
-                            <CheckCircle2 className="h-3 w-3 mr-1" /> Associado
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="border-warning/40 text-warning">
-                            Pendente
-                          </Badge>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {r.linked_farmer_code ? (
-                          <span className="font-mono text-sm">{r.linked_farmer_code}</span>
-                        ) : (
-                          <span className="text-muted-foreground text-sm">—</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {r.linked_farmer_code ? (
-                          <Button size="sm" variant="ghost" onClick={() => unlink(r)}>
-                            <Unlink className="h-4 w-4" />
-                          </Button>
-                        ) : (
-                          <Button size="sm" variant="outline" onClick={() => setLinkDialog(r)}>
-                            <Link2 className="h-4 w-4 mr-1" /> Associar
-                          </Button>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {filtered.slice(0, 500).map((r) => {
+                    const o = origemOf(r);
+                    return (
+                      <TableRow key={r.id}>
+                        <TableCell className="font-mono">{r.phone}</TableCell>
+                        <TableCell className="text-right font-medium">{formatKz(Number(r.amount))}</TableCell>
+                        <TableCell>
+                          {o === "auto" && (
+                            <Badge variant="outline" className="border-success/40 text-success">
+                              <Sparkles className="h-3 w-3 mr-1" /> Auto
+                            </Badge>
+                          )}
+                          {o === "manual" && (
+                            <Badge variant="outline" className="border-primary/40 text-primary">
+                              <UserCheck className="h-3 w-3 mr-1" /> Manual
+                            </Badge>
+                          )}
+                          {o === "pendente" && (
+                            <Badge variant="outline" className="border-warning/40 text-warning">
+                              <AlertTriangle className="h-3 w-3 mr-1" /> Pendente
+                            </Badge>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {r.linked_farmer_code ? (
+                            <span className="font-mono text-sm">{r.linked_farmer_code}</span>
+                          ) : (
+                            <span className="text-muted-foreground text-sm">—</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                          {formatDate(r.linked_at)}
+                        </TableCell>
+                        <TableCell className="max-w-[220px]">
+                          {r.notes ? (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="text-xs text-muted-foreground line-clamp-1 cursor-help">
+                                  {r.notes}
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-sm">{r.notes}</TooltipContent>
+                            </Tooltip>
+                          ) : (
+                            <span className="text-muted-foreground text-xs">—</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {r.linked_farmer_code ? (
+                            <Button size="sm" variant="ghost" onClick={() => unlink(r)} title="Desassociar">
+                              <Unlink className="h-4 w-4" />
+                            </Button>
+                          ) : (
+                            <Button size="sm" variant="outline" onClick={() => setLinkDialog(r)}>
+                              <Link2 className="h-4 w-4 mr-1" /> Associar
+                            </Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
               {filtered.length > 500 && (
@@ -274,41 +366,55 @@ export default function TelefonesOrfaos() {
 
             {/* Mobile */}
             <div className="md:hidden divide-y">
-              {filtered.slice(0, 200).map((r) => (
-                <div key={r.id} className="p-3 space-y-2">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <div className="font-mono font-medium">{r.phone}</div>
-                      <div className="text-sm text-muted-foreground">{formatKz(Number(r.amount))} Kz</div>
+              {filtered.slice(0, 200).map((r) => {
+                const o = origemOf(r);
+                return (
+                  <div key={r.id} className="p-3 space-y-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <div className="font-mono font-medium">{r.phone}</div>
+                        <div className="text-sm text-muted-foreground">{formatKz(Number(r.amount))} Kz</div>
+                      </div>
+                      {o === "auto" && (
+                        <Badge variant="outline" className="border-success/40 text-success text-xs">
+                          <Sparkles className="h-3 w-3 mr-1" /> Auto
+                        </Badge>
+                      )}
+                      {o === "manual" && (
+                        <Badge variant="outline" className="border-primary/40 text-primary text-xs">
+                          <UserCheck className="h-3 w-3 mr-1" /> Manual
+                        </Badge>
+                      )}
+                      {o === "pendente" && (
+                        <Badge variant="outline" className="border-warning/40 text-warning text-xs">
+                          <AlertTriangle className="h-3 w-3 mr-1" /> Pendente
+                        </Badge>
+                      )}
                     </div>
-                    {r.linked_farmer_code ? (
-                      <Badge variant="outline" className="border-success/40 text-success text-xs">
-                        Associado
-                      </Badge>
-                    ) : (
-                      <Badge variant="outline" className="border-warning/40 text-warning text-xs">
-                        Pendente
-                      </Badge>
+                    {r.linked_farmer_code && (
+                      <div className="text-xs font-mono text-muted-foreground">
+                        → {r.linked_farmer_code} <span className="ml-1">({formatDate(r.linked_at)})</span>
+                      </div>
                     )}
-                  </div>
-                  {r.linked_farmer_code && (
-                    <div className="text-xs font-mono text-muted-foreground">→ {r.linked_farmer_code}</div>
-                  )}
-                  <div className="flex justify-end">
-                    {r.linked_farmer_code ? (
-                      <Button size="sm" variant="ghost" onClick={() => unlink(r)}>
-                        <Unlink className="h-4 w-4 mr-1" /> Desassociar
-                      </Button>
-                    ) : (
-                      <Button size="sm" variant="outline" onClick={() => setLinkDialog(r)}>
-                        <Link2 className="h-4 w-4 mr-1" /> Associar
-                      </Button>
+                    {r.notes && (
+                      <div className="text-xs text-muted-foreground line-clamp-2">{r.notes}</div>
                     )}
+                    <div className="flex justify-end">
+                      {r.linked_farmer_code ? (
+                        <Button size="sm" variant="ghost" onClick={() => unlink(r)}>
+                          <Unlink className="h-4 w-4 mr-1" /> Desassociar
+                        </Button>
+                      ) : (
+                        <Button size="sm" variant="outline" onClick={() => setLinkDialog(r)}>
+                          <Link2 className="h-4 w-4 mr-1" /> Associar
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
-          </>
+          </TooltipProvider>
         )}
       </Card>
 
@@ -363,17 +469,21 @@ function LinkDialog({
     if (!row || !selected) return;
     setSubmitting(true);
     const { data: userData } = await supabase.auth.getUser();
+    const userId = userData.user?.id ?? null;
+
     const { error } = await supabase
       .from("orphan_phones")
       .update({
         linked_farmer_code: selected.code,
         linked_at: new Date().toISOString(),
-        linked_by: userData.user?.id ?? null,
-        notes: `Associado manualmente a ${selected.full_name} (${selected.code})`,
+        linked_by: userId,
+        notes: `Manual: associado a ${selected.full_name} (${selected.code})`,
       })
       .eq("id", row.id);
-    setSubmitting(false);
-    if (error) return toast.error("Erro: " + error.message);
+    if (error) {
+      setSubmitting(false);
+      return toast.error("Erro: " + error.message);
+    }
 
     // Somar valor ao valor_recebido actual do agricultor
     const { data: f } = await supabase
@@ -381,16 +491,30 @@ function LinkDialog({
       .select("valor_recebido")
       .eq("code", selected.code)
       .maybeSingle();
-    const current = parseFloat(
-      (f?.valor_recebido ?? "0").toString().replace(/\./g, "").replace(",", "."),
-    ) || 0;
-    const novo = current + Number(row.amount);
+    const oldRaw = (f?.valor_recebido ?? "0").toString();
+    const current = parseFloat(oldRaw.replace(/\./g, "").replace(",", ".")) || 0;
+    const delta = Number(row.amount);
+    const novo = current + delta;
     const formatted = new Intl.NumberFormat("pt-AO", {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     }).format(novo);
     await supabase.from("farmers").update({ valor_recebido: formatted }).eq("code", selected.code);
 
+    // Histórico (consistência com o auto-link)
+    await supabase.from("farmer_balance_history").insert({
+      farmer_code: selected.code,
+      field: "valor_recebido",
+      old_value: oldRaw,
+      new_value: formatted,
+      delta,
+      source: "orphan_phone_manual_link",
+      source_ref: row.id,
+      changed_by: userId,
+      notes: `Telefone órfão ${row.phone} associado manualmente`,
+    });
+
+    setSubmitting(false);
     toast.success(
       `Associado a ${selected.full_name}. valor_recebido actualizado para ${formatted} Kz.`,
     );
@@ -481,7 +605,7 @@ function LinkDialog({
               </div>
               <div className="text-xs text-warning mt-2">
                 Esta operação irá somar {row && formatKz(Number(row.amount))} Kz ao valor_recebido
-                actual do agricultor.
+                actual do agricultor e registar entrada no histórico de saldos.
               </div>
             </Card>
           )}
