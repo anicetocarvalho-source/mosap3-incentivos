@@ -322,6 +322,7 @@ const Mosap3PayOcorrencias = () => {
                       <TableHead>Motivo</TableHead>
                       <TableHead>Operador POS</TableHead>
                       <TableHead className="text-right">Destinatários</TableHead>
+                      <TableHead className="text-right">Ações</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -338,6 +339,11 @@ const Mosap3PayOcorrencias = () => {
                         <TableCell className="text-xs">{r.user_name || "—"}</TableCell>
                         <TableCell className="text-right">
                           <Badge variant="secondary">{r.details?.recipients ?? 0}</Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button variant="ghost" size="sm" onClick={() => setSelected(r)}>
+                            <Eye className="h-4 w-4 mr-1" /> Detalhe
+                          </Button>
                         </TableCell>
                       </TableRow>
                     ))}
