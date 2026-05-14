@@ -202,13 +202,30 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
   // Autocomplete suggestions as user types
   useEffect(() => {
     const q = farmerSearch.trim();
-    if (q.length < 2) { setFarmerSuggestions([]); setShowSuggestions(false); return; }
+    const isNumeric = /^\d+$/.test(q);
+    if (q.length < (isNumeric ? 1 : 2)) { setFarmerSuggestions([]); setShowSuggestions(false); return; }
     const timeout = setTimeout(async () => {
+      // Sanitizar para escape do operador .or() do PostgREST (vírgula e parênteses)
+      const safe = q.replace(/[(),]/g, " ");
+      const qDigits = q.replace(/\D/g, "");
+      // Normalização PT-AO: aceitar com ou sem prefixo 244
+      let qPhoneAlt = "";
+      if (qDigits.length >= 3) {
+        if (qDigits.startsWith("244")) qPhoneAlt = qDigits.slice(3);
+        else if (qDigits.length === 9 && qDigits.startsWith("9")) qPhoneAlt = "244" + qDigits;
+      }
+      const orParts = [
+        `full_name.ilike.%${safe}%`,
+        `code.ilike.%${safe}%`,
+        `bi.ilike.%${safe}%`,
+      ];
+      if (qDigits.length >= 3) orParts.push(`phone.ilike.%${qDigits}%`);
+      if (qPhoneAlt && qPhoneAlt !== qDigits) orParts.push(`phone.ilike.%${qPhoneAlt}%`);
       const { data } = await supabase
         .from("farmers")
         .select("code, full_name, phone, patec, photo_frontal_url, saldo_final, sim_status")
-        .or(`full_name.ilike.%${q}%,code.ilike.%${q}%,phone.ilike.%${q}%,bi.ilike.%${q}%`)
-        .limit(8);
+        .or(orParts.join(","))
+        .limit(50);
       setFarmerSuggestions((data as Farmer[]) || []);
       setShowSuggestions(!!data && data.length > 0);
     }, 300);
@@ -1000,7 +1017,7 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
                   </button>
                 </div>
                 {showSuggestions && farmerSuggestions.length > 0 && (
-                  <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-[hsl(220,15%,12%)] border border-[hsl(220,15%,22%)] rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                  <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-[hsl(220,15%,12%)] border border-[hsl(220,15%,22%)] rounded-lg shadow-lg max-h-72 overflow-y-auto">
                     {farmerSuggestions.map((s) => (
                       <button key={s.code} onClick={() => selectFarmerFromSuggestion(s)} className="w-full text-left px-3 py-2 hover:bg-[hsl(220,15%,18%)] flex items-center gap-2 text-xs border-b border-[hsl(220,15%,18%)] last:border-0">
                         <User className="h-3 w-3 text-[hsl(220,10%,45%)] flex-shrink-0" />
@@ -1010,6 +1027,11 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
                         </div>
                       </button>
                     ))}
+                    {farmerSuggestions.length >= 50 && (
+                      <div className="px-3 py-2 text-[10px] text-[hsl(220,10%,55%)] bg-[hsl(220,15%,10%)] sticky bottom-0 text-center border-t border-[hsl(220,15%,22%)]">
+                        A mostrar 50 resultados — refine a pesquisa para ver mais
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -1283,7 +1305,7 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
                     <Button onClick={searchFarmer}><Search className="h-4 w-4 mr-1" /> Pesquisar</Button>
                   </div>
                   {showSuggestions && farmerSuggestions.length > 0 && (
-                    <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-popover border border-border rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                    <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-popover border border-border rounded-lg shadow-lg max-h-80 overflow-y-auto">
                       {farmerSuggestions.map((s) => (
                         <button key={s.code} onClick={() => selectFarmerFromSuggestion(s)} className="w-full text-left px-3 py-2 hover:bg-accent flex items-center gap-2 text-sm border-b border-border last:border-0">
                           <User className="h-4 w-4 text-muted-foreground flex-shrink-0" />
@@ -1294,6 +1316,11 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
                           {s.patec ? <Badge variant="secondary" className="text-[10px]">{patecLabels[s.patec]}</Badge> : null}
                         </button>
                       ))}
+                      {farmerSuggestions.length >= 50 && (
+                        <div className="px-3 py-2 text-[11px] text-muted-foreground bg-muted/50 sticky bottom-0 text-center border-t border-border">
+                          A mostrar 50 resultados — refine a pesquisa para ver mais
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
