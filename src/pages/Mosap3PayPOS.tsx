@@ -241,7 +241,29 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
     return items;
   };
 
+  const isSimBlocked = (status: string | null | undefined) =>
+    status === "Barrado" || status === "Removido";
+
   const selectFarmerFromSuggestion = async (f: Farmer) => {
+    if (isSimBlocked(f.sim_status)) {
+      toast.error(`Venda bloqueada — cartão SIM ${f.sim_status}. Produtor ${f.full_name} (${f.code}) não pode efectuar compras.`);
+      setFarmer(f);
+      setFarmerSearch(f.code);
+      setShowSuggestions(false);
+      setFarmerSuggestions([]);
+      setCart([]);
+      setParcelSize(null);
+      setFarmerBalance(0);
+      try {
+        await supabase.from("audit_logs").insert({
+          action: "pos_sale_blocked_sim",
+          entity_type: "farmer",
+          entity_id: f.code,
+          details: { sim_status: f.sim_status, farmer_name: f.full_name } as any,
+        });
+      } catch {}
+      return;
+    }
     setFarmer(f);
     setFarmerSearch(f.code);
     setShowSuggestions(false);
@@ -257,6 +279,9 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
     if (!f.patec) {
       toast.error(`${f.full_name} não tem PATEC atribuído. Não é possível efectuar venda.`);
       return;
+    }
+    if (f.sim_status === "Pré desactivado") {
+      toast.warning(`Atenção: cartão SIM em estado "Pré desactivado". Confirme antes de finalizar.`);
     }
     toast.success(`Produtor identificado: ${f.full_name} — Saldo: ${balance.toLocaleString("pt-AO")} Kz`);
     setParcelDialogOpen(true);
