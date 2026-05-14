@@ -1,75 +1,89 @@
-## Análise do ficheiro `ALL_MOSAP_003.xlsx`
+## Página de Estado dos Cartões SIM
 
-O ficheiro tem 2 folhas; a folha **`Detalhe`** contém **15 166 registos** com as colunas: `MSISDN, NAME, TRUST LEVEL, STATUS, PRODUCT_NAME, PROVINCE, REGION (município), SALDO_DISPONIVEL_EMONEY, SALDO_DISPONIVEL_MOSAP, Nome_Cliente, Estado_Numero`.
+Nova página em `/mosap3pay/cartoes-sim` para acompanhar o estado dos cartões SIM (Activo, Removido, Barrado, Pré desactivado) sincronizado com o ficheiro Unitel `ALL_MOSAP_*.xlsx` e com edição manual.
 
-### Cruzamento com a base de dados (`farmers`, 10 905 registos)
+### 1. Base de dados
 
-| Métrica | Valor |
-|---|---|
-| Telefones presentes em ambos | **10 905** (100% da BD) |
-| Telefones só no Excel (potenciais novos) | **4 261** |
-| Telefones só na BD | 0 |
-| Matched com `Estado_Numero = Removido` | 826 |
-| Matched com `Estado_Numero = Barrado` | 2 158 |
-| Matched com `STATUS = Pendente` | 134 |
-| Matched com saldo MOSAP = 0 (esgotado) | 33 |
+**Coluna nova em `farmers`**
+- `sim_status text` — valores: `Activo`, `Removido`, `Barrado`, `Pré desactivado`, `Desconhecido` (default).
+- `sim_status_updated_at timestamptz` — última actualização.
+- `sim_status_source text` — `reconciliacao` ou `manual`.
 
-### Distribuição dos 4 261 novos por província
-CUNENE 1 552 · BENGUELA 1 540 · KUANDO KUBANGO 597 · HUÍLA 487 · NAMIBE 83 · BENGO 1 · LUANDA 1.
+**Tabela nova `sim_status_history`**
+- `farmer_code`, `phone`, `old_status`, `new_status`, `source` (`reconciliacao` / `manual`), `notes`, `changed_by`, `created_at`.
+- RLS: Admin + Gestor de Incentivos podem ler/inserir; Admin pode apagar.
+- Trigger `on_sim_status_changed`: quando `farmers.sim_status` muda, insere linha no histórico e cria notificação para o gestor de província.
 
-### Campos que o Excel **pode preencher / validar**
-- `phone` (chave de match) ✓
-- `full_name` (corrigir capitalização e erros tipo "Menogue" → "Menongue")
-- `province` (normalizar: `BENGUELA`→`Benguela`, `HUÍLA`→`Huila`, `KUANDO KUBANGO`→`Cuando Cubango`, etc.)
-- `municipality` (do campo `REGION`, com limpeza de variantes tipo "Cuanhama (Kwanhama)" → "Cuanhama")
-- `saldo_final` (sincronizar com `SALDO_DISPONIVEL_MOSAP`)
-- `status` na BD (marcar `Removido` quando `Estado_Numero=Removido`; flag de revisão para `Barrado`)
+### 2. Reconciliação MOSAP3Pay (já existente)
 
-### Campos que o Excel **NÃO contém** (continuam em falta)
-`bi`, `gender`, `birth_date`, `school` (escola de campo), `patec`, `valor_recebido`, `total_gasto`, fotos, biometria. Estes 10 905 registos da BD continuarão sem `bi/género/data` (campo a recolher em campo).
+Adicionar uma 5.ª aba **"Estado SIM"** ao `/mosap3pay/reconciliacao`:
+- Mostra `Estado_Numero` do Excel vs `sim_status` da BD, lado a lado.
+- Mesmo padrão das restantes abas (checkbox, "Aplicar seleccionados", blocos de 50).
+- Ao aprovar, escreve `sim_status`, `sim_status_source='reconciliacao'` e o trigger encarrega-se do histórico.
 
----
+### 3. Página `/mosap3pay/cartoes-sim`
 
-## Plano de acção
+**RBAC:** `admin` e `gestor_incentivos` (mesmo da Reconciliação).
 
-Construir uma **página de Reconciliação MOSAP3 Pay** (rota `/mosap3pay/reconciliacao`) que faz a análise sem aplicar nada ao banco até confirmação do utilizador. Sem mexer em outras páginas.
+**KPIs no topo (4 cartões coloridos):**
+- Activos (verde) · Pré desactivado (amarelo) · Barrado (laranja) · Removido (vermelho) · Desconhecido (cinza).
 
-### 1. Página `src/pages/Mosap3PayReconciliacao.tsx`
-- Bloco de upload (drag-drop) de `.xlsx` com mesma estrutura do `ALL_MOSAP_*.xlsx` (reutiliza `xlsx` já no projecto).
-- Validação imediata da folha `Detalhe` e cabeçalhos esperados.
-- Dashboard de KPIs após parse:
-  - Total no Excel / Total na BD / Match / Novos / Só na BD
-  - Distribuição por província dos novos
-  - Discrepâncias detectadas (nome, província, município, saldo)
-  - Estados anómalos (`Removido`, `Barrado`, `Pendente`)
-- 4 abas com pré-visualização:
-  - **Novos** (4 261) — checkbox por linha + bulk select; ao confirmar insere em blocos de 50 (regra do projeto) na tabela `farmers` com `code` gerado, `status='Pendente'`, província/município normalizados.
-  - **Diferenças de nome** — lista lado a lado (BD vs Excel), checkbox para aplicar.
-  - **Diferenças de saldo** — lista `saldo_final` BD vs `SALDO_DISPONIVEL_MOSAP` Excel; checkbox para sincronizar.
-  - **A remover** — registos cujo `Estado_Numero=Removido` ou `Barrado`; checkbox para fazer soft-delete (`status='Removido'`).
+**Filtros:** província, município, escola, estado SIM, pesquisa por telefone/nome/código. Paginação de 50, exporta CSV.
 
-### 2. Helpers em `src/lib/reconciliation.ts`
-- `normalizeProvince()` com mapa Excel→BD (7 províncias).
-- `normalizeMunicipality()` com map para variantes ("Cuanhama (Kwanhama)" → "Cuanhama", "Cuito Cuanavale (Kuito Kuanavale)" → "Cuito Cuanavale").
-- `normalizeName()` (title-case PT, preservando acentos).
-- `diffFarmer(dbRow, xlRow)` devolve campos divergentes.
+**Tabela (desktop) / cards (mobile):**
+Telefone · Nome · Província / Município · Escola · Estado SIM (badge colorido) · Última alteração · Acções.
 
-### 3. Lote de aplicação
-- Inserts/updates feitos lado-cliente em **blocos de 50** com barra de progresso (`Progress`).
-- Cada operação registada em `audit_logs` (já existe) com `action='reconciliation_import'` e payload JSON do diff.
-- Toast final com sucesso / falhas.
+**Acções por linha:**
+- "Alterar estado" → diálogo com select dos 5 estados + campo de notas. Marca `sim_status_source='manual'`, regista no audit_logs e dispara o trigger de histórico.
+- "Ver histórico" → drawer com timeline (data, antigo → novo, fonte, autor, notas).
 
-### 4. RBAC
-- Rota só visível para `admin` e `incentive_manager` (usar `RoleGuard`).
+### 4. Bloqueio no POS
 
-### 5. Verificação
-- Tipechecks ao build automático.
-- Teste manual em /preview: carregar `ALL_MOSAP_003.xlsx`, confirmar que mostra 4 261 novos, 826 a remover, ~3 000 diferenças de saldo. Aplicar uma amostra de 5 e validar na BD.
+No `Mosap3PayPOS.tsx` e `fornecedor/FornecedorPOSVenda.tsx`, ao identificar o agricultor:
+- Se `sim_status` ∈ {`Barrado`, `Removido`}: alerta vermelho **"SIM bloqueado — venda não permitida"**, botão de pagamento desactivado.
+- Se `sim_status = 'Pré desactivado'`: aviso amarelo **"SIM em pré-desactivação"**, venda permitida mas registada em `audit_logs` com flag.
+- Se `Activo` ou `Desconhecido`: comportamento actual.
 
----
+### 5. Notificações
+
+Trigger `on_sim_status_changed` cria notificação via `notify_all_users` filtrando por gestores da província do agricultor:
+- Categoria `cartoes_sim`, título "Cartão SIM alterado", corpo com nome do agricultor e novo estado.
+
+### 6. Navegação
+
+Adicionar entrada **"Cartões SIM"** no `AppNavbar.tsx` debaixo de **MOSAP3Pay**, ao lado de "Reconciliação", com ícone `Smartphone` (lucide).
+
+### 7. Ficheiros afectados
+
+```text
+NOVOS:
+  src/pages/Mosap3PayCartoesSim.tsx
+  src/components/cartoes-sim/SimStatusBadge.tsx
+  src/components/cartoes-sim/EditarSimStatusDialog.tsx
+  src/components/cartoes-sim/SimStatusHistoryDrawer.tsx
+  src/hooks/useSimCardsList.ts
+
+EDITADOS:
+  src/App.tsx                              (rota nova)
+  src/components/AppNavbar.tsx             (link)
+  src/lib/reconciliation.ts                (computeDiffs → simStatusDiffs)
+  src/pages/Mosap3PayReconciliacao.tsx     (nova aba)
+  src/pages/Mosap3PayPOS.tsx               (bloqueio)
+  src/pages/fornecedor/FornecedorPOSVenda.tsx (bloqueio)
+
+MIGRAÇÃO SQL:
+  - ALTER TABLE farmers ADD COLUMN sim_status, sim_status_updated_at, sim_status_source
+  - CREATE TABLE sim_status_history + RLS + trigger
+```
+
+### 8. Verificação
+
+- Carregar `ALL_MOSAP_003.xlsx` em /mosap3pay/reconciliacao → confirmar que aba "Estado SIM" mostra os 826 Removidos + 2 158 Barrados; aplicar uma amostra e ver os contadores na nova página.
+- Editar manualmente um SIM → confirmar entrada em `sim_status_history` e notificação ao gestor.
+- Tentar venda no POS para agricultor com `Barrado` → botão pagar deve estar desactivado.
 
 ### Notas técnicas
-- **Sem alterações ao schema** — todas as colunas-alvo já existem em `farmers`.
-- Não tocar em `bi`, `gender`, `birth_date` (Excel não tem). Esses campos continuam em falta e devem ser recolhidos em campo (extensionistas via wizard de registo).
-- Utiliza a infraestrutura existente: `xlsx` (já em `package.json`), `BulkImportDialog` como referência, `applyFarmerScopeFilter` para respeitar permissões geográficas dos gestores.
-- Não recriar páginas removidas ("Compras"/"Empresas") — esta vive dentro do MOSAP3Pay.
+
+- A coluna `farmers.status` (estado do agricultor: Pendente/Aprovado/Removido) **não é tocada** — `sim_status` é um eixo independente.
+- Histórico mantido indefinidamente; sem rotação.
+- A reconciliação continua a tratar `Estado_Numero='Removido'` como soft-delete do agricultor (comportamento actual) **e** actualiza `sim_status` em paralelo.
