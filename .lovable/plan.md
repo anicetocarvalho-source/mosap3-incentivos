@@ -1,49 +1,46 @@
-## Diagnóstico
+## Problema
 
-Os logs de rede mostram dezenas de pedidos `HEAD /rest/v1/farmers?...&status=neq.Removido` a devolver **401** de minuto em minuto, sempre com o **mesmo JWT já expirado** (`exp` ≈ 13:37, pedidos a partir das 13:52). Ou seja: o token está caducado, o Supabase não o renova e o `usePatecPendingCount` (intervalo de 60 s) continua a martelar a API até "tudo parecer não carregar".
+Após login, todas as chamadas à API retornam 401 (`JWT expired`) e o ecrã "Não foi possível carregar os dados" aparece em loop. O token nas requisições tem:
 
-A causa raiz está em `src/lib/authSessionClockSkew.ts`:
+- `iat` = 1778750266 (emitido)
+- `exp` = 1778753866 (válido por 1h)
+- pedido feito em ~1778769364 (5h depois → genuinamente expirado)
 
-```ts
-const skew = now - expiresAt;
-if (skew <= 5*60 || skew > 12*60*60) return { session, adjusted: false };
-// caso contrário: expires_at = now + 3600  ← falsifica a expiração
-```
+## Causa raiz
 
-Qualquer sessão **realmente expirada** entre 5 min e 12 h é tratada como "desvio de relógio" e o `expires_at` é reescrito para o futuro. Consequência:
+`src/lib/authSessionClockSkew.ts` está a tratar **qualquer** token com `expires_at` no passado (até 12h) como "clock skew" e a falsificar `expires_at = now + 1h`. Resultado: o supabase-js acha que o token ainda é válido, **nunca chama refresh**, e o servidor responde 401 indefinidamente.
 
-1. O cliente Supabase pensa que o token ainda é válido → **nunca** faz auto-refresh.
-2. `ensureFreshSession` vê `msUntilExpiry > 2 min` → também não refresca.
-3. O servidor rejeita com 401 porque o JWT está mesmo expirado.
-4. Não há `SIGNED_OUT`, não há redirect para `/auth`, e os pollers (PATEC, futuros sinais de cache) continuam a falhar em loop.
+A correção anterior tentou usar o `iat` do JWT como "relógio do servidor", mas a lógica está invertida: se `|now − iat| > 5min` continua a ajustar — ou seja, sempre que o separador fica algumas horas inativo, cai exatamente neste caminho e bloqueia o refresh.
 
-A heurística de skew confunde "token caducado por inatividade" com "relógio do cliente atrasado".
+A verdade é simples:
+- **Clock skew real** = relógio local atrasado em relação ao servidor → `iat` aparece **no futuro** relativamente ao `now` local.
+- **Token genuinamente expirado** = `iat` no passado e `exp` no passado → tem de ir refrescar, não falsificar.
 
-## Plano
+## Plano de correção
 
-### 1. Corrigir a normalização de clock-skew (`src/lib/authSessionClockSkew.ts`)
-Só ajustar quando houver evidência real de relógio do cliente errado, não em qualquer expiração no passado.
+### 1. `src/lib/authSessionClockSkew.ts`
+Reescrever `normalizeSessionShape` para só ajustar `expires_at` quando há evidência real de skew:
 
-- Usar o `iat` do `access_token` (decodificar o JWT sem validar) como referência do relógio do servidor.
-- Considerar skew apenas se `Math.abs(now - iat) > 5 min` **e** o token foi emitido há pouco (`iat` próximo do `expires_at - ttl`).
-- Se `iat <= now` e `expires_at < now` → token genuinamente expirado: **não tocar** em `expires_at`; deixar o cliente Supabase fazer refresh normal.
-- Manter o limite máximo de ajuste (12 h) e o TTL por omissão.
+- Se `iat` não for legível → **não ajustar** (mais seguro deixar o supabase-js refrescar do que mascarar).
+- Se `iat <= now` (emitido no passado segundo o relógio local) → token genuinamente envelhecido → **não ajustar**.
+- Se `iat > now + CLOCK_SKEW_THRESHOLD` (emitido no "futuro" → relógio local atrasado) → ajustar `expires_at = now + ttl` (skew real).
+- Caso contrário → não ajustar.
 
-### 2. Forçar recuperação quando uma sessão expirada é detectada (`src/hooks/useAuth.tsx`)
-- No arranque, se `getSession()` devolver sessão com `expires_at < now` (sem ajuste falso), chamar `refreshSession()` uma vez; se falhar, `signOut()` + redirect para `/auth` (já existente, mas garantir que dispara).
-- Em `ensureFreshSession`, refrescar também quando o token **já expirou** (hoje só refresca se faltar < 2 min, o que com o bug ficava sempre falso).
+### 2. `src/hooks/useAuth.tsx`
+- No arranque, se `getSession()` devolver sessão com `expires_at` no passado, chamar `supabase.auth.refreshSession()` **uma única vez**. Se falhar → `signOut()` + redirect para `/auth` (já existe, mas confirmar caminho).
+- Em `ensureFreshSession`, se `refreshSession()` devolver erro com `refresh_token_not_found`/`invalid_grant`, forçar `signOut()` em vez de tentar de novo.
 
-### 3. Parar o loop de 401 do `usePatecPendingCount` (`src/hooks/usePatecPendingCount.ts`)
-- Capturar erros de auth (status 401 / mensagens `JWT expired` / `invalid token`) e, ao detectá-los, chamar `ensureFreshSession` (ou `supabase.auth.refreshSession()`) e desistir desse fetch sem agendar nova tentativa imediata.
-- Reduzir `refetchInterval` para 5 min (300 000 ms) em vez de 60 s para baixar a pressão; manter `refetchOnWindowFocus` para frescura quando o utilizador volta ao separador.
-- Manter `enabled: !!user && authReady` para não correr enquanto a auth não está pronta.
+### 3. `src/hooks/usePatecPendingCount.ts`
+Já tem guarda contra auth-error (devolve 0). Manter.
 
-### 4. Verificação
-- Recarregar a app: a sessão expirada deve desencadear refresh ou redirect para `/auth` em vez de 401 em loop.
-- Confirmar nos logs de rede que deixam de aparecer 401 repetidos.
-- Confirmar que após login as páginas (Dashboard, Escolas, Auditoria) voltam a carregar dados.
+### 4. Limpar storage corrompido (uma vez)
+Adicionar, em `normalizeStoredAuthSessionClockSkew`, deteção: se a sessão guardada já tem `expires_at` claramente "esticado" (`expires_at - iat > 1.5 × ttl_normal`), apagá-la para forçar re-login limpo. Isto resolve sessões já corrompidas pela versão antiga do código sem o utilizador ter de limpar manualmente o localStorage.
 
-### Notas técnicas
-- A decodificação do JWT é apenas leitura do payload (`atob` do segundo segmento); não valida assinatura.
-- Não mexer em `src/integrations/supabase/client.ts`.
-- Nenhuma migração de base de dados é necessária.
+## Verificação
+
+1. Após aplicar, fazer logout/login.
+2. Confirmar que pedidos a `/rest/v1/farmers`, `/rest/v1/profiles`, etc. retornam 200.
+3. Deixar o separador inativo > 1h e voltar — deve refrescar automaticamente, sem 401.
+4. Verificar no DevTools → Application → Local Storage que `expires_at` da sessão guardada bate certo com o `exp` do JWT (não está esticado).
+
+Sem alterações de schema nem de UI.

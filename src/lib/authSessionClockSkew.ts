@@ -124,25 +124,22 @@ function normalizeSessionShape<T extends SessionShape>(session: T): { session: T
     return { session, adjusted: false };
   }
 
-  const skew = now - expiresAt;
-  if (skew <= CLOCK_SKEW_THRESHOLD || skew > MAX_CLOCK_SKEW_ADJUSTMENT) {
+  // Only adjust expires_at when there is REAL evidence of clock skew, i.e. the
+  // local clock is BEHIND the server clock. We detect this via the JWT `iat`:
+  // if `iat` is in the FUTURE according to the local clock, the local clock is
+  // behind. Otherwise the token has genuinely aged and must be refreshed by
+  // supabase-js — never mask it, or every request loops on 401.
+  const iat = decodeJwtIat((session as any).access_token);
+  if (iat === null) return { session, adjusted: false };
+
+  const skewSeconds = iat - now; // > 0 means local clock is behind server
+  if (skewSeconds <= CLOCK_SKEW_THRESHOLD) {
+    // Local clock is on time or ahead of server → token is genuinely expired.
     return { session, adjusted: false };
   }
-
-  // Distinguish a real expiry (token simply aged out) from a clock-skew issue.
-  // Use the JWT `iat` as the server clock reference. If `iat` is in the past
-  // by roughly the token TTL, the token is genuinely expired and must NOT be
-  // patched — otherwise the Supabase client never refreshes and every API call
-  // returns 401 in a loop. Only adjust when the local clock disagrees with the
-  // server clock (|now - iat| > threshold).
-  const iat = decodeJwtIat((session as any).access_token);
-  if (iat !== null) {
-    const clockSkewSeconds = Math.abs(now - iat);
-    if (clockSkewSeconds <= CLOCK_SKEW_THRESHOLD) {
-      // Local clock matches server — token is genuinely expired. Leave as-is
-      // so supabase-js triggers a refresh (or fails it and forces re-auth).
-      return { session, adjusted: false };
-    }
+  if (skewSeconds > MAX_CLOCK_SKEW_ADJUSTMENT) {
+    // Implausible skew — refuse to mask it.
+    return { session, adjusted: false };
   }
 
   const ttl =
@@ -158,6 +155,26 @@ function normalizeSessionShape<T extends SessionShape>(session: T): { session: T
     } as T,
     adjusted: true,
   };
+}
+
+/** Detect a session whose expires_at was artificially stretched by an older
+ *  buggy version of this normalizer. Such sessions never trigger a refresh
+ *  and cause permanent 401 loops. We delete them so the user gets a clean
+ *  re-login on next page load. */
+function isStretchedSession(session: SessionShape): boolean {
+  const expiresAt = typeof session.expires_at === "number" ? session.expires_at : null;
+  if (!expiresAt) return false;
+  const iat = decodeJwtIat((session as any).access_token);
+  if (iat === null) return false;
+  // A healthy session has expires_at - iat ≈ ttl (3600s). If stretched, the
+  // gap will be much larger than the JWT's actual lifetime.
+  return expiresAt - iat > Math.floor(DEFAULT_SESSION_TTL * 1.5);
+}
+
+function clearStoredSession(): void {
+  const storageKey = getAuthStorageKey();
+  if (!storageKey || typeof window === "undefined") return;
+  window.localStorage.removeItem(storageKey);
 }
 
 export function normalizeStoredAuthSessionClockSkew(): void {
