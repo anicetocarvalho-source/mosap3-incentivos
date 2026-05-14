@@ -91,9 +91,31 @@ export const parseSaldoToNumber = (v: string | null | undefined): number => {
 export const formatSaldoBR = (n: number): string =>
   n.toLocaleString("pt-AO", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+export type MissingField =
+  | "MSISDN"
+  | "NAME"
+  | "PROVINCE"
+  | "REGION"
+  | "SALDO_DISPONIVEL_MOSAP"
+  | "SALDO_DISPONIVEL_EMONEY";
+
+export interface InvalidRow {
+  rowNumber: number; // 1-based, including header offset
+  msisdn: string;
+  name: string;
+  province: string;
+  region: string;
+  missing: MissingField[];
+  blocking: boolean; // true se faltar MSISDN (linha descartada)
+}
+
 export interface ParsedSheet {
   rows: ExcelFarmerRow[];
   headerErrors: string[];
+  invalidRows: InvalidRow[];
+  duplicateMsisdns: string[];
+  totalRaw: number;
+  missingByField: Record<MissingField, number>;
 }
 
 const REQUIRED_HEADERS = [
@@ -105,18 +127,79 @@ const REQUIRED_HEADERS = [
   "Estado_Numero",
 ];
 
+const MSISDN_RE = /^\+?\d{6,15}$/;
+
+const isBlank = (v: any) =>
+  v === null || v === undefined || (typeof v === "string" && v.trim() === "");
+
+const isNumericPresent = (v: any) => {
+  if (isBlank(v)) return false;
+  const n = typeof v === "number" ? v : Number(String(v).replace(",", "."));
+  return Number.isFinite(n);
+};
+
 export function parseSheet(rawRows: any[]): ParsedSheet {
-  if (!rawRows.length) return { rows: [], headerErrors: ["Folha vazia"] };
+  const empty = {
+    MSISDN: 0, NAME: 0, PROVINCE: 0, REGION: 0,
+    SALDO_DISPONIVEL_MOSAP: 0, SALDO_DISPONIVEL_EMONEY: 0,
+  } as Record<MissingField, number>;
+  if (!rawRows.length) {
+    return { rows: [], headerErrors: ["Folha vazia"], invalidRows: [], duplicateMsisdns: [], totalRaw: 0, missingByField: empty };
+  }
   const sample = rawRows[0];
   const headers = Object.keys(sample);
   const missing = REQUIRED_HEADERS.filter((h) => !headers.includes(h));
   if (missing.length) {
-    return { rows: [], headerErrors: [`Faltam colunas: ${missing.join(", ")}`] };
+    return { rows: [], headerErrors: [`Faltam colunas: ${missing.join(", ")}`], invalidRows: [], duplicateMsisdns: [], totalRaw: rawRows.length, missingByField: empty };
   }
-  const rows: ExcelFarmerRow[] = rawRows
-    .filter((r) => r.MSISDN)
-    .map((r) => ({
-      msisdn: String(r.MSISDN).trim(),
+
+  const invalidRows: InvalidRow[] = [];
+  const missingByField: Record<MissingField, number> = { ...empty };
+  const seen = new Map<string, number>();
+  const duplicates = new Set<string>();
+  const validRows: ExcelFarmerRow[] = [];
+
+  rawRows.forEach((r, idx) => {
+    const rowNumber = idx + 2; // +1 header, +1 1-based
+    const msisdnRaw = isBlank(r.MSISDN) ? "" : String(r.MSISDN).trim();
+    const fieldsMissing: MissingField[] = [];
+
+    if (!msisdnRaw || !MSISDN_RE.test(msisdnRaw)) {
+      fieldsMissing.push("MSISDN");
+      missingByField.MSISDN++;
+    }
+    if (isBlank(r.NAME)) { fieldsMissing.push("NAME"); missingByField.NAME++; }
+    if (isBlank(r.PROVINCE)) { fieldsMissing.push("PROVINCE"); missingByField.PROVINCE++; }
+    if (isBlank(r.REGION)) { fieldsMissing.push("REGION"); missingByField.REGION++; }
+    if (!isNumericPresent(r.SALDO_DISPONIVEL_MOSAP)) {
+      fieldsMissing.push("SALDO_DISPONIVEL_MOSAP"); missingByField.SALDO_DISPONIVEL_MOSAP++;
+    }
+    if (!isNumericPresent(r.SALDO_DISPONIVEL_EMONEY)) {
+      fieldsMissing.push("SALDO_DISPONIVEL_EMONEY"); missingByField.SALDO_DISPONIVEL_EMONEY++;
+    }
+
+    const blocking = fieldsMissing.includes("MSISDN");
+    if (fieldsMissing.length) {
+      invalidRows.push({
+        rowNumber,
+        msisdn: msisdnRaw,
+        name: String(r.NAME ?? "").trim(),
+        province: String(r.PROVINCE ?? "").trim(),
+        region: String(r.REGION ?? "").trim(),
+        missing: fieldsMissing,
+        blocking,
+      });
+    }
+    if (blocking) return;
+
+    if (seen.has(msisdnRaw)) {
+      duplicates.add(msisdnRaw);
+    } else {
+      seen.set(msisdnRaw, rowNumber);
+    }
+
+    validRows.push({
+      msisdn: msisdnRaw,
       name: String(r.NAME ?? "").trim(),
       trustLevel: r["TRUST LEVEL"] != null ? Number(r["TRUST LEVEL"]) : null,
       status: String(r.STATUS ?? "").trim(),
@@ -126,8 +209,17 @@ export function parseSheet(rawRows: any[]): ParsedSheet {
       saldoEmoney: Number(r.SALDO_DISPONIVEL_EMONEY ?? 0) || 0,
       saldoMosap: Number(r.SALDO_DISPONIVEL_MOSAP ?? 0) || 0,
       estadoNumero: String(r.Estado_Numero ?? "").trim(),
-    }));
-  return { rows, headerErrors: [] };
+    });
+  });
+
+  return {
+    rows: validRows,
+    headerErrors: [],
+    invalidRows,
+    duplicateMsisdns: Array.from(duplicates),
+    totalRaw: rawRows.length,
+    missingByField,
+  };
 }
 
 export interface FarmerDiff {

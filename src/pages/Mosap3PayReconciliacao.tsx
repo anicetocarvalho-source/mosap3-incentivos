@@ -26,12 +26,21 @@ import {
 
 const BATCH = 50;
 
+type ValidationReport = {
+  totalRaw: number;
+  invalidRows: import("@/lib/reconciliation").InvalidRow[];
+  duplicateMsisdns: string[];
+  missingByField: Record<import("@/lib/reconciliation").MissingField, number>;
+};
+
 const Mosap3PayReconciliacao = () => {
   const [fileName, setFileName] = useState("");
   const [loading, setLoading] = useState(false);
   const [parsing, setParsing] = useState(false);
   const [xlRows, setXlRows] = useState<ExcelFarmerRow[]>([]);
   const [dbRows, setDbRows] = useState<DbFarmerRow[]>([]);
+  const [validation, setValidation] = useState<ValidationReport | null>(null);
+  const [acceptValidation, setAcceptValidation] = useState(false);
   const [selNew, setSelNew] = useState<Set<string>>(new Set());
   const [selRemove, setSelRemove] = useState<Set<string>>(new Set());
   const [selName, setSelName] = useState<Set<string>>(new Set());
@@ -43,30 +52,50 @@ const Mosap3PayReconciliacao = () => {
   const qc = useQueryClient();
 
   const diffs = useMemo(() => {
+    if (!acceptValidation) return null;
     if (!xlRows.length || !dbRows.length) return null;
     return computeDiffs(dbRows, xlRows);
-  }, [xlRows, dbRows]);
+  }, [xlRows, dbRows, acceptValidation]);
 
   const handleFile = useCallback(async (file: File) => {
     setFileName(file.name);
     setParsing(true);
     setLoading(true);
+    setAcceptValidation(false);
+    setValidation(null);
+    setXlRows([]);
+    setDbRows([]);
     try {
       const buf = await file.arrayBuffer();
       const wb = XLSX.read(new Uint8Array(buf), { type: "array" });
       const sheetName = wb.SheetNames.find((n) => n.toLowerCase().includes("detalh")) || wb.SheetNames[0];
       const ws = wb.Sheets[sheetName];
       const json: any[] = XLSX.utils.sheet_to_json(ws, { defval: null });
-      const { rows, headerErrors } = parseSheet(json);
-      if (headerErrors.length) {
-        toast.error(headerErrors.join("; "));
-        setXlRows([]);
+      const parsed = parseSheet(json);
+      if (parsed.headerErrors.length) {
+        toast.error(parsed.headerErrors.join("; "));
         setLoading(false);
         setParsing(false);
         return;
       }
-      setXlRows(rows);
+      setXlRows(parsed.rows);
+      setValidation({
+        totalRaw: parsed.totalRaw,
+        invalidRows: parsed.invalidRows,
+        duplicateMsisdns: parsed.duplicateMsisdns,
+        missingByField: parsed.missingByField,
+      });
       setParsing(false);
+
+      const blocking = parsed.invalidRows.filter((r) => r.blocking).length;
+      const warnings = parsed.invalidRows.length - blocking;
+      if (parsed.invalidRows.length) {
+        toast.warning(
+          `Validação: ${blocking} linha(s) descartada(s), ${warnings} com avisos. Reveja antes de aprovar.`,
+        );
+      } else {
+        toast.success(`${parsed.rows.length} linhas válidas no Excel`);
+      }
 
       // Carrega BD
       toast.info("A carregar dados da base de dados…");
@@ -76,7 +105,6 @@ const Mosap3PayReconciliacao = () => {
           .select("code, full_name, phone, province, municipality, status, saldo_final", { count: "exact" })
       );
       setDbRows(all);
-      toast.success(`${rows.length} linhas no Excel · ${all.length} agricultores na BD`);
     } catch (e: any) {
       toast.error(`Erro a processar: ${e.message || e}`);
     } finally {
@@ -89,6 +117,8 @@ const Mosap3PayReconciliacao = () => {
     setFileName("");
     setXlRows([]);
     setDbRows([]);
+    setValidation(null);
+    setAcceptValidation(false);
     setSelNew(new Set());
     setSelRemove(new Set());
     setSelName(new Set());
@@ -266,6 +296,14 @@ const Mosap3PayReconciliacao = () => {
             <Progress value={progress.pct} />
           </CardContent>
         </Card>
+      )}
+
+      {validation && xlRows.length > 0 && (
+        <ValidationCard
+          report={validation}
+          accepted={acceptValidation}
+          onAccept={() => setAcceptValidation(true)}
+        />
       )}
 
       {diffs && (
@@ -562,5 +600,158 @@ const DiffTab = ({
     </CardContent>
   </Card>
 );
+
+const FIELD_LABELS: Record<string, string> = {
+  MSISDN: "Telefone (MSISDN)",
+  NAME: "Nome",
+  PROVINCE: "Província",
+  REGION: "Município",
+  SALDO_DISPONIVEL_MOSAP: "Saldo MOSAP",
+  SALDO_DISPONIVEL_EMONEY: "Saldo eMoney",
+};
+
+const ValidationCard = ({
+  report,
+  accepted,
+  onAccept,
+}: {
+  report: ValidationReport;
+  accepted: boolean;
+  onAccept: () => void;
+}) => {
+  const blocking = report.invalidRows.filter((r) => r.blocking).length;
+  const warnings = report.invalidRows.length - blocking;
+  const validCount = report.totalRaw - blocking;
+  const fieldEntries = (Object.entries(report.missingByField) as [string, number][])
+    .filter(([, n]) => n > 0)
+    .sort((a, b) => b[1] - a[1]);
+
+  const downloadCsv = () => {
+    const header = ["Linha", "MSISDN", "Nome", "Província", "Município", "Bloqueante", "Campos em falta"];
+    const rows = report.invalidRows.map((r) => [
+      r.rowNumber, r.msisdn, r.name, r.province, r.region,
+      r.blocking ? "Sim" : "Não",
+      r.missing.map((m) => FIELD_LABELS[m] || m).join(" | "),
+    ]);
+    const csv = [header, ...rows]
+      .map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","))
+      .join("\n");
+    const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `validacao_${Date.now()}.csv`; a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const clean = report.invalidRows.length === 0 && report.duplicateMsisdns.length === 0;
+
+  return (
+    <Card className={clean ? "border-success/40" : "border-warning/40"}>
+      <CardHeader className="pb-3">
+        <div className="flex items-start justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-2">
+            {clean ? (
+              <CheckCircle2 className="h-5 w-5 text-success" />
+            ) : (
+              <AlertTriangle className="h-5 w-5 text-warning" />
+            )}
+            <CardTitle className="text-base">
+              Validação do ficheiro
+            </CardTitle>
+          </div>
+          <div className="flex items-center gap-2">
+            {report.invalidRows.length > 0 && (
+              <Button size="sm" variant="outline" onClick={downloadCsv}>
+                Exportar problemas (CSV)
+              </Button>
+            )}
+            {!accepted && (
+              <Button size="sm" onClick={onAccept} disabled={validCount === 0}>
+                {clean ? "Continuar" : `Aprovar e processar ${validCount.toLocaleString("pt-AO")} linhas válidas`}
+              </Button>
+            )}
+            {accepted && <Badge variant="secondary">Aprovado</Badge>}
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <KPI icon={<Database className="h-4 w-4" />} label="Linhas no Excel" value={report.totalRaw} />
+          <KPI icon={<CheckCircle2 className="h-4 w-4 text-success" />} label="Válidas" value={validCount} />
+          <KPI icon={<AlertTriangle className="h-4 w-4 text-warning" />} label="Com avisos" value={warnings} />
+          <KPI icon={<X className="h-4 w-4 text-destructive" />} label="Descartadas" value={blocking} />
+        </div>
+
+        {fieldEntries.length > 0 && (
+          <div>
+            <p className="text-sm font-medium mb-2">Campos em falta por linha</p>
+            <div className="flex flex-wrap gap-2">
+              {fieldEntries.map(([field, count]) => (
+                <Badge key={field} variant={field === "MSISDN" ? "destructive" : "outline"}>
+                  {FIELD_LABELS[field] || field}: {count.toLocaleString("pt-AO")}
+                </Badge>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {report.duplicateMsisdns.length > 0 && (
+          <div className="text-sm flex items-start gap-2 text-warning">
+            <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+            <span>
+              {report.duplicateMsisdns.length} MSISDN duplicado(s) no Excel — só a primeira ocorrência é considerada.
+            </span>
+          </div>
+        )}
+
+        {report.invalidRows.length > 0 && (
+          <div>
+            <p className="text-sm font-medium mb-2">
+              Primeiras {Math.min(report.invalidRows.length, 100)} linhas com problemas
+            </p>
+            <ScrollArea className="h-64 border rounded-md">
+              <table className="w-full text-xs">
+                <thead className="sticky top-0 bg-muted/95 backdrop-blur z-10">
+                  <tr className="border-b">
+                    <th className="px-3 py-2 text-left">Linha</th>
+                    <th className="px-3 py-2 text-left">MSISDN</th>
+                    <th className="px-3 py-2 text-left">Nome</th>
+                    <th className="px-3 py-2 text-left">Província</th>
+                    <th className="px-3 py-2 text-left">Em falta</th>
+                    <th className="px-3 py-2 text-left">Estado</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {report.invalidRows.slice(0, 100).map((r) => (
+                    <tr key={`${r.rowNumber}-${r.msisdn}`} className="border-b hover:bg-muted/30">
+                      <td className="px-3 py-1.5 font-mono">{r.rowNumber}</td>
+                      <td className="px-3 py-1.5 font-mono">{r.msisdn || <span className="italic text-muted-foreground">vazio</span>}</td>
+                      <td className="px-3 py-1.5">{r.name || <span className="italic text-muted-foreground">—</span>}</td>
+                      <td className="px-3 py-1.5">{r.province || <span className="italic text-muted-foreground">—</span>}</td>
+                      <td className="px-3 py-1.5">
+                        <div className="flex flex-wrap gap-1">
+                          {r.missing.map((m) => (
+                            <Badge key={m} variant="outline" className="text-[10px]">
+                              {FIELD_LABELS[m] || m}
+                            </Badge>
+                          ))}
+                        </div>
+                      </td>
+                      <td className="px-3 py-1.5">
+                        <Badge variant={r.blocking ? "destructive" : "secondary"} className="text-[10px]">
+                          {r.blocking ? "Descartada" : "Aviso"}
+                        </Badge>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </ScrollArea>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+};
 
 export default Mosap3PayReconciliacao;
