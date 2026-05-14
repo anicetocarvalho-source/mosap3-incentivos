@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, Search, Download, Loader2, Filter } from "lucide-react";
+import { Link } from "react-router-dom";
+import { AlertTriangle, Search, Download, Loader2, Filter, Eye, ExternalLink, History } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -10,6 +11,9 @@ import { Badge } from "@/components/ui/badge";
 import { SimStatusBadge } from "@/components/cartoes-sim/SimStatusBadge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Separator } from "@/components/ui/separator";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { format } from "date-fns";
 import { pt } from "date-fns/locale";
 import { CalendarIcon } from "lucide-react";
@@ -89,6 +93,38 @@ const Mosap3PayOcorrencias = () => {
   const [dateFrom, setDateFrom] = useState<Date | undefined>();
   const [dateTo, setDateTo] = useState<Date | undefined>();
   const [page, setPage] = useState(1);
+
+  // Detail dialog state
+  const [selected, setSelected] = useState<AuditRow | null>(null);
+  const [history, setHistory] = useState<AuditRow[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+
+  useEffect(() => {
+    if (!selected?.entity_id) {
+      setHistory([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      setHistoryLoading(true);
+      const { data, error } = await supabase
+        .from("audit_logs")
+        .select("id, action, entity_id, entity_type, user_id, user_name, details, created_at")
+        .eq("action", ACTION)
+        .eq("entity_id", selected.entity_id)
+        .order("created_at", { ascending: false })
+        .limit(50);
+      if (cancelled) return;
+      if (error) {
+        console.error("[Ocorrencias] history error", error);
+        setHistory([]);
+      } else {
+        setHistory((data ?? []) as AuditRow[]);
+      }
+      setHistoryLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, [selected?.entity_id]);
 
   // Debounce search input → server query
   useEffect(() => {
@@ -286,6 +322,7 @@ const Mosap3PayOcorrencias = () => {
                       <TableHead>Motivo</TableHead>
                       <TableHead>Operador POS</TableHead>
                       <TableHead className="text-right">Destinatários</TableHead>
+                      <TableHead className="text-right">Ações</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -302,6 +339,11 @@ const Mosap3PayOcorrencias = () => {
                         <TableCell className="text-xs">{r.user_name || "—"}</TableCell>
                         <TableCell className="text-right">
                           <Badge variant="secondary">{r.details?.recipients ?? 0}</Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button variant="ghost" size="sm" onClick={() => setSelected(r)}>
+                            <Eye className="h-4 w-4 mr-1" /> Detalhe
+                          </Button>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -324,6 +366,11 @@ const Mosap3PayOcorrencias = () => {
                       <span>{format(new Date(r.created_at), "dd/MM/yyyy HH:mm")}</span>
                       <span>POS: {r.user_name || "—"}</span>
                     </div>
+                    <div className="pt-2">
+                      <Button variant="outline" size="sm" className="w-full" onClick={() => setSelected(r)}>
+                        <Eye className="h-4 w-4 mr-2" /> Ver detalhe
+                      </Button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -341,6 +388,105 @@ const Mosap3PayOcorrencias = () => {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={!!selected} onOpenChange={(open) => !open && setSelected(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-warning" />
+              Detalhe da ocorrência
+            </DialogTitle>
+            <DialogDescription>
+              Bloqueio reportado pelo operador POS — {selected && format(new Date(selected.created_at), "dd/MM/yyyy HH:mm")}
+            </DialogDescription>
+          </DialogHeader>
+
+          {selected && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <div className="text-xs text-muted-foreground">Código</div>
+                  <div className="font-mono">{selected.entity_id || "—"}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground">Estado SIM</div>
+                  <SimStatusBadge status={selected.details?.sim_status || "Desconhecido"} />
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground">Produtor</div>
+                  <div className="font-medium">{selected.details?.farmer_name || "—"}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground">Telefone</div>
+                  <div>{selected.details?.phone || "—"}</div>
+                </div>
+                <div className="col-span-2">
+                  <div className="text-xs text-muted-foreground">Motivo</div>
+                  <div className="text-sm">{selected.details?.reason || "—"}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground">Operador POS</div>
+                  <div>{selected.user_name || "—"}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground">Destinatários</div>
+                  <Badge variant="secondary">{selected.details?.recipients ?? 0}</Badge>
+                </div>
+              </div>
+
+              <Separator />
+
+              <div>
+                <div className="flex items-center gap-2 text-sm font-semibold mb-2">
+                  <History className="h-4 w-4" /> Histórico deste produtor
+                  {!historyLoading && (
+                    <Badge variant="outline" className="ml-1">{history.length}</Badge>
+                  )}
+                </div>
+                {historyLoading ? (
+                  <div className="flex items-center text-sm text-muted-foreground py-4">
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" /> A carregar histórico…
+                  </div>
+                ) : history.length === 0 ? (
+                  <div className="text-sm text-muted-foreground py-2">Sem outras ocorrências.</div>
+                ) : (
+                  <ScrollArea className="h-48 rounded-md border">
+                    <ul className="divide-y">
+                      {history.map((h) => (
+                        <li
+                          key={h.id}
+                          className={cn(
+                            "p-3 text-xs space-y-1",
+                            h.id === selected.id && "bg-muted/50"
+                          )}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="font-mono">{format(new Date(h.created_at), "dd/MM/yyyy HH:mm")}</span>
+                            <SimStatusBadge status={h.details?.sim_status || "Desconhecido"} />
+                          </div>
+                          <div className="text-muted-foreground">{h.details?.reason || "—"}</div>
+                          <div className="text-muted-foreground">POS: {h.user_name || "—"}</div>
+                        </li>
+                      ))}
+                    </ul>
+                  </ScrollArea>
+                )}
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button variant="outline" onClick={() => setSelected(null)}>Fechar</Button>
+            {selected?.entity_id && (
+              <Button asChild>
+                <Link to={`/agricultores/${selected.entity_id}`} onClick={() => setSelected(null)}>
+                  <ExternalLink className="h-4 w-4 mr-2" /> Abrir ficha do produtor
+                </Link>
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
