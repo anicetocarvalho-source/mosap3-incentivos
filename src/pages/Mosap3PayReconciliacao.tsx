@@ -126,6 +126,7 @@ const Mosap3PayReconciliacao = () => {
     setSelProv(new Set());
     setSelMun(new Set());
     setSelSaldo(new Set());
+    setSelSim(new Set());
     if (fileRef.current) fileRef.current.value = "";
   };
 
