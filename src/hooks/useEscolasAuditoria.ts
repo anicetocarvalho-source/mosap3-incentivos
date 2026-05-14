@@ -325,6 +325,7 @@ export function useEscolasAuditoria() {
       }
 
       similar.sort((a, b) => a.distance - b.distance || a.a.name.localeCompare(b.a.name));
+      mark("similar");
 
       // ── Tab C: orphans — single pass per school name using the index built earlier
       const orphans: OrphanRow[] = [];
