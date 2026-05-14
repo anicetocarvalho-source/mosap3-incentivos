@@ -63,6 +63,8 @@ export function useServerTable<T = any>(opts: ServerTableOptions): ServerTableRe
     filters = {},
     sort,
     excludeEq,
+    rangeFilters = [],
+    orFilter,
     enabled = true,
     cacheKey = [],
   } = opts;
@@ -77,6 +79,14 @@ export function useServerTable<T = any>(opts: ServerTableOptions): ServerTableRe
     [filters]
   );
 
+  const rangeKey = useMemo(
+    () =>
+      rangeFilters
+        .map((r) => `${r.column}:${r.gte ?? ""}:${r.lte ?? ""}`)
+        .join("|"),
+    [rangeFilters]
+  );
+
   const q = useQuery<{ rows: T[]; total: number }>({
     queryKey: [
       "srvTable",
@@ -86,6 +96,8 @@ export function useServerTable<T = any>(opts: ServerTableOptions): ServerTableRe
       pageSize,
       escapeIlike(search),
       filtersKey,
+      rangeKey,
+      orFilter ?? "",
       sort?.column,
       sort?.dir,
       excludeEq?.column,
@@ -104,6 +116,12 @@ export function useServerTable<T = any>(opts: ServerTableOptions): ServerTableRe
         query = query.eq(k, v);
       }
 
+      // Filtros de intervalo
+      for (const r of rangeFilters) {
+        if (r.gte !== undefined && r.gte !== null && r.gte !== "") query = query.gte(r.column, r.gte);
+        if (r.lte !== undefined && r.lte !== null && r.lte !== "") query = query.lte(r.column, r.lte);
+      }
+
       if (excludeEq) query = query.neq(excludeEq.column, excludeEq.value);
 
       const term = escapeIlike(search);
@@ -111,6 +129,8 @@ export function useServerTable<T = any>(opts: ServerTableOptions): ServerTableRe
         const ors = searchColumns.map((c) => `${c}.ilike.%${term}%`).join(",");
         query = query.or(ors);
       }
+
+      if (orFilter) query = query.or(orFilter);
 
       if (sort?.column) {
         query = query.order(sort.column, {
