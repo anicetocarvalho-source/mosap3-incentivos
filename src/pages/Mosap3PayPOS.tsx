@@ -246,6 +246,31 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
   const isSimBlocked = (status: string | null | undefined) =>
     status === "Barrado" || status === "Removido";
 
+  const simStatusReason = (status: string | null | undefined): { title: string; reason: string; recomendacao: string } | null => {
+    switch (status) {
+      case "Barrado":
+        return {
+          title: "Cartão SIM Barrado",
+          reason: "O cartão SIM do produtor encontra-se barrado pela operadora ou foi bloqueado administrativamente por irregularidade detectada na reconciliação.",
+          recomendacao: "Encaminhe o produtor ao gestor de incentivos para regularização antes de qualquer compra.",
+        };
+      case "Removido":
+        return {
+          title: "Cartão SIM Removido",
+          reason: "O cartão SIM foi removido do registo do produtor (cancelamento, perda, devolução ou substituição não concluída).",
+          recomendacao: "É necessário registar/substituir o SIM e reactivar o cadastro antes de processar pagamentos.",
+        };
+      case "Pré desactivado":
+        return {
+          title: "Cartão SIM Pré desactivado",
+          reason: "O SIM está marcado para desactivação iminente. As vendas ainda são permitidas, mas serão bloqueadas após confirmação.",
+          recomendacao: "Confirme com o produtor antes de finalizar a transação.",
+        };
+      default:
+        return null;
+    }
+  };
+
   const notifySimBlockedFarmer = async (
     f: Farmer,
     event: "identificacao_pos" | "tentativa_pagamento"
