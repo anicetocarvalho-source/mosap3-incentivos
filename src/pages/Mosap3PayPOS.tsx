@@ -87,6 +87,7 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
   const [productSearch, setProductSearch] = useState("");
   const [processing, setProcessing] = useState(false);
   const [contactingManager, setContactingManager] = useState(false);
+  const [contactConfirmOpen, setContactConfirmOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [receiptOpen, setReceiptOpen] = useState(false);
   const [lastSaleCode, setLastSaleCode] = useState("");
