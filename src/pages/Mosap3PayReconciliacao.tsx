@@ -298,6 +298,14 @@ const Mosap3PayReconciliacao = () => {
         </Card>
       )}
 
+      {validation && xlRows.length > 0 && (
+        <ValidationCard
+          report={validation}
+          accepted={acceptValidation}
+          onAccept={() => setAcceptValidation(true)}
+        />
+      )}
+
       {diffs && (
         <>
           {/* KPIs */}
