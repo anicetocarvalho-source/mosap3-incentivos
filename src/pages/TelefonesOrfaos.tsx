@@ -106,6 +106,14 @@ export default function TelefonesOrfaos() {
     });
   }, [rows, filter, search]);
 
+  // Reset para a primeira página quando filtros/pesquisa/tamanho mudam
+  useEffect(() => { setPage(1); }, [filter, search, pageSize]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const pageStart = (currentPage - 1) * pageSize;
+  const pageRows = filtered.slice(pageStart, pageStart + pageSize);
+
   const totals = useMemo(() => {
     let pendCount = 0, autoCount = 0, manualCount = 0;
     let pendKz = 0, autoKz = 0, manualKz = 0, totalKz = 0;
