@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/tooltip";
 import {
   PhoneOff, Download, Link2, Search, RefreshCw, CheckCircle2, Unlink,
-  AlertTriangle, Sparkles, UserCheck,
+  AlertTriangle, Sparkles, UserCheck, Wand2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -66,19 +66,43 @@ export default function TelefonesOrfaos() {
   const [linkDialog, setLinkDialog] = useState<OrphanRow | null>(null);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(50);
+  const [lastLoaded, setLastLoaded] = useState<Date | null>(null);
+  const [reconciling, setReconciling] = useState(false);
 
   const load = async () => {
     setLoading(true);
     try {
+      // Limpa cache do service worker para esta tabela (evita ler snapshot pré-reconciliação)
+      if (typeof caches !== "undefined") {
+        try { await caches.delete("supabase-api"); } catch { /* ignore */ }
+      }
       const { fetchAllPages } = await import("@/lib/supabaseFetchAll");
       const all = await fetchAllPages<OrphanRow>(() =>
         supabase.from("orphan_phones").select("*", { count: "exact" }).order("amount", { ascending: false })
       );
       setRows(all);
+      setLastLoaded(new Date());
     } catch (e: any) {
       toast.error("Erro a carregar órfãos: " + (e?.message ?? e));
     } finally {
       setLoading(false);
+    }
+  };
+
+  const reconcilePendentes = async () => {
+    setReconciling(true);
+    try {
+      const { data, error } = await supabase.rpc("bulk_insert_orphan_phones", { _data: [] as any });
+      if (error) throw error;
+      const r: any = data ?? {};
+      toast.success(
+        `Reconciliação concluída — ${r.auto_linked ?? 0} associados, ${r.still_orphan ?? 0} ainda pendentes`
+      );
+      await load();
+    } catch (e: any) {
+      toast.error("Erro a reconciliar: " + (e?.message ?? e));
+    } finally {
+      setReconciling(false);
     }
   };
 
@@ -186,9 +210,24 @@ export default function TelefonesOrfaos() {
         icon={PhoneOff}
         actions={
           <>
+            {lastLoaded && (
+              <span className="hidden md:inline text-xs text-muted-foreground mr-2">
+                Actualizado às {lastLoaded.toLocaleTimeString("pt-AO")}
+              </span>
+            )}
             <Button variant="outline" size="sm" onClick={load} disabled={loading}>
               <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
               <span className="hidden sm:inline ml-1">Atualizar</span>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={reconcilePendentes}
+              disabled={reconciling || loading}
+              title="Tentar associar pendentes pelos últimos 9 dígitos"
+            >
+              <Wand2 className={`h-4 w-4 ${reconciling ? "animate-spin" : ""}`} />
+              <span className="hidden sm:inline ml-1">Reconciliar pendentes</span>
             </Button>
             <Button size="sm" onClick={exportCsv} disabled={filtered.length === 0}>
               <Download className="h-4 w-4" />
