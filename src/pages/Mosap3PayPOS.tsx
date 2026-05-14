@@ -202,13 +202,30 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
   // Autocomplete suggestions as user types
   useEffect(() => {
     const q = farmerSearch.trim();
-    if (q.length < 2) { setFarmerSuggestions([]); setShowSuggestions(false); return; }
+    const isNumeric = /^\d+$/.test(q);
+    if (q.length < (isNumeric ? 1 : 2)) { setFarmerSuggestions([]); setShowSuggestions(false); return; }
     const timeout = setTimeout(async () => {
+      // Sanitizar para escape do operador .or() do PostgREST (vírgula e parênteses)
+      const safe = q.replace(/[(),]/g, " ");
+      const qDigits = q.replace(/\D/g, "");
+      // Normalização PT-AO: aceitar com ou sem prefixo 244
+      let qPhoneAlt = "";
+      if (qDigits.length >= 3) {
+        if (qDigits.startsWith("244")) qPhoneAlt = qDigits.slice(3);
+        else if (qDigits.length === 9 && qDigits.startsWith("9")) qPhoneAlt = "244" + qDigits;
+      }
+      const orParts = [
+        `full_name.ilike.%${safe}%`,
+        `code.ilike.%${safe}%`,
+        `bi.ilike.%${safe}%`,
+      ];
+      if (qDigits.length >= 3) orParts.push(`phone.ilike.%${qDigits}%`);
+      if (qPhoneAlt && qPhoneAlt !== qDigits) orParts.push(`phone.ilike.%${qPhoneAlt}%`);
       const { data } = await supabase
         .from("farmers")
         .select("code, full_name, phone, patec, photo_frontal_url, saldo_final, sim_status")
-        .or(`full_name.ilike.%${q}%,code.ilike.%${q}%,phone.ilike.%${q}%,bi.ilike.%${q}%`)
-        .limit(8);
+        .or(orParts.join(","))
+        .limit(50);
       setFarmerSuggestions((data as Farmer[]) || []);
       setShowSuggestions(!!data && data.length > 0);
     }, 300);
