@@ -109,8 +109,39 @@ function readMemory(): { used: number; total: number; limit: number } | null {
 
 const KEY_SEP = "\u0001";
 
+export type AuditoriaProgress = {
+  phase: "idle" | "fetch" | "indexFarmers" | "normalizeSchools" | "duplicates" | "similar" | "orphans" | "done";
+  label: string;
+  pct: number; // 0..100
+};
+
+const PHASE_WEIGHTS: Record<AuditoriaProgress["phase"], number> = {
+  idle: 0,
+  fetch: 25,
+  indexFarmers: 15,
+  normalizeSchools: 5,
+  duplicates: 10,
+  similar: 30,
+  orphans: 15,
+  done: 0,
+};
+
+const PHASE_LABELS_HOOK: Record<AuditoriaProgress["phase"], string> = {
+  idle: "A iniciar…",
+  fetch: "A carregar dados…",
+  indexFarmers: "A indexar produtores…",
+  normalizeSchools: "A normalizar escolas…",
+  duplicates: "A calcular duplicados…",
+  similar: "A detectar nomes similares…",
+  orphans: "A identificar produtores órfãos…",
+  done: "Concluído",
+};
+
+const yieldUI = () => new Promise<void>((r) => setTimeout(r, 0));
+
 export function useEscolasAuditoria() {
   const [data, setData] = useState<AuditoriaResult | null>(null);
+  const [progress, setProgress] = useState<AuditoriaProgress>({ phase: "idle", label: PHASE_LABELS_HOOK.idle, pct: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
