@@ -117,6 +117,16 @@ export function useEscolasAuditoria() {
   const run = useCallback(async () => {
     setLoading(true);
     setError(null);
+    const tStart = performance.now();
+    const memBefore = readMemory();
+    const startedAt = new Date().toISOString();
+    const phases: Partial<Record<PerfPhase, number>> = {};
+    let tMark = tStart;
+    const mark = (phase: PerfPhase) => {
+      const now = performance.now();
+      phases[phase] = Math.round((now - tMark) * 100) / 100;
+      tMark = now;
+    };
     try {
       const [schools, provinces, municipalities, farmers] = await Promise.all([
         fetchAllPages<any>(() =>
