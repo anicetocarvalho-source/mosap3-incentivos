@@ -20,6 +20,7 @@ interface Farmer {
   patec: number | null;
   photo_frontal_url: string | null;
   saldo_final: string | null;
+  sim_status: string | null;
 }
 
 interface Product {
@@ -197,7 +198,7 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
     const timeout = setTimeout(async () => {
       const { data } = await supabase
         .from("farmers")
-        .select("code, full_name, phone, patec, photo_frontal_url, saldo_final")
+        .select("code, full_name, phone, patec, photo_frontal_url, saldo_final, sim_status")
         .or(`full_name.ilike.%${q}%,code.ilike.%${q}%,phone.ilike.%${q}%,bi.ilike.%${q}%`)
         .limit(8);
       setFarmerSuggestions((data as Farmer[]) || []);
@@ -240,7 +241,29 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
     return items;
   };
 
+  const isSimBlocked = (status: string | null | undefined) =>
+    status === "Barrado" || status === "Removido";
+
   const selectFarmerFromSuggestion = async (f: Farmer) => {
+    if (isSimBlocked(f.sim_status)) {
+      toast.error(`Venda bloqueada — cartão SIM ${f.sim_status}. Produtor ${f.full_name} (${f.code}) não pode efectuar compras.`);
+      setFarmer(f);
+      setFarmerSearch(f.code);
+      setShowSuggestions(false);
+      setFarmerSuggestions([]);
+      setCart([]);
+      setParcelSize(null);
+      setFarmerBalance(0);
+      try {
+        await supabase.from("audit_logs").insert({
+          action: "pos_sale_blocked_sim",
+          entity_type: "farmer",
+          entity_id: f.code,
+          details: { sim_status: f.sim_status, farmer_name: f.full_name } as any,
+        });
+      } catch {}
+      return;
+    }
     setFarmer(f);
     setFarmerSearch(f.code);
     setShowSuggestions(false);
@@ -257,6 +280,9 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
       toast.error(`${f.full_name} não tem PATEC atribuído. Não é possível efectuar venda.`);
       return;
     }
+    if (f.sim_status === "Pré desactivado") {
+      toast.warning(`Atenção: cartão SIM em estado "Pré desactivado". Confirme antes de finalizar.`);
+    }
     toast.success(`Produtor identificado: ${f.full_name} — Saldo: ${balance.toLocaleString("pt-AO")} Kz`);
     setParcelDialogOpen(true);
   };
@@ -267,7 +293,7 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
     setShowSuggestions(false);
     const { data } = await supabase
       .from("farmers")
-      .select("code, full_name, phone, patec, photo_frontal_url, saldo_final")
+      .select("code, full_name, phone, patec, photo_frontal_url, saldo_final, sim_status")
       .or(`code.eq.${query},phone.eq.${query},bi.eq.${query},full_name.ilike.%${query}%`)
       .limit(1)
       .single();
@@ -447,6 +473,11 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
 
   const processSale = async () => {
     if (!farmer || cart.length === 0 || !selectedSupplierId) return;
+
+    if (isSimBlocked(farmer.sim_status)) {
+      toast.error(`Venda bloqueada — cartão SIM ${farmer.sim_status}.`);
+      return;
+    }
     
     // Final balance check before processing
     if (farmerBalance <= 0) {
@@ -974,7 +1005,7 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
 
             {/* Submit */}
             <button
-              disabled={cart.length === 0 || !farmer || processing || farmerBalance <= 0 || cartTotal > farmerBalance}
+              disabled={cart.length === 0 || !farmer || processing || farmerBalance <= 0 || cartTotal > farmerBalance || isSimBlocked(farmer?.sim_status)}
               onClick={() => setConfirmOpen(true)}
               className="w-full py-3 rounded-lg font-bold text-sm flex items-center justify-center gap-2 transition-colors disabled:opacity-40 disabled:cursor-not-allowed bg-[hsl(45,70%,40%)] text-[hsl(220,20%,10%)] hover:bg-[hsl(45,75%,45%)]"
             >
@@ -1174,6 +1205,12 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
                       {farmerBalance <= 0 && (
                         <p className="text-[10px] text-destructive font-medium">⚠ Sem saldo — compras bloqueadas</p>
                       )}
+                      {isSimBlocked(farmer.sim_status) && (
+                        <p className="text-[10px] text-destructive font-bold">⛔ SIM {farmer.sim_status} — venda bloqueada</p>
+                      )}
+                      {farmer.sim_status === "Pré desactivado" && (
+                        <p className="text-[10px] text-warning font-medium">⚠ SIM Pré desactivado</p>
+                      )}
                     </div>
                   </div>
                 )}
@@ -1307,9 +1344,12 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
                         </div>
                       )}
                     </div>
-                    <Button className="w-full mt-3" onClick={() => setConfirmOpen(true)} disabled={!farmer || cart.length === 0 || farmerBalance <= 0 || cartTotal > farmerBalance}>
+                    <Button className="w-full mt-3" onClick={() => setConfirmOpen(true)} disabled={!farmer || cart.length === 0 || farmerBalance <= 0 || cartTotal > farmerBalance || isSimBlocked(farmer?.sim_status)}>
                       <CreditCard className="h-4 w-4 mr-2" /> Processar Pagamento
                     </Button>
+                    {farmer && isSimBlocked(farmer.sim_status) && (
+                      <p className="text-xs text-destructive text-center mt-2 font-bold">⛔ Cartão SIM {farmer.sim_status} — venda bloqueada</p>
+                    )}
                     {farmer && farmerBalance <= 0 && (
                       <p className="text-xs text-destructive text-center mt-2 font-medium">⚠ Produtor sem saldo de incentivo</p>
                     )}
