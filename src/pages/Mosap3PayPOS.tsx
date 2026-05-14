@@ -1318,7 +1318,7 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
                             size="sm"
                             variant="outline"
                             className="mt-2 h-7 text-xs gap-1.5 bg-background hover:bg-background/80"
-                            onClick={() => contactarGestor(farmer)}
+                            onClick={() => setContactConfirmOpen(true)}
                             disabled={contactingManager}
                           >
                             <Send className="h-3 w-3" />
