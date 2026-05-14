@@ -69,7 +69,7 @@ const Mosap3PayCartoesSim = () => {
     queryFn: async () => {
       const { data, error } = await supabase.rpc("farmers_sim_kpis");
       if (error) throw error;
-      return data as { activo: number; pre_desactivado: number; barrado: number; removido: number; desconhecido: number };
+      return data as { activo: number; pendente: number; pre_desactivado: number; barrado: number; removido: number; desconhecido: number };
     },
   });
 
