@@ -69,14 +69,17 @@ export default function TelefonesOrfaos() {
 
   const load = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from("orphan_phones")
-      .select("*")
-      .order("amount", { ascending: false })
-      .limit(5000);
-    if (error) toast.error("Erro a carregar órfãos: " + error.message);
-    setRows((data as OrphanRow[]) || []);
-    setLoading(false);
+    try {
+      const { fetchAllPages } = await import("@/lib/supabaseFetchAll");
+      const all = await fetchAllPages<OrphanRow>(() =>
+        supabase.from("orphan_phones").select("*", { count: "exact" }).order("amount", { ascending: false })
+      );
+      setRows(all);
+    } catch (e: any) {
+      toast.error("Erro a carregar órfãos: " + (e?.message ?? e));
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
