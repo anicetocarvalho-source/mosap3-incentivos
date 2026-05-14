@@ -823,6 +823,7 @@ export type Database = {
           product: string
           transaction_date: string | null
           valor: string
+          valor_num: number | null
         }
         Insert: {
           created_at?: string
@@ -832,6 +833,7 @@ export type Database = {
           product: string
           transaction_date?: string | null
           valor: string
+          valor_num?: number | null
         }
         Update: {
           created_at?: string
@@ -841,6 +843,7 @@ export type Database = {
           product?: string
           transaction_date?: string | null
           valor?: string
+          valor_num?: number | null
         }
         Relationships: [
           {
@@ -2324,6 +2327,17 @@ export type Database = {
           label: string
           ok: boolean
         }[]
+      }
+      transacoes_kpis: {
+        Args: {
+          p_empresa?: string
+          p_farmer?: string
+          p_max?: number
+          p_min?: number
+          p_product?: string
+          p_search?: string
+        }
+        Returns: Json
       }
     }
     Enums: {

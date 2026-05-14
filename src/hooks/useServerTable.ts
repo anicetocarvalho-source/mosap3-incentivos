@@ -31,6 +31,10 @@ export interface ServerTableOptions<F extends Record<string, any> = Record<strin
   sort?: { column: string; dir: SortDir; nullsFirst?: boolean };
   /** Coluna a excluir (ex.: status != 'Removido'). { column, value } */
   excludeEq?: { column: string; value: string };
+  /** Filtros de intervalo numérico/temporal (gte/lte). undefined/null são ignorados. */
+  rangeFilters?: Array<{ column: string; gte?: number | string | null; lte?: number | string | null }>;
+  /** Filtro OR genérico (ex.: para pesquisa de produtor por código OU nome). */
+  orFilter?: string;
   /** Permite desactivar enquanto não há contexto (ex.: auth) */
   enabled?: boolean;
   /** Chave extra para o cache (scope, role, etc.) */
@@ -59,6 +63,8 @@ export function useServerTable<T = any>(opts: ServerTableOptions): ServerTableRe
     filters = {},
     sort,
     excludeEq,
+    rangeFilters = [],
+    orFilter,
     enabled = true,
     cacheKey = [],
   } = opts;
@@ -73,6 +79,14 @@ export function useServerTable<T = any>(opts: ServerTableOptions): ServerTableRe
     [filters]
   );
 
+  const rangeKey = useMemo(
+    () =>
+      rangeFilters
+        .map((r) => `${r.column}:${r.gte ?? ""}:${r.lte ?? ""}`)
+        .join("|"),
+    [rangeFilters]
+  );
+
   const q = useQuery<{ rows: T[]; total: number }>({
     queryKey: [
       "srvTable",
@@ -82,6 +96,8 @@ export function useServerTable<T = any>(opts: ServerTableOptions): ServerTableRe
       pageSize,
       escapeIlike(search),
       filtersKey,
+      rangeKey,
+      orFilter ?? "",
       sort?.column,
       sort?.dir,
       excludeEq?.column,
@@ -100,6 +116,12 @@ export function useServerTable<T = any>(opts: ServerTableOptions): ServerTableRe
         query = query.eq(k, v);
       }
 
+      // Filtros de intervalo
+      for (const r of rangeFilters) {
+        if (r.gte !== undefined && r.gte !== null && r.gte !== "") query = query.gte(r.column, r.gte);
+        if (r.lte !== undefined && r.lte !== null && r.lte !== "") query = query.lte(r.column, r.lte);
+      }
+
       if (excludeEq) query = query.neq(excludeEq.column, excludeEq.value);
 
       const term = escapeIlike(search);
@@ -107,6 +129,8 @@ export function useServerTable<T = any>(opts: ServerTableOptions): ServerTableRe
         const ors = searchColumns.map((c) => `${c}.ilike.%${term}%`).join(",");
         query = query.or(ors);
       }
+
+      if (orFilter) query = query.or(orFilter);
 
       if (sort?.column) {
         query = query.order(sort.column, {

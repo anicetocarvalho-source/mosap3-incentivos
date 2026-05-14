@@ -1,0 +1,2 @@
+REVOKE ALL ON FUNCTION public.transacoes_kpis(text,text,text,text,numeric,numeric) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.transacoes_kpis(text,text,text,text,numeric,numeric) TO authenticated;
