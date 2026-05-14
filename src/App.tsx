@@ -47,6 +47,7 @@ import Mosap3PayStock from "@/pages/Mosap3PayStock";
 import Mosap3PayAuditLogs from "@/pages/Mosap3PayAuditLogs";
 import Mosap3PayConfiguracoes from "@/pages/Mosap3PayConfiguracoes";
 import Mosap3PayReconciliacao from "@/pages/Mosap3PayReconciliacao";
+import Mosap3PayCartoesSim from "@/pages/Mosap3PayCartoesSim";
 import FornecedorAuth from "@/pages/fornecedor/FornecedorAuth";
 import FornecedorLayout from "@/components/fornecedor/FornecedorLayout";
 import FornecedorDashboard from "@/pages/fornecedor/FornecedorDashboard";
