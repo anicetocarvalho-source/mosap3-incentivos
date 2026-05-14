@@ -1305,7 +1305,7 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
                     <Button onClick={searchFarmer}><Search className="h-4 w-4 mr-1" /> Pesquisar</Button>
                   </div>
                   {showSuggestions && farmerSuggestions.length > 0 && (
-                    <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-popover border border-border rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                    <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-popover border border-border rounded-lg shadow-lg max-h-80 overflow-y-auto">
                       {farmerSuggestions.map((s) => (
                         <button key={s.code} onClick={() => selectFarmerFromSuggestion(s)} className="w-full text-left px-3 py-2 hover:bg-accent flex items-center gap-2 text-sm border-b border-border last:border-0">
                           <User className="h-4 w-4 text-muted-foreground flex-shrink-0" />
@@ -1316,6 +1316,11 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
                           {s.patec ? <Badge variant="secondary" className="text-[10px]">{patecLabels[s.patec]}</Badge> : null}
                         </button>
                       ))}
+                      {farmerSuggestions.length >= 50 && (
+                        <div className="px-3 py-2 text-[11px] text-muted-foreground bg-muted/50 sticky bottom-0 text-center border-t border-border">
+                          A mostrar 50 resultados — refine a pesquisa para ver mais
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
