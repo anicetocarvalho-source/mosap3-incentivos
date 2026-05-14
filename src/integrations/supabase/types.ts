@@ -2204,6 +2204,14 @@ export type Database = {
           out_severity: string
         }[]
       }
+      generate_farmer_cards_batch: {
+        Args: { _codes: string[] }
+        Returns: {
+          card_token: string
+          farmer_code: string
+          was_new: boolean
+        }[]
+      }
       has_any_backoffice_role: { Args: { _user_id: string }; Returns: boolean }
       has_role: {
         Args: {
@@ -2281,6 +2289,8 @@ export type Database = {
         Args: { _province_name: string; _school_name: string }
         Returns: undefined
       }
+      show_limit: { Args: never; Returns: number }
+      show_trgm: { Args: { "": string }; Returns: string[] }
       test_parse_ptao_numeric: {
         Args: never
         Returns: {
