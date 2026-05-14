@@ -430,6 +430,15 @@ export default function TelefonesOrfaos() {
                   </div>
                 );
               })}
+              </div>
+              <PaginationBar
+                page={currentPage}
+                totalPages={totalPages}
+                pageSize={pageSize}
+                total={filtered.length}
+                onPage={setPage}
+                onPageSize={setPageSize}
+              />
             </div>
           </TooltipProvider>
         )}
