@@ -64,17 +64,22 @@ export default function TelefonesOrfaos() {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"todos" | "pendentes" | "auto" | "manual">("pendentes");
   const [linkDialog, setLinkDialog] = useState<OrphanRow | null>(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
 
   const load = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from("orphan_phones")
-      .select("*")
-      .order("amount", { ascending: false })
-      .limit(5000);
-    if (error) toast.error("Erro a carregar órfãos: " + error.message);
-    setRows((data as OrphanRow[]) || []);
-    setLoading(false);
+    try {
+      const { fetchAllPages } = await import("@/lib/supabaseFetchAll");
+      const all = await fetchAllPages<OrphanRow>(() =>
+        supabase.from("orphan_phones").select("*", { count: "exact" }).order("amount", { ascending: false })
+      );
+      setRows(all);
+    } catch (e: any) {
+      toast.error("Erro a carregar órfãos: " + (e?.message ?? e));
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -100,6 +105,14 @@ export default function TelefonesOrfaos() {
       return Number(b.amount) - Number(a.amount);
     });
   }, [rows, filter, search]);
+
+  // Reset para a primeira página quando filtros/pesquisa/tamanho mudam
+  useEffect(() => { setPage(1); }, [filter, search, pageSize]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const pageStart = (currentPage - 1) * pageSize;
+  const pageRows = filtered.slice(pageStart, pageStart + pageSize);
 
   const totals = useMemo(() => {
     let pendCount = 0, autoCount = 0, manualCount = 0;
@@ -294,7 +307,7 @@ export default function TelefonesOrfaos() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filtered.slice(0, 500).map((r) => {
+                  {pageRows.map((r) => {
                     const o = origemOf(r);
                     return (
                       <TableRow key={r.id}>
@@ -357,16 +370,20 @@ export default function TelefonesOrfaos() {
                   })}
                 </TableBody>
               </Table>
-              {filtered.length > 500 && (
-                <div className="p-3 text-center text-xs text-muted-foreground border-t">
-                  A mostrar 500 de {filtered.length}. Filtre ou exporte CSV para ver todos.
-                </div>
-              )}
+              <PaginationBar
+                page={currentPage}
+                totalPages={totalPages}
+                pageSize={pageSize}
+                total={filtered.length}
+                onPage={setPage}
+                onPageSize={setPageSize}
+              />
             </div>
 
             {/* Mobile */}
-            <div className="md:hidden divide-y">
-              {filtered.slice(0, 200).map((r) => {
+            <div className="md:hidden">
+              <div className="divide-y">
+              {pageRows.map((r) => {
                 const o = origemOf(r);
                 return (
                   <div key={r.id} className="p-3 space-y-2">
@@ -413,6 +430,15 @@ export default function TelefonesOrfaos() {
                   </div>
                 );
               })}
+              </div>
+              <PaginationBar
+                page={currentPage}
+                totalPages={totalPages}
+                pageSize={pageSize}
+                total={filtered.length}
+                onPage={setPage}
+                onPageSize={setPageSize}
+              />
             </div>
           </TooltipProvider>
         )}
@@ -621,5 +647,42 @@ function LinkDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/* ───────────────────── Paginação ───────────────────── */
+function PaginationBar({
+  page, totalPages, pageSize, total, onPage, onPageSize,
+}: {
+  page: number; totalPages: number; pageSize: number; total: number;
+  onPage: (p: number) => void; onPageSize: (s: number) => void;
+}) {
+  if (total === 0) return null;
+  const from = (page - 1) * pageSize + 1;
+  const to = Math.min(page * pageSize, total);
+  return (
+    <div className="flex flex-col sm:flex-row items-center justify-between gap-2 p-3 border-t text-xs text-muted-foreground">
+      <div>
+        A mostrar <strong>{from.toLocaleString("pt-AO")}–{to.toLocaleString("pt-AO")}</strong> de{" "}
+        <strong>{total.toLocaleString("pt-AO")}</strong>
+      </div>
+      <div className="flex items-center gap-2">
+        <span>Por página:</span>
+        <select
+          value={pageSize}
+          onChange={(e) => onPageSize(Number(e.target.value))}
+          className="h-8 rounded border bg-background px-2"
+        >
+          {[25, 50, 100, 200, 500].map((n) => (
+            <option key={n} value={n}>{n}</option>
+          ))}
+        </select>
+        <Button size="sm" variant="outline" onClick={() => onPage(1)} disabled={page <= 1}>«</Button>
+        <Button size="sm" variant="outline" onClick={() => onPage(page - 1)} disabled={page <= 1}>‹</Button>
+        <span className="px-2">Página <strong>{page}</strong> / {totalPages}</span>
+        <Button size="sm" variant="outline" onClick={() => onPage(page + 1)} disabled={page >= totalPages}>›</Button>
+        <Button size="sm" variant="outline" onClick={() => onPage(totalPages)} disabled={page >= totalPages}>»</Button>
+      </div>
+    </div>
   );
 }
