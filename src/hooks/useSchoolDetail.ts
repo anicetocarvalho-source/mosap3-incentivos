@@ -48,18 +48,22 @@ export function useSchoolDetail(id: string | undefined) {
       ]);
 
       const provinceName = provRes.data?.name || "";
+      const municipalityName = munRes.data?.name || "";
 
       // Carregar agricultores reais que pertencem a esta escola.
       // O campo farmers.school guarda o nome da escola — comparar normalizado.
+      // É essencial filtrar também por município, pois o mesmo nome de escola
+      // pode existir em municípios diferentes (ex.: "1 De Maio" em Cubal e Balombo).
       const schoolNameNorm = dbSchool.name.trim().toLowerCase();
       const provinceNameNorm = provinceName.trim().toLowerCase();
+      const municipalityNameNorm = municipalityName.trim().toLowerCase();
 
       let farmers: FarmerTracking[] = [];
       if (schoolNameNorm) {
         // .ilike é case-insensitive; usamos match exato com escape mínimo.
         const { data: farmerRows } = await supabase
           .from("farmers")
-          .select("code, full_name, school, province, status")
+          .select("code, full_name, school, province, municipality, status")
           .ilike("school", dbSchool.name)
           .neq("status", "Removido")
           .order("full_name", { ascending: true })
@@ -69,7 +73,11 @@ export function useSchoolDetail(id: string | undefined) {
           .filter((f) => {
             const fSchool = (f.school || "").trim().toLowerCase();
             const fProv = (f.province || "").trim().toLowerCase();
-            return fSchool === schoolNameNorm && (provinceNameNorm === "" || fProv === provinceNameNorm);
+            const fMun = (f.municipality || "").trim().toLowerCase();
+            if (fSchool !== schoolNameNorm) return false;
+            if (provinceNameNorm && fProv !== provinceNameNorm) return false;
+            if (municipalityNameNorm && fMun !== municipalityNameNorm) return false;
+            return true;
           })
           .map((f) => ({
             id: f.code,
@@ -92,7 +100,7 @@ export function useSchoolDetail(id: string | undefined) {
         name: dbSchool.name,
         province: provinceName,
         provinceSlug: provRes.data?.slug || "",
-        municipality: munRes.data?.name || "",
+        municipality: municipalityName,
         village: dbSchool.village || "",
         technician: dbSchool.technician || "",
         technicianPhone: dbSchool.technician_phone || "",
