@@ -14,6 +14,21 @@ export type Database = {
   }
   public: {
     Tables: {
+      _sim_status_staging: {
+        Row: {
+          estado: string
+          phone9: string
+        }
+        Insert: {
+          estado: string
+          phone9: string
+        }
+        Update: {
+          estado?: string
+          phone9?: string
+        }
+        Relationships: []
+      }
       anomaly_resolutions: {
         Row: {
           anomaly_key: string
