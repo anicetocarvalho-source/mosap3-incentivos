@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      _xlsx_recon_staging: {
+        Row: {
+          ecas: string | null
+          gasto: number
+          muni: string | null
+          n: number
+          nome: string | null
+          phone: string
+          prov: string | null
+          recebido: number
+        }
+        Insert: {
+          ecas?: string | null
+          gasto?: number
+          muni?: string | null
+          n?: number
+          nome?: string | null
+          phone: string
+          prov?: string | null
+          recebido?: number
+        }
+        Update: {
+          ecas?: string | null
+          gasto?: number
+          muni?: string | null
+          n?: number
+          nome?: string | null
+          phone?: string
+          prov?: string | null
+          recebido?: number
+        }
+        Relationships: []
+      }
       agricultural_seasons: {
         Row: {
           created_at: string
