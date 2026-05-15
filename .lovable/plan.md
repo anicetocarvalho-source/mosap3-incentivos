@@ -1,41 +1,123 @@
-## Problema
+# Gestão completa de Pacotes Tecnológicos (PATEC) + Épocas Agrícolas
 
-No Terminal POS (`/mosap3pay/pos`) a pesquisa de agricultor não devolve todos os registos:
-1. A consulta tem `.limit(8)` — quando há mais de 8 correspondências, os restantes nunca aparecem.
-2. A pesquisa por telefone faz `phone.ilike.%q%` literal — se o utilizador digitar `923xxxxxx` mas a BD guarda `244923xxxxxx` (formato PT-AO), não há match.
+## Contexto actual
 
-## Alterações (apenas em `src/pages/Mosap3PayPOS.tsx`, bloco linhas 202-216)
+- `patec_items` tem `patec_number` (inteiro 1/2/3 hardcoded). Não existe tabela de pacotes.
+- `farmers.patec` integer; `pos_sales.patec_number` integer. Função `dashboard_kpis` conta `FILTER (WHERE patec = 1/2/3)` hardcoded.
+- Metadados de PATEC (título, gradiente, ícone) estão em `patecMeta` no `Patec.tsx`.
+- Não há tabela de épocas; `pos_sales.season` é texto livre.
 
-### 1. Aumentar limite e melhorar UX da lista
-- Subir `.limit(8)` para `.limit(50)`.
-- Manter o dropdown com `max-height` + scroll (já existente) para mostrar todos sem inundar o ecrã.
-- Adicionar contador discreto no rodapé do dropdown: "A mostrar X resultados — refine a pesquisa para ver mais" quando `length === 50`.
+## Objectivo
 
-### 2. Normalizar pesquisa por telefone
-Construir uma variante normalizada do termo de pesquisa antes de montar o `.or()`:
+Permitir ao Admin: criar, editar, remover, activar/desactivar pacotes; gerir épocas agrícolas (datas) e definir em que épocas cada pacote está disponível; bloquear vendas POS quando o pacote estiver inactivo ou fora-de-época.
 
+---
+
+## 1. Esquema de Base de Dados (migração)
+
+### Tabela `patecs`
 ```text
-qDigits   = q.replace(/\D/g, '')
-qPhoneAlt = qDigits sem prefixo 244 (se começar) ou com 244 prepended (se 9 dígitos a começar por 9)
+id                uuid PK
+code              text UNIQUE NOT NULL        -- ex.: "PATEC-MILHO" (editável)
+name              text NOT NULL               -- ex.: "Milho + Feijão + Gado"
+description       text
+cultures          text                        -- "Milho + Feijão"
+icon              text DEFAULT 'wheat'        -- nome lucide-react
+color_token       text DEFAULT 'amber'        -- amber|emerald|violet|...
+is_active         boolean DEFAULT true
+sort_order        int DEFAULT 0
+legacy_number     int UNIQUE                  -- compatibilidade (1, 2, 3 nos antigos)
+created_at, updated_at
 ```
+- **RLS**: SELECT autenticados; INSERT/UPDATE/DELETE só admin.
+- **Seed**: PATEC-MILHO (legacy 1), PATEC-MASSANGO (legacy 2), PATEC-MASSAMBALA (legacy 3) com metadados actuais.
 
-Ramos do `.or()` ficam:
-- `full_name.ilike.%q%`
-- `code.ilike.%q%`
-- `bi.ilike.%q%`
-- `phone.ilike.%qDigits%` (se `qDigits.length >= 3`)
-- `phone.ilike.%qPhoneAlt%` (se diferente de `qDigits`)
+### Tabela `agricultural_seasons`
+```text
+id          uuid PK
+name        text UNIQUE NOT NULL    -- "Época 2025/2026"
+start_date  date NOT NULL
+end_date    date NOT NULL
+is_active   boolean DEFAULT true
+notes       text
+created_at, updated_at
+```
+- Trigger valida `end_date > start_date` (validation trigger, não CHECK).
+- RLS: SELECT autenticados; CRUD só admin.
 
-Isto garante que digitar `923456789`, `244923456789` ou `+244 923 456 789` encontra o mesmo agricultor.
+### Tabela de junção `patec_seasons`
+```text
+patec_id     uuid REFERENCES patecs(id) ON DELETE CASCADE
+season_id    uuid REFERENCES agricultural_seasons(id) ON DELETE CASCADE
+PRIMARY KEY (patec_id, season_id)
+created_at
+```
+- RLS: SELECT autenticados; INSERT/DELETE só admin.
 
-### 3. (Opcional, mesmo bloco) Reduzir mínimo para 1 carácter quando o termo for puramente numérico (códigos curtos), mantendo 2 caracteres para texto.
+### Migração de colunas existentes para código alfanumérico
+- `farmers`: adicionar `patec_code text` (FK lógica para `patecs.code`). Backfill a partir de `patec` integer via `patecs.legacy_number`. Manter `patec` integer durante período de transição (deprecated) para não partir queries existentes.
+- `patec_items`: adicionar `patec_code text NOT NULL`; backfill via `legacy_number`. Manter `patec_number` durante a transição.
+- `pos_sales`: adicionar `patec_code text`; backfill.
+- Função `dashboard_kpis` reescrita para agregar dinamicamente por código (loop sobre `patecs`) e devolver `patec_counts jsonb` (`{ "PATEC-MILHO": 123, ... }`) em vez de `total_patec_1/2/3`.
 
-## Fora de âmbito
-- Não mexer em RLS, edge functions, esquema da BD, layout do POS ou qualquer outro ficheiro.
-- Não alterar a pesquisa global (`/`) nem outros ecrãs com pesquisa de agricultor.
+### Função helper SQL `is_patec_available(_code text, _at timestamptz DEFAULT now())`
+Retorna `true` se PATEC `is_active` E existe pelo menos uma `agricultural_season` ligada que esteja `is_active` E `_at BETWEEN start_date AND end_date`. Usada pelo POS.
 
-## Validação
-Após implementar:
-- Testar pesquisa por nome comum (ex.: "Maria") — deve listar até 50 com indicador "refine para ver mais".
-- Testar telefone em 3 formatos (`923…`, `244923…`, `+244 923…`) — todos devem encontrar o mesmo registo.
-- Confirmar que clicar numa sugestão continua a carregar saldo, PATEC e produtos como antes.
+---
+
+## 2. UI — página `/patec` reorganizada em separadores
+
+Ainda na mesma rota, mas com `Tabs`:
+
+### Separador 1 — "Pacotes" (gestão CRUD admin)
+- Lista de cartões/tabela com cada PATEC: ícone, code, nome, culturas, badge "Activo/Inactivo", contagem agricultores, contagem épocas associadas.
+- Botões por linha: **Editar**, **Activar/Desactivar** (toggle), **Remover** (com `AlertDialog`; bloqueada se houver agricultores atribuídos — sugere desactivar).
+- Botão **+ Novo Pacote** (Dialog): code, nome, descrição, culturas, ícone (select de lucide), color_token, sort_order, épocas (multi-select).
+- Secção "Itens incluídos" (mantém o que existe hoje: insumos/pecuária/serviços por categoria) abaixo, ligada ao PATEC seleccionado.
+
+### Separador 2 — "Épocas Agrícolas"
+- Tabela de épocas com nome, datas, estado, nº PATECs ligados.
+- CRUD: criar/editar (date pickers Shadcn), activar/desactivar, remover.
+- Em cada linha, multi-select dos PATECs disponíveis nessa época.
+
+### Separador 3 — "Atribuição" (mantém UI existente)
+- A actual lista de agricultores com filtros, atribuição individual e em massa, redistribuição aleatória — mas com PATEC apresentado por **code/nome** em vez de nº fixo. Filtro `filterPatec` passa a usar `patec_code`.
+
+---
+
+## 3. Validação no POS (Mosap3PayPOS)
+
+Antes de finalizar venda:
+1. Obter `patec_code` do agricultor (via `farmers`).
+2. Chamar `is_patec_available(patec_code)` (RPC) ou validar client-side com cache.
+3. Se `false`: mostrar `toast.error` e bloquear: *"Pacote {code} indisponível — está inactivo ou fora da época agrícola actual."*
+
+Igual validação ao escolher PATEC no fluxo de selecção de produtos.
+
+---
+
+## 4. Auditoria
+
+Cada criação/edição/activação/desactivação/remoção de PATEC ou Época grava em `audit_logs` (entity_type `patec` ou `season`).
+
+---
+
+## 5. Detalhes técnicos
+
+- Componentes Shadcn: `Tabs`, `Dialog`, `AlertDialog`, `Switch` (activar/desactivar), `Calendar`+`Popover` (datas), `MultiSelect` (épocas — usar `Command` + `Popover` ou checkboxes).
+- Ícones: select com lista curada (`Wheat, Sprout, Leaf, TreeDeciduous, Carrot, ...`).
+- Color tokens: lista curada (`amber, emerald, violet, sky, rose, slate`) → mapeada para classes Tailwind no componente (objecto `colorMap`).
+- Real-time: opcional, não necessário no MVP.
+
+## 6. Ficheiros a tocar
+
+- **Novo**: `supabase/migrations/<timestamp>_patecs_seasons.sql`
+- **Novo**: `src/hooks/usePatecs.ts`, `src/hooks/useSeasons.ts`
+- **Novo**: `src/components/patec/PatecsTab.tsx`, `SeasonsTab.tsx`, `PatecFormDialog.tsx`, `SeasonFormDialog.tsx`
+- **Editado**: `src/pages/Patec.tsx` (envolve em Tabs, mantém atribuição), `src/pages/Mosap3PayPOS.tsx` (validação `is_patec_available`)
+- **Editado** (consumidores de `patec` integer/`patecMeta`): identificar com grep e migrar para usar `patecs` da BD em vez do objecto hardcoded — `Dashboard.tsx`, `Relatorios.tsx`, etc.
+
+## 7. Fora do âmbito
+
+- Disponibilidade por província (utilizador escolheu "global").
+- Migração definitiva (drop) das colunas inteiras antigas — fica para iteração futura quando todo o código estiver convertido.

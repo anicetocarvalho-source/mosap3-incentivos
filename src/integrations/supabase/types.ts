@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      agricultural_seasons: {
+        Row: {
+          created_at: string
+          end_date: string
+          id: string
+          is_active: boolean
+          name: string
+          notes: string | null
+          start_date: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          end_date: string
+          id?: string
+          is_active?: boolean
+          name: string
+          notes?: string | null
+          start_date: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          end_date?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          notes?: string | null
+          start_date?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       anomaly_resolutions: {
         Row: {
           anomaly_key: string
@@ -870,6 +903,7 @@ export type Database = {
           id: string
           municipality: string | null
           patec: number | null
+          patec_code: string | null
           phone: string | null
           photo_frontal_url: string | null
           photo_profile_left_url: string | null
@@ -900,6 +934,7 @@ export type Database = {
           id?: string
           municipality?: string | null
           patec?: number | null
+          patec_code?: string | null
           phone?: string | null
           photo_frontal_url?: string | null
           photo_profile_left_url?: string | null
@@ -930,6 +965,7 @@ export type Database = {
           id?: string
           municipality?: string | null
           patec?: number | null
+          patec_code?: string | null
           phone?: string | null
           photo_frontal_url?: string | null
           photo_profile_left_url?: string | null
@@ -1301,6 +1337,7 @@ export type Database = {
           created_at: string
           id: string
           name: string
+          patec_code: string | null
           patec_number: number
           unit: string | null
         }
@@ -1310,6 +1347,7 @@ export type Database = {
           created_at?: string
           id?: string
           name: string
+          patec_code?: string | null
           patec_number: number
           unit?: string | null
         }
@@ -1319,8 +1357,87 @@ export type Database = {
           created_at?: string
           id?: string
           name?: string
+          patec_code?: string | null
           patec_number?: number
           unit?: string | null
+        }
+        Relationships: []
+      }
+      patec_seasons: {
+        Row: {
+          created_at: string
+          patec_id: string
+          season_id: string
+        }
+        Insert: {
+          created_at?: string
+          patec_id: string
+          season_id: string
+        }
+        Update: {
+          created_at?: string
+          patec_id?: string
+          season_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patec_seasons_patec_id_fkey"
+            columns: ["patec_id"]
+            isOneToOne: false
+            referencedRelation: "patecs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patec_seasons_season_id_fkey"
+            columns: ["season_id"]
+            isOneToOne: false
+            referencedRelation: "agricultural_seasons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      patecs: {
+        Row: {
+          code: string
+          color_token: string
+          created_at: string
+          cultures: string | null
+          description: string | null
+          icon: string
+          id: string
+          is_active: boolean
+          legacy_number: number | null
+          name: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          color_token?: string
+          created_at?: string
+          cultures?: string | null
+          description?: string | null
+          icon?: string
+          id?: string
+          is_active?: boolean
+          legacy_number?: number | null
+          name: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          color_token?: string
+          created_at?: string
+          cultures?: string | null
+          description?: string | null
+          icon?: string
+          id?: string
+          is_active?: boolean
+          legacy_number?: number | null
+          name?: string
+          sort_order?: number
+          updated_at?: string
         }
         Relationships: []
       }
@@ -1391,6 +1508,7 @@ export type Database = {
           notes: string | null
           parcel_size: number | null
           parcel_size_label: string | null
+          patec_code: string | null
           patec_number: number | null
           payment_method: string
           payment_reference: string | null
@@ -1416,6 +1534,7 @@ export type Database = {
           notes?: string | null
           parcel_size?: number | null
           parcel_size_label?: string | null
+          patec_code?: string | null
           patec_number?: number | null
           payment_method?: string
           payment_reference?: string | null
@@ -1441,6 +1560,7 @@ export type Database = {
           notes?: string | null
           parcel_size?: number | null
           parcel_size_label?: string | null
+          patec_code?: string | null
           patec_number?: number | null
           payment_method?: string
           payment_reference?: string | null
@@ -2186,6 +2306,10 @@ export type Database = {
         }
         Returns: Json
       }
+      dashboard_patec_counts: {
+        Args: { p_ecas?: string[]; p_provinces?: string[]; p_scope?: string }
+        Returns: Json
+      }
       detect_farmer_anomalies: {
         Args: {
           p_ecas?: string[]
@@ -2244,6 +2368,10 @@ export type Database = {
       }
       is_managing_province: {
         Args: { _province: string; _user_id: string }
+        Returns: boolean
+      }
+      is_patec_available: {
+        Args: { _at?: string; _code: string }
         Returns: boolean
       }
       list_backoffice_managers: {

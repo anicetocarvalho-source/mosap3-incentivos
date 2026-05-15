@@ -30,6 +30,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { usePatecs } from "@/hooks/usePatecs";
+import { useSeasons } from "@/hooks/useSeasons";
+import PatecsTab from "@/components/patec/PatecsTab";
+import SeasonsTab from "@/components/patec/SeasonsTab";
 
 interface FarmerPatec {
   id: string;
@@ -111,6 +116,23 @@ const Patec = () => {
   // Edit item state
   const [editingItem, setEditingItem] = useState<string | null>(null);
   const [editingItemName, setEditingItemName] = useState("");
+
+  // New: pacotes & épocas
+  const { patecs, refetch: refetchPatecs } = usePatecs();
+  const { seasons, links, refetch: refetchSeasons } = useSeasons();
+  const farmerCountsByCode = farmers.reduce<Record<string, number>>((acc, f) => {
+    const k = (f as any).patec_code || (f.patec ? `_legacy_${f.patec}` : "_none");
+    acc[k] = (acc[k] || 0) + 1;
+    return acc;
+  }, {});
+  // Map legacy counts to codes via patec.legacy_number
+  patecs.forEach((p) => {
+    if (p.legacy_number != null) {
+      const legacyKey = `_legacy_${p.legacy_number}`;
+      farmerCountsByCode[p.code] = (farmerCountsByCode[p.code] || 0) + (farmerCountsByCode[legacyKey] || 0);
+    }
+  });
+
 
   const fetchFarmers = async (resolved: ResolvedScope) => {
     setLoading(true);
@@ -449,7 +471,36 @@ const Patec = () => {
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
+      <Tabs defaultValue="atribuicao" className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="atribuicao">Atribuição</TabsTrigger>
+          <TabsTrigger value="pacotes">Pacotes</TabsTrigger>
+          <TabsTrigger value="epocas">Épocas Agrícolas</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="pacotes">
+          <PatecsTab
+            patecs={patecs}
+            seasons={seasons}
+            links={links}
+            farmerCounts={farmerCountsByCode}
+            isAdmin={isAdmin}
+            refetch={() => { refetchPatecs(); refetchSeasons(); }}
+          />
+        </TabsContent>
+
+        <TabsContent value="epocas">
+          <SeasonsTab
+            seasons={seasons}
+            patecs={patecs}
+            links={links}
+            isAdmin={isAdmin}
+            refetch={() => { refetchSeasons(); refetchPatecs(); }}
+          />
+        </TabsContent>
+
+        <TabsContent value="atribuicao" className="space-y-8">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
         <div>
@@ -1088,6 +1139,8 @@ const Patec = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
