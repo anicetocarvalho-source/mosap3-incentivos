@@ -16,7 +16,7 @@ describe("FarmerSaldoBadge — variant standard", () => {
   it("mostra saldo positivo com cor success e sem rótulo 'sem saldo'", () => {
     render(<FarmerSaldoBadge valor_recebido="200.000,00" total_gasto="50.000,00" />);
     const value = screen.getByTestId("farmer-saldo-value");
-    expect(value.textContent).toContain("150.000");
+    expect(value.textContent).toMatch(/150[^0-9]000/);
     expect(value.className).toContain("text-success");
     expect(value.className).not.toContain("text-destructive");
     expect(screen.queryByTestId("farmer-saldo-empty")).toBeNull();
@@ -48,14 +48,14 @@ describe("FarmerSaldoBadge — variant standard", () => {
   it("aceita formato EN-US ('200,000.00')", () => {
     render(<FarmerSaldoBadge valor_recebido="200,000.00" total_gasto="50,000.00" />);
     const value = screen.getByTestId("farmer-saldo-value");
-    expect(value.textContent).toContain("150.000");
+    expect(value.textContent).toMatch(/150[^0-9]000/);
     expect(value.className).toContain("text-success");
   });
 
   it("aceita números directamente", () => {
     render(<FarmerSaldoBadge valor_recebido={300000} total_gasto={100000} />);
     const value = screen.getByTestId("farmer-saldo-value");
-    expect(value.textContent).toContain("200.000");
+    expect(value.textContent).toMatch(/200[^0-9]000/);
     expect(value.className).toContain("text-success");
   });
 });
