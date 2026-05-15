@@ -86,6 +86,7 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [farmerHasMore, setFarmerHasMore] = useState(false);
   const [farmerLoadingMore, setFarmerLoadingMore] = useState(false);
+  const [farmerTotalCount, setFarmerTotalCount] = useState<number | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [productSearch, setProductSearch] = useState("");
   const [processing, setProcessing] = useState(false);
