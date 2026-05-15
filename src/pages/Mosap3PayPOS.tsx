@@ -1254,6 +1254,24 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
 
           {/* Cart items */}
           <div className="flex-1 overflow-y-auto px-4 py-2">
+            {patecBlock && (
+              <div className="mb-3 rounded-lg border border-[hsl(0,70%,40%)] bg-[hsl(0,60%,12%)] p-3 text-[hsl(0,0%,90%)] sticky top-0 z-10">
+                <div className="flex items-start gap-2">
+                  <Ban className="h-4 w-4 mt-0.5 text-[hsl(0,70%,65%)] shrink-0" />
+                  <div className="text-xs space-y-1">
+                    <p className="font-bold text-[hsl(0,70%,70%)]">⛔ Venda bloqueada — {patecBlock.title}</p>
+                    <p>{patecBlock.message}</p>
+                    <p><strong>O que fazer:</strong> {patecBlock.hint}</p>
+                    {patecBlock.nextSeason && (
+                      <p><strong>Próxima época:</strong> {patecBlock.nextSeason.name} (a partir de {fmtDate(patecBlock.nextSeason.start_date)}).</p>
+                    )}
+                    {patecBlock.lastSeason && (
+                      <p><strong>Última época:</strong> {patecBlock.lastSeason.name} (terminou a {fmtDate(patecBlock.lastSeason.end_date)}).</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
             {cart.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-[hsl(220,10%,30%)]">
                 <ShoppingCart className="h-12 w-12 mb-3" />
@@ -1741,6 +1759,22 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
                 </CardTitle>
               </CardHeader>
               <CardContent>
+                {patecBlock && (
+                  <Alert variant="destructive" className="mb-3 sticky top-0 z-10">
+                    <Ban className="h-4 w-4" />
+                    <AlertTitle className="font-bold text-xs">⛔ Venda bloqueada — {patecBlock.title}</AlertTitle>
+                    <AlertDescription className="text-[11px] space-y-1 mt-1">
+                      <p>{patecBlock.message}</p>
+                      <p><strong>O que fazer:</strong> {patecBlock.hint}</p>
+                      {patecBlock.nextSeason && (
+                        <p><strong>Próxima época:</strong> {patecBlock.nextSeason.name} (a partir de {fmtDate(patecBlock.nextSeason.start_date)}).</p>
+                      )}
+                      {patecBlock.lastSeason && (
+                        <p><strong>Última época:</strong> {patecBlock.lastSeason.name} (terminou a {fmtDate(patecBlock.lastSeason.end_date)}).</p>
+                      )}
+                    </AlertDescription>
+                  </Alert>
+                )}
                 {cart.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-6">Carrinho vazio</p>
                 ) : (
