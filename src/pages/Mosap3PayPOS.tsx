@@ -1750,7 +1750,15 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
                         </AlertDescription>
                       </Alert>
                     )}
-                    {farmer && farmerBalance <= 0 && (
+                    {farmer && patecBlock && (
+                      <Alert variant="destructive" className="mt-2">
+                        <Ban className="h-4 w-4" />
+                        <AlertTitle className="text-xs font-bold">⛔ Pagamento bloqueado — {patecBlock.title}</AlertTitle>
+                        <AlertDescription className="text-[11px]">
+                          {patecBlock.message} {patecBlock.hint}
+                        </AlertDescription>
+                      </Alert>
+                    )}
                       <p className="text-xs text-destructive text-center mt-2 font-medium">⚠ Produtor sem saldo de incentivo</p>
                     )}
                     {farmer && farmerBalance > 0 && cartTotal > farmerBalance && (
