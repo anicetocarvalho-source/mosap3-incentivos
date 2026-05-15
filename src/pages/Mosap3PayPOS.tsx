@@ -450,7 +450,7 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
       return;
     }
     const availability = await checkPatecAvailability(f.patec_code);
-    if (!availability.ok) {
+    if (availability.ok === false) {
       toast.error(availability.reason);
       setFarmer(null);
       return;
