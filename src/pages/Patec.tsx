@@ -30,6 +30,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { usePatecs } from "@/hooks/usePatecs";
+import { useSeasons } from "@/hooks/useSeasons";
+import PatecsTab from "@/components/patec/PatecsTab";
+import SeasonsTab from "@/components/patec/SeasonsTab";
 
 interface FarmerPatec {
   id: string;
