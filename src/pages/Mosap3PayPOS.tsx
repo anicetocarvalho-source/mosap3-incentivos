@@ -1592,6 +1592,22 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
                     </Alert>
                   );
                 })()}
+                {farmer && patecBlock && (
+                  <Alert variant="destructive" className="mt-3">
+                    <Ban className="h-4 w-4" />
+                    <AlertTitle className="font-bold">⛔ Venda bloqueada — {patecBlock.title}</AlertTitle>
+                    <AlertDescription className="text-xs space-y-1 mt-1">
+                      <p>{patecBlock.message}</p>
+                      <p><strong>O que fazer:</strong> {patecBlock.hint}</p>
+                      {patecBlock.nextSeason && (
+                        <p><strong>Próxima época:</strong> {patecBlock.nextSeason.name} (a partir de {fmtDate(patecBlock.nextSeason.start_date)}).</p>
+                      )}
+                      {patecBlock.lastSeason && (
+                        <p><strong>Última época:</strong> {patecBlock.lastSeason.name} (terminou a {fmtDate(patecBlock.lastSeason.end_date)}).</p>
+                      )}
+                    </AlertDescription>
+                  </Alert>
+                )}
               </CardContent>
             </Card>
 
