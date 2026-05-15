@@ -449,6 +449,12 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
       toast.error(`${f.full_name} não tem PATEC atribuído. Não é possível efectuar venda.`);
       return;
     }
+    const availability = await checkPatecAvailability(f.patec_code);
+    if (!availability.ok) {
+      toast.error(availability.reason);
+      setFarmer(null);
+      return;
+    }
     if (f.sim_status === "Pré desactivado") {
       toast.warning(`Atenção: cartão SIM em estado "Pré desactivado". Confirme antes de finalizar.`);
     }
