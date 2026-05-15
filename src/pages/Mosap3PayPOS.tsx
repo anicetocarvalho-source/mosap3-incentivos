@@ -575,10 +575,12 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
     }
     const availability = await checkPatecAvailability(f.patec_code);
     if (availability.ok === false) {
-      toast.error(availability.reason);
-      setFarmer(null);
+      setPatecBlock(availability.detail);
+      toast.error(`${availability.detail.title} — ${availability.detail.message}`);
+      // Mantemos o produtor seleccionado para que o aviso fique visível no UI.
       return;
     }
+    setPatecBlock(null);
     if (f.sim_status === "Pré desactivado") {
       toast.warning(`Atenção: cartão SIM em estado "Pré desactivado". Confirme antes de finalizar.`);
     }
