@@ -1366,11 +1366,19 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
                           {s.patec ? <Badge variant="secondary" className="text-[10px]">{patecLabels[s.patec]}</Badge> : null}
                         </button>
                       ))}
-                      {farmerSuggestions.length >= 50 && (
+                      {farmerHasMore ? (
+                        <button
+                          onMouseDown={(e) => { e.preventDefault(); loadMoreFarmerSuggestions(); }}
+                          disabled={farmerLoadingMore}
+                          className="w-full px-3 py-2 text-[11px] text-primary bg-muted/50 sticky bottom-0 text-center border-t border-border hover:bg-muted disabled:opacity-50"
+                        >
+                          {farmerLoadingMore ? "A carregar…" : `Carregar mais (${farmerSuggestions.length} mostrados)`}
+                        </button>
+                      ) : farmerSuggestions.length > FARMER_PAGE_SIZE ? (
                         <div className="px-3 py-2 text-[11px] text-muted-foreground bg-muted/50 sticky bottom-0 text-center border-t border-border">
-                          A mostrar 50 resultados — refine a pesquisa para ver mais
+                          Fim dos resultados ({farmerSuggestions.length})
                         </div>
-                      )}
+                      ) : null}
                     </div>
                   )}
                 </div>
