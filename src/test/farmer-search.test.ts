@@ -28,7 +28,7 @@ describe("farmerSearch — minSearchLength / shouldSearch", () => {
 
 describe("farmerSearch — sanitizeForOr", () => {
   it("replaces commas and parentheses with spaces", () => {
-    expect(sanitizeForOr("Maria, (Sr.)")).toBe("Maria  Sr. ");
+    expect(sanitizeForOr("Maria, (Sr.)")).toBe("Maria   Sr. ");
   });
   it("leaves safe text untouched", () => {
     expect(sanitizeForOr("Joao da Silva")).toBe("Joao da Silva");
