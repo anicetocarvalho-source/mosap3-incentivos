@@ -799,9 +799,11 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
     // Re-valida disponibilidade do PATEC no momento da venda (época / activação podem ter mudado)
     const availability = await checkPatecAvailability(farmer.patec_code);
     if (availability.ok === false) {
-      toast.error(availability.reason);
+      setPatecBlock(availability.detail);
+      toast.error(`Venda bloqueada — ${availability.detail.title}: ${availability.detail.message}`);
       return;
     }
+    setPatecBlock(null);
 
     setProcessing(true);
     setPaymentStatus("processing");
