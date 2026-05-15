@@ -56,6 +56,7 @@ const Dashboard = () => {
   const { roles } = useAuth();
   const [period, setPeriod] = useState<PeriodValue>({});
   const { data: stats, isLoading: kpisLoading, isError: kpisError, refetch: refetchKpis } = useDashboardKpis(period);
+  const { patecs } = usePatecs({ activeOnly: true });
   const { data: charts, isLoading: chartsLoading, isError: chartsError, refetch: refetchCharts } = useDashboardCharts();
   const navigate = useNavigate();
   const roleName = roles.length > 0 ? (roleLabels[roles[0]] ?? roles[0]) : "Utilizador";
