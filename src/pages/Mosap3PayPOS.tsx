@@ -222,6 +222,7 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
   const [selectedSupplierId, setSelectedSupplierId] = useState<string>(forcedSupplierId || "");
   const [products, setProducts] = useState<Product[]>([]);
   const [farmer, setFarmer] = useState<Farmer | null>(null);
+  const [patecBlock, setPatecBlock] = useState<PatecBlockDetail | null>(null);
   const [farmerSearch, setFarmerSearch] = useState("");
   const [farmerSuggestions, setFarmerSuggestions] = useState<Farmer[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
