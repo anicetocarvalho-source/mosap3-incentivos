@@ -84,6 +84,8 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
   const [farmerSearch, setFarmerSearch] = useState("");
   const [farmerSuggestions, setFarmerSuggestions] = useState<Farmer[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [farmerHasMore, setFarmerHasMore] = useState(false);
+  const [farmerLoadingMore, setFarmerLoadingMore] = useState(false);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [productSearch, setProductSearch] = useState("");
   const [processing, setProcessing] = useState(false);
@@ -199,38 +201,78 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
     }
   }, [selectedSupplierId]);
 
+  // Build .or() parts shared by initial search & "load more"
+  const FARMER_PAGE_SIZE = 50;
+  const buildFarmerOrParts = (q: string): string[] | null => {
+    const safe = q.replace(/[(),]/g, " ");
+    const qDigits = q.replace(/\D/g, "");
+    let qPhoneAlt = "";
+    if (qDigits.length >= 3) {
+      if (qDigits.startsWith("244")) qPhoneAlt = qDigits.slice(3);
+      else if (qDigits.length === 9 && qDigits.startsWith("9")) qPhoneAlt = "244" + qDigits;
+    }
+    const parts = [
+      `full_name.ilike.%${safe}%`,
+      `code.ilike.%${safe}%`,
+      `bi.ilike.%${safe}%`,
+    ];
+    if (qDigits.length >= 3) parts.push(`phone.ilike.%${qDigits}%`);
+    if (qPhoneAlt && qPhoneAlt !== qDigits) parts.push(`phone.ilike.%${qPhoneAlt}%`);
+    return parts;
+  };
+
   // Autocomplete suggestions as user types
   useEffect(() => {
     const q = farmerSearch.trim();
     const isNumeric = /^\d+$/.test(q);
-    if (q.length < (isNumeric ? 1 : 2)) { setFarmerSuggestions([]); setShowSuggestions(false); return; }
+    if (q.length < (isNumeric ? 1 : 2)) {
+      setFarmerSuggestions([]);
+      setShowSuggestions(false);
+      setFarmerHasMore(false);
+      return;
+    }
     const timeout = setTimeout(async () => {
-      // Sanitizar para escape do operador .or() do PostgREST (vírgula e parênteses)
-      const safe = q.replace(/[(),]/g, " ");
-      const qDigits = q.replace(/\D/g, "");
-      // Normalização PT-AO: aceitar com ou sem prefixo 244
-      let qPhoneAlt = "";
-      if (qDigits.length >= 3) {
-        if (qDigits.startsWith("244")) qPhoneAlt = qDigits.slice(3);
-        else if (qDigits.length === 9 && qDigits.startsWith("9")) qPhoneAlt = "244" + qDigits;
-      }
-      const orParts = [
-        `full_name.ilike.%${safe}%`,
-        `code.ilike.%${safe}%`,
-        `bi.ilike.%${safe}%`,
-      ];
-      if (qDigits.length >= 3) orParts.push(`phone.ilike.%${qDigits}%`);
-      if (qPhoneAlt && qPhoneAlt !== qDigits) orParts.push(`phone.ilike.%${qPhoneAlt}%`);
+      const orParts = buildFarmerOrParts(q);
+      if (!orParts) return;
       const { data } = await supabase
         .from("farmers")
         .select("code, full_name, phone, patec, photo_frontal_url, saldo_final, sim_status")
         .or(orParts.join(","))
-        .limit(50);
-      setFarmerSuggestions((data as Farmer[]) || []);
-      setShowSuggestions(!!data && data.length > 0);
+        .order("full_name", { ascending: true })
+        .range(0, FARMER_PAGE_SIZE - 1);
+      const rows = (data as Farmer[]) || [];
+      setFarmerSuggestions(rows);
+      setShowSuggestions(rows.length > 0);
+      setFarmerHasMore(rows.length === FARMER_PAGE_SIZE);
     }, 300);
     return () => clearTimeout(timeout);
   }, [farmerSearch]);
+
+  const loadMoreFarmerSuggestions = async () => {
+    const q = farmerSearch.trim();
+    if (!q || farmerLoadingMore || !farmerHasMore) return;
+    setFarmerLoadingMore(true);
+    try {
+      const orParts = buildFarmerOrParts(q);
+      if (!orParts) return;
+      const from = farmerSuggestions.length;
+      const to = from + FARMER_PAGE_SIZE - 1;
+      const { data } = await supabase
+        .from("farmers")
+        .select("code, full_name, phone, patec, photo_frontal_url, saldo_final, sim_status")
+        .or(orParts.join(","))
+        .order("full_name", { ascending: true })
+        .range(from, to);
+      const rows = (data as Farmer[]) || [];
+      // Dedupe by code (defensive against ordering ties)
+      const existing = new Set(farmerSuggestions.map((f) => f.code));
+      const fresh = rows.filter((r) => !existing.has(r.code));
+      setFarmerSuggestions((prev) => [...prev, ...fresh]);
+      setFarmerHasMore(rows.length === FARMER_PAGE_SIZE);
+    } finally {
+      setFarmerLoadingMore(false);
+    }
+  };
 
   const fetchFarmerBalance = async (farmerCode: string) => {
     const [incRes, salesRes] = await Promise.all([
@@ -1027,11 +1069,19 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
                         </div>
                       </button>
                     ))}
-                    {farmerSuggestions.length >= 50 && (
+                    {farmerHasMore ? (
+                      <button
+                        onMouseDown={(e) => { e.preventDefault(); loadMoreFarmerSuggestions(); }}
+                        disabled={farmerLoadingMore}
+                        className="w-full px-3 py-2 text-[10px] text-[hsl(45,90%,55%)] bg-[hsl(220,15%,10%)] sticky bottom-0 text-center border-t border-[hsl(220,15%,22%)] hover:bg-[hsl(220,15%,14%)] disabled:opacity-50"
+                      >
+                        {farmerLoadingMore ? "A carregar…" : `Carregar mais (${farmerSuggestions.length} mostrados)`}
+                      </button>
+                    ) : farmerSuggestions.length > FARMER_PAGE_SIZE ? (
                       <div className="px-3 py-2 text-[10px] text-[hsl(220,10%,55%)] bg-[hsl(220,15%,10%)] sticky bottom-0 text-center border-t border-[hsl(220,15%,22%)]">
-                        A mostrar 50 resultados — refine a pesquisa para ver mais
+                        Fim dos resultados ({farmerSuggestions.length})
                       </div>
-                    )}
+                    ) : null}
                   </div>
                 )}
               </div>
@@ -1316,11 +1366,19 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
                           {s.patec ? <Badge variant="secondary" className="text-[10px]">{patecLabels[s.patec]}</Badge> : null}
                         </button>
                       ))}
-                      {farmerSuggestions.length >= 50 && (
+                      {farmerHasMore ? (
+                        <button
+                          onMouseDown={(e) => { e.preventDefault(); loadMoreFarmerSuggestions(); }}
+                          disabled={farmerLoadingMore}
+                          className="w-full px-3 py-2 text-[11px] text-primary bg-muted/50 sticky bottom-0 text-center border-t border-border hover:bg-muted disabled:opacity-50"
+                        >
+                          {farmerLoadingMore ? "A carregar…" : `Carregar mais (${farmerSuggestions.length} mostrados)`}
+                        </button>
+                      ) : farmerSuggestions.length > FARMER_PAGE_SIZE ? (
                         <div className="px-3 py-2 text-[11px] text-muted-foreground bg-muted/50 sticky bottom-0 text-center border-t border-border">
-                          A mostrar 50 resultados — refine a pesquisa para ver mais
+                          Fim dos resultados ({farmerSuggestions.length})
                         </div>
-                      )}
+                      ) : null}
                     </div>
                   )}
                 </div>
