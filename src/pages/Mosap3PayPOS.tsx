@@ -22,9 +22,26 @@ interface Farmer {
   full_name: string;
   phone: string | null;
   patec: number | null;
+  patec_code: string | null;
   photo_frontal_url: string | null;
   saldo_final: string | null;
   sim_status: string | null;
+}
+
+/** Verifica se o PATEC do agricultor está activo e dentro de uma época vigente.
+ * Devolve { ok: true } se ok, ou { ok: false, reason } se bloqueado.
+ * Se não houver patec_code (legacy), permite (não bloqueia retro-compat). */
+async function checkPatecAvailability(patecCode: string | null): Promise<{ ok: true } | { ok: false; reason: string }> {
+  if (!patecCode) return { ok: true };
+  const { data, error } = await supabase.rpc("is_patec_available" as any, { _code: patecCode });
+  if (error) {
+    console.warn("is_patec_available RPC failed:", error);
+    return { ok: true }; // fail-open para não bloquear vendas por erro de rede
+  }
+  if (data === false) {
+    return { ok: false, reason: `Pacote ${patecCode} indisponível — está inactivo ou fora da época agrícola actual.` };
+  }
+  return { ok: true };
 }
 
 interface Product {
@@ -218,7 +235,7 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
       const { from, to } = farmerPageRange(0);
       const { data, count } = await supabase
         .from("farmers")
-        .select("code, full_name, phone, patec, photo_frontal_url, saldo_final, sim_status", { count: "exact" })
+        .select("code, full_name, phone, patec, patec_code, photo_frontal_url, saldo_final, sim_status", { count: "exact" })
         .or(orParts.join(","))
         .order("full_name", { ascending: true })
         .range(from, to);
@@ -241,7 +258,7 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
       const to = from + FARMER_PAGE_SIZE - 1;
       const { data } = await supabase
         .from("farmers")
-        .select("code, full_name, phone, patec, photo_frontal_url, saldo_final, sim_status")
+        .select("code, full_name, phone, patec, patec_code, photo_frontal_url, saldo_final, sim_status")
         .or(orParts.join(","))
         .order("full_name", { ascending: true })
         .range(from, to);
@@ -432,6 +449,12 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
       toast.error(`${f.full_name} não tem PATEC atribuído. Não é possível efectuar venda.`);
       return;
     }
+    const availability = await checkPatecAvailability(f.patec_code);
+    if (availability.ok === false) {
+      toast.error(availability.reason);
+      setFarmer(null);
+      return;
+    }
     if (f.sim_status === "Pré desactivado") {
       toast.warning(`Atenção: cartão SIM em estado "Pré desactivado". Confirme antes de finalizar.`);
     }
@@ -445,7 +468,7 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
     setShowSuggestions(false);
     const { data } = await supabase
       .from("farmers")
-      .select("code, full_name, phone, patec, photo_frontal_url, saldo_final, sim_status")
+      .select("code, full_name, phone, patec, patec_code, photo_frontal_url, saldo_final, sim_status")
       .or(`code.eq.${query},phone.eq.${query},bi.eq.${query},full_name.ilike.%${query}%`)
       .limit(1)
       .single();
@@ -646,7 +669,14 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
       toast.error(`Saldo insuficiente. Saldo: ${farmerBalance.toLocaleString("pt-AO")} Kz, Total: ${cartTotal.toLocaleString("pt-AO")} Kz.`);
       return;
     }
-    
+
+    // Re-valida disponibilidade do PATEC no momento da venda (época / activação podem ter mudado)
+    const availability = await checkPatecAvailability(farmer.patec_code);
+    if (availability.ok === false) {
+      toast.error(availability.reason);
+      return;
+    }
+
     setProcessing(true);
     setPaymentStatus("processing");
 
