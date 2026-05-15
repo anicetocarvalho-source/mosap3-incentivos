@@ -471,7 +471,36 @@ const Patec = () => {
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
+      <Tabs defaultValue="atribuicao" className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="atribuicao">Atribuição</TabsTrigger>
+          <TabsTrigger value="pacotes">Pacotes</TabsTrigger>
+          <TabsTrigger value="epocas">Épocas Agrícolas</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="pacotes">
+          <PatecsTab
+            patecs={patecs}
+            seasons={seasons}
+            links={links}
+            farmerCounts={farmerCountsByCode}
+            isAdmin={isAdmin}
+            refetch={() => { refetchPatecs(); refetchSeasons(); }}
+          />
+        </TabsContent>
+
+        <TabsContent value="epocas">
+          <SeasonsTab
+            seasons={seasons}
+            patecs={patecs}
+            links={links}
+            isAdmin={isAdmin}
+            refetch={() => { refetchSeasons(); refetchPatecs(); }}
+          />
+        </TabsContent>
+
+        <TabsContent value="atribuicao" className="space-y-8">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
         <div>
