@@ -28,20 +28,143 @@ interface Farmer {
   sim_status: string | null;
 }
 
+export type PatecBlockReason =
+  | "inactive_patec"
+  | "no_seasons"
+  | "no_active_seasons"
+  | "season_future"
+  | "season_closed"
+  | "unknown_code";
+
+export interface PatecBlockDetail {
+  reason: PatecBlockReason;
+  title: string;
+  message: string;
+  hint: string;
+  patecName?: string;
+  nextSeason?: { name: string; start_date: string };
+  lastSeason?: { name: string; end_date: string };
+}
+
+export type PatecAvailability = { ok: true } | { ok: false; detail: PatecBlockDetail };
+
+const fmtDate = (d: string) => {
+  try { return new Date(d).toLocaleDateString("pt-AO"); } catch { return d; }
+};
+
 /** Verifica se o PATEC do agricultor está activo e dentro de uma época vigente.
- * Devolve { ok: true } se ok, ou { ok: false, reason } se bloqueado.
- * Se não houver patec_code (legacy), permite (não bloqueia retro-compat). */
-async function checkPatecAvailability(patecCode: string | null): Promise<{ ok: true } | { ok: false; reason: string }> {
+ * Faz a verificação no cliente (com base nas tabelas patecs / agricultural_seasons /
+ * patec_seasons) para devolver um motivo detalhado que possa ser apresentado ao
+ * utilizador no POS. Se não houver patec_code (legacy) permite — retro-compatibilidade. */
+async function checkPatecAvailability(patecCode: string | null): Promise<PatecAvailability> {
   if (!patecCode) return { ok: true };
-  const { data, error } = await supabase.rpc("is_patec_available" as any, { _code: patecCode });
-  if (error) {
-    console.warn("is_patec_available RPC failed:", error);
+  try {
+    const { data: patec, error: pErr } = await supabase
+      .from("patecs" as any)
+      .select("id, code, name, is_active")
+      .eq("code", patecCode)
+      .maybeSingle();
+    if (pErr) throw pErr;
+    if (!patec) {
+      return {
+        ok: false,
+        detail: {
+          reason: "unknown_code",
+          title: "Pacote não encontrado",
+          message: `O código de PATEC "${patecCode}" não existe no catálogo.`,
+          hint: "Verifique a configuração do produtor ou contacte um gestor.",
+        },
+      };
+    }
+    const p = patec as any;
+    if (!p.is_active) {
+      return {
+        ok: false,
+        detail: {
+          reason: "inactive_patec",
+          title: `Pacote ${p.code} desactivado`,
+          message: `O pacote "${p.name}" está actualmente desactivado pela administração.`,
+          hint: "Compras com este pacote estão suspensas até nova ativação.",
+          patecName: p.name,
+        },
+      };
+    }
+    const { data: links, error: lErr } = await supabase
+      .from("patec_seasons" as any)
+      .select("season_id")
+      .eq("patec_id", p.id);
+    if (lErr) throw lErr;
+    const seasonIds = (links as any[] | null)?.map((l) => l.season_id) ?? [];
+    if (seasonIds.length === 0) {
+      return {
+        ok: false,
+        detail: {
+          reason: "no_seasons",
+          title: `Sem época agrícola para ${p.code}`,
+          message: `O pacote "${p.name}" não está associado a nenhuma época agrícola.`,
+          hint: "Peça ao gestor para vincular este pacote à época agrícola actual.",
+          patecName: p.name,
+        },
+      };
+    }
+    const { data: seasons, error: sErr } = await supabase
+      .from("agricultural_seasons" as any)
+      .select("id, name, start_date, end_date, is_active")
+      .in("id", seasonIds);
+    if (sErr) throw sErr;
+    const today = new Date().toISOString().slice(0, 10);
+    const all = (seasons as any[] | null) ?? [];
+    const active = all.filter((s) => s.is_active);
+    if (active.length === 0) {
+      return {
+        ok: false,
+        detail: {
+          reason: "no_active_seasons",
+          title: `Épocas inactivas para ${p.code}`,
+          message: `Todas as épocas agrícolas associadas a "${p.name}" estão inactivas.`,
+          hint: "Peça ao gestor para activar uma época ou vincular uma nova.",
+          patecName: p.name,
+        },
+      };
+    }
+    const inWindow = active.find((s) => s.start_date <= today && today <= s.end_date);
+    if (inWindow) return { ok: true };
+    const future = active
+      .filter((s) => s.start_date > today)
+      .sort((a, b) => (a.start_date < b.start_date ? -1 : 1))[0];
+    if (future) {
+      return {
+        ok: false,
+        detail: {
+          reason: "season_future",
+          title: `Fora de época — ${p.code}`,
+          message: `A próxima época para "${p.name}" (${future.name}) só inicia em ${fmtDate(future.start_date)}.`,
+          hint: "As vendas só serão possíveis a partir dessa data.",
+          patecName: p.name,
+          nextSeason: { name: future.name, start_date: future.start_date },
+        },
+      };
+    }
+    const last = active
+      .filter((s) => s.end_date < today)
+      .sort((a, b) => (a.end_date > b.end_date ? -1 : 1))[0];
+    return {
+      ok: false,
+      detail: {
+        reason: "season_closed",
+        title: `Época encerrada — ${p.code}`,
+        message: last
+          ? `A época "${last.name}" para o pacote "${p.name}" terminou em ${fmtDate(last.end_date)}.`
+          : `A época agrícola para "${p.name}" já terminou.`,
+        hint: "Aguarde a abertura de uma nova época para retomar as compras.",
+        patecName: p.name,
+        lastSeason: last ? { name: last.name, end_date: last.end_date } : undefined,
+      },
+    };
+  } catch (err) {
+    console.warn("checkPatecAvailability falhou:", err);
     return { ok: true }; // fail-open para não bloquear vendas por erro de rede
   }
-  if (data === false) {
-    return { ok: false, reason: `Pacote ${patecCode} indisponível — está inactivo ou fora da época agrícola actual.` };
-  }
-  return { ok: true };
 }
 
 interface Product {
@@ -99,6 +222,7 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
   const [selectedSupplierId, setSelectedSupplierId] = useState<string>(forcedSupplierId || "");
   const [products, setProducts] = useState<Product[]>([]);
   const [farmer, setFarmer] = useState<Farmer | null>(null);
+  const [patecBlock, setPatecBlock] = useState<PatecBlockDetail | null>(null);
   const [farmerSearch, setFarmerSearch] = useState("");
   const [farmerSuggestions, setFarmerSuggestions] = useState<Farmer[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -451,10 +575,12 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
     }
     const availability = await checkPatecAvailability(f.patec_code);
     if (availability.ok === false) {
-      toast.error(availability.reason);
-      setFarmer(null);
+      setPatecBlock(availability.detail);
+      toast.error(`${availability.detail.title} — ${availability.detail.message}`);
+      // Mantemos o produtor seleccionado para que o aviso fique visível no UI.
       return;
     }
+    setPatecBlock(null);
     if (f.sim_status === "Pré desactivado") {
       toast.warning(`Atenção: cartão SIM em estado "Pré desactivado". Confirme antes de finalizar.`);
     }
@@ -477,7 +603,7 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
       await selectFarmerFromSuggestion(data as Farmer);
     } else {
       toast.error("Produtor não encontrado. Verifique o código, BI, telefone ou nome e tente novamente.");
-      setFarmer(null);
+      setFarmer(null); setPatecBlock(null);
     }
   };
 
@@ -673,9 +799,11 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
     // Re-valida disponibilidade do PATEC no momento da venda (época / activação podem ter mudado)
     const availability = await checkPatecAvailability(farmer.patec_code);
     if (availability.ok === false) {
-      toast.error(availability.reason);
+      setPatecBlock(availability.detail);
+      toast.error(`Venda bloqueada — ${availability.detail.title}: ${availability.detail.message}`);
       return;
     }
+    setPatecBlock(null);
 
     setProcessing(true);
     setPaymentStatus("processing");
@@ -1048,7 +1176,7 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
                     </button>
                   )}
                 </div>
-                <button onClick={() => { setFarmer(null); setFarmerSearch(""); setCart([]); setParcelSize(null); setPatecItems([]); }} className="text-[hsl(220,10%,40%)] hover:text-[hsl(0,70%,60%)]">
+                <button onClick={() => { setFarmer(null); setPatecBlock(null); setFarmerSearch(""); setCart([]); setParcelSize(null); setPatecItems([]); }} className="text-[hsl(220,10%,40%)] hover:text-[hsl(0,70%,60%)]">
                   <Trash2 className="h-3 w-3" />
                 </button>
               </div>
@@ -1211,7 +1339,7 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
 
             {/* Submit */}
             <button
-              disabled={cart.length === 0 || !farmer || processing || farmerBalance <= 0 || cartTotal > farmerBalance || isSimBlocked(farmer?.sim_status)}
+              disabled={cart.length === 0 || !farmer || processing || farmerBalance <= 0 || cartTotal > farmerBalance || isSimBlocked(farmer?.sim_status) || !!patecBlock}
               onClick={() => setConfirmOpen(true)}
               className="w-full py-3 rounded-lg font-bold text-sm flex items-center justify-center gap-2 transition-colors disabled:opacity-40 disabled:cursor-not-allowed bg-[hsl(45,70%,40%)] text-[hsl(220,20%,10%)] hover:bg-[hsl(45,75%,45%)]"
             >
@@ -1279,7 +1407,7 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
                 <Button variant="outline" onClick={() => setShowInvoice(true)} disabled={!invoiceData}>
                   <Printer className="h-4 w-4 mr-1" /> Ver Factura
                 </Button>
-                <Button onClick={() => { setReceiptOpen(false); setFarmer(null); setFarmerSearch(""); setPaymentStatus("idle"); setInvoiceData(null); setParcelSize(null); setPatecItems([]); }} className="flex-1 bg-[hsl(45,70%,40%)] text-[hsl(220,20%,10%)] hover:bg-[hsl(45,75%,45%)]">
+                <Button onClick={() => { setReceiptOpen(false); setFarmer(null); setPatecBlock(null); setFarmerSearch(""); setPaymentStatus("idle"); setInvoiceData(null); setParcelSize(null); setPatecItems([]); }} className="flex-1 bg-[hsl(45,70%,40%)] text-[hsl(220,20%,10%)] hover:bg-[hsl(45,75%,45%)]">
                   Nova Venda
                 </Button>
               </div>
@@ -1464,6 +1592,22 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
                     </Alert>
                   );
                 })()}
+                {farmer && patecBlock && (
+                  <Alert variant="destructive" className="mt-3">
+                    <Ban className="h-4 w-4" />
+                    <AlertTitle className="font-bold">⛔ Venda bloqueada — {patecBlock.title}</AlertTitle>
+                    <AlertDescription className="text-xs space-y-1 mt-1">
+                      <p>{patecBlock.message}</p>
+                      <p><strong>O que fazer:</strong> {patecBlock.hint}</p>
+                      {patecBlock.nextSeason && (
+                        <p><strong>Próxima época:</strong> {patecBlock.nextSeason.name} (a partir de {fmtDate(patecBlock.nextSeason.start_date)}).</p>
+                      )}
+                      {patecBlock.lastSeason && (
+                        <p><strong>Última época:</strong> {patecBlock.lastSeason.name} (terminou a {fmtDate(patecBlock.lastSeason.end_date)}).</p>
+                      )}
+                    </AlertDescription>
+                  </Alert>
+                )}
               </CardContent>
             </Card>
 
@@ -1594,7 +1738,7 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
                         </div>
                       )}
                     </div>
-                    <Button className="w-full mt-3" onClick={() => setConfirmOpen(true)} disabled={!farmer || cart.length === 0 || farmerBalance <= 0 || cartTotal > farmerBalance || isSimBlocked(farmer?.sim_status)}>
+                    <Button className="w-full mt-3" onClick={() => setConfirmOpen(true)} disabled={!farmer || cart.length === 0 || farmerBalance <= 0 || cartTotal > farmerBalance || isSimBlocked(farmer?.sim_status) || !!patecBlock}>
                       <CreditCard className="h-4 w-4 mr-2" /> Processar Pagamento
                     </Button>
                     {farmer && isSimBlocked(farmer.sim_status) && (
@@ -1603,6 +1747,15 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
                         <AlertTitle className="text-xs font-bold">⛔ Pagamento recusado — SIM {farmer.sim_status}</AlertTitle>
                         <AlertDescription className="text-[11px]">
                           {simStatusReason(farmer.sim_status)?.recomendacao}
+                        </AlertDescription>
+                      </Alert>
+                    )}
+                    {farmer && patecBlock && (
+                      <Alert variant="destructive" className="mt-2">
+                        <Ban className="h-4 w-4" />
+                        <AlertTitle className="text-xs font-bold">⛔ Pagamento bloqueado — {patecBlock.title}</AlertTitle>
+                        <AlertDescription className="text-[11px]">
+                          {patecBlock.message} {patecBlock.hint}
                         </AlertDescription>
                       </Alert>
                     )}
@@ -1668,7 +1821,7 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
             <p className="text-sm text-muted-foreground">Código: <span className="font-mono font-bold">{lastSaleCode}</span></p>
             <div className="flex gap-2">
               <Button variant="outline" onClick={() => setShowInvoice(true)} disabled={!invoiceData}><Printer className="h-4 w-4 mr-1" /> Ver Factura</Button>
-              <Button onClick={() => { setReceiptOpen(false); setFarmer(null); setFarmerSearch(""); setPaymentStatus("idle"); setInvoiceData(null); setParcelSize(null); setPatecItems([]); }} className="flex-1">Nova Venda</Button>
+              <Button onClick={() => { setReceiptOpen(false); setFarmer(null); setPatecBlock(null); setFarmerSearch(""); setPaymentStatus("idle"); setInvoiceData(null); setParcelSize(null); setPatecItems([]); }} className="flex-1">Nova Venda</Button>
             </div>
           </div>
         </DialogContent>
