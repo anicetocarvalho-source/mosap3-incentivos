@@ -16,6 +16,7 @@ import { toast } from "sonner";
 import { InvoicePDF, generateFiscalHash, buildQRContent, type InvoiceData } from "@/components/InvoicePDF";
 import { classifyError, withRetry } from "@/lib/errorHandling";
 import { FARMER_PAGE_SIZE, buildFarmerOrParts, farmerPageRange, shouldSearch } from "@/lib/farmerSearch";
+import { computeSaldoFinal, formatKzCompact } from "@/lib/numberFormat";
 
 interface Farmer {
   code: string;
@@ -25,8 +26,14 @@ interface Farmer {
   patec_code: string | null;
   photo_frontal_url: string | null;
   saldo_final: string | null;
+  valor_recebido: string | null;
+  total_gasto: string | null;
   sim_status: string | null;
 }
+
+/** Saldo canónico do produtor: max(0, valor_recebido − total_gasto). Mesma fórmula em todo o sistema. */
+const farmerSaldo = (f: Pick<Farmer, "valor_recebido" | "total_gasto">): number =>
+  computeSaldoFinal(f.valor_recebido, f.total_gasto);
 
 export type PatecBlockReason =
   | "inactive_patec"
