@@ -17,6 +17,7 @@ import { InvoicePDF, generateFiscalHash, buildQRContent, type InvoiceData } from
 import { classifyError, withRetry } from "@/lib/errorHandling";
 import { FARMER_PAGE_SIZE, buildFarmerOrParts, farmerPageRange, shouldSearch } from "@/lib/farmerSearch";
 import { computeSaldoFinal, formatKzCompact } from "@/lib/numberFormat";
+import { FarmerSaldoBadge } from "@/components/pos/FarmerSaldoBadge";
 
 interface Farmer {
   code: string;
@@ -1255,23 +1256,16 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
                 </div>
                 {showSuggestions && farmerSuggestions.length > 0 && (
                   <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-[hsl(220,15%,12%)] border border-[hsl(220,15%,22%)] rounded-lg shadow-lg max-h-72 overflow-y-auto">
-                    {farmerSuggestions.map((s) => {
-                      const saldo = farmerSaldo(s);
-                      const hasSaldo = saldo > 0;
-                      return (
+                    {farmerSuggestions.map((s) => (
                       <button key={s.code} onClick={() => selectFarmerFromSuggestion(s)} className="w-full text-left px-3 py-2 hover:bg-[hsl(220,15%,18%)] flex items-center gap-2 text-xs border-b border-[hsl(220,15%,18%)] last:border-0">
                         <User className="h-3 w-3 text-[hsl(220,10%,45%)] flex-shrink-0" />
                         <div className="flex-1 min-w-0">
                           <p className="font-medium truncate text-[hsl(0,0%,85%)]">{s.full_name}</p>
                           <p className="text-[10px] text-[hsl(220,10%,45%)]">{s.code} • {s.phone || "—"}{s.patec ? ` • ${patecLabels[s.patec]}` : ""}</p>
                         </div>
-                        <div className="text-right shrink-0">
-                          <p className={`text-[11px] font-semibold ${hasSaldo ? "text-[hsl(120,60%,55%)]" : "text-[hsl(0,70%,60%)]"}`}>{formatKzCompact(saldo)}</p>
-                          {!hasSaldo && <p className="text-[9px] text-[hsl(0,70%,60%)] leading-none">sem saldo</p>}
-                        </div>
+                        <FarmerSaldoBadge variant="kiosk" valor_recebido={s.valor_recebido} total_gasto={s.total_gasto} />
                       </button>
-                      );
-                    })}
+                    ))}
                     {farmerTotalCount !== null && (
                       <div className="sticky bottom-0 bg-[hsl(220,15%,10%)] border-t border-[hsl(220,15%,22%)]">
                         <div className="px-3 py-1.5 text-[10px] text-[hsl(220,10%,60%)] text-center">
@@ -1599,24 +1593,17 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
                   </div>
                   {showSuggestions && farmerSuggestions.length > 0 && (
                     <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-popover border border-border rounded-lg shadow-lg max-h-80 overflow-y-auto">
-                      {farmerSuggestions.map((s) => {
-                        const saldo = farmerSaldo(s);
-                        const hasSaldo = saldo > 0;
-                        return (
+                      {farmerSuggestions.map((s) => (
                         <button key={s.code} onClick={() => selectFarmerFromSuggestion(s)} className="w-full text-left px-3 py-2 hover:bg-accent flex items-center gap-2 text-sm border-b border-border last:border-0">
                           <User className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                           <div className="flex-1 min-w-0">
                             <p className="font-medium truncate">{s.full_name}</p>
                             <p className="text-xs text-muted-foreground">{s.code} • {s.phone || "—"}</p>
                           </div>
-                          <div className="text-right shrink-0">
-                            <p className={`text-xs font-semibold ${hasSaldo ? "text-success" : "text-destructive"}`}>{formatKzCompact(saldo)}</p>
-                            {!hasSaldo && <p className="text-[10px] text-destructive leading-none">sem saldo</p>}
-                          </div>
+                          <FarmerSaldoBadge variant="standard" valor_recebido={s.valor_recebido} total_gasto={s.total_gasto} />
                           {s.patec ? <Badge variant="secondary" className="text-[10px]">{patecLabels[s.patec]}</Badge> : null}
                         </button>
-                        );
-                      })}
+                      ))}
                       {farmerTotalCount !== null && (
                         <div className="sticky bottom-0 bg-muted/50 border-t border-border">
                           <div className="px-3 py-1.5 text-[11px] text-muted-foreground text-center">
