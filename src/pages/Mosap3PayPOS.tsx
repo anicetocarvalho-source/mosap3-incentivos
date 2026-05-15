@@ -267,11 +267,38 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
   // o carrinho fica vazio ou os itens do carrinho mudam — evita
   // que um aviso antigo fique preso na UI.
   const farmerId = farmer?.code ?? null;
+  const farmerPatecCode = farmer?.patec_code ?? null;
   const cartSignature = cart.map((c) => `${c.product.id}:${c.quantity}`).join("|");
   useEffect(() => {
     if (patecBlock) setPatecBlock(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [farmerId, cartSignature]);
+
+  // Validação automática de disponibilidade PATEC sempre que o produtor é
+  // identificado (ou o seu patec_code muda) — actualiza Alerts/Toast sem
+  // depender da tentativa de pagamento.
+  useEffect(() => {
+    if (!farmer) return;
+    let cancelled = false;
+    (async () => {
+      const availability = await checkPatecAvailability(farmerPatecCode);
+      if (cancelled) return;
+      if (availability.ok === false) {
+        setPatecBlock((prev) => {
+          const next = availability.detail;
+          if (prev && prev.reason === next.reason && prev.title === next.title && prev.message === next.message) {
+            return prev;
+          }
+          toast.error(`${next.title} — ${next.message}`, { id: `patec-block-${farmerId}`, duration: 6000 });
+          return next;
+        });
+      } else {
+        setPatecBlock(null);
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [farmerId, farmerPatecCode]);
 
   // Toggle fullscreen API
   const toggleFullscreen = useCallback(async (enable?: boolean) => {
