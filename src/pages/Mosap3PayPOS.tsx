@@ -1375,19 +1375,25 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
                           {s.patec ? <Badge variant="secondary" className="text-[10px]">{patecLabels[s.patec]}</Badge> : null}
                         </button>
                       ))}
-                      {farmerHasMore ? (
-                        <button
-                          onMouseDown={(e) => { e.preventDefault(); loadMoreFarmerSuggestions(); }}
-                          disabled={farmerLoadingMore}
-                          className="w-full px-3 py-2 text-[11px] text-primary bg-muted/50 sticky bottom-0 text-center border-t border-border hover:bg-muted disabled:opacity-50"
-                        >
-                          {farmerLoadingMore ? "A carregar…" : `Carregar mais (${farmerSuggestions.length} mostrados)`}
-                        </button>
-                      ) : farmerSuggestions.length > FARMER_PAGE_SIZE ? (
-                        <div className="px-3 py-2 text-[11px] text-muted-foreground bg-muted/50 sticky bottom-0 text-center border-t border-border">
-                          Fim dos resultados ({farmerSuggestions.length})
+                      {farmerTotalCount !== null && (
+                        <div className="sticky bottom-0 bg-muted/50 border-t border-border">
+                          <div className="px-3 py-1.5 text-[11px] text-muted-foreground text-center">
+                            {farmerSuggestions.length} de <strong className="text-foreground">{farmerTotalCount}</strong> resultado{farmerTotalCount === 1 ? "" : "s"}
+                            {farmerHasMore && farmerTotalCount > FARMER_PAGE_SIZE && (
+                              <span className="text-primary"> · refine para precisão</span>
+                            )}
+                          </div>
+                          {farmerHasMore && (
+                            <button
+                              onMouseDown={(e) => { e.preventDefault(); loadMoreFarmerSuggestions(); }}
+                              disabled={farmerLoadingMore}
+                              className="w-full px-3 py-2 text-[11px] text-primary text-center border-t border-border hover:bg-muted disabled:opacity-50"
+                            >
+                              {farmerLoadingMore ? "A carregar…" : `Carregar mais ${Math.min(FARMER_PAGE_SIZE, farmerTotalCount - farmerSuggestions.length)}`}
+                            </button>
+                          )}
                         </div>
-                      ) : null}
+                      )}
                     </div>
                   )}
                 </div>
