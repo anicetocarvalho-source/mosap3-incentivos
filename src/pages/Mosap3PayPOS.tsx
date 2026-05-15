@@ -230,21 +230,23 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
       setFarmerSuggestions([]);
       setShowSuggestions(false);
       setFarmerHasMore(false);
+      setFarmerTotalCount(null);
       return;
     }
     const timeout = setTimeout(async () => {
       const orParts = buildFarmerOrParts(q);
       if (!orParts) return;
-      const { data } = await supabase
+      const { data, count } = await supabase
         .from("farmers")
-        .select("code, full_name, phone, patec, photo_frontal_url, saldo_final, sim_status")
+        .select("code, full_name, phone, patec, photo_frontal_url, saldo_final, sim_status", { count: "exact" })
         .or(orParts.join(","))
         .order("full_name", { ascending: true })
         .range(0, FARMER_PAGE_SIZE - 1);
       const rows = (data as Farmer[]) || [];
       setFarmerSuggestions(rows);
       setShowSuggestions(rows.length > 0);
-      setFarmerHasMore(rows.length === FARMER_PAGE_SIZE);
+      setFarmerTotalCount(typeof count === "number" ? count : rows.length);
+      setFarmerHasMore(rows.length === FARMER_PAGE_SIZE && (count ?? rows.length) > rows.length);
     }, 300);
     return () => clearTimeout(timeout);
   }, [farmerSearch]);
