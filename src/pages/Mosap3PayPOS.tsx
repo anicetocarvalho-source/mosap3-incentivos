@@ -1069,11 +1069,19 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
                         </div>
                       </button>
                     ))}
-                    {farmerSuggestions.length >= 50 && (
+                    {farmerHasMore ? (
+                      <button
+                        onMouseDown={(e) => { e.preventDefault(); loadMoreFarmerSuggestions(); }}
+                        disabled={farmerLoadingMore}
+                        className="w-full px-3 py-2 text-[10px] text-[hsl(45,90%,55%)] bg-[hsl(220,15%,10%)] sticky bottom-0 text-center border-t border-[hsl(220,15%,22%)] hover:bg-[hsl(220,15%,14%)] disabled:opacity-50"
+                      >
+                        {farmerLoadingMore ? "A carregar…" : `Carregar mais (${farmerSuggestions.length} mostrados)`}
+                      </button>
+                    ) : farmerSuggestions.length > FARMER_PAGE_SIZE ? (
                       <div className="px-3 py-2 text-[10px] text-[hsl(220,10%,55%)] bg-[hsl(220,15%,10%)] sticky bottom-0 text-center border-t border-[hsl(220,15%,22%)]">
-                        A mostrar 50 resultados — refine a pesquisa para ver mais
+                        Fim dos resultados ({farmerSuggestions.length})
                       </div>
-                    )}
+                    ) : null}
                   </div>
                 )}
               </div>
