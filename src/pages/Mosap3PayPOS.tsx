@@ -15,6 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { InvoicePDF, generateFiscalHash, buildQRContent, type InvoiceData } from "@/components/InvoicePDF";
 import { classifyError, withRetry } from "@/lib/errorHandling";
+import { FARMER_PAGE_SIZE, buildFarmerOrParts, farmerPageRange, shouldSearch } from "@/lib/farmerSearch";
 
 interface Farmer {
   code: string;
