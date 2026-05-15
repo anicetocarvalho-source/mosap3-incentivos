@@ -42,6 +42,8 @@ export interface DashboardKpis {
   totalPatec2: number;
   totalPatec3: number;
   totalSemPatec: number;
+  /** Mapa dinâmico de contagens por código de PATEC (ex.: { "PATEC-MILHO": 123 }). */
+  patecCounts: Record<string, number>;
   incentiveFunnel: { stage: string; value: number }[];
   filterScope: FilterScope;
   filterLabel: string;
