@@ -12,6 +12,8 @@ import { describe, it, expect } from "vitest";
 import {
   computePatecAvailability,
   isPaymentBlocked,
+  type PatecAvailability,
+  type PatecBlockDetail,
   type PatecRow,
   type SeasonRow,
   type PatecSeasonLink,
@@ -29,11 +31,17 @@ const seasonInactive: SeasonRow = { ...seasonOpen, id: "s4", is_active: false };
 
 const link = (sid: string): PatecSeasonLink => ({ patec_id: "p1", season_id: sid });
 
+/** Type guard que falha o teste se a venda foi permitida. */
+function expectBlocked(r: PatecAvailability): PatecBlockDetail {
+  if (r.ok) throw new Error("Esperava venda bloqueada, mas computePatecAvailability devolveu ok:true");
+  return r.detail;
+}
+
 describe("computePatecAvailability — motivo do Alert no POS", () => {
   it("permite venda quando há época em curso (ok: true)", () => {
     const r = computePatecAvailability("PATEC-MILHO", patecActive, [link("s1")], [seasonOpen], REF_DATE);
     expect(r.ok).toBe(true);
-    expect(isPaymentBlocked(r.ok ? null : r.detail)).toBe(false);
+    expect(isPaymentBlocked(null)).toBe(false);
   });
 
   it("legacy (patec_code = null) não bloqueia", () => {
@@ -42,67 +50,49 @@ describe("computePatecAvailability — motivo do Alert no POS", () => {
   });
 
   it("código desconhecido → reason='unknown_code' e botão desactivado", () => {
-    const r = computePatecAvailability("PATEC-NADA", null, [], [], REF_DATE);
-    expect(r.ok).toBe(false);
-    if (!r.ok) {
-      expect(r.detail.reason).toBe("unknown_code");
-      expect(r.detail.title).toContain("Pacote não encontrado");
-      expect(r.detail.message).toContain("PATEC-NADA");
-      expect(isPaymentBlocked(r.detail)).toBe(true);
-    }
+    const d = expectBlocked(computePatecAvailability("PATEC-NADA", null, [], [], REF_DATE));
+    expect(d.reason).toBe("unknown_code");
+    expect(d.title).toContain("Pacote não encontrado");
+    expect(d.message).toContain("PATEC-NADA");
+    expect(isPaymentBlocked(d)).toBe(true);
   });
 
   it("PATEC inactivo → reason='inactive_patec' com nome no título", () => {
-    const r = computePatecAvailability("PATEC-MILHO", patecInactive, [link("s1")], [seasonOpen], REF_DATE);
-    expect(r.ok).toBe(false);
-    if (!r.ok) {
-      expect(r.detail.reason).toBe("inactive_patec");
-      expect(r.detail.title).toContain("desactivado");
-      expect(r.detail.message).toContain("Milho");
-      expect(r.detail.hint).toContain("suspensas");
-      expect(isPaymentBlocked(r.detail)).toBe(true);
-    }
+    const d = expectBlocked(computePatecAvailability("PATEC-MILHO", patecInactive, [link("s1")], [seasonOpen], REF_DATE));
+    expect(d.reason).toBe("inactive_patec");
+    expect(d.title).toContain("desactivado");
+    expect(d.message).toContain("Milho");
+    expect(d.hint).toContain("suspensas");
+    expect(isPaymentBlocked(d)).toBe(true);
   });
 
   it("sem links a épocas → reason='no_seasons'", () => {
-    const r = computePatecAvailability("PATEC-MILHO", patecActive, [], [], REF_DATE);
-    expect(r.ok).toBe(false);
-    if (!r.ok) {
-      expect(r.detail.reason).toBe("no_seasons");
-      expect(isPaymentBlocked(r.detail)).toBe(true);
-    }
+    const d = expectBlocked(computePatecAvailability("PATEC-MILHO", patecActive, [], [], REF_DATE));
+    expect(d.reason).toBe("no_seasons");
+    expect(isPaymentBlocked(d)).toBe(true);
   });
 
   it("todas as épocas inactivas → reason='no_active_seasons'", () => {
-    const r = computePatecAvailability("PATEC-MILHO", patecActive, [link("s4")], [seasonInactive], REF_DATE);
-    expect(r.ok).toBe(false);
-    if (!r.ok) {
-      expect(r.detail.reason).toBe("no_active_seasons");
-      expect(isPaymentBlocked(r.detail)).toBe(true);
-    }
+    const d = expectBlocked(computePatecAvailability("PATEC-MILHO", patecActive, [link("s4")], [seasonInactive], REF_DATE));
+    expect(d.reason).toBe("no_active_seasons");
+    expect(isPaymentBlocked(d)).toBe(true);
   });
 
   it("época futura → reason='season_future' com nextSeason", () => {
-    const r = computePatecAvailability("PATEC-MILHO", patecActive, [link("s2")], [seasonFuture], REF_DATE);
-    expect(r.ok).toBe(false);
-    if (!r.ok) {
-      expect(r.detail.reason).toBe("season_future");
-      expect(r.detail.nextSeason?.name).toBe("2026/27");
-      expect(r.detail.nextSeason?.start_date).toBe("2026-09-01");
-      expect(r.detail.message).toContain("2026/27");
-      expect(isPaymentBlocked(r.detail)).toBe(true);
-    }
+    const d = expectBlocked(computePatecAvailability("PATEC-MILHO", patecActive, [link("s2")], [seasonFuture], REF_DATE));
+    expect(d.reason).toBe("season_future");
+    expect(d.nextSeason?.name).toBe("2026/27");
+    expect(d.nextSeason?.start_date).toBe("2026-09-01");
+    expect(d.message).toContain("2026/27");
+    expect(isPaymentBlocked(d)).toBe(true);
   });
 
   it("época encerrada → reason='season_closed' com lastSeason", () => {
-    const r = computePatecAvailability("PATEC-MILHO", patecActive, [link("s3")], [seasonClosed], REF_DATE);
-    expect(r.ok).toBe(false);
-    if (!r.ok) {
-      expect(r.detail.reason).toBe("season_closed");
-      expect(r.detail.lastSeason?.name).toBe("2024/25");
-      expect(r.detail.lastSeason?.end_date).toBe("2025-12-31");
-      expect(isPaymentBlocked(r.detail)).toBe(true);
-    }
+    const d = expectBlocked(computePatecAvailability("PATEC-MILHO", patecActive, [link("s3")], [seasonClosed], REF_DATE));
+    expect(d.reason).toBe("season_closed");
+    expect(d.lastSeason?.name).toBe("2024/25");
+    expect(d.lastSeason?.end_date).toBe("2025-12-31");
+    expect(isPaymentBlocked(d)).toBe(true);
   });
 
   it("múltiplas épocas com pelo menos uma em curso → permite venda", () => {
