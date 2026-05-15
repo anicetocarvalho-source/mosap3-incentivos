@@ -441,14 +441,17 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
     }
   };
 
+  /**
+   * Saldo canónico = max(0, valor_recebido − total_gasto), lido directamente da tabela `farmers`.
+   * Mesma fórmula que o perfil, dashboard e relatórios — evita divergência entre POS e perfil.
+   */
   const fetchFarmerBalance = async (farmerCode: string) => {
-    const [incRes, salesRes] = await Promise.all([
-      supabase.from("farmer_incentives").select("amount").eq("farmer_code", farmerCode).in("status", ["Aprovado", "Pendente", "Pago"]),
-      supabase.from("pos_sales").select("total").eq("farmer_code", farmerCode),
-    ]);
-    const totalInc = (incRes.data || []).reduce((s, i) => s + parseFloat(i.amount || "0"), 0);
-    const totalSpent = (salesRes.data || []).reduce((s, sale) => s + Number(sale.total || 0), 0);
-    const balance = totalInc - totalSpent;
+    const { data } = await supabase
+      .from("farmers")
+      .select("valor_recebido, total_gasto")
+      .eq("code", farmerCode)
+      .maybeSingle();
+    const balance = computeSaldoFinal(data?.valor_recebido, data?.total_gasto);
     setFarmerBalance(balance);
     return balance;
   };
