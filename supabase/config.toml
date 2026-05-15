@@ -11,3 +11,9 @@ verify_jwt = false
 
 [functions.reconcile-annex-phones]
 verify_jwt = false
+
+[functions.apply-xlsx-corrections]
+verify_jwt = false
+
+[functions.reconcile-xlsx]
+verify_jwt = false
