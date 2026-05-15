@@ -32,10 +32,6 @@ interface Farmer {
   sim_status: string | null;
 }
 
-/** Saldo canónico do produtor: max(0, valor_recebido − total_gasto). Mesma fórmula em todo o sistema. */
-const farmerSaldo = (f: Pick<Farmer, "valor_recebido" | "total_gasto">): number =>
-  computeSaldoFinal(f.valor_recebido, f.total_gasto);
-
 export type PatecBlockReason =
   | "inactive_patec"
   | "no_seasons"
