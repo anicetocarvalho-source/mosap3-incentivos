@@ -15,6 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { InvoicePDF, generateFiscalHash, buildQRContent, type InvoiceData } from "@/components/InvoicePDF";
 import { classifyError, withRetry } from "@/lib/errorHandling";
+import { FARMER_PAGE_SIZE, buildFarmerOrParts, farmerPageRange, shouldSearch } from "@/lib/farmerSearch";
 
 interface Farmer {
   code: string;
@@ -202,31 +203,10 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
     }
   }, [selectedSupplierId]);
 
-  // Build .or() parts shared by initial search & "load more"
-  const FARMER_PAGE_SIZE = 50;
-  const buildFarmerOrParts = (q: string): string[] | null => {
-    const safe = q.replace(/[(),]/g, " ");
-    const qDigits = q.replace(/\D/g, "");
-    let qPhoneAlt = "";
-    if (qDigits.length >= 3) {
-      if (qDigits.startsWith("244")) qPhoneAlt = qDigits.slice(3);
-      else if (qDigits.length === 9 && qDigits.startsWith("9")) qPhoneAlt = "244" + qDigits;
-    }
-    const parts = [
-      `full_name.ilike.%${safe}%`,
-      `code.ilike.%${safe}%`,
-      `bi.ilike.%${safe}%`,
-    ];
-    if (qDigits.length >= 3) parts.push(`phone.ilike.%${qDigits}%`);
-    if (qPhoneAlt && qPhoneAlt !== qDigits) parts.push(`phone.ilike.%${qPhoneAlt}%`);
-    return parts;
-  };
-
-  // Autocomplete suggestions as user types
+  // Autocomplete suggestions as user types (search logic in src/lib/farmerSearch.ts)
   useEffect(() => {
     const q = farmerSearch.trim();
-    const isNumeric = /^\d+$/.test(q);
-    if (q.length < (isNumeric ? 1 : 2)) {
+    if (!shouldSearch(q)) {
       setFarmerSuggestions([]);
       setShowSuggestions(false);
       setFarmerHasMore(false);
@@ -235,13 +215,13 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
     }
     const timeout = setTimeout(async () => {
       const orParts = buildFarmerOrParts(q);
-      if (!orParts) return;
+      const { from, to } = farmerPageRange(0);
       const { data, count } = await supabase
         .from("farmers")
         .select("code, full_name, phone, patec, photo_frontal_url, saldo_final, sim_status", { count: "exact" })
         .or(orParts.join(","))
         .order("full_name", { ascending: true })
-        .range(0, FARMER_PAGE_SIZE - 1);
+        .range(from, to);
       const rows = (data as Farmer[]) || [];
       setFarmerSuggestions(rows);
       setShowSuggestions(rows.length > 0);
@@ -257,7 +237,6 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
     setFarmerLoadingMore(true);
     try {
       const orParts = buildFarmerOrParts(q);
-      if (!orParts) return;
       const from = farmerSuggestions.length;
       const to = from + FARMER_PAGE_SIZE - 1;
       const { data } = await supabase
