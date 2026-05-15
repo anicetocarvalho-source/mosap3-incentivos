@@ -1255,15 +1255,23 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
                 </div>
                 {showSuggestions && farmerSuggestions.length > 0 && (
                   <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-[hsl(220,15%,12%)] border border-[hsl(220,15%,22%)] rounded-lg shadow-lg max-h-72 overflow-y-auto">
-                    {farmerSuggestions.map((s) => (
+                    {farmerSuggestions.map((s) => {
+                      const saldo = farmerSaldo(s);
+                      const hasSaldo = saldo > 0;
+                      return (
                       <button key={s.code} onClick={() => selectFarmerFromSuggestion(s)} className="w-full text-left px-3 py-2 hover:bg-[hsl(220,15%,18%)] flex items-center gap-2 text-xs border-b border-[hsl(220,15%,18%)] last:border-0">
                         <User className="h-3 w-3 text-[hsl(220,10%,45%)] flex-shrink-0" />
                         <div className="flex-1 min-w-0">
                           <p className="font-medium truncate text-[hsl(0,0%,85%)]">{s.full_name}</p>
-                          <p className="text-[10px] text-[hsl(220,10%,45%)]">{s.code} • {s.phone || "—"}</p>
+                          <p className="text-[10px] text-[hsl(220,10%,45%)]">{s.code} • {s.phone || "—"}{s.patec ? ` • ${patecLabels[s.patec]}` : ""}</p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className={`text-[11px] font-semibold ${hasSaldo ? "text-[hsl(120,60%,55%)]" : "text-[hsl(0,70%,60%)]"}`}>{formatKzCompact(saldo)}</p>
+                          {!hasSaldo && <p className="text-[9px] text-[hsl(0,70%,60%)] leading-none">sem saldo</p>}
                         </div>
                       </button>
-                    ))}
+                      );
+                    })}
                     {farmerTotalCount !== null && (
                       <div className="sticky bottom-0 bg-[hsl(220,15%,10%)] border-t border-[hsl(220,15%,22%)]">
                         <div className="px-3 py-1.5 text-[10px] text-[hsl(220,10%,60%)] text-center">
