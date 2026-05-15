@@ -603,7 +603,7 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
       await selectFarmerFromSuggestion(data as Farmer);
     } else {
       toast.error("Produtor não encontrado. Verifique o código, BI, telefone ou nome e tente novamente.");
-      setFarmer(null);
+      setFarmer(null); setPatecBlock(null);
     }
   };
 
@@ -1176,7 +1176,7 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
                     </button>
                   )}
                 </div>
-                <button onClick={() => { setFarmer(null); setFarmerSearch(""); setCart([]); setParcelSize(null); setPatecItems([]); }} className="text-[hsl(220,10%,40%)] hover:text-[hsl(0,70%,60%)]">
+                <button onClick={() => { setFarmer(null); setPatecBlock(null); setFarmerSearch(""); setCart([]); setParcelSize(null); setPatecItems([]); }} className="text-[hsl(220,10%,40%)] hover:text-[hsl(0,70%,60%)]">
                   <Trash2 className="h-3 w-3" />
                 </button>
               </div>
@@ -1407,7 +1407,7 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
                 <Button variant="outline" onClick={() => setShowInvoice(true)} disabled={!invoiceData}>
                   <Printer className="h-4 w-4 mr-1" /> Ver Factura
                 </Button>
-                <Button onClick={() => { setReceiptOpen(false); setFarmer(null); setFarmerSearch(""); setPaymentStatus("idle"); setInvoiceData(null); setParcelSize(null); setPatecItems([]); }} className="flex-1 bg-[hsl(45,70%,40%)] text-[hsl(220,20%,10%)] hover:bg-[hsl(45,75%,45%)]">
+                <Button onClick={() => { setReceiptOpen(false); setFarmer(null); setPatecBlock(null); setFarmerSearch(""); setPaymentStatus("idle"); setInvoiceData(null); setParcelSize(null); setPatecItems([]); }} className="flex-1 bg-[hsl(45,70%,40%)] text-[hsl(220,20%,10%)] hover:bg-[hsl(45,75%,45%)]">
                   Nova Venda
                 </Button>
               </div>
@@ -1796,7 +1796,7 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
             <p className="text-sm text-muted-foreground">Código: <span className="font-mono font-bold">{lastSaleCode}</span></p>
             <div className="flex gap-2">
               <Button variant="outline" onClick={() => setShowInvoice(true)} disabled={!invoiceData}><Printer className="h-4 w-4 mr-1" /> Ver Factura</Button>
-              <Button onClick={() => { setReceiptOpen(false); setFarmer(null); setFarmerSearch(""); setPaymentStatus("idle"); setInvoiceData(null); setParcelSize(null); setPatecItems([]); }} className="flex-1">Nova Venda</Button>
+              <Button onClick={() => { setReceiptOpen(false); setFarmer(null); setPatecBlock(null); setFarmerSearch(""); setPaymentStatus("idle"); setInvoiceData(null); setParcelSize(null); setPatecItems([]); }} className="flex-1">Nova Venda</Button>
             </div>
           </div>
         </DialogContent>
