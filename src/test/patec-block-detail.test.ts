@@ -34,7 +34,7 @@ const link = (sid: string): PatecSeasonLink => ({ patec_id: "p1", season_id: sid
 /** Type guard que falha o teste se a venda foi permitida. */
 function expectBlocked(r: PatecAvailability): PatecBlockDetail {
   if (r.ok) throw new Error("Esperava venda bloqueada, mas computePatecAvailability devolveu ok:true");
-  return r.detail;
+  return (r as Extract<PatecAvailability, { ok: false }>).detail;
 }
 
 describe("computePatecAvailability — motivo do Alert no POS", () => {
