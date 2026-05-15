@@ -235,7 +235,7 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
       const { from, to } = farmerPageRange(0);
       const { data, count } = await supabase
         .from("farmers")
-        .select("code, full_name, phone, patec, photo_frontal_url, saldo_final, sim_status", { count: "exact" })
+        .select("code, full_name, phone, patec, patec_code, photo_frontal_url, saldo_final, sim_status", { count: "exact" })
         .or(orParts.join(","))
         .order("full_name", { ascending: true })
         .range(from, to);
@@ -258,7 +258,7 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
       const to = from + FARMER_PAGE_SIZE - 1;
       const { data } = await supabase
         .from("farmers")
-        .select("code, full_name, phone, patec, photo_frontal_url, saldo_final, sim_status")
+        .select("code, full_name, phone, patec, patec_code, photo_frontal_url, saldo_final, sim_status")
         .or(orParts.join(","))
         .order("full_name", { ascending: true })
         .range(from, to);
@@ -462,7 +462,7 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
     setShowSuggestions(false);
     const { data } = await supabase
       .from("farmers")
-      .select("code, full_name, phone, patec, photo_frontal_url, saldo_final, sim_status")
+      .select("code, full_name, phone, patec, patec_code, photo_frontal_url, saldo_final, sim_status")
       .or(`code.eq.${query},phone.eq.${query},bi.eq.${query},full_name.ilike.%${query}%`)
       .limit(1)
       .single();
