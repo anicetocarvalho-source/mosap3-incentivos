@@ -237,7 +237,6 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
     setFarmerLoadingMore(true);
     try {
       const orParts = buildFarmerOrParts(q);
-      if (!orParts) return;
       const from = farmerSuggestions.length;
       const to = from + FARMER_PAGE_SIZE - 1;
       const { data } = await supabase
