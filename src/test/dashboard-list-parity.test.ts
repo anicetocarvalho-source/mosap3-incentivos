@@ -168,6 +168,7 @@ const supabaseMock = {
           total_patec_2: 0,
           total_patec_3: 0,
           total_sem_patec: total,
+          patec_counts: {},
         },
         error: null,
       });
