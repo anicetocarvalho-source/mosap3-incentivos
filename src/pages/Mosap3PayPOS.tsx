@@ -785,6 +785,14 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
   const processSale = async () => {
     if (!farmer || cart.length === 0 || !selectedSupplierId) return;
 
+    if (patecBlock) {
+      toast.error(`⛔ ${patecBlock.title}`, {
+        description: `${patecBlock.message} ${patecBlock.hint}`,
+        duration: 8000,
+      });
+      return;
+    }
+
     if (isSimBlocked(farmer.sim_status)) {
       const r = simStatusReason(farmer.sim_status);
       toast.error(`⛔ ${r?.title} — pagamento recusado`, {
@@ -1386,9 +1394,25 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
                 <span className="font-mono font-semibold">{(farmerBalance - cartTotal).toLocaleString("pt-AO")} Kz</span>
               </div>
             </div>
+            {patecBlock && (
+              <Alert variant="destructive" className="mt-3">
+                <Ban className="h-4 w-4" />
+                <AlertTitle className="font-bold">⛔ Venda bloqueada — {patecBlock.title}</AlertTitle>
+                <AlertDescription className="text-xs space-y-1 mt-1">
+                  <p>{patecBlock.message}</p>
+                  <p><strong>O que fazer:</strong> {patecBlock.hint}</p>
+                  {patecBlock.nextSeason && (
+                    <p><strong>Próxima época:</strong> {patecBlock.nextSeason.name} (a partir de {fmtDate(patecBlock.nextSeason.start_date)}).</p>
+                  )}
+                  {patecBlock.lastSeason && (
+                    <p><strong>Última época:</strong> {patecBlock.lastSeason.name} (terminou a {fmtDate(patecBlock.lastSeason.end_date)}).</p>
+                  )}
+                </AlertDescription>
+              </Alert>
+            )}
             <DialogFooter>
               <Button variant="outline" onClick={() => setConfirmOpen(false)}>Cancelar</Button>
-              <Button onClick={processSale} disabled={processing} className="bg-[hsl(45,70%,40%)] text-[hsl(220,20%,10%)] hover:bg-[hsl(45,75%,45%)]">
+              <Button onClick={processSale} disabled={processing || !!patecBlock} className="bg-[hsl(45,70%,40%)] text-[hsl(220,20%,10%)] hover:bg-[hsl(45,75%,45%)]">
                 {processing ? "Processando..." : "Confirmar"}
               </Button>
             </DialogFooter>
@@ -1803,9 +1827,25 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
             <Separator />
             <div className="flex justify-between font-bold text-lg"><span>Total</span><span>{cartTotal.toLocaleString("pt-AO")} Kz</span></div>
           </div>
+          {patecBlock && (
+            <Alert variant="destructive" className="mt-3">
+              <Ban className="h-4 w-4" />
+              <AlertTitle className="font-bold">⛔ Venda bloqueada — {patecBlock.title}</AlertTitle>
+              <AlertDescription className="text-xs space-y-1 mt-1">
+                <p>{patecBlock.message}</p>
+                <p><strong>O que fazer:</strong> {patecBlock.hint}</p>
+                {patecBlock.nextSeason && (
+                  <p><strong>Próxima época:</strong> {patecBlock.nextSeason.name} (a partir de {fmtDate(patecBlock.nextSeason.start_date)}).</p>
+                )}
+                {patecBlock.lastSeason && (
+                  <p><strong>Última época:</strong> {patecBlock.lastSeason.name} (terminou a {fmtDate(patecBlock.lastSeason.end_date)}).</p>
+                )}
+              </AlertDescription>
+            </Alert>
+          )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setConfirmOpen(false)}>Cancelar</Button>
-            <Button onClick={processSale} disabled={processing}>{processing ? "Processando..." : "Confirmar e Pagar"}</Button>
+            <Button onClick={processSale} disabled={processing || !!patecBlock}>{processing ? "Processando..." : "Confirmar e Pagar"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
