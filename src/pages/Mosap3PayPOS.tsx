@@ -266,7 +266,7 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
   // Reset automático do bloqueio PATEC quando muda o produtor,
   // o carrinho fica vazio ou os itens do carrinho mudam — evita
   // que um aviso antigo fique preso na UI.
-  const farmerId = farmer?.id ?? null;
+  const farmerId = farmer?.code ?? null;
   const cartSignature = cart.map((c) => `${c.product.id}:${c.quantity}`).join("|");
   useEffect(() => {
     if (patecBlock) setPatecBlock(null);
