@@ -48,8 +48,8 @@ Deno.serve(async (req) => {
 
     // Fetch farmers em páginas
     const farmers: any[] = [];
-    const PAGE = 2000;
-    for (let off = 0; ; off += PAGE) {
+    const PAGE = 1000;
+    for (let off = 0; off < 100000; off += PAGE) {
       const { data, error } = await sb
         .from("farmers")
         .select("code, full_name, phone, province, municipality, school, status, valor_recebido, total_gasto, saldo_final")
