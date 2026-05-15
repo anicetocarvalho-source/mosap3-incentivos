@@ -263,6 +263,16 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
   const [parcelSize, setParcelSize] = useState<number | null>(null);
   const [parcelDialogOpen, setParcelDialogOpen] = useState(false);
 
+  // Reset automático do bloqueio PATEC quando muda o produtor,
+  // o carrinho fica vazio ou os itens do carrinho mudam — evita
+  // que um aviso antigo fique preso na UI.
+  const farmerId = farmer?.id ?? null;
+  const cartSignature = cart.map((c) => `${c.product.id}:${c.quantity}`).join("|");
+  useEffect(() => {
+    if (patecBlock) setPatecBlock(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [farmerId, cartSignature]);
+
   // Toggle fullscreen API
   const toggleFullscreen = useCallback(async (enable?: boolean) => {
     const shouldEnable = enable ?? !kioskMode;
