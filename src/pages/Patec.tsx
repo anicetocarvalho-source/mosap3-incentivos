@@ -117,6 +117,23 @@ const Patec = () => {
   const [editingItem, setEditingItem] = useState<string | null>(null);
   const [editingItemName, setEditingItemName] = useState("");
 
+  // New: pacotes & épocas
+  const { patecs, refetch: refetchPatecs } = usePatecs();
+  const { seasons, links, refetch: refetchSeasons } = useSeasons();
+  const farmerCountsByCode = farmers.reduce<Record<string, number>>((acc, f) => {
+    const k = (f as any).patec_code || (f.patec ? `_legacy_${f.patec}` : "_none");
+    acc[k] = (acc[k] || 0) + 1;
+    return acc;
+  }, {});
+  // Map legacy counts to codes via patec.legacy_number
+  patecs.forEach((p) => {
+    if (p.legacy_number != null) {
+      const legacyKey = `_legacy_${p.legacy_number}`;
+      farmerCountsByCode[p.code] = (farmerCountsByCode[p.code] || 0) + (farmerCountsByCode[legacyKey] || 0);
+    }
+  });
+
+
   const fetchFarmers = async (resolved: ResolvedScope) => {
     setLoading(true);
     setLoadError(null);
