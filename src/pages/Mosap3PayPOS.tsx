@@ -1759,6 +1759,7 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
                         </AlertDescription>
                       </Alert>
                     )}
+                    {farmer && farmerBalance <= 0 && (
                       <p className="text-xs text-destructive text-center mt-2 font-medium">⚠ Produtor sem saldo de incentivo</p>
                     )}
                     {farmer && farmerBalance > 0 && cartTotal > farmerBalance && (
