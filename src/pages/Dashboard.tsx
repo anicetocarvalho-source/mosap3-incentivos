@@ -7,6 +7,7 @@ import {
 } from "recharts";
 import { useAuth } from "@/hooks/useAuth";
 import { useDashboardKpis, useDashboardCharts } from "@/hooks/useDashboardData";
+import { usePatecs } from "@/hooks/usePatecs";
 import HeroHeader from "@/components/dashboard/HeroHeader";
 import KpiCard from "@/components/dashboard/KpiCard";
 import ChartCard from "@/components/dashboard/ChartCard";
