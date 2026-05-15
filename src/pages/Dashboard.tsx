@@ -200,40 +200,31 @@ const Dashboard = () => {
           Distribuição PATEC
         </p>
         <div className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-4">
-          <KpiCard
-            title="PATEC 1"
-            value={formatNumber(stats.totalPatec1)}
-            subtitle="Pacote básico"
-            icon={Package}
-            accent="warning"
-            delay={0.05}
-            to={scopedHref("/patec")}
-          />
-          <KpiCard
-            title="PATEC 2"
-            value={formatNumber(stats.totalPatec2)}
-            subtitle="Pacote intermédio"
-            icon={Package}
-            accent="success"
-            delay={0.1}
-            to={scopedHref("/patec")}
-          />
-          <KpiCard
-            title="PATEC 3"
-            value={formatNumber(stats.totalPatec3)}
-            subtitle="Pacote avançado"
-            icon={Package}
-            accent="primary"
-            delay={0.15}
-            to={scopedHref("/patec")}
-          />
+          {patecs.map((p, i) => {
+            const accentMap: Record<string, "warning" | "success" | "primary" | "destructive"> = {
+              amber: "warning", emerald: "success", violet: "primary",
+              sky: "primary", rose: "destructive", slate: "primary",
+            };
+            return (
+              <KpiCard
+                key={p.id}
+                title={p.code}
+                value={formatNumber(stats.patecCounts?.[p.code] ?? 0)}
+                subtitle={p.cultures || p.name}
+                icon={Package}
+                accent={accentMap[p.color_token] || "primary"}
+                delay={0.05 + i * 0.05}
+                to={scopedHref("/patec")}
+              />
+            );
+          })}
           <KpiCard
             title="Sem PATEC"
             value={formatNumber(stats.totalSemPatec)}
             subtitle="Por atribuir"
             icon={Package}
             accent="destructive"
-            delay={0.2}
+            delay={0.05 + patecs.length * 0.05}
             emptyHint={stats.totalSemPatec === 0 && stats.totalFarmers > 0}
             to={scopedHref("/patec")}
           />
