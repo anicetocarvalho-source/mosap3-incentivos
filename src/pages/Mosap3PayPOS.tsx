@@ -22,9 +22,26 @@ interface Farmer {
   full_name: string;
   phone: string | null;
   patec: number | null;
+  patec_code: string | null;
   photo_frontal_url: string | null;
   saldo_final: string | null;
   sim_status: string | null;
+}
+
+/** Verifica se o PATEC do agricultor está activo e dentro de uma época vigente.
+ * Devolve { ok: true } se ok, ou { ok: false, reason } se bloqueado.
+ * Se não houver patec_code (legacy), permite (não bloqueia retro-compat). */
+async function checkPatecAvailability(patecCode: string | null): Promise<{ ok: true } | { ok: false; reason: string }> {
+  if (!patecCode) return { ok: true };
+  const { data, error } = await supabase.rpc("is_patec_available" as any, { _code: patecCode });
+  if (error) {
+    console.warn("is_patec_available RPC failed:", error);
+    return { ok: true }; // fail-open para não bloquear vendas por erro de rede
+  }
+  if (data === false) {
+    return { ok: false, reason: `Pacote ${patecCode} indisponível — está inactivo ou fora da época agrícola actual.` };
+  }
+  return { ok: true };
 }
 
 interface Product {
