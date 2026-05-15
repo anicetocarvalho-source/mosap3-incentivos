@@ -42,6 +42,8 @@ export interface DashboardKpis {
   totalPatec2: number;
   totalPatec3: number;
   totalSemPatec: number;
+  /** Mapa dinâmico de contagens por código de PATEC (ex.: { "PATEC-MILHO": 123 }). */
+  patecCounts: Record<string, number>;
   incentiveFunnel: { stage: string; value: number }[];
   filterScope: FilterScope;
   filterLabel: string;
@@ -128,6 +130,9 @@ function mapKpisFromJson(k: any, deltasRaw: any | null): Omit<DashboardKpis, "fi
     totalPatec2: Number(k.total_patec_2) || 0,
     totalPatec3: Number(k.total_patec_3) || 0,
     totalSemPatec: Number(k.total_sem_patec) || 0,
+    patecCounts: (k.patec_counts && typeof k.patec_counts === "object")
+      ? Object.fromEntries(Object.entries(k.patec_counts).map(([code, n]) => [code, Number(n) || 0]))
+      : {},
     incentiveFunnel: [
       { stage: "Atribuído", value: Math.round(totalRecebido) },
       { stage: "Recebido", value: Math.round(totalRecebido) },
