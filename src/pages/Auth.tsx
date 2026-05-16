@@ -67,6 +67,57 @@ const Auth = () => {
     }
   }, [authReady, user, navigate]);
 
+  // Verificar estado do sistema (bootstrap vs admin-only)
+  useEffect(() => {
+    let cancelled = false;
+    const checkSystem = async () => {
+      if (!isOnline) {
+        setCheckingSystem(false);
+        return;
+      }
+      try {
+        const { data, error } = await supabase.functions.invoke("check-admin-status");
+        if (!cancelled) {
+          if (error) {
+            console.error("check-admin-status error:", error);
+            setSystemMode("admin-only"); // fallback seguro
+          } else {
+            setSystemMode(data.mode === "bootstrap" ? "bootstrap" : "admin-only");
+          }
+        }
+      } catch (e) {
+        if (!cancelled) setSystemMode("admin-only");
+      } finally {
+        if (!cancelled) setCheckingSystem(false);
+      }
+    };
+    checkSystem();
+    return () => { cancelled = true; };
+  }, [isOnline]);
+
+  const handleBootstrapSeed = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("seed-test-users");
+      if (error) throw error;
+      const created = data.results?.filter((r: any) => r.status === "created").length || 0;
+      const updated = data.results?.filter((r: any) => r.status === "updated").length || 0;
+      toast({
+        title: "Contas de demonstração criadas",
+        description: `${created} criadas, ${updated} actualizadas. Pode agora fazer login com qualquer conta demo.`,
+      });
+      setSystemMode("admin-only");
+    } catch (e: any) {
+      toast({
+        title: "Erro ao criar contas",
+        description: e?.message || "Tente novamente ou contacte o administrador.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleLogin = async () => {
     const result = loginSchema.safeParse({ email, password });
     if (!result.success) {
