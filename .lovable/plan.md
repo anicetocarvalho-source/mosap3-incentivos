@@ -1,82 +1,80 @@
-## Carregamento do ficheiro `data_2.xlsx`
+## Reprocessamento do Excel — Valores reais (snapshot mais recente)
 
-### Dados de origem
-- **88.918 linhas** → **14.821 agricultores únicos** (cada telefone aparece em ~6 snapshots; 2 farmers só têm 1)
-- **5 províncias** (Cunene, Benguela, Huíla, Cuando-Cubango, Namibe) + 1 valor `Null` (1 farmer)
-- **8 municípios**: Bocoio, Ondjiva, Menongue, Cubal, Balombo, Chibia, Quipungo, Bibala
-- **758 ECAs** distintas
-- **2 linhas sem telefone** com gasto de 2.093.845 AOA → vão para `orphan_phones`
+### Diagnóstico do ficheiro `data_2-2.xlsx`
 
-### ⚠️ Aviso importante sobre "Somar todos os snapshots"
-Os valores `Total Disponibilizado` e `Valor Gasto` são **idênticos** nas 6 linhas de cada telefone (são snapshots, não transações independentes). Somar vai multiplicar os valores reais por 6:
+- **88.918 linhas**, **14.819 telefones únicos** (+ 4 linhas de rodapé/órfãs)
+- **6 snapshots por telefone**, em **4 datas distintas**: `2025-06-06`, `2025-06-10`, `2025-06-25` (3 cargas no mesmo dia) e 1 linha sem data
+- **Linha "Total" oficial do Excel**: Recebido **4.441,89 M Kz** · Gasto **2.228,18 M Kz** · Saldo **2.213,71 M Kz**
 
-| Métrica | Valor real (1 snapshot) | Após somar 6 snapshots |
+### ⚠️ Descoberta crítica sobre a semântica das colunas
+
+| Coluna | Comportamento | Total correcto |
 |---|---|---|
-| Total disponibilizado | ≈ 5.182 M AOA | **31.093 M AOA** |
-| Valor gasto | ≈ 742 M AOA | **4.454 M AOA** |
+| `Total Disponibilizado` | **Idempotente** — mesmo valor repetido em todos os 6 snapshots do telefone | `MAX(rec)` por telefone (ou qualquer 1 snapshot) |
+| `Valor Gasto` | **Transaccional** — cada linha é uma compra distinta; 11.353 telefones têm valores diferentes entre snapshots | `SUM(gasto)` por telefone (todos os snapshots) |
 
-Vou seguir a escolha (somar), mas **recomendo fortemente mudar para "Manter só o mais recente"** para refletir os valores reais. Se quiseres, podemos trocar antes de eu executar.
+Ou seja, a estratégia "somar tudo" inflacionou só o **recebido** (~6×). O gasto na BD também está duplicado porque há 3 snapshots no mesmo dia (06-25). Os valores corrigidos devem ser:
+
+- **Recebido por agricultor** = 1 snapshot (qualquer, idempotente)
+- **Gasto por agricultor** = soma de todas as linhas (transaccional, sem deduplicação)
+- **Saldo** = `max(0, recebido − gasto)` (regra canónica `computeSaldoFinal`)
+
+### Totais esperados após reprocessamento
+
+```
+Recebido:  4.441,89 M Kz   (antes: ~31.093 M, 7× inflacionado)
+Gasto:     2.228,18 M Kz   (antes: ~4.456 M,  2× inflacionado)
+Saldo:     2.213,71 M Kz   (antes: ~26.637 M, ~12× inflacionado)
+```
 
 ### Plano de execução
 
-**1. Migração — tabela de staging temporária**
-```text
-_xlsx_recon_staging já existe (RLS admin). Re-uso para carregar todos os 88.918 registos.
+**1. Stage do ficheiro novo**
+- Truncar `_xlsx_recon_staging`
+- Carregar as 88.914 linhas válidas (telefone numérico) via `psql COPY`
+
+**2. Agregação por telefone (em SQL)**
+```sql
+SELECT phone,
+       MAX(recebido) AS recebido_real,
+       SUM(COALESCE(gasto, 0)) AS gasto_real
+FROM _xlsx_recon_staging
+GROUP BY phone;
 ```
 
-**2. Carregar staging via `psql COPY` (rápido, ~30s)**
-- Limpar staging
-- COPY do CSV gerado a partir do Excel
+**3. UPDATE dos 14.819 farmers existentes**
+- `valor_recebido` ← novo valor (formato `200000.00`)
+- `total_gasto` ← novo valor
+- `saldo_final` ← `computeSaldoFinal(recebido, gasto)`
+- **NÃO toca em**: `province`, `municipality`, `school`, `full_name`, `status`, `patec`, biometria, etc.
+- Em particular, preserva a correcção manual em `AGR-976107290` (Ester Daniel → Cuando-Cubango/Menongue)
 
-**3. Inserir entidades de referência** (idempotente — `ON CONFLICT DO NOTHING`)
-- 5 provinces (ignorar `Null`)
-- 8 municipalities (ligadas a province_id)
-- 758 escolas de campo (ligadas a province_id + municipality_id)
+**4. Trilha de auditoria por agricultor**
+- 1 linha em `farmer_balance_history` por farmer com delta significativo (campo `valor_recebido` e `total_gasto`), source `reprocessamento_xlsx`, em blocos de 500
+- 1 linha em `audit_logs` com `action='bulk_reprocess'`, contendo totais antes/depois e contagens
 
-**4. Inserir agricultores deduplicados (14.821 registos)**
-- Agregação por telefone: SUM(total), SUM(gasto), saldo = total − gasto
-- `code` = `AGR-` + últimos 9 dígitos do telefone
-- `full_name`, `phone`, `province`, `municipality`, `school` = primeiro valor não-nulo
-- `status` = `Ativo`
-- `valor_recebido`, `total_gasto`, `saldo_final` formatados como string PT-AO (`"5.182.080,00"`)
-- O telefone com província `Null` fica sem província/município
-- Inserções em blocos de 500 (respeitando limite Supabase)
+**5. Reconciliação**
+- Telefones no ficheiro mas não na BD → reportar (esperado: 0; já foram todos importados antes)
+- Telefones na BD mas não no ficheiro → reportar (esperado: 0)
+- Linha órfã (gasto = 2.093.845, sem telefone) → confirmar que `orphan_phones` já a contém; sem alterações
 
-**5. Registar 2 linhas órfãs em `orphan_phones`** (telefone NULL, gasto = 2.093.845)
+**6. Verificação pós-reprocessamento**
+- `SELECT SUM(valor_recebido::num)`, `SUM(total_gasto::num)` → comparar com 4.441,89 M / 2.228,18 M
+- Spot-check de 5 agricultores aleatórios contra o Excel
+- Verificar página `/relatorios/snapshots` — coluna "BD vs. Último (recebido)" deve passar a "Coerente <1%"
 
-**6. Audit log**: registar acção `bulk_import` com totais e contagens em `audit_logs`
+### Garantias
 
-**7. Verificação pós-importação**
-- `SELECT count(*) FROM farmers` → esperado: 14.821
-- `SELECT SUM(valor_num) FROM …` para sanity check
-- `SELECT count(*) FROM escolas_campo / municipalities / provinces`
-
-### Detalhes técnicos
-
-**Geração do código farmer**
-```python
-code = f"AGR-{str(int(telefone))[-9:]}"
-# Telefone 244973240696 → AGR-973240696
-```
-
-**Colisão de últimos 9 dígitos**: vou validar antes de inserir. Se houver colisões, uso `AGR-{telefone completo}` para esses casos.
-
-**ECAs com mesmo nome em municípios diferentes**: trato como entidades distintas (chave = nome + municipality_id).
-
-**Formato monetário PT-AO**: `1234567.89` → `"1.234.567,89"` (consistente com `saldo_final` actual).
-
-**Performance**: usar `supabase--insert` em chunks de 500 + ON CONFLICT no `code` para idempotência.
-
-### Resultado esperado
-- 14.821 agricultores activos prontos para uso no POS
-- Hierarquia geográfica completa (provinces → municipalities → escolas_campo)
-- 2 órfãos registados para reconciliação manual
-- Audit trail da operação
+- **Idempotente**: re-executar com o mesmo ficheiro não altera valores nem cria histórico duplicado
+- **Reversível**: o `farmer_balance_history` permite calcular o estado anterior se necessário
+- **Sem perda de dados**: apenas 3 campos numéricos são alterados; tudo o resto (geografia, biometria, fotos, PATEC, status) permanece intacto
+- **Saldo nunca negativo**: usa `computeSaldoFinal` (`max(0, rec − gasto)`)
 
 ### O que NÃO está incluído
-- Transações individuais (`farmer_transactions`) — os dados são snapshots
-- Registos de incentivos (`farmer_incentives`)
-- Biometria / fotos / documentos
-- Atribuição de PATEC
 
-Se aprovares, executo. Antes disso, **confirma se manténs a soma dos snapshots ou se preferes trocar para "snapshot mais recente"** (valores ~6× menores, mas reais).
+- Re-criação de províncias/municípios/escolas (já estão correctos)
+- Inserção de novos agricultores (o ficheiro tem os mesmos 14.819)
+- Importação de transacções individuais como `farmer_transactions` (mantém-se agregado)
+- Alteração da inferência geográfica feita para `AGR-976107290`
+
+Se aprovares, executo o reprocessamento e mostro um relatório final com os totais antes/depois.
