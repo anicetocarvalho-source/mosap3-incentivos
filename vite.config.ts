@@ -84,9 +84,9 @@ export default defineConfig(({ mode }) => ({
         ],
       },
       manifest: {
-        name: "MOSAP3 - Gestão Agrícola",
+        name: "MOSAP3 — Projecto Mosap3",
         short_name: "MOSAP3",
-        description: "Sistema de Gestão do Projecto MOSAP3",
+        description: "Projecto Mosap3 — Sistema integrado de gestão agrícola, incentivos e agronegócio",
         theme_color: "#1B5E20",
         background_color: "#ffffff",
         display: "standalone",

@@ -37,7 +37,7 @@ const ReportPreview = ({ reportType, reportLabel, filters }: Props) => {
             <div className="flex items-center gap-4">
               <img src={mosapLogo} alt="MOSAP3" className="h-12 w-auto" />
               <div>
-                <h2 className="font-heading font-bold text-base">MOSAP3 — Sistema de Gestão Agrícola</h2>
+                <h2 className="font-heading font-bold text-base">MOSAP3 — Projecto Mosap3</h2>
                 <p className="text-xs text-muted-foreground">República de Angola • Ministério da Agricultura e Pescas</p>
               </div>
             </div>

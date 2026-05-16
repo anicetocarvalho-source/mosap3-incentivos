@@ -105,7 +105,7 @@ const AppSidebar = () => {
           {!collapsed && (
             <div className="flex flex-col leading-tight">
               <span className="font-heading font-bold text-base text-sidebar-primary">MOSAP3</span>
-              <span className="text-[10px] text-sidebar-foreground/60">Plataforma de Incentivos</span>
+              <span className="text-[10px] text-sidebar-foreground/60">Projecto Mosap3</span>
             </div>
           )}
         </Link>

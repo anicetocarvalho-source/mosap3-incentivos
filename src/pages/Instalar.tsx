@@ -38,8 +38,8 @@ const Instalar = () => {
   const share = async () => {
     if (navigator.share) {
       await navigator.share({
-        title: "MOSAP3 - Gestão Agrícola",
-        text: "Instale a aplicação MOSAP3 no seu tablet ou telemóvel",
+        title: "MOSAP3 — Projecto Mosap3",
+        text: "Instale a aplicação do Projecto Mosap3 no seu tablet ou telemóvel",
         url: appUrl,
       });
     } else {

@@ -214,7 +214,7 @@ const Auth = () => {
           </div>
           <div>
             <h1 className="text-xl font-bold text-primary-foreground font-heading leading-tight">MOSAP3</h1>
-            <p className="text-xs text-primary-foreground/70">Sistema de Gestão Agrícola</p>
+            <p className="text-xs text-primary-foreground/70">Projecto Mosap3</p>
           </div>
         </motion.div>
 

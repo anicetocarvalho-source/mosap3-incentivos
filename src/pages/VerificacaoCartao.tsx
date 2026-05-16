@@ -103,7 +103,7 @@ const VerificacaoCartao = () => {
       <Card className="max-w-md w-full">
         <CardHeader className="text-center pb-2">
           <img src={mosapLogo} alt="MOSAP3" className="h-12 w-12 rounded-full mx-auto mb-2" />
-          <CardTitle className="text-lg">Verificação de Cartão MOSAP3</CardTitle>
+          <CardTitle className="text-lg">Verificação de Cartão — Projecto Mosap3</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center justify-center gap-2">

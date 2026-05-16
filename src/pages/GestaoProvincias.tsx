@@ -166,7 +166,7 @@ const GestaoProvincias = () => {
       return `<tr><td>${prov?.name ?? ""}</td><td>${mun?.name ?? ""}</td><td>${s.name}</td><td>${s.technician ?? ""}</td><td>${s.total_farmers}</td><td>${s.status}</td></tr>`;
     }).join("");
 
-    printWindow.document.write(`<!DOCTYPE html><html><head><title>MOSAP3 — Províncias, Municípios e Escolas</title>
+    printWindow.document.write(`<!DOCTYPE html><html><head><title>MOSAP3 — Projecto Mosap3</title>
       <style>
         body { font-family: Arial, sans-serif; padding: 24px; color: #1a1a1a; }
         h1 { font-size: 18px; margin-bottom: 4px; }
@@ -178,7 +178,7 @@ const GestaoProvincias = () => {
         tr:nth-child(even) { background: #f9f9f9; }
         @media print { body { padding: 0; } }
       </style></head><body>
-      <h1>MOSAP3 — Províncias, Municípios e Escolas de Campo</h1>
+      <h1>MOSAP3 — Projecto Mosap3</h1>
       <p class="sub">Exportado em ${new Date().toLocaleDateString("pt-AO")}</p>
       <h2>Municípios (${totalMunicipios})</h2>
       <table><thead><tr><th>Província</th><th>Município</th></tr></thead><tbody>${municipiosRows}</tbody></table>
