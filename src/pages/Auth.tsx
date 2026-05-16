@@ -312,7 +312,25 @@ const Auth = () => {
           className="w-full max-w-md"
         >
           {/* Online status badge */}
-          <div className="flex justify-end mb-3">
+          <div className="flex justify-between items-center mb-3">
+            <div className="flex items-center gap-2">
+              {checkingSystem ? (
+                <div className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  A verificar sistema...
+                </div>
+              ) : systemMode === "bootstrap" ? (
+                <div className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full border bg-warning/10 text-warning border-warning/30">
+                  <AlertTriangle className="h-3 w-3" />
+                  Modo Bootstrap
+                </div>
+              ) : (
+                <div className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full border bg-info/10 text-info border-info/20">
+                  <Info className="h-3 w-3" />
+                  {systemMode === "admin-only" ? "Admin-only" : ""}
+                </div>
+              )}
+            </div>
             <div className={cn(
               "inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full border",
               isOnline
