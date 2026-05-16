@@ -17,6 +17,10 @@ import {
   Menu,
   Plus,
   ArrowUpFromLine,
+  WifiOff,
+  PlugZap,
+  Loader2,
+  XCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
