@@ -178,7 +178,7 @@ const GestaoProvincias = () => {
         tr:nth-child(even) { background: #f9f9f9; }
         @media print { body { padding: 0; } }
       </style></head><body>
-      <h1>MOSAP3 — Províncias, Municípios e Escolas de Campo</h1>
+      <h1>MOSAP3 — Projecto Mosap3</h1>
       <p class="sub">Exportado em ${new Date().toLocaleDateString("pt-AO")}</p>
       <h2>Municípios (${totalMunicipios})</h2>
       <table><thead><tr><th>Província</th><th>Município</th></tr></thead><tbody>${municipiosRows}</tbody></table>
