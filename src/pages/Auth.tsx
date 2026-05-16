@@ -55,6 +55,8 @@ const Auth = () => {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [loginAttempts, setLoginAttempts] = useState(0);
+  const [systemMode, setSystemMode] = useState<"bootstrap" | "admin-only" | null>(null);
+  const [checkingSystem, setCheckingSystem] = useState(true);
   const navigate = useNavigate();
   const isOnline = useOnlineStatus();
   const { setOfflineSession, user, authReady } = useAuth();
