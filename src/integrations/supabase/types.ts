@@ -2372,6 +2372,7 @@ export type Database = {
         }[]
       }
       farmers_sim_kpis: { Args: never; Returns: Json }
+      format_ptao_numeric: { Args: { _v: number }; Returns: string }
       generate_farmer_cards_batch: {
         Args: { _codes: string[] }
         Returns: {
