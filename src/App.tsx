@@ -35,6 +35,7 @@ import GestaoProvincias from "@/pages/GestaoProvincias";
 import Patec from "@/pages/Patec";
 import TelefonesOrfaos from "@/pages/TelefonesOrfaos";
 import RevisaoProvincias from "@/pages/RevisaoProvincias";
+import RelatorioSnapshots from "@/pages/RelatorioSnapshots";
 import Mosap3Pay from "@/pages/Mosap3Pay";
 import Mosap3PayFornecedores from "@/pages/Mosap3PayFornecedores";
 import Mosap3PayPOS from "@/pages/Mosap3PayPOS";
@@ -123,6 +124,7 @@ const App = () => (
               <Route path="/transacoes" element={<RoleGuard allowedRoles={["admin", "gestor_incentivos"]} moduleName="Transações"><Transacoes /></RoleGuard>} />
               <Route path="/telefones-orfaos" element={<RoleGuard allowedRoles={["admin"]} moduleName="Incentivos"><TelefonesOrfaos /></RoleGuard>} />
               <Route path="/revisao-provincias" element={<RoleGuard allowedRoles={["admin", "gestor_incentivos"]} moduleName="Incentivos"><RevisaoProvincias /></RoleGuard>} />
+              <Route path="/relatorios/snapshots" element={<RoleGuard allowedRoles={["admin"]}><RelatorioSnapshots /></RoleGuard>} />
               <Route path="/anomalias" element={<RoleGuard allowedRoles={["admin", "gestor_incentivos"]}><Anomalias /></RoleGuard>} />
 
 
