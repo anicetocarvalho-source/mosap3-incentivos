@@ -151,32 +151,52 @@ const Instalar = () => {
     }
   };
 
-  const [checklists, setChecklists] = useState<ChecklistSection[]>([
-    {
-      title: "Android (Chrome)",
-      os: "android",
-      icon: <Smartphone className="h-5 w-5" />,
-      steps: [
-        { id: "a1", label: "Abrir o link no Chrome", detail: "Use o QR Code acima ou abra o link no navegador Chrome do dispositivo", checked: false },
-        { id: "a2", label: "Toque no menu ⋮ do Chrome", detail: "No canto superior direito do navegador, toque nos três pontos verticais", checked: false },
-        { id: "a3", label: "Selecionar 'Adicionar ao ecrã inicial'", detail: "Pode também aparecer como 'Instalar aplicação' no menu", checked: false },
-        { id: "a4", label: "Confirmar a instalação", detail: "Toque em 'Adicionar' ou 'Instalar' no popup que aparecer", checked: false },
-        { id: "a5", label: "Verificar o ícone no ecrã inicial", detail: "Deve aparecer o ícone verde MOSAP3 com o nome 'MOSAP3' por baixo", checked: false },
-      ],
-    },
-    {
-      title: "iPhone / iPad (Safari)",
-      os: "ios",
-      icon: <Smartphone className="h-5 w-5" />,
-      steps: [
-        { id: "i1", label: "Abrir o link no Safari", detail: "Use o QR Code acima ou abra o link no Safari do iPhone/iPad", checked: false },
-        { id: "i2", label: "Toque no botão Partilhar", detail: "O ícone de caixa com seta para cima, na barra inferior do Safari", checked: false },
-        { id: "i3", label: "Desloque e toque em 'Adicionar ao Ecrã Principal'", detail: "Pode precisar de deslizar para baixo na lista de opções de partilha", checked: false },
-        { id: "i4", label: "Confirmar o nome e tocar em 'Adicionar'", detail: "O nome deve ser 'MOSAP3'. Toque em 'Adicionar' no canto superior direito", checked: false },
-        { id: "i5", label: "Verificar o ícone no ecrã principal", detail: "Deve aparecer o ícone verde MOSAP3 com o nome 'MOSAP3' no ecrã principal", checked: false },
-      ],
-    },
-  ]);
+  const STORAGE_KEY = "mosap3-install-checklist";
+
+  const [checklists, setChecklists] = useState<ChecklistSection[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved) as ChecklistSection[];
+        if (Array.isArray(parsed) && parsed.length === 2 && parsed[0].steps && parsed[1].steps) {
+          return parsed;
+        }
+      }
+    } catch {
+      // ignore parse errors
+    }
+    return [
+      {
+        title: "Android (Chrome)",
+        os: "android",
+        icon: <Smartphone className="h-5 w-5" />,
+        steps: [
+          { id: "a1", label: "Abrir o link no Chrome", detail: "Use o QR Code acima ou abra o link no navegador Chrome do dispositivo", checked: false },
+          { id: "a2", label: "Toque no menu ⋮ do Chrome", detail: "No canto superior direito do navegador, toque nos três pontos verticais", checked: false },
+          { id: "a3", label: "Selecionar 'Adicionar ao ecrã inicial'", detail: "Pode também aparecer como 'Instalar aplicação' no menu", checked: false },
+          { id: "a4", label: "Confirmar a instalação", detail: "Toque em 'Adicionar' ou 'Instalar' no popup que aparecer", checked: false },
+          { id: "a5", label: "Verificar o ícone no ecrã inicial", detail: "Deve aparecer o ícone verde MOSAP3 com o nome 'MOSAP3' por baixo", checked: false },
+        ],
+      },
+      {
+        title: "iPhone / iPad (Safari)",
+        os: "ios",
+        icon: <Smartphone className="h-5 w-5" />,
+        steps: [
+          { id: "i1", label: "Abrir o link no Safari", detail: "Use o QR Code acima ou abra o link no Safari do iPhone/iPad", checked: false },
+          { id: "i2", label: "Toque no botão Partilhar", detail: "O ícone de caixa com seta para cima, na barra inferior do Safari", checked: false },
+          { id: "i3", label: "Desloque e toque em 'Adicionar ao Ecrã Principal'", detail: "Pode precisar de deslizar para baixo na lista de opções de partilha", checked: false },
+          { id: "i4", label: "Confirmar o nome e tocar em 'Adicionar'", detail: "O nome deve ser 'MOSAP3'. Toque em 'Adicionar' no canto superior direito", checked: false },
+          { id: "i5", label: "Verificar o ícone no ecrã principal", detail: "Deve aparecer o ícone verde MOSAP3 com o nome 'MOSAP3' no ecrã principal", checked: false },
+        ],
+      },
+    ];
+  });
+
+  // Persist checklist state to localStorage
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(checklists));
+  }, [checklists]);
 
   const toggleStep = (sectionIdx: number, stepId: string) => {
     setChecklists((prev) => {
@@ -189,6 +209,16 @@ const Instalar = () => {
       return next;
     });
   };
+
+  const resetChecklists = useCallback(() => {
+    setChecklists((prev) =>
+      prev.map((section) => ({
+        ...section,
+        steps: section.steps.map((s) => ({ ...s, checked: false })),
+      }))
+    );
+    toast({ title: "Progresso limpo", description: "O checklist foi reiniciado." });
+  }, [toast]);
 
   const progress = (section: ChecklistSection) => {
     const done = section.steps.filter((s) => s.checked).length;
