@@ -335,6 +335,86 @@ const Instalar = () => {
         </div>
       </Card>
 
+      {/* Offline test */}
+      <Card className="overflow-hidden">
+        <div className="bg-primary/5 p-5 border-b border-border flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            {isOnline ? (
+              <PlugZap className="h-4 w-4 text-success" />
+            ) : (
+              <WifiOff className="h-4 w-4 text-warning" />
+            )}
+            <h3 className="font-heading font-semibold text-sm">Testar modo offline</h3>
+          </div>
+          <span
+            className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${
+              isOnline ? "bg-success/15 text-success" : "bg-warning/15 text-warning"
+            }`}
+          >
+            {isOnline ? "Online" : "Offline"}
+          </span>
+        </div>
+        <CardContent className="p-5 space-y-4">
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            Confirme que o MOSAP3 abre sem internet. O teste verifica se os recursos essenciais
+            estão guardados na cache do dispositivo.
+          </p>
+
+          <Button
+            onClick={runOfflineTest}
+            disabled={offlineTest.running}
+            className="w-full gap-2"
+            variant="outline"
+          >
+            {offlineTest.running ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                A verificar cache...
+              </>
+            ) : (
+              <>
+                <WifiOff className="h-4 w-4" />
+                Verificar cache offline
+              </>
+            )}
+          </Button>
+
+          {offlineTest.results && (
+            <ul className="space-y-2 pt-1">
+              {offlineTest.results.map((r) => (
+                <li
+                  key={r.label}
+                  className="flex items-start gap-2 text-xs bg-muted/40 rounded-lg px-3 py-2"
+                >
+                  {r.ok ? (
+                    <CheckCircle2 className="h-4 w-4 text-success flex-shrink-0 mt-0.5" />
+                  ) : (
+                    <XCircle className="h-4 w-4 text-destructive flex-shrink-0 mt-0.5" />
+                  )}
+                  <div className="flex-1">
+                    <p className="font-medium text-foreground">{r.label}</p>
+                    {r.detail && <p className="text-muted-foreground">{r.detail}</p>}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <div className="bg-muted/40 rounded-lg p-3 text-xs text-muted-foreground space-y-1.5">
+            <p className="font-medium text-foreground flex items-center gap-1.5">
+              <Info className="h-3.5 w-3.5 text-info" />
+              Teste manual completo
+            </p>
+            <ol className="list-decimal list-inside space-y-1 ml-1">
+              <li>Abra o MOSAP3 uma vez com internet para preencher a cache.</li>
+              <li>Ative o <strong>Modo Avião</strong> no dispositivo.</li>
+              <li>Feche e abra a aplicação a partir do ícone no ecrã inicial.</li>
+              <li>Confirme que consegue navegar, autenticar (offline) e ver os dados em cache.</li>
+            </ol>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Checklists */}
       <div className="space-y-4">
         <h2 className="font-heading font-semibold text-sm text-muted-foreground uppercase tracking-wider">
