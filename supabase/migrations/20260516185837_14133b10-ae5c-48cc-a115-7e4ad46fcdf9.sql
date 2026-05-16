@@ -1,0 +1,1 @@
+ALTER TABLE public.schools ADD CONSTRAINT schools_name_municipality_unique UNIQUE (name, municipality_id);
