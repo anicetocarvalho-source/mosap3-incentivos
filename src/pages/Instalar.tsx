@@ -46,6 +46,11 @@ const Instalar = () => {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isStandalone, setIsStandalone] = useState(false);
   const [expandedSection, setExpandedSection] = useState<"android" | "ios" | null>(null);
+  const [isOnline, setIsOnline] = useState(typeof navigator !== "undefined" ? navigator.onLine : true);
+  const [offlineTest, setOfflineTest] = useState<{
+    running: boolean;
+    results: { label: string; ok: boolean; detail?: string }[] | null;
+  }>({ running: false, results: null });
   const appUrl = window.location.origin;
 
   // Detect if app is already installed
