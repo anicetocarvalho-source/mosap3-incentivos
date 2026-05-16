@@ -123,6 +123,8 @@ const Instalar = () => {
         : "Alguns recursos não estão em cache. Abra a app online uma vez para os carregar.",
     });
   };
+
+  const handleInstall = async () => {
     if (deferredPrompt) {
       deferredPrompt.prompt();
       await deferredPrompt.userChoice;
