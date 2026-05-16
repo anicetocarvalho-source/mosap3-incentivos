@@ -81,7 +81,48 @@ const Instalar = () => {
     return () => window.removeEventListener("beforeinstallprompt", handler);
   }, []);
 
-  const handleInstall = async () => {
+  // Track online/offline status
+  useEffect(() => {
+    const goOnline = () => setIsOnline(true);
+    const goOffline = () => setIsOnline(false);
+    window.addEventListener("online", goOnline);
+    window.addEventListener("offline", goOffline);
+    return () => {
+      window.removeEventListener("online", goOnline);
+      window.removeEventListener("offline", goOffline);
+    };
+  }, []);
+
+  // Run a quick offline-readiness check using the cache only
+  const runOfflineTest = async () => {
+    setOfflineTest({ running: true, results: null });
+    const targets = [
+      { label: "Shell da aplicação (/)", url: "/" },
+      { label: "Manifesto PWA", url: "/manifest.webmanifest" },
+      { label: "Ícone principal", url: "/pwa-192x192.png" },
+    ];
+    const results: { label: string; ok: boolean; detail?: string }[] = [];
+    for (const t of targets) {
+      try {
+        const res = await fetch(t.url, { cache: "force-cache" });
+        results.push({
+          ok: res.ok,
+          label: t.label,
+          detail: res.ok ? "Disponível na cache" : `HTTP ${res.status}`,
+        });
+      } catch (e: any) {
+        results.push({ ok: false, label: t.label, detail: "Sem cache offline" });
+      }
+    }
+    const allOk = results.every((r) => r.ok);
+    setOfflineTest({ running: false, results });
+    toast({
+      title: allOk ? "Pronto para offline" : "Cache incompleta",
+      description: allOk
+        ? "Pode ativar o modo avião e abrir o MOSAP3 normalmente."
+        : "Alguns recursos não estão em cache. Abra a app online uma vez para os carregar.",
+    });
+  };
     if (deferredPrompt) {
       deferredPrompt.prompt();
       await deferredPrompt.userChoice;
