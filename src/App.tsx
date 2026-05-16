@@ -35,6 +35,7 @@ import GestaoProvincias from "@/pages/GestaoProvincias";
 import Patec from "@/pages/Patec";
 import TelefonesOrfaos from "@/pages/TelefonesOrfaos";
 import RevisaoProvincias from "@/pages/RevisaoProvincias";
+import RelatorioSnapshots from "@/pages/RelatorioSnapshots";
 import Mosap3Pay from "@/pages/Mosap3Pay";
 import Mosap3PayFornecedores from "@/pages/Mosap3PayFornecedores";
 import Mosap3PayPOS from "@/pages/Mosap3PayPOS";
