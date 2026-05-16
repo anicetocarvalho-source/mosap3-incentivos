@@ -166,7 +166,7 @@ const GestaoProvincias = () => {
       return `<tr><td>${prov?.name ?? ""}</td><td>${mun?.name ?? ""}</td><td>${s.name}</td><td>${s.technician ?? ""}</td><td>${s.total_farmers}</td><td>${s.status}</td></tr>`;
     }).join("");
 
-    printWindow.document.write(`<!DOCTYPE html><html><head><title>MOSAP3 — Províncias, Municípios e Escolas</title>
+    printWindow.document.write(`<!DOCTYPE html><html><head><title>MOSAP3 — Projecto Mosap3</title>
       <style>
         body { font-family: Arial, sans-serif; padding: 24px; color: #1a1a1a; }
         h1 { font-size: 18px; margin-bottom: 4px; }
