@@ -26,9 +26,6 @@ export default defineConfig(({ mode }) => ({
         "pwa-512x512.png", "pwa-1024x1024.png",
         "pwa-maskable-192x192.png", "pwa-maskable-512x512.png",
       ],
-        "pwa-192x192.png", "pwa-256x256.png", "pwa-384x384.png",
-        "pwa-512x512.png", "pwa-1024x1024.png",
-      ],
       workbox: {
       globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
