@@ -448,9 +448,18 @@ const Instalar = () => {
 
       {/* Checklists */}
       <div className="space-y-4">
-        <h2 className="font-heading font-semibold text-sm text-muted-foreground uppercase tracking-wider">
-          Checklist de Instalação
-        </h2>
+        <div className="flex items-center justify-between">
+          <h2 className="font-heading font-semibold text-sm text-muted-foreground uppercase tracking-wider">
+            Checklist de Instalação
+          </h2>
+          <button
+            onClick={resetChecklists}
+            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+            Limpar progresso
+          </button>
+        </div>
 
         {checklists.map((section, idx) => {
           const { done, total, pct } = progress(section);
