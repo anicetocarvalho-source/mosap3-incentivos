@@ -1,80 +1,91 @@
-## Reprocessamento do Excel — Valores reais (snapshot mais recente)
+## Importação de 70.379 transações + 12 fornecedores
 
-### Diagnóstico do ficheiro `data_2-2.xlsx`
+### Ficheiro analisado: `Dados_Transacoes_Actual_Mosap.xlsx`
 
-- **88.918 linhas**, **14.819 telefones únicos** (+ 4 linhas de rodapé/órfãs)
-- **6 snapshots por telefone**, em **4 datas distintas**: `2025-06-06`, `2025-06-10`, `2025-06-25` (3 cargas no mesmo dia) e 1 linha sem data
-- **Linha "Total" oficial do Excel**: Recebido **4.441,89 M Kz** · Gasto **2.228,18 M Kz** · Saldo **2.213,71 M Kz**
+- **70.379 transações** com ID único (1 a 70.483)
+- **11.353 telefones únicos** — corresponde exactamente aos agricultores com gasto > 0 na BD ✓
+- **Total**: 2.226,09 M Kz (idêntico ao agregado já carregado em `farmers.total_gasto`) ✓
+- **12 empresas fornecedoras** e 36 produtos distintos
+- **5.493 transações sem data válida** (5.492 NaT + 1 com data 1970)
+- **105 transações sem ECA** (preenchível como `—`)
 
-### ⚠️ Descoberta crítica sobre a semântica das colunas
+### Decisões aprovadas
 
-| Coluna | Comportamento | Total correcto |
-|---|---|---|
-| `Total Disponibilizado` | **Idempotente** — mesmo valor repetido em todos os 6 snapshots do telefone | `MAX(rec)` por telefone (ou qualquer 1 snapshot) |
-| `Valor Gasto` | **Transaccional** — cada linha é uma compra distinta; 11.353 telefones têm valores diferentes entre snapshots | `SUM(gasto)` por telefone (todos os snapshots) |
+| Tema | Escolha |
+|---|---|
+| Destino | Só `farmer_transactions` (não cria `pos_sales` fiscais) |
+| Fornecedores | Criar 12 em `suppliers` (status `Ativo`, NIF/contactos a preencher) |
+| Transações sem data | Atribuir `2025-09-01` |
+| Recálculo do saldo | Reescrever `valor_recebido` (mesmo valor) para disparar trigger e regerar gasto/saldo a partir do detalhe |
 
-Ou seja, a estratégia "somar tudo" inflacionou só o **recebido** (~6×). O gasto na BD também está duplicado porque há 3 snapshots no mesmo dia (06-25). Os valores corrigidos devem ser:
-
-- **Recebido por agricultor** = 1 snapshot (qualquer, idempotente)
-- **Gasto por agricultor** = soma de todas as linhas (transaccional, sem deduplicação)
-- **Saldo** = `max(0, recebido − gasto)` (regra canónica `computeSaldoFinal`)
-
-### Totais esperados após reprocessamento
-
-```
-Recebido:  4.441,89 M Kz   (antes: ~31.093 M, 7× inflacionado)
-Gasto:     2.228,18 M Kz   (antes: ~4.456 M,  2× inflacionado)
-Saldo:     2.213,71 M Kz   (antes: ~26.637 M, ~12× inflacionado)
-```
+### Top 12 fornecedores a criar
+1. TOPO AGRO COMERCIO E AGROPECUARIO LIMITADA (22.852 tx)
+2. AGROSAPI LDA (9.530)
+3. ELSENGO COMERCIO GERAL LDA (8.436)
+4. SONISAP INVESTMENT LDA (8.340)
+5. JARDINS DA YOBA PRODUCAO AGRICULA LDA (6.577)
+6. RIBBEN LIMITADA (5.593)
+7. RURAL SHOP PRESTACAO DE SERVICOS LDA (4.121)
+8. INDU AGRI ANGOLA (2.094)
+9. FERTISEME FERTILIZANTES E SEMENTES LDA (1.748)
+10. JDTS COMERCIO GERAL E PREST DE SERV (762)
+11. + 2 outros
 
 ### Plano de execução
 
-**1. Stage do ficheiro novo**
-- Truncar `_xlsx_recon_staging`
-- Carregar as 88.914 linhas válidas (telefone numérico) via `psql COPY`
+**1. Desactivar triggers ruidosos durante a importação (via migration)**
+- `ALTER TABLE farmer_transactions DISABLE TRIGGER trg_recalc_on_transaction` (evita recalcular 70k vezes)
+- `ALTER TABLE farmer_transactions DISABLE TRIGGER on_transaction_created` (evita criar 70k notificações)
+- Reactivar no fim
 
-**2. Agregação por telefone (em SQL)**
+**2. Criar fornecedores (`suppliers`)**
+- 12 registos com `name`, `status='Ativo'`; restantes campos NULL
+- Idempotente: usar `INSERT ... ON CONFLICT DO NOTHING` por nome (cria índice único parcial se necessário)
+
+**3. Carregar staging temporário**
+- Tabela `_tx_staging` (telefone, empresa, produto, unidades, valor, data) via `psql COPY`
+- 70.379 linhas, datas NULL/inválidas substituídas por `2025-09-01`
+
+**4. Inserir em `farmer_transactions` (bulk SQL)**
 ```sql
-SELECT phone,
-       MAX(recebido) AS recebido_real,
-       SUM(COALESCE(gasto, 0)) AS gasto_real
-FROM _xlsx_recon_staging
-GROUP BY phone;
+INSERT INTO farmer_transactions (farmer_code, product, empresa, valor, valor_num, transaction_date)
+SELECT 'AGR-' || right(s.phone, 9), s.produto, s.empresa,
+       format_ptao_numeric(s.valor), s.valor::numeric,
+       to_char(s.data, 'YYYY-MM-DD')
+FROM _tx_staging s
+WHERE EXISTS (SELECT 1 FROM farmers f WHERE f.code = 'AGR-' || right(s.phone, 9));
 ```
+- Validar que todos os 70.379 batem com um agricultor existente
 
-**3. UPDATE dos 14.819 farmers existentes**
-- `valor_recebido` ← novo valor (formato `200000.00`)
-- `total_gasto` ← novo valor
-- `saldo_final` ← `computeSaldoFinal(recebido, gasto)`
-- **NÃO toca em**: `province`, `municipality`, `school`, `full_name`, `status`, `patec`, biometria, etc.
-- Em particular, preserva a correcção manual em `AGR-976107290` (Ester Daniel → Cuando-Cubango/Menongue)
+**5. Reactivar triggers**
+- `ALTER TABLE ... ENABLE TRIGGER ...` para ambos
 
-**4. Trilha de auditoria por agricultor**
-- 1 linha em `farmer_balance_history` por farmer com delta significativo (campo `valor_recebido` e `total_gasto`), source `reprocessamento_xlsx`, em blocos de 500
-- 1 linha em `audit_logs` com `action='bulk_reprocess'`, contendo totais antes/depois e contagens
+**6. Disparar recálculo global**
+- Para cada agricultor: `UPDATE farmers SET valor_recebido = valor_recebido WHERE code IN (...)`
+- O trigger `trg_recalc_on_farmer_recebido` reescreve `total_gasto` e `saldo_final` a partir de `SUM(parse_ptao_numeric(valor))` em `farmer_transactions`
+- Define `app.import_source = 'reprocessamento_transacoes'` para o histórico ficar etiquetado correctamente
 
-**5. Reconciliação**
-- Telefones no ficheiro mas não na BD → reportar (esperado: 0; já foram todos importados antes)
-- Telefones na BD mas não no ficheiro → reportar (esperado: 0)
-- Linha órfã (gasto = 2.093.845, sem telefone) → confirmar que `orphan_phones` já a contém; sem alterações
-
-**6. Verificação pós-reprocessamento**
-- `SELECT SUM(valor_recebido::num)`, `SUM(total_gasto::num)` → comparar com 4.441,89 M / 2.228,18 M
-- Spot-check de 5 agricultores aleatórios contra o Excel
-- Verificar página `/relatorios/snapshots` — coluna "BD vs. Último (recebido)" deve passar a "Coerente <1%"
+**7. Verificação**
+- `SELECT count(*) FROM farmer_transactions` → 70.379
+- `SELECT count(DISTINCT farmer_code) FROM farmer_transactions` → 11.353
+- `SELECT round(sum(valor_num)/1e6, 2) FROM farmer_transactions` → ~2.226,09
+- `SELECT round(sum(parse_ptao_numeric(total_gasto))/1e6, 2) FROM farmers` → 2.226,09 (igual)
+- Spot-check em 3 agricultores: `farmers.total_gasto` ≡ `SUM(valor_num)` das suas transações
+- `transacoes_kpis()` (já existe) devolve top-5 produtos/empresas correctamente
+- Página `/transacoes` (se existir) passa a listar dados reais
 
 ### Garantias
 
-- **Idempotente**: re-executar com o mesmo ficheiro não altera valores nem cria histórico duplicado
-- **Reversível**: o `farmer_balance_history` permite calcular o estado anterior se necessário
-- **Sem perda de dados**: apenas 3 campos numéricos são alterados; tudo o resto (geografia, biometria, fotos, PATEC, status) permanece intacto
-- **Saldo nunca negativo**: usa `computeSaldoFinal` (`max(0, rec − gasto)`)
+- **Idempotente**: a importação verifica se já existem transações antes de inserir (limpa primeiro `farmer_transactions` para o set completo, evitando duplicação)
+- **Performance**: triggers desactivados durante COPY → ~2-3 min de execução total
+- **Sem perda**: agricultores sem transação ficam com `total_gasto=0,00` e saldo igual ao recebido (correcto)
+- **Auditoria**: 1 entrada em `audit_logs` com totais antes/depois e contagens
 
 ### O que NÃO está incluído
 
-- Re-criação de províncias/municípios/escolas (já estão correctos)
-- Inserção de novos agricultores (o ficheiro tem os mesmos 14.819)
-- Importação de transacções individuais como `farmer_transactions` (mantém-se agregado)
-- Alteração da inferência geográfica feita para `AGR-976107290`
+- Geração de facturas POS retroactivas (decisão aprovada)
+- Vinculação de fornecedores a `supplier_provinces` (pode fazer-se depois em /fornecedores)
+- Criação de `supplier_products` a partir dos 36 produtos do Excel
+- Mapeamento de produto → PATEC (`patec_items` mantém-se intacto)
 
-Se aprovares, executo o reprocessamento e mostro um relatório final com os totais antes/depois.
+Se aprovares, executo a importação e mostro um relatório final com totais e exemplos.

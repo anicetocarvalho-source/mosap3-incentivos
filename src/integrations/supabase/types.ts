@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      _tx_load_staging: {
+        Row: {
+          empresa: string | null
+          farmer_code: string | null
+          product: string | null
+          tx_date: string | null
+          valor_num: number | null
+        }
+        Insert: {
+          empresa?: string | null
+          farmer_code?: string | null
+          product?: string | null
+          tx_date?: string | null
+          valor_num?: number | null
+        }
+        Update: {
+          empresa?: string | null
+          farmer_code?: string | null
+          product?: string | null
+          tx_date?: string | null
+          valor_num?: number | null
+        }
+        Relationships: []
+      }
       _xlsx_recon_staging: {
         Row: {
           ecas: string | null
@@ -2389,6 +2413,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      import_farmer_transactions_from_staging: { Args: never; Returns: Json }
       invoice_years: {
         Args: never
         Returns: {
