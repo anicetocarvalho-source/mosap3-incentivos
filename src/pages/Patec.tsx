@@ -686,7 +686,13 @@ const Patec = () => {
                       size="sm"
                       variant="outline"
                       className="h-8 text-xs"
-                      onClick={() => setRandomConfirmOpen(true)}
+                      onClick={() => {
+                        if (patecsForSeason.length === 0) {
+                          toast.error("Não existem PATECs disponíveis para a época seleccionada. Seleccione uma época com pacotes vinculados.");
+                          return;
+                        }
+                        setRandomConfirmOpen(true);
+                      }}
                       disabled={saving}
                     >
                       <Shuffle className="h-3.5 w-3.5 mr-1.5" />
