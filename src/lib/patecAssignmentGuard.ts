@@ -10,7 +10,7 @@ export interface PatecLike {
 }
 
 export type GuardResult =
-  | { ok: true }
+  | { ok: true; reason?: undefined; message?: undefined }
   | { ok: false; reason: "no_patecs_for_season" | "legacy_mismatch"; message: string };
 
 const MSG_NO_PATECS =
