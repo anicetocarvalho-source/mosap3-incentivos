@@ -81,29 +81,24 @@ const FarmerIdCard = forwardRef<HTMLDivElement, Props>(
               }}
             >
               {/* Header com 2 marcas */}
-              <div className="flex items-center justify-between px-3 pt-2.5 pb-2 border-b border-white/10">
+              <div className="flex items-center justify-between px-3 pt-2.5 pb-2 border-b border-white/10 gap-3">
                 <div className="flex items-center gap-2 min-w-0">
-                  <div className="h-9 w-9 rounded-full bg-white flex items-center justify-center overflow-hidden flex-shrink-0">
-                    <HeaderLogo
-                      src={angolaLogo}
-                      alt="República de Angola"
-                      className="h-8 w-8 object-contain"
-                      fallback={<span className="text-[7px] font-bold text-primary">RA</span>}
-                    />
-                  </div>
+                  <img
+                    src={angolaLogo}
+                    alt="República de Angola"
+                    className="h-10 w-10 object-contain drop-shadow-sm flex-shrink-0"
+                  />
                   <div className="leading-tight min-w-0">
                     <p className="text-[10px] font-extrabold tracking-wider">MINAGRIF</p>
                     <p className="text-[6.5px] text-white/70 truncate">República de Angola</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 min-w-0 justify-end">
-                  <div className="leading-tight text-right min-w-0">
-                    <p className="text-[10px] font-extrabold tracking-wider">MOSAP3</p>
-                    <p className="text-[6.5px] text-white/70 truncate">Projecto</p>
-                  </div>
-                  <div className="h-9 w-9 rounded-full bg-white flex items-center justify-center overflow-hidden flex-shrink-0">
-                    <img src={mosapLogo} alt="MOSAP3" className="h-8 w-8 object-contain" />
-                  </div>
+                <div className="bg-white/95 rounded px-1.5 py-1 flex-shrink-0">
+                  <img
+                    src={mosapHorizontal}
+                    alt="MOSAP3 — Agro-Pecuária Familiar"
+                    className="h-6 object-contain"
+                  />
                 </div>
               </div>
 
