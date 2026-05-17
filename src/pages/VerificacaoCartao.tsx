@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle2, XCircle, ShieldCheck, Loader2 } from "lucide-react";
-import mosapLogo from "@/assets/mosap3-logo.png";
+import { mosapLogo } from "@/config/brand";
 
 interface VerificationData {
   farmer_name: string;

@@ -3,7 +3,7 @@ import { Outlet, useNavigate, Link, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { LayoutDashboard, Package, Monitor, ShoppingCart, LogOut, Menu, X, Warehouse, Settings, Store, Receipt } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import mosapLogo from "@/assets/mosap3-logo.png";
+import { mosapLogo } from "@/config/brand";
 import { toast } from "sonner";
 
 interface Supplier {
