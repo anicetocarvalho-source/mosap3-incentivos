@@ -14,7 +14,7 @@ import {
   AlertTriangle, RefreshCw, Info,
 } from "lucide-react";
 import { z } from "zod";
-import { mosapLogo } from "@/config/brand";
+import { mosapLogo, LOGO_SIZES } from "@/config/brand";
 import { offlineLogin } from "@/lib/offlineAuth";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { useAuth } from "@/hooks/useAuth";
