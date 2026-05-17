@@ -3,7 +3,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Package } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Loader2, Package, Pencil, Check, X } from "lucide-react";
+import { toast } from "sonner";
 import type { Patec } from "@/hooks/usePatecs";
 
 interface PatecItem {
@@ -46,18 +49,28 @@ interface Props {
 export default function PatecCompositionDialog({ open, onOpenChange, patec }: Props) {
   const [items, setItems] = useState<PatecItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editQty, setEditQty] = useState("");
+  const [editUnit, setEditUnit] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const fetchItems = async () => {
+    if (!patec) return;
+    setLoading(true);
+    const { data } = await supabase
+      .from("patec_items" as any)
+      .select("*")
+      .eq("patec_code", patec.code)
+      .order("sort_order");
+    setItems((data as unknown as PatecItem[]) || []);
+    setLoading(false);
+  };
 
   useEffect(() => {
     if (!open || !patec) return;
-    setLoading(true);
-    supabase.from("patec_items" as any)
-      .select("*")
-      .eq("patec_code", patec.code)
-      .order("sort_order")
-      .then(({ data }) => {
-        setItems((data as unknown as PatecItem[]) || []);
-        setLoading(false);
-      });
+    fetchItems();
+    setEditingId(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, patec]);
 
   const byCategory = useMemo(() => {
@@ -66,8 +79,42 @@ export default function PatecCompositionDialog({ open, onOpenChange, patec }: Pr
     return m;
   }, [items]);
 
+  const startEdit = (it: PatecItem) => {
+    setEditingId(it.id);
+    setEditQty(it.base_quantity != null ? String(it.base_quantity).replace(".", ",") : "");
+    setEditUnit(it.unit || "");
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditQty("");
+    setEditUnit("");
+  };
+
+  const saveEdit = async (it: PatecItem) => {
+    const normalized = editQty.trim().replace(",", ".");
+    const qty = normalized === "" ? null : Number(normalized);
+    if (qty != null && (!isFinite(qty) || qty < 0)) {
+      toast.error("Quantidade inválida");
+      return;
+    }
+    const unit = editUnit.trim() || null;
+    setSaving(true);
+    const { error } = await supabase
+      .from("patec_items" as any)
+      .update({ base_quantity: qty, unit })
+      .eq("id", it.id);
+    setSaving(false);
+    if (error) {
+      toast.error("Erro ao guardar", { description: error.message });
+      return;
+    }
+    toast.success("Quantidade actualizada");
+    setItems((prev) => prev.map((p) => (p.id === it.id ? { ...p, base_quantity: qty, unit } : p)));
+    cancelEdit();
+  };
+
   const renderGroup = (list: PatecItem[]) => {
-    // Group by culture, then subcategory
     const byCulture: Record<string, Record<string, PatecItem[]>> = {};
     for (const it of list) {
       const c = it.culture || "—";
@@ -84,20 +131,59 @@ export default function PatecCompositionDialog({ open, onOpenChange, patec }: Pr
               {SUBCATEGORY_LABELS[sub] || sub}
             </p>
             <div className="rounded-lg border divide-y">
-              {rows.map((r) => (
-                <div key={r.id} className="flex items-center justify-between px-3 py-1.5 text-sm">
-                  <span>{r.name}</span>
-                  {r.base_quantity != null ? (
-                    <span className="font-mono text-xs text-foreground">
-                      {r.base_quantity.toLocaleString("pt-PT")} {r.unit || ""}
-                    </span>
-                  ) : (
-                    <Badge variant="outline" className="text-[10px] border-warning/50 text-warning">
-                      a definir
-                    </Badge>
-                  )}
-                </div>
-              ))}
+              {rows.map((r) => {
+                const isEditing = editingId === r.id;
+                return (
+                  <div key={r.id} className="flex items-center justify-between gap-3 px-3 py-1.5 text-sm">
+                    <span className="flex-1 min-w-0 truncate">{r.name}</span>
+                    {isEditing ? (
+                      <div className="flex items-center gap-1.5">
+                        <Input
+                          value={editQty}
+                          onChange={(e) => setEditQty(e.target.value)}
+                          placeholder="Qtd"
+                          inputMode="decimal"
+                          className="h-7 w-20 text-xs"
+                          autoFocus
+                        />
+                        <Input
+                          value={editUnit}
+                          onChange={(e) => setEditUnit(e.target.value)}
+                          placeholder="Unid."
+                          className="h-7 w-20 text-xs"
+                        />
+                        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => saveEdit(r)} disabled={saving}>
+                          {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5 text-success" />}
+                        </Button>
+                        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={cancelEdit} disabled={saving}>
+                          <X className="h-3.5 w-3.5 text-muted-foreground" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        {r.base_quantity != null ? (
+                          <span className="font-mono text-xs text-foreground">
+                            {r.base_quantity.toLocaleString("pt-PT")} {r.unit || ""}
+                          </span>
+                        ) : (
+                          <Badge variant="outline" className="text-[10px] border-warning/50 text-warning">
+                            a definir
+                          </Badge>
+                        )}
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-6 w-6 opacity-60 hover:opacity-100"
+                          onClick={() => startEdit(r)}
+                          title="Editar quantidade"
+                        >
+                          <Pencil className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
         ))}
@@ -114,7 +200,7 @@ export default function PatecCompositionDialog({ open, onOpenChange, patec }: Pr
             Composição — {patec?.name}
           </DialogTitle>
           <DialogDescription>
-            {items.length} item(s) — quantidades por hectare / efectivo recomendado
+            {items.length} item(s) — quantidades por hectare / efectivo recomendado. Clique no lápis para editar.
           </DialogDescription>
         </DialogHeader>
 
