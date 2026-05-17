@@ -202,6 +202,138 @@ export default function RelatorioSnapshots() {
     return { totalLinhas: total, min, max, avg };
   }, [aggs]);
 
+  // Lookup automático de agricultores quando há aggs
+  useEffect(() => {
+    if (!aggs || farmersByPhone.size > 0 || loadingFarmers) return;
+    (async () => {
+      setLoadingFarmers(true);
+      try {
+        const rows = await fetchAllPages<{ code: string; full_name: string; phone: string | null }>(
+          () => supabase.from("farmers").select("code, full_name, phone").not("phone", "is", null)
+        );
+        const map = new Map<string, FarmerInfo>();
+        for (const r of rows) {
+          const p = normPhone(r.phone);
+          if (p && !map.has(p)) map.set(p, { code: r.code, full_name: r.full_name });
+        }
+        setFarmersByPhone(map);
+      } catch (err) {
+        console.error(err);
+        toast.error("Erro a carregar agricultores para correspondência.");
+      } finally {
+        setLoadingFarmers(false);
+      }
+    })();
+  }, [aggs, farmersByPhone.size, loadingFarmers]);
+
+  type DivRow = {
+    phone: string;
+    name: string;
+    code: string | null;
+    snapshots: number;
+    somaRec: number;
+    ultRec: number;
+    dRec: number;
+    somaGasto: number;
+    ultGasto: number;
+    dGasto: number;
+    somaSaldo: number;
+    ultSaldo: number;
+    dSaldo: number;
+    divTotal: number;
+  };
+
+  const divRows: DivRow[] = useMemo(() => {
+    if (!aggs) return [];
+    return aggs.map((a) => {
+      const f = farmersByPhone.get(a.phone);
+      const dRec = a.somaRecebido - a.ultimoRecebido;
+      const dGasto = a.somaGasto - a.ultimoGasto;
+      const somaSaldo = Math.max(0, a.somaRecebido - a.somaGasto);
+      const ultSaldo = Math.max(0, a.ultimoRecebido - a.ultimoGasto);
+      return {
+        phone: a.phone,
+        name: f?.full_name ?? "—",
+        code: f?.code ?? null,
+        snapshots: a.snapshots,
+        somaRec: a.somaRecebido,
+        ultRec: a.ultimoRecebido,
+        dRec,
+        somaGasto: a.somaGasto,
+        ultGasto: a.ultimoGasto,
+        dGasto,
+        somaSaldo,
+        ultSaldo,
+        dSaldo: somaSaldo - ultSaldo,
+        divTotal: Math.abs(dRec) + Math.abs(dGasto),
+      };
+    });
+  }, [aggs, farmersByPhone]);
+
+  const filteredSorted = useMemo(() => {
+    const s = search.trim().toLowerCase();
+    let out = divRows.filter((r) => {
+      if (onlyDiff && r.divTotal < 1) return false;
+      if (!s) return true;
+      return (
+        r.phone.includes(s) ||
+        r.name.toLowerCase().includes(s) ||
+        (r.code ?? "").toLowerCase().includes(s)
+      );
+    });
+    const dir = sortDir === "asc" ? 1 : -1;
+    out = [...out].sort((a, b) => {
+      const va = a[sortKey] as number | string;
+      const vb = b[sortKey] as number | string;
+      if (typeof va === "number" && typeof vb === "number") return (va - vb) * dir;
+      return String(va).localeCompare(String(vb)) * dir;
+    });
+    return out;
+  }, [divRows, search, onlyDiff, sortKey, sortDir]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, onlyDiff, sortKey, sortDir]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredSorted.length / PAGE_SIZE));
+  const pageRows = filteredSorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  const toggleSort = (k: SortKey) => {
+    if (sortKey === k) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else {
+      setSortKey(k);
+      setSortDir(k === "phone" || k === "name" ? "asc" : "desc");
+    }
+  };
+
+  const exportCsv = () => {
+    const headers = [
+      "telefone", "agricultor", "codigo", "snapshots",
+      "soma_recebido", "ultimo_recebido", "delta_recebido",
+      "soma_gasto", "ultimo_gasto", "delta_gasto",
+      "soma_saldo", "ultimo_saldo", "delta_saldo",
+      "divergencia_total",
+    ];
+    const csv = [
+      headers.join(","),
+      ...filteredSorted.map((r) =>
+        [
+          r.phone, `"${r.name.replace(/"/g, '""')}"`, r.code ?? "",
+          r.snapshots, r.somaRec, r.ultRec, r.dRec,
+          r.somaGasto, r.ultGasto, r.dGasto,
+          r.somaSaldo, r.ultSaldo, r.dSaldo, r.divTotal,
+        ].join(",")
+      ),
+    ].join("\n");
+    const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `divergencias_snapshot_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="container mx-auto p-4 md:p-6 space-y-6">
       <PageHeader
