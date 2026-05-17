@@ -92,13 +92,35 @@ export default function PatecCompositionDialog({ open, onOpenChange, patec }: Pr
   };
 
   const saveEdit = async (it: PatecItem) => {
-    const normalized = editQty.trim().replace(",", ".");
-    const qty = normalized === "" ? null : Number(normalized);
-    if (qty != null && (!isFinite(qty) || qty < 0)) {
-      toast.error("Quantidade inválida");
+    const qtyRaw = editQty.trim().replace(",", ".");
+    const unitRaw = editUnit.trim();
+
+    // Validacao: quantidade nao pode ser vazia
+    if (qtyRaw === "") {
+      toast.error("Quantidade obrigatória", { description: "Introduza um valor numérico." });
       return;
     }
-    const unit = editUnit.trim() || null;
+
+    // Validacao: formato decimal valido
+    const qty = Number(qtyRaw);
+    if (!isFinite(qty) || isNaN(qty)) {
+      toast.error("Formato inválido", { description: "Use apenas números, vírgula ou ponto decimal." });
+      return;
+    }
+
+    // Validacao: quantidade nao negativa
+    if (qty < 0) {
+      toast.error("Quantidade inválida", { description: "Não são permitidos valores negativos." });
+      return;
+    }
+
+    // Validacao: unidade nao pode ser vazia
+    if (unitRaw === "") {
+      toast.error("Unidade obrigatória", { description: "Introduza a unidade de medida (ex: kg, L, un, cabeça)." });
+      return;
+    }
+
+    const unit = unitRaw || null;
     setSaving(true);
     const { error } = await supabase
       .from("patec_items" as any)
