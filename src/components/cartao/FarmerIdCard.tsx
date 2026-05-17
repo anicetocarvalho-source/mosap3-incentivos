@@ -96,7 +96,7 @@ const FarmerIdCard = forwardRef<HTMLDivElement, Props>(
                   <img
                     src={mosapLogoHorizontal}
                     alt="MOSAP3 — Agro-Pecuária Familiar"
-                    className="h-6 object-contain"
+                    className={LOGO_SIZES.idCardMosap}
                   />
                 </div>
               </div>
