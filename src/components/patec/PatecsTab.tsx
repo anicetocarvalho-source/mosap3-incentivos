@@ -137,18 +137,24 @@ export default function PatecsTab({ patecs, seasons, links, farmerCounts, isAdmi
                     )}
                   </div>
 
-                  {isAdmin && (
-                    <div className="flex gap-1.5 pt-2 border-t">
-                      <Button variant="ghost" size="sm" className="flex-1 h-8 text-xs"
-                        onClick={() => { setEditing(p); setFormOpen(true); }}>
-                        <Pencil className="h-3 w-3 mr-1" /> Editar
-                      </Button>
-                      <Button variant="ghost" size="sm" className="h-8 text-xs text-destructive"
-                        onClick={() => setDeleting(p)}>
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  )}
+                  <div className="flex gap-1.5 pt-2 border-t">
+                    <Button variant="outline" size="sm" className="flex-1 h-8 text-xs"
+                      onClick={() => setComposing(p)}>
+                      <ListTree className="h-3 w-3 mr-1" /> Composição
+                    </Button>
+                    {isAdmin && (
+                      <>
+                        <Button variant="ghost" size="sm" className="h-8 text-xs"
+                          onClick={() => { setEditing(p); setFormOpen(true); }}>
+                          <Pencil className="h-3 w-3" />
+                        </Button>
+                        <Button variant="ghost" size="sm" className="h-8 text-xs text-destructive"
+                          onClick={() => setDeleting(p)}>
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </>
+                    )}
+                  </div>
                 </CardContent>
               </Card>
             );
