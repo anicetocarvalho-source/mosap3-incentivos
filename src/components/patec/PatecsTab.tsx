@@ -28,6 +28,7 @@ export default function PatecsTab({ patecs, seasons, links, farmerCounts, isAdmi
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Patec | null>(null);
   const [deleting, setDeleting] = useState<Patec | null>(null);
+  const [composing, setComposing] = useState<Patec | null>(null);
 
   const seasonsByPatec = useMemo(() => {
     const m: Record<string, Season[]> = {};
