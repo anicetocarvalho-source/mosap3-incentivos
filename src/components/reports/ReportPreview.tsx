@@ -35,7 +35,7 @@ const ReportPreview = ({ reportType, reportLabel, filters }: Props) => {
         <div className="p-6 border-b border-border print:p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <img src={mosapLogo} alt="MOSAP3" className="h-12 w-auto" />
+              <img src={mosapLogo} alt="MOSAP3" className={LOGO_SIZES.report} />
               <div>
                 <h2 className="font-heading font-bold text-base">MOSAP3 — Projecto Mosap3</h2>
                 <p className="text-xs text-muted-foreground">República de Angola • Ministério da Agricultura e Pescas</p>
