@@ -1050,10 +1050,30 @@ const Patec = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmar atribuição em lote</AlertDialogTitle>
             <AlertDialogDescription asChild>
-              <div className="space-y-2 text-sm text-muted-foreground">
-                <p>
-                  Tem a certeza que deseja atribuir <strong className="text-foreground">{bulkPatecCode || "PATEC"}{(() => { const s = patecs.find((p) => p.code === bulkPatecCode); return s ? ` — ${s.name}` : ""; })()}</strong> a <strong className="text-foreground">{selectedIds.size}</strong> produtor(es)?
-                </p>
+              <div className="space-y-3 text-sm text-muted-foreground">
+                {(() => {
+                  const selectedPatec = patecs.find((p) => p.code === bulkPatecCode);
+                  return (
+                    <>
+                      <p>
+                        Tem a certeza que deseja atribuir o seguinte pacote a <strong className="text-foreground">{selectedIds.size}</strong> produtor(es)?
+                      </p>
+                      <div className="border rounded-lg p-3 bg-muted/30 space-y-1">
+                        <p className="font-semibold text-foreground">
+                          {selectedPatec?.code || bulkPatecCode || "—"}
+                        </p>
+                        {selectedPatec?.name && (
+                          <p className="text-muted-foreground">{selectedPatec.name}</p>
+                        )}
+                        {selectedPatec?.cultures && (
+                          <p className="text-xs text-muted-foreground">
+                            <span className="font-medium">Culturas:</span> {selectedPatec.cultures}
+                          </p>
+                        )}
+                      </div>
+                    </>
+                  );
+                })()}
                 {(() => {
                   const selected = farmers.filter((f) => selectedIds.has(f.id));
                   const comPatec = selected.filter((f) => f.patec !== null && f.patec !== undefined);
