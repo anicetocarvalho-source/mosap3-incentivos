@@ -288,6 +288,10 @@ const Patec = () => {
       toast.error("Não existem PATECs disponíveis para a época seleccionada. Seleccione uma época com pacotes vinculados.");
       return;
     }
+    if (selected && (selected.legacy_number === null || selected.legacy_number === undefined)) {
+      toast.error(`Inconsistência detectada: o PATEC ${selected.code} não tem número legado (farmers.patec) associado. Actualize o pacote antes de gravar.`);
+      return;
+    }
     setSaving(true);
     const { error } = await supabase
       .from("farmers")
@@ -330,6 +334,10 @@ const Patec = () => {
     if (!selected) return;
     if (!patecsForSeason.some((p) => p.code === selected.code)) {
       toast.error("Não existem PATECs disponíveis para a época seleccionada. Seleccione uma época com pacotes vinculados.");
+      return;
+    }
+    if (selected.legacy_number === null || selected.legacy_number === undefined) {
+      toast.error(`Inconsistência detectada: o PATEC ${selected.code} não tem número legado (farmers.patec) associado. Actualize o pacote antes de gravar.`);
       return;
     }
     setSaving(true);
