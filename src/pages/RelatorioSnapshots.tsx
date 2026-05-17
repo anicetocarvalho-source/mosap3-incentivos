@@ -442,6 +442,127 @@ export default function RelatorioSnapshots() {
           </CardContent>
         </Card>
       )}
+
+      {aggs && (
+        <Card>
+          <CardHeader className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <CardTitle>4. Divergências por agricultor</CardTitle>
+              <p className="text-sm text-muted-foreground mt-1">
+                {loadingFarmers
+                  ? "A carregar correspondências de agricultores…"
+                  : `${filteredSorted.length.toLocaleString("pt-PT")} de ${divRows.length.toLocaleString("pt-PT")} telefones`}
+              </p>
+            </div>
+            <Button onClick={exportCsv} variant="outline" size="sm" disabled={!filteredSorted.length}>
+              <Download className="h-4 w-4 mr-2" /> Exportar CSV
+            </Button>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex flex-col md:flex-row gap-3 md:items-center">
+              <Input
+                placeholder="Pesquisar por telefone, nome ou código…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="max-w-sm"
+              />
+              <div className="flex items-center gap-2">
+                <Switch id="only-diff" checked={onlyDiff} onCheckedChange={setOnlyDiff} />
+                <Label htmlFor="only-diff" className="text-sm">Apenas com divergência</Label>
+              </div>
+            </div>
+
+            {/* Desktop */}
+            <div className="hidden md:block overflow-x-auto border rounded-lg">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/50 sticky top-0">
+                  <tr className="text-left">
+                    <SortTh k="phone" label="Telefone" sortKey={sortKey} sortDir={sortDir} onClick={toggleSort} />
+                    <SortTh k="name" label="Agricultor" sortKey={sortKey} sortDir={sortDir} onClick={toggleSort} />
+                    <SortTh k="snapshots" label="Snap" sortKey={sortKey} sortDir={sortDir} onClick={toggleSort} align="right" />
+                    <SortTh k="somaRec" label="Soma rec." sortKey={sortKey} sortDir={sortDir} onClick={toggleSort} align="right" />
+                    <SortTh k="ultRec" label="Últ. rec." sortKey={sortKey} sortDir={sortDir} onClick={toggleSort} align="right" />
+                    <SortTh k="dRec" label="Δ rec." sortKey={sortKey} sortDir={sortDir} onClick={toggleSort} align="right" />
+                    <SortTh k="somaGasto" label="Soma gasto" sortKey={sortKey} sortDir={sortDir} onClick={toggleSort} align="right" />
+                    <SortTh k="ultGasto" label="Últ. gasto" sortKey={sortKey} sortDir={sortDir} onClick={toggleSort} align="right" />
+                    <SortTh k="dGasto" label="Δ gasto" sortKey={sortKey} sortDir={sortDir} onClick={toggleSort} align="right" />
+                    <SortTh k="dSaldo" label="Δ saldo" sortKey={sortKey} sortDir={sortDir} onClick={toggleSort} align="right" />
+                    <SortTh k="divTotal" label="Diverg. total" sortKey={sortKey} sortDir={sortDir} onClick={toggleSort} align="right" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {pageRows.map((r) => (
+                    <tr key={r.phone} className="border-t hover:bg-muted/30">
+                      <td className="py-2 px-2 font-mono text-xs">{r.phone}</td>
+                      <td className="py-2 px-2">
+                        {r.code ? (
+                          <Link to={`/agricultor/${r.code}`} className="text-primary hover:underline inline-flex items-center gap-1">
+                            {r.name}
+                            <ExternalLink className="h-3 w-3" />
+                          </Link>
+                        ) : (
+                          <Badge variant="outline" className="text-warning border-warning">
+                            <Link to="/telefones-orfaos">Órfão</Link>
+                          </Badge>
+                        )}
+                      </td>
+                      <td className="py-2 px-2 text-right">{r.snapshots}</td>
+                      <td className="py-2 px-2 text-right">{formatKz(r.somaRec)}</td>
+                      <td className="py-2 px-2 text-right">{formatKz(r.ultRec)}</td>
+                      <td className={`py-2 px-2 text-right ${diffClass(r.dRec)}`}>{formatKz(r.dRec)}</td>
+                      <td className="py-2 px-2 text-right">{formatKz(r.somaGasto)}</td>
+                      <td className="py-2 px-2 text-right">{formatKz(r.ultGasto)}</td>
+                      <td className={`py-2 px-2 text-right ${diffClass(r.dGasto)}`}>{formatKz(r.dGasto)}</td>
+                      <td className={`py-2 px-2 text-right ${diffClass(r.dSaldo)}`}>{formatKz(r.dSaldo)}</td>
+                      <td className="py-2 px-2 text-right font-semibold">{formatKz(r.divTotal)}</td>
+                    </tr>
+                  ))}
+                  {!pageRows.length && (
+                    <tr><td colSpan={11} className="py-6 text-center text-muted-foreground">Sem resultados.</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile */}
+            <div className="md:hidden divide-y border rounded-lg">
+              {pageRows.map((r) => (
+                <div key={r.phone} className="p-3 space-y-1">
+                  <div className="flex justify-between items-start gap-2">
+                    <div className="min-w-0">
+                      <p className="font-medium truncate">
+                        {r.code ? (
+                          <Link to={`/agricultor/${r.code}`} className="text-primary hover:underline">{r.name}</Link>
+                        ) : <span className="text-warning">Órfão</span>}
+                      </p>
+                      <p className="text-xs font-mono text-muted-foreground">{r.phone} · {r.snapshots} snap</p>
+                    </div>
+                    <Badge variant="secondary">{formatKz(r.divTotal)}</Badge>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 text-xs pt-1">
+                    <div><span className="text-muted-foreground">Δ rec.</span><p className={diffClass(r.dRec)}>{formatKz(r.dRec)}</p></div>
+                    <div><span className="text-muted-foreground">Δ gasto</span><p className={diffClass(r.dGasto)}>{formatKz(r.dGasto)}</p></div>
+                    <div><span className="text-muted-foreground">Δ saldo</span><p className={diffClass(r.dSaldo)}>{formatKz(r.dSaldo)}</p></div>
+                  </div>
+                </div>
+              ))}
+              {!pageRows.length && (
+                <div className="p-6 text-center text-muted-foreground">Sem resultados.</div>
+              )}
+            </div>
+
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Página {page} de {totalPages}</span>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="outline" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1}>Anterior</Button>
+                  <Button size="sm" variant="outline" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page >= totalPages}>Seguinte</Button>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
