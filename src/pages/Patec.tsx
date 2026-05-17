@@ -1018,7 +1018,7 @@ const Patec = () => {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditFarmer(null)}>Cancelar</Button>
-            <Button onClick={handleSavePatec} disabled={saving}>{saving ? "Guardando..." : "Guardar"}</Button>
+            <Button onClick={handleSavePatec} disabled={saving || patecsForSeason.length === 0}>{saving ? "Guardando..." : "Guardar"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1059,7 +1059,7 @@ const Patec = () => {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setBulkDialogOpen(false)}>Cancelar</Button>
-            <Button onClick={() => setBulkConfirmOpen(true)} disabled={saving || !bulkPatecCode}>
+            <Button onClick={() => setBulkConfirmOpen(true)} disabled={saving || !bulkPatecCode || patecsForSeason.length === 0}>
               {`Atribuir a ${selectedIds.size} produtor${selectedIds.size > 1 ? "es" : ""}`}
             </Button>
           </DialogFooter>
