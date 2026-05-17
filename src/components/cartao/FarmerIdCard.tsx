@@ -1,8 +1,7 @@
 import { QRCodeSVG } from "qrcode.react";
 import Barcode from "react-barcode";
 import { forwardRef } from "react";
-import mosapHorizontal from "@/assets/mosap3-horizontal.png";
-import angolaLogo from "@/assets/republica-angola.png";
+import { mosapLogoHorizontal, angolaInsignia } from "@/config/brand";
 
 export interface FarmerCardData {
   code: string;
