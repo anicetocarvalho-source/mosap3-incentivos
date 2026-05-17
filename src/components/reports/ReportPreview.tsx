@@ -2,7 +2,7 @@ import { motion } from "framer-motion";
 import { format } from "date-fns";
 import { Loader2, Inbox } from "lucide-react";
 import { cn } from "@/lib/utils";
-import mosapLogo from "@/assets/mosap3-logo.png";
+import { mosapLogo } from "@/config/brand";
 import { ProducaoCharts, AgricultoresCharts, IncentivosCharts, ComprasCharts } from "./ReportCharts";
 import { useReportData, type ReportFilters } from "@/hooks/useReportData";
 
