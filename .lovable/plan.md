@@ -1,69 +1,92 @@
-## Redesign do cartão de identificação
+## Objetivo
 
-Refatorar `src/components/cartao/FarmerIdCard.tsx` para uma composição mais limpa e bem proporcionada, mantendo as dimensões CR80 (85,6 × 54 mm).
+Carregar no sistema a composição completa dos 10 Pacotes Tecnológicos (PATECs) a partir do ficheiro `PATECs_-_MOSAP3_V-Final.xlsx`, e mostrar essa composição no separador "Catálogo de Pacotes" da página `/patec`.
 
-### Frente
+## Inventário do ficheiro
 
-Nova estrutura em 3 zonas verticais (header / corpo / footer) com grelha consistente:
+10 PATECs identificados:
+
+| Nº | Agricultura | Pecuária |
+|---|---|---|
+| 1 | Milho + Feijão | Aves (5 M, 15 F) |
+| 2 | Massango + Feijão | Bovinos (1 M, 1 F) |
+| 3 | Massambala + Feijão | Caprinos (1 M, 4 F) |
+| 4 | Mandioca + Feijão | Ovinos (1 M, 4 F) |
+| 5 | Alho | Suínos |
+| 6 | Batata Doce | — |
+| 7 | Batata Rena | — |
+| 8 | Cebola | — |
+| 9 | Cenoura | — |
+| 10 | Repolho | — |
+
+Subcategorias presentes:
+- **Agricultura por cultura:** Semente, Adubo (Amônio, Ureia, NPK, Composto orgânico), Inseticida (Benzoato-Emamectina, Cipermetrina, Imidacloroprido), Fungicida (Mancozeb, Melatonia, Metalaxil, Azoxistrobina), Plantas Sementes Melhoradoras (Mucuna, Crotalária, Cajanus Cajan), Mudas Frutícolas/Florestais (Abacate, Acácia, Bananeira, Café, Cacau, Casuarina, Cedro, Eucalipto, Goiabeira, Laranjeira, Limoeiro, Mamoeiro, Mangueira, Maracujá, Pinheiro, Tangerineira).
+- **Pecuária por animal:** Ração, Antibióticos, Desparasitantes Internos, Desparasitante Externo, Vitaminas, Vacinas, Anti-inflamatório.
+- **Transversal:** Irrigação e Equipamentos Gerais (folhas próprias).
+
+A maioria das quantidades vem como `N/D`; apenas sementes, adubos, plantas de cobertura e contagens de animais têm valor numérico.
+
+## Estado atual da base de dados
+
+- `public.patecs`: **vazia** (0 registos).
+- `public.patec_items`: **vazia**, com 2 restrições incompatíveis:
+  - `patec_number IN (1,2,3)` → tem de aceitar 1‑10.
+  - `category IN ('insumos','pecuaria','servicos')` → falta granularidade por subcategoria e cultura.
+
+## Plano técnico
+
+### 1. Migração de esquema
+
+- Remover o check `patec_items_patec_number_check` e recriar como `patec_number BETWEEN 1 AND 50` (ou eliminar e ligar tudo via `patec_code`).
+- Adicionar colunas em `patec_items`:
+  - `subcategory text` (ex: `semente`, `adubo`, `inseticida`, `fungicida`, `planta_melhoradora`, `muda_fruteira_florestal`, `racao`, `antibiotico`, `desparasitante_interno`, `desparasitante_externo`, `vitamina`, `vacina`, `anti_inflamatorio`, `irrigacao`, `equipamento`).
+  - `culture text NULL` (ex: `Milho`, `Feijão`, `Aves`, `Bovinos`…; NULL para itens transversais).
+  - `sort_order int DEFAULT 0`.
+- Manter `base_quantity numeric NULL` e `unit text NULL` para os itens `N/D`.
+- Substituir o check de `category` por: `category IN ('agricultura','pecuaria','irrigacao','equipamento')`.
+
+### 2. Seed dos 10 pacotes em `patecs`
+
+Inserir cada PATEC com `code`, `name`, `cultures`, `icon`, `color_token`, `legacy_number` (1‑10), `sort_order`. Exemplos de cor/ícone (consistentes com a paleta atual `amber/emerald/violet/sky/rose/slate/orange`):
 
 ```
-┌────────────────────────────────────────────────┐
-│ [Angola]  MINAGRIF                  [MOSAP3]   │ header (h≈42)
-│           República de Angola                  │
-├────────────────────────────────────────────────┤
-│ ┌──────┐  ABEL CANDIEIRO              ┌─────┐ │
-│ │      │  ID  AGR-976091758           │ QR  │ │ corpo
-│ │ FOTO │  Província / Município       │     │ │
-│ │      │  ECA: ...                    └─────┘ │
-│ │      │  PATEC: ...                  Verificar│
-│ └──────┘                                       │
-├────────────────────────────────────────────────┤
-│ Cartão de Identificação do Agricultor   ATIVO  │ footer
-└────────────────────────────────────────────────┘
+PATEC-01  Milho + Feijão           wheat    amber
+PATEC-02  Massango + Feijão        wheat    orange
+PATEC-03  Massambala + Feijão      wheat    rose
+PATEC-04  Mandioca + Feijão        sprout   emerald
+PATEC-05  Alho                     sprout   violet
+PATEC-06  Batata Doce              carrot   sky
+PATEC-07  Batata Rena              carrot   slate
+PATEC-08  Cebola                   sprout   amber
+PATEC-09  Cenoura                  carrot   orange
+PATEC-10  Repolho                  leaf     emerald
 ```
 
-Mudanças específicas:
-- Header com duas marcas: à **esquerda** insígnia da República de Angola + texto "MINAGRIF" / "República de Angola" empilhado; à **direita** logo MOSAP3 em círculo branco. Título "Cartão de Identificação do Agricultor" passa para o footer para libertar o topo.
-- Foto **estilo passaporte** (proporção 3:4, ~64×84 px à escala 1), borda branca fina, canto arredondado discreto, alinhada verticalmente ao bloco de informação.
-- Nome do agricultor com tipografia maior e bold, ID em mono numa linha logo abaixo, província/município/ECA/PATEC em linhas separadas com hierarquia consistente (tracking, opacidade) e truncagem.
-- QR à direita alinhado ao topo do bloco de informação (mesma baseline da foto), com label "Verificar" centrada por baixo.
-- Footer com gradiente subtil e badge de estado à direita usando tokens semânticos (`success` / `warning`) em vez de `text-green-300` literal.
-- Remover os `transform: scale(${scale})` aninhados que estavam a causar desalinhamento entre header/corpo/footer; aplicar `scale` apenas no contentor raiz.
+### 3. Seed da composição em `patec_items`
 
-### Verso
+Script Python lê o `.xlsx` e gera um único `INSERT` para `patec_items`:
+- Cada linha com `patec_number`, `patec_code`, `category`, `subcategory`, `culture`, `name`, `base_quantity` (numérico se parseável, senão NULL), `unit` (Kg, Feixes, Litros, mL, cabeça), `sort_order`.
+- Para "Quantidade Aves/Bovinos/Caprinos macho/fêmea": criar 2 linhas `category=pecuaria, subcategory=animal, name='Macho'/'Fêmea', base_quantity=N, unit='cabeça'`.
+- Folhas **Irrigação** e **Equipamentos Gerais** entram com `patec_number=NULL` (ou pseudo-pacote partilhado) — confirmar opção (ver pergunta abaixo).
 
-```
-┌────────────────────────────────────────────────┐
-│              ║║│║║│║│║│║║│║│║                  │ barcode centrado
-│              AGR-976091758                     │
-├────────────────────────────────────────────────┤
-│  BI:            004XXXXXXLA041                 │
-│  Telefone:      244 976 091 758                │ grid 2 col
-│  Elegibilidade: Sem crédito                    │ key→muted
-│  Emissão:       17/05/2026                     │ value→foreground
-├────────────────────────────────────────────────┤
-│ Cartão emitido pelo sistema MOSAP3.            │
-│ Para verificar autenticidade, leia o QR Code.  │
-└────────────────────────────────────────────────┘
-```
+### 4. UI — exibir composição em `/patec`
 
-- Padding lateral consistente com a frente (px-4) e blocos verticalmente espaçados com `space-y`.
-- Grelha de detalhes com colunas alinhadas (label muted, valor foreground), tipografia ligeiramente maior (8–9px à escala 1) para legibilidade.
-- Barcode reduzido de altura mas com mais ar à volta; código por baixo em mono.
-- Footer em duas linhas centradas.
+No `PatecsTab.tsx`, adicionar à cada Card um botão **"Ver composição"** que abre um `Dialog` (novo ficheiro `PatecCompositionDialog.tsx`) com:
+- Tabs por categoria (`Agricultura | Pecuária | Irrigação | Equipamentos`).
+- Dentro de cada tab, secções agrupadas por `culture`/`animal` e por `subcategory`.
+- Tabela com `Nome | Quantidade base | Unidade`.
+- Quantidades NULL mostradas como `—` com badge "a definir".
 
-### Tokens / cores
-- Manter o gradiente verde MOSAP3 mas usar tokens HSL existentes (`--primary` → variação mais escura) sem cores literais novas.
-- Estado: `success` (Ativo/Aprovado), `warning` (Pendente), `destructive` (Revogado).
+Hook novo: `usePatecItems(patecCode)` em `src/hooks/usePatecs.ts` (extensão).
 
-### Ativos a adicionar
-Aguardar upload do utilizador:
-- `src/assets/republica-angola.png` (insígnia / brasão da República)
-- `src/assets/minagrif.png` (opcional, se logo separado; caso contrário usar apenas texto "MINAGRIF")
+### 5. Atualização de tipos
 
-Até as imagens chegarem, deixar `<img>` com `src` apontando para o ficheiro esperado e fallback de texto, para que a substituição depois seja um simples drop-in.
+Após a migração, o ficheiro `src/integrations/supabase/types.ts` é regenerado automaticamente — nenhum trabalho manual.
 
-### Ficheiros tocados
-- `src/components/cartao/FarmerIdCard.tsx` (único componente — afeta automaticamente `CartaoIdLote`, `CartoesId`, `FarmerCardTab`, exportação PDF/PNG via `cardExport.ts`).
+## Perguntas a confirmar
 
-Sem alterações em rotas, dados ou exportação.
+1. **Quantidades "N/D":** importar com `base_quantity = NULL` (preferido — composição completa, valores a definir mais tarde) ou ignorar as linhas N/D?
+2. **Irrigação e Equipamentos Gerais:** anexar a *todos* os 10 PATECs, criar um pseudo-PATEC partilhado, ou deixar como catálogo separado (ex: nova tab "Comuns" no `/patec`)?
+3. **Edição inline:** apenas leitura por agora, ou já permitir editar quantidades pela UI (admins)?
+
+Sem resposta, assumo: (1) NULL, (2) catálogo separado partilhado, (3) só leitura nesta fase.

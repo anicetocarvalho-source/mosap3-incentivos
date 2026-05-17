@@ -4,13 +4,14 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Pencil, Trash2, Package, AlertCircle, CalendarDays } from "lucide-react";
+import { Plus, Pencil, Trash2, Package, AlertCircle, CalendarDays, ListTree } from "lucide-react";
 import { toast } from "sonner";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import PatecFormDialog from "./PatecFormDialog";
+import PatecCompositionDialog from "./PatecCompositionDialog";
 import type { Patec } from "@/hooks/usePatecs";
 import type { Season, PatecSeasonLink } from "@/hooks/useSeasons";
 
@@ -27,6 +28,7 @@ export default function PatecsTab({ patecs, seasons, links, farmerCounts, isAdmi
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Patec | null>(null);
   const [deleting, setDeleting] = useState<Patec | null>(null);
+  const [composing, setComposing] = useState<Patec | null>(null);
 
   const seasonsByPatec = useMemo(() => {
     const m: Record<string, Season[]> = {};
@@ -135,18 +137,24 @@ export default function PatecsTab({ patecs, seasons, links, farmerCounts, isAdmi
                     )}
                   </div>
 
-                  {isAdmin && (
-                    <div className="flex gap-1.5 pt-2 border-t">
-                      <Button variant="ghost" size="sm" className="flex-1 h-8 text-xs"
-                        onClick={() => { setEditing(p); setFormOpen(true); }}>
-                        <Pencil className="h-3 w-3 mr-1" /> Editar
-                      </Button>
-                      <Button variant="ghost" size="sm" className="h-8 text-xs text-destructive"
-                        onClick={() => setDeleting(p)}>
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  )}
+                  <div className="flex gap-1.5 pt-2 border-t">
+                    <Button variant="outline" size="sm" className="flex-1 h-8 text-xs"
+                      onClick={() => setComposing(p)}>
+                      <ListTree className="h-3 w-3 mr-1" /> Composição
+                    </Button>
+                    {isAdmin && (
+                      <>
+                        <Button variant="ghost" size="sm" className="h-8 text-xs"
+                          onClick={() => { setEditing(p); setFormOpen(true); }}>
+                          <Pencil className="h-3 w-3" />
+                        </Button>
+                        <Button variant="ghost" size="sm" className="h-8 text-xs text-destructive"
+                          onClick={() => setDeleting(p)}>
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </>
+                    )}
+                  </div>
                 </CardContent>
               </Card>
             );
@@ -161,6 +169,12 @@ export default function PatecsTab({ patecs, seasons, links, farmerCounts, isAdmi
         seasons={seasons}
         initialSeasonIds={editing ? (seasonsByPatec[editing.id] || []).map((s) => s.id) : []}
         onSaved={refetch}
+      />
+
+      <PatecCompositionDialog
+        open={!!composing}
+        onOpenChange={(o) => !o && setComposing(null)}
+        patec={composing}
       />
 
       <AlertDialog open={!!deleting} onOpenChange={(o) => !o && setDeleting(null)}>

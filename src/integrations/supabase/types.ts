@@ -1392,30 +1392,39 @@ export type Database = {
           base_quantity: number | null
           category: string
           created_at: string
+          culture: string | null
           id: string
           name: string
           patec_code: string | null
-          patec_number: number
+          patec_number: number | null
+          sort_order: number
+          subcategory: string | null
           unit: string | null
         }
         Insert: {
           base_quantity?: number | null
           category: string
           created_at?: string
+          culture?: string | null
           id?: string
           name: string
           patec_code?: string | null
-          patec_number: number
+          patec_number?: number | null
+          sort_order?: number
+          subcategory?: string | null
           unit?: string | null
         }
         Update: {
           base_quantity?: number | null
           category?: string
           created_at?: string
+          culture?: string | null
           id?: string
           name?: string
           patec_code?: string | null
-          patec_number?: number
+          patec_number?: number | null
+          sort_order?: number
+          subcategory?: string | null
           unit?: string | null
         }
         Relationships: []
