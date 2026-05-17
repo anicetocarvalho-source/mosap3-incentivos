@@ -283,8 +283,12 @@ const Patec = () => {
 
   const handleSavePatec = async () => {
     if (!editFarmer) return;
-    setSaving(true);
     const selected = editPatecCode ? patecs.find((p) => p.code === editPatecCode) : null;
+    if (selected && !patecsForSeason.some((p) => p.code === selected.code)) {
+      toast.error("Não existem PATECs disponíveis para a época seleccionada. Seleccione uma época com pacotes vinculados.");
+      return;
+    }
+    setSaving(true);
     const { error } = await supabase
       .from("farmers")
       .update({
@@ -324,6 +328,10 @@ const Patec = () => {
     if (!bulkPatecCode || selectedIds.size === 0) return;
     const selected = patecs.find((p) => p.code === bulkPatecCode);
     if (!selected) return;
+    if (!patecsForSeason.some((p) => p.code === selected.code)) {
+      toast.error("Não existem PATECs disponíveis para a época seleccionada. Seleccione uma época com pacotes vinculados.");
+      return;
+    }
     setSaving(true);
     const ids = Array.from(selectedIds);
     let errorCount = 0;
