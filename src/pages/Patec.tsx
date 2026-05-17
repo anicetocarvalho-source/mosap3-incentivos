@@ -1037,7 +1037,7 @@ const Patec = () => {
             <AlertDialogDescription asChild>
               <div className="space-y-2 text-sm text-muted-foreground">
                 <p>
-                  Tem a certeza que deseja atribuir <strong className="text-foreground">PATEC {bulkPatec}{bulkPatec && patecMeta[parseInt(bulkPatec)] ? ` — ${patecMeta[parseInt(bulkPatec)].cultures}` : ""}</strong> a <strong className="text-foreground">{selectedIds.size}</strong> produtor(es)?
+                  Tem a certeza que deseja atribuir <strong className="text-foreground">{bulkPatecCode || "PATEC"}{(() => { const s = patecs.find((p) => p.code === bulkPatecCode); return s ? ` — ${s.name}` : ""; })()}</strong> a <strong className="text-foreground">{selectedIds.size}</strong> produtor(es)?
                 </p>
                 {(() => {
                   const selected = farmers.filter((f) => selectedIds.has(f.id));
