@@ -1,12 +1,15 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { Link } from "react-router-dom";
 import * as XLSX from "xlsx";
 import PageHeader from "@/components/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Loader2, Upload, Info } from "lucide-react";
+import { Loader2, Upload, Info, ArrowUp, ArrowDown, Download, ExternalLink } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllPages } from "@/lib/supabaseFetchAll";
 import { parseAmount, formatKz } from "@/lib/numberFormat";
