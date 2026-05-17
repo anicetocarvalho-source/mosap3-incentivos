@@ -1,92 +1,48 @@
-## Objetivo
+## Contexto
 
-Carregar no sistema a composição completa dos 10 Pacotes Tecnológicos (PATECs) a partir do ficheiro `PATECs_-_MOSAP3_V-Final.xlsx`, e mostrar essa composição no separador "Catálogo de Pacotes" da página `/patec`.
+A página `/patec` já tem três separadores:
 
-## Inventário do ficheiro
+- **Épocas Agrícolas** — CRUD de épocas (tabela `agricultural_seasons`).
+- **Pacotes** — lista os 10 PATECs e permite ligar a cada PATEC uma ou mais épocas (tabela `patec_seasons`).
+- **Atribuição** — onde se atribui o PATEC ao produtor.
 
-10 PATECs identificados:
+O problema: o separador **Atribuição** está congelado nos PATECs antigos (1/2/3) e grava na coluna legacy `farmers.patec` (inteiro). Ignora os 10 PATECs novos, ignora a coluna `farmers.patec_code` (texto) e ignora as épocas. Por isso o fluxo "criar época → vincular ao pacote → atribuir ao agricultor" hoje não fecha.
 
-| Nº | Agricultura | Pecuária |
-|---|---|---|
-| 1 | Milho + Feijão | Aves (5 M, 15 F) |
-| 2 | Massango + Feijão | Bovinos (1 M, 1 F) |
-| 3 | Massambala + Feijão | Caprinos (1 M, 4 F) |
-| 4 | Mandioca + Feijão | Ovinos (1 M, 4 F) |
-| 5 | Alho | Suínos |
-| 6 | Batata Doce | — |
-| 7 | Batata Rena | — |
-| 8 | Cebola | — |
-| 9 | Cenoura | — |
-| 10 | Repolho | — |
+## O que vai ser feito
 
-Subcategorias presentes:
-- **Agricultura por cultura:** Semente, Adubo (Amônio, Ureia, NPK, Composto orgânico), Inseticida (Benzoato-Emamectina, Cipermetrina, Imidacloroprido), Fungicida (Mancozeb, Melatonia, Metalaxil, Azoxistrobina), Plantas Sementes Melhoradoras (Mucuna, Crotalária, Cajanus Cajan), Mudas Frutícolas/Florestais (Abacate, Acácia, Bananeira, Café, Cacau, Casuarina, Cedro, Eucalipto, Goiabeira, Laranjeira, Limoeiro, Mamoeiro, Mangueira, Maracujá, Pinheiro, Tangerineira).
-- **Pecuária por animal:** Ração, Antibióticos, Desparasitantes Internos, Desparasitante Externo, Vitaminas, Vacinas, Anti-inflamatório.
-- **Transversal:** Irrigação e Equipamentos Gerais (folhas próprias).
+### 1. Atribuição dinâmica baseada em `patecs` + `patec_seasons`
 
-A maioria das quantidades vem como `N/D`; apenas sementes, adubos, plantas de cobertura e contagens de animais têm valor numérico.
+- O separador **Atribuição** passa a listar todos os PATECs activos vindos de `usePatecs({ activeOnly: true })`, ordenados por `sort_order`.
+- Filtro "Filtrar PATEC", cards de stats, gráfico de distribuição e cartões de composição deixam de ter PATEC 1/2/3 hard-coded e passam a iterar sobre a lista dinâmica.
+- Cada PATEC mostra um badge com a(s) época(s) vinculadas (a partir de `links` do `useSeasons`), e um aviso visual quando não tem nenhuma época associada.
 
-## Estado atual da base de dados
+### 2. Filtro por época agrícola
 
-- `public.patecs`: **vazia** (0 registos).
-- `public.patec_items`: **vazia**, com 2 restrições incompatíveis:
-  - `patec_number IN (1,2,3)` → tem de aceitar 1‑10.
-  - `category IN ('insumos','pecuaria','servicos')` → falta granularidade por subcategoria e cultura.
+- Novo selector "Época" no topo do separador Atribuição. Por defeito assume a época **em curso** (`is_active = true` e `today` entre `start_date` e `end_date`); se não houver, mostra todas.
+- Quando uma época é seleccionada, só ficam disponíveis para atribuição os PATECs vinculados a essa época (via `patec_seasons`). Os restantes aparecem desactivados com tooltip "Não vinculado à época X".
 
-## Plano técnico
+### 3. Gravação no `patec_code` (e compatibilidade)
 
-### 1. Migração de esquema
+- Atribuição individual e em lote passam a gravar `farmers.patec_code` (texto, ex.: `PATEC-04`).
+- Por compatibilidade com o resto da app que ainda lê `farmers.patec`, quando o PATEC seleccionado tiver `legacy_number` preenchido também actualiza a coluna legacy; caso contrário fica `NULL`.
+- A leitura na lista de produtores prefere `patec_code` e cai para `patec` legacy quando o código não está preenchido.
 
-- Remover o check `patec_items_patec_number_check` e recriar como `patec_number BETWEEN 1 AND 50` (ou eliminar e ligar tudo via `patec_code`).
-- Adicionar colunas em `patec_items`:
-  - `subcategory text` (ex: `semente`, `adubo`, `inseticida`, `fungicida`, `planta_melhoradora`, `muda_fruteira_florestal`, `racao`, `antibiotico`, `desparasitante_interno`, `desparasitante_externo`, `vitamina`, `vacina`, `anti_inflamatorio`, `irrigacao`, `equipamento`).
-  - `culture text NULL` (ex: `Milho`, `Feijão`, `Aves`, `Bovinos`…; NULL para itens transversais).
-  - `sort_order int DEFAULT 0`.
-- Manter `base_quantity numeric NULL` e `unit text NULL` para os itens `N/D`.
-- Substituir o check de `category` por: `category IN ('agricultura','pecuaria','irrigacao','equipamento')`.
+### 4. Stats, gráfico e reatribuição aleatória
 
-### 2. Seed dos 10 pacotes em `patecs`
+- `stats` deixa de ter campos fixos `patec1/2/3` e passa a `Record<patec_code, number>` calculado dinamicamente.
+- O gráfico de barras e a validação "distribuição em terços" passam a usar a lista dinâmica (a regra de equilíbrio passa a ser `100 / nº de PATECs activos`, com desvio máximo configurável).
+- A acção "Reatribuir aleatoriamente" passa a distribuir os produtores sem PATEC pelos códigos dos PATECs activos da época seleccionada (em vez de só 1/2/3).
 
-Inserir cada PATEC com `code`, `name`, `cultures`, `icon`, `color_token`, `legacy_number` (1‑10), `sort_order`. Exemplos de cor/ícone (consistentes com a paleta atual `amber/emerald/violet/sky/rose/slate/orange`):
+### 5. Atalhos de navegação entre separadores
 
-```
-PATEC-01  Milho + Feijão           wheat    amber
-PATEC-02  Massango + Feijão        wheat    orange
-PATEC-03  Massambala + Feijão      wheat    rose
-PATEC-04  Mandioca + Feijão        sprout   emerald
-PATEC-05  Alho                     sprout   violet
-PATEC-06  Batata Doce              carrot   sky
-PATEC-07  Batata Rena              carrot   slate
-PATEC-08  Cebola                   sprout   amber
-PATEC-09  Cenoura                  carrot   orange
-PATEC-10  Repolho                  leaf     emerald
-```
+- No separador **Épocas Agrícolas**, num cartão sem pacotes vinculados, botão "Vincular pacotes" abre directamente o `SeasonFormDialog` no modo edição.
+- No separador **Pacotes**, num cartão sem épocas, botão "Vincular época" abre o diálogo de edição do PATEC já no campo de épocas.
+- Depois de gravar uma época nova, toast com CTA "Atribuir agora" que muda para o separador **Atribuição** com o filtro de época pré-preenchido.
 
-### 3. Seed da composição em `patec_items`
+## Notas técnicas
 
-Script Python lê o `.xlsx` e gera um único `INSERT` para `patec_items`:
-- Cada linha com `patec_number`, `patec_code`, `category`, `subcategory`, `culture`, `name`, `base_quantity` (numérico se parseável, senão NULL), `unit` (Kg, Feixes, Litros, mL, cabeça), `sort_order`.
-- Para "Quantidade Aves/Bovinos/Caprinos macho/fêmea": criar 2 linhas `category=pecuaria, subcategory=animal, name='Macho'/'Fêmea', base_quantity=N, unit='cabeça'`.
-- Folhas **Irrigação** e **Equipamentos Gerais** entram com `patec_number=NULL` (ou pseudo-pacote partilhado) — confirmar opção (ver pergunta abaixo).
-
-### 4. UI — exibir composição em `/patec`
-
-No `PatecsTab.tsx`, adicionar à cada Card um botão **"Ver composição"** que abre um `Dialog` (novo ficheiro `PatecCompositionDialog.tsx`) com:
-- Tabs por categoria (`Agricultura | Pecuária | Irrigação | Equipamentos`).
-- Dentro de cada tab, secções agrupadas por `culture`/`animal` e por `subcategory`.
-- Tabela com `Nome | Quantidade base | Unidade`.
-- Quantidades NULL mostradas como `—` com badge "a definir".
-
-Hook novo: `usePatecItems(patecCode)` em `src/hooks/usePatecs.ts` (extensão).
-
-### 5. Atualização de tipos
-
-Após a migração, o ficheiro `src/integrations/supabase/types.ts` é regenerado automaticamente — nenhum trabalho manual.
-
-## Perguntas a confirmar
-
-1. **Quantidades "N/D":** importar com `base_quantity = NULL` (preferido — composição completa, valores a definir mais tarde) ou ignorar as linhas N/D?
-2. **Irrigação e Equipamentos Gerais:** anexar a *todos* os 10 PATECs, criar um pseudo-PATEC partilhado, ou deixar como catálogo separado (ex: nova tab "Comuns" no `/patec`)?
-3. **Edição inline:** apenas leitura por agora, ou já permitir editar quantidades pela UI (admins)?
-
-Sem resposta, assumo: (1) NULL, (2) catálogo separado partilhado, (3) só leitura nesta fase.
+- Ficheiros principais a tocar: `src/pages/Patec.tsx`, `src/components/patec/PatecsTab.tsx`, `src/components/patec/SeasonsTab.tsx`. Hooks `usePatecs` e `useSeasons` já chegam.
+- Sem alterações de schema: `farmers.patec_code`, `patecs`, `patec_seasons` e `agricultural_seasons` já existem com as RLS adequadas.
+- O `patecMeta` hardcoded (cores/ícones/gradientes para PATEC 1/2/3) é substituído por um resolver que usa `patec.icon` + `patec.color_token` da tabela `patecs`, com fallback neutro.
+- Os contadores existentes em `farmerCountsByCode` já mapeiam legacy → code via `legacy_number`; passam a ser a fonte única para os stats.
+- Sem mudanças em POS, incentivos ou outros módulos — apenas o UI de atribuição em `/patec`.

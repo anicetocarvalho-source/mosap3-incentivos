@@ -3,7 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import {
   BarChart as RechartsBarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
 } from "recharts";
-import { Package, Search, Filter, Edit2, Eye, CheckSquare, X, Plus, Trash2, Pencil, Check, ChevronLeft, ChevronRight, Wheat, Loader2, Users, AlertCircle, Sprout, Leaf, TreeDeciduous, BarChart, MapPin, Shuffle } from "lucide-react";
+import { Package, Search, Filter, Edit2, Eye, CheckSquare, X, Plus, Trash2, Pencil, Check, ChevronLeft, ChevronRight, Wheat, Loader2, Users, AlertCircle, Sprout, Leaf, TreeDeciduous, BarChart, MapPin, Shuffle, CalendarDays } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllPages } from "@/lib/supabaseFetchAll";
 import { Input } from "@/components/ui/input";
@@ -31,7 +31,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { usePatecs } from "@/hooks/usePatecs";
+import { usePatecs, type Patec } from "@/hooks/usePatecs";
 import { useSeasons } from "@/hooks/useSeasons";
 import PatecsTab from "@/components/patec/PatecsTab";
 import SeasonsTab from "@/components/patec/SeasonsTab";
@@ -44,6 +44,7 @@ interface FarmerPatec {
   municipality: string | null;
   school: string | null;
   patec: number | null;
+  patec_code: string | null;
   status: string;
 }
 
@@ -97,15 +98,18 @@ const Patec = () => {
   const [filterProvince, setFilterProvince] = useState<string>(initialProvince);
   const [page, setPage] = useState(1);
   const [editFarmer, setEditFarmer] = useState<FarmerPatec | null>(null);
-  const [editPatec, setEditPatec] = useState<string>("");
+  const [editPatecCode, setEditPatecCode] = useState<string>("");
   const [saving, setSaving] = useState(false);
   const [viewPatec, setViewPatec] = useState<number | null>(null);
 
   // Bulk selection state
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
-  const [bulkPatec, setBulkPatec] = useState<string>("");
+  const [bulkPatecCode, setBulkPatecCode] = useState<string>("");
   const [bulkConfirmOpen, setBulkConfirmOpen] = useState(false);
+
+  // Season selector for assignment
+  const [selectedSeasonId, setSelectedSeasonId] = useState<string>("all");
 
   // Add item state
   const [addingCategory, setAddingCategory] = useState<{ patec: number; category: string } | null>(null);
@@ -133,6 +137,29 @@ const Patec = () => {
     }
   });
 
+  // Default season selector to currently active (in-progress) season once loaded
+  useEffect(() => {
+    if (selectedSeasonId !== "all" || seasons.length === 0) return;
+    const today = new Date().toISOString().slice(0, 10);
+    const current = seasons.find((s) => s.is_active && today >= s.start_date && today <= s.end_date);
+    if (current) setSelectedSeasonId(current.id);
+  }, [seasons]);
+
+  // PATECs assignable for the chosen season (active only; restricted by links when a season is selected)
+  const activePatecs = patecs.filter((p) => p.is_active);
+  const patecsForSeason = selectedSeasonId === "all"
+    ? activePatecs
+    : activePatecs.filter((p) => links.some((l) => l.season_id === selectedSeasonId && l.patec_id === p.id));
+
+  const findPatecByFarmer = (code: string | null, legacy: number | null): Patec | undefined => {
+    if (code) {
+      const m = patecs.find((p) => p.code === code);
+      if (m) return m;
+    }
+    if (legacy != null) return patecs.find((p) => p.legacy_number === legacy);
+    return undefined;
+  };
+
 
   const fetchFarmers = async (resolved: ResolvedScope) => {
     setLoading(true);
@@ -143,7 +170,7 @@ const Patec = () => {
           supabase
             .from("farmers")
             .select(
-              "id, code, full_name, province, municipality, school, patec, status",
+              "id, code, full_name, province, municipality, school, patec, patec_code, status",
               { count: "exact" }
             )
             .order("code"),
@@ -257,16 +284,19 @@ const Patec = () => {
   const handleSavePatec = async () => {
     if (!editFarmer) return;
     setSaving(true);
-    const newPatec = editPatec ? parseInt(editPatec) : null;
+    const selected = editPatecCode ? patecs.find((p) => p.code === editPatecCode) : null;
     const { error } = await supabase
       .from("farmers")
-      .update({ patec: newPatec })
+      .update({
+        patec_code: selected?.code ?? null,
+        patec: selected?.legacy_number ?? null,
+      })
       .eq("id", editFarmer.id);
     setSaving(false);
     if (error) {
       toast.error("Erro ao atribuir PATEC");
     } else {
-      toast.success(`PATEC ${newPatec || "removido"} atribuído a ${editFarmer.full_name}`);
+      toast.success(selected ? `${selected.code} atribuído a ${editFarmer.full_name}` : `PATEC removido de ${editFarmer.full_name}`);
       setEditFarmer(null);
       scope && fetchFarmers(scope);
     }
@@ -291,23 +321,27 @@ const Patec = () => {
   const clearSelection = () => setSelectedIds(new Set());
 
   const handleBulkSave = async () => {
-    if (!bulkPatec || selectedIds.size === 0) return;
+    if (!bulkPatecCode || selectedIds.size === 0) return;
+    const selected = patecs.find((p) => p.code === bulkPatecCode);
+    if (!selected) return;
     setSaving(true);
-    const newPatec = parseInt(bulkPatec);
     const ids = Array.from(selectedIds);
     let errorCount = 0;
     for (let i = 0; i < ids.length; i += 50) {
       const batch = ids.slice(i, i + 50);
-      const { error } = await supabase.from("farmers").update({ patec: newPatec }).in("id", batch);
+      const { error } = await supabase
+        .from("farmers")
+        .update({ patec_code: selected.code, patec: selected.legacy_number ?? null })
+        .in("id", batch);
       if (error) errorCount++;
     }
     setSaving(false);
     setBulkDialogOpen(false);
-    setBulkPatec("");
+    setBulkPatecCode("");
     if (errorCount > 0) {
       toast.error(`Erro ao atribuir PATEC a alguns produtores`);
     } else {
-      toast.success(`PATEC ${newPatec} atribuído a ${ids.length} produtor(es)`);
+      toast.success(`${selected.code} atribuído a ${ids.length} produtor(es)`);
     }
     setSelectedIds(new Set());
     scope && fetchFarmers(scope);
@@ -341,7 +375,8 @@ const Patec = () => {
       const list = buckets[patecNum];
       for (let i = 0; i < list.length; i += 50) {
         const batch = list.slice(i, i + 50);
-        const { error } = await supabase.from("farmers").update({ patec: patecNum }).in("id", batch);
+        const codeForLegacy = patecs.find((p) => p.legacy_number === patecNum)?.code ?? null;
+        const { error } = await supabase.from("farmers").update({ patec: patecNum, patec_code: codeForLegacy }).in("id", batch);
         if (error) errorCount++;
       }
     }
@@ -741,6 +776,20 @@ const Patec = () => {
               ))}
             </SelectContent>
           </Select>
+          {seasons.length > 0 && (
+            <Select value={selectedSeasonId} onValueChange={setSelectedSeasonId}>
+              <SelectTrigger className="w-[220px]">
+                <CalendarDays className="h-4 w-4 mr-2" />
+                <SelectValue placeholder="Época agrícola" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas as épocas</SelectItem>
+                {seasons.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
           <Select value={filterPatec} onValueChange={setFilterPatec}>
             <SelectTrigger className="w-[200px]">
               <Filter className="h-4 w-4 mr-2" />
@@ -766,7 +815,7 @@ const Patec = () => {
             <Button variant="outline" size="sm" className="h-8 text-xs" onClick={clearSelection}>
               <X className="h-3 w-3 mr-1" /> Limpar
             </Button>
-            <Button size="sm" className="h-8 text-xs" onClick={() => { setBulkDialogOpen(true); setBulkPatec(""); }}>
+            <Button size="sm" className="h-8 text-xs" onClick={() => { setBulkDialogOpen(true); setBulkPatecCode(""); }}>
               <Package className="h-3 w-3 mr-1" /> Atribuir PATEC em lote
             </Button>
           </div>
@@ -816,16 +865,19 @@ const Patec = () => {
                       <Badge variant={f.status === "Ativo" ? "default" : "secondary"} className="text-[10px]">{f.status}</Badge>
                     </TableCell>
                     <TableCell>
-                      {f.patec ? (
-                        <Badge variant="outline" className={`text-[10px] ${patecMeta[f.patec]?.color || ""}`}>
-                          PATEC {f.patec}
-                        </Badge>
-                      ) : (
-                        <span className="text-xs text-destructive font-medium">Não atribuído</span>
-                      )}
+                      {(() => {
+                        const p = findPatecByFarmer(f.patec_code, f.patec);
+                        if (!p) return <span className="text-xs text-destructive font-medium">Não atribuído</span>;
+                        const meta = p.legacy_number ? patecMeta[p.legacy_number] : null;
+                        return <Badge variant="outline" className={`text-[10px] ${meta?.color || ""}`}>{p.code}</Badge>;
+                      })()}
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => { setEditFarmer(f); setEditPatec(f.patec ? String(f.patec) : ""); }}>
+                      <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => {
+                        const p = findPatecByFarmer(f.patec_code, f.patec);
+                        setEditFarmer(f);
+                        setEditPatecCode(p?.code ?? "");
+                      }}>
                         <Edit2 className="h-3 w-3 mr-1" /> Atribuir
                       </Button>
                     </TableCell>
@@ -848,11 +900,12 @@ const Patec = () => {
                     <Checkbox checked={selectedIds.has(f.id)} onCheckedChange={() => toggleSelect(f.id)} />
                     <Link to={`/agricultores/${f.code}`} className="text-sm font-medium text-primary hover:underline">{f.full_name}</Link>
                   </div>
-                  {f.patec ? (
-                    <Badge variant="outline" className={`text-[10px] ${patecMeta[f.patec]?.color || ""}`}>PATEC {f.patec}</Badge>
-                  ) : (
-                    <span className="text-[10px] text-destructive font-medium">Sem PATEC</span>
-                  )}
+                  {(() => {
+                    const p = findPatecByFarmer(f.patec_code, f.patec);
+                    if (!p) return <span className="text-[10px] text-destructive font-medium">Sem PATEC</span>;
+                    const meta = p.legacy_number ? patecMeta[p.legacy_number] : null;
+                    return <Badge variant="outline" className={`text-[10px] ${meta?.color || ""}`}>{p.code}</Badge>;
+                  })()}
                 </div>
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
                   <span className="font-mono">{f.code}</span>
@@ -860,7 +913,11 @@ const Patec = () => {
                 </div>
                 <div className="flex items-center justify-between">
                   <Badge variant={f.status === "Ativo" ? "default" : "secondary"} className="text-[10px]">{f.status}</Badge>
-                  <Button variant="ghost" size="sm" className="h-6 text-[10px] px-2" onClick={() => { setEditFarmer(f); setEditPatec(f.patec ? String(f.patec) : ""); }}>
+                  <Button variant="ghost" size="sm" className="h-6 text-[10px] px-2" onClick={() => {
+                    const p = findPatecByFarmer(f.patec_code, f.patec);
+                    setEditFarmer(f);
+                    setEditPatecCode(p?.code ?? "");
+                  }}>
                     <Edit2 className="h-3 w-3 mr-1" /> Atribuir
                   </Button>
                 </div>
@@ -892,29 +949,50 @@ const Patec = () => {
             <p className="text-sm text-muted-foreground">
               Código: <span className="font-mono font-semibold">{editFarmer?.code}</span>
             </p>
-            <Select value={editPatec} onValueChange={setEditPatec}>
-              <SelectTrigger><SelectValue placeholder="Seleccionar PATEC" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="1">PATEC 1 — Milho + Feijão + Gado</SelectItem>
-                <SelectItem value="2">PATEC 2 — Massango + Feijão + Gado</SelectItem>
-                <SelectItem value="3">PATEC 3 — Massambala + Feijão + Gado</SelectItem>
-              </SelectContent>
-            </Select>
-            {editPatec && (
-              <div className="border rounded-lg p-3 text-xs space-y-2 bg-muted/30">
-                <p className="font-semibold">{patecMeta[parseInt(editPatec)]?.title}</p>
-                <div className="grid grid-cols-3 gap-2">
-                  {["insumos", "pecuaria", "servicos"].map((cat) => (
-                    <div key={cat}>
-                      <p className="font-medium text-muted-foreground mb-1">{categoryLabels[cat]}</p>
-                      <ul className="space-y-0.5">
-                        {getItems(parseInt(editPatec), cat).map((i) => <li key={i.id}>• {i.name}</li>)}
-                      </ul>
-                    </div>
-                  ))}
-                </div>
+            {seasons.length > 0 && (
+              <div className="text-xs text-muted-foreground">
+                Época: <span className="font-medium text-foreground">
+                  {selectedSeasonId === "all" ? "Todas" : (seasons.find((s) => s.id === selectedSeasonId)?.name || "—")}
+                </span>
               </div>
             )}
+            <Select value={editPatecCode || "_none"} onValueChange={(v) => setEditPatecCode(v === "_none" ? "" : v)}>
+              <SelectTrigger><SelectValue placeholder="Seleccionar PATEC" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="_none">— Remover atribuição —</SelectItem>
+                {patecsForSeason.length === 0 ? (
+                  <div className="px-2 py-3 text-xs text-muted-foreground">
+                    Nenhum pacote vinculado a esta época. Vá ao separador <strong>Pacotes</strong> para vincular.
+                  </div>
+                ) : patecsForSeason.map((p) => (
+                  <SelectItem key={p.id} value={p.code}>{p.code} — {p.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {editPatecCode && (() => {
+              const sel = patecs.find((p) => p.code === editPatecCode);
+              if (!sel) return null;
+              const legacy = sel.legacy_number;
+              const meta = legacy ? patecMeta[legacy] : null;
+              return (
+                <div className="border rounded-lg p-3 text-xs space-y-2 bg-muted/30">
+                  <p className="font-semibold">{meta?.title || `${sel.code} — ${sel.name}`}</p>
+                  {sel.cultures && <p className="text-muted-foreground">{sel.cultures}</p>}
+                  {legacy && meta && (
+                    <div className="grid grid-cols-3 gap-2 pt-1">
+                      {["insumos", "pecuaria", "servicos"].map((cat) => (
+                        <div key={cat}>
+                          <p className="font-medium text-muted-foreground mb-1">{categoryLabels[cat]}</p>
+                          <ul className="space-y-0.5">
+                            {getItems(legacy, cat).map((i) => <li key={i.id}>• {i.name}</li>)}
+                          </ul>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditFarmer(null)}>Cancelar</Button>
@@ -934,25 +1012,32 @@ const Patec = () => {
               Vai atribuir o mesmo PATEC a <span className="font-bold text-foreground">{selectedIds.size}</span> produtor{selectedIds.size > 1 ? "es" : ""} seleccionado{selectedIds.size > 1 ? "s" : ""}:
             </p>
             <div className="max-h-32 overflow-y-auto border rounded-lg p-2 text-xs space-y-1 bg-muted/20">
-              {filtered.filter((f) => selectedIds.has(f.id)).map((f) => (
-                <div key={f.id} className="flex items-center justify-between">
-                  <span><span className="font-mono text-muted-foreground">{f.code}</span> — {f.full_name}</span>
-                  {f.patec && <Badge variant="outline" className={`text-[9px] ${patecMeta[f.patec]?.color || ""}`}>PATEC {f.patec}</Badge>}
-                </div>
-              ))}
+              {filtered.filter((f) => selectedIds.has(f.id)).map((f) => {
+                const p = findPatecByFarmer(f.patec_code, f.patec);
+                return (
+                  <div key={f.id} className="flex items-center justify-between">
+                    <span><span className="font-mono text-muted-foreground">{f.code}</span> — {f.full_name}</span>
+                    {p && <Badge variant="outline" className="text-[9px]">{p.code}</Badge>}
+                  </div>
+                );
+              })}
             </div>
-            <Select value={bulkPatec} onValueChange={setBulkPatec}>
+            <Select value={bulkPatecCode} onValueChange={setBulkPatecCode}>
               <SelectTrigger><SelectValue placeholder="Seleccionar PATEC para todos" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="1">PATEC 1 — Milho + Feijão + Gado</SelectItem>
-                <SelectItem value="2">PATEC 2 — Massango + Feijão + Gado</SelectItem>
-                <SelectItem value="3">PATEC 3 — Massambala + Feijão + Gado</SelectItem>
+                {patecsForSeason.length === 0 ? (
+                  <div className="px-2 py-3 text-xs text-muted-foreground">
+                    Nenhum pacote vinculado a esta época.
+                  </div>
+                ) : patecsForSeason.map((p) => (
+                  <SelectItem key={p.id} value={p.code}>{p.code} — {p.name}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setBulkDialogOpen(false)}>Cancelar</Button>
-            <Button onClick={() => setBulkConfirmOpen(true)} disabled={saving || !bulkPatec}>
+            <Button onClick={() => setBulkConfirmOpen(true)} disabled={saving || !bulkPatecCode}>
               {`Atribuir a ${selectedIds.size} produtor${selectedIds.size > 1 ? "es" : ""}`}
             </Button>
           </DialogFooter>
@@ -967,7 +1052,7 @@ const Patec = () => {
             <AlertDialogDescription asChild>
               <div className="space-y-2 text-sm text-muted-foreground">
                 <p>
-                  Tem a certeza que deseja atribuir <strong className="text-foreground">PATEC {bulkPatec}{bulkPatec && patecMeta[parseInt(bulkPatec)] ? ` — ${patecMeta[parseInt(bulkPatec)].cultures}` : ""}</strong> a <strong className="text-foreground">{selectedIds.size}</strong> produtor(es)?
+                  Tem a certeza que deseja atribuir <strong className="text-foreground">{bulkPatecCode || "PATEC"}{(() => { const s = patecs.find((p) => p.code === bulkPatecCode); return s ? ` — ${s.name}` : ""; })()}</strong> a <strong className="text-foreground">{selectedIds.size}</strong> produtor(es)?
                 </p>
                 {(() => {
                   const selected = farmers.filter((f) => selectedIds.has(f.id));
