@@ -1,16 +1,21 @@
-// Centralized brand configuration for MOSAP3
-// Update this file to change logos across the entire application
+// Centralized brand asset configuration for MOSAP3
+// Update imports here to change logos across the entire application.
+// This file is the single source of truth for brand imagery.
 
-// Main square logo (sidebar, auth, navbar, reports, invoices)
-export const mosapLogo = "/src/assets/mosap3-logo.png";
+import _mosapLogo from "@/assets/mosap3-logo.png";
+import _mosapLogoHorizontal from "@/assets/mosap3-horizontal.png";
+import _angolaInsignia from "@/assets/republica-angola.png";
 
-// Horizontal logo (ID cards, wide layouts)
-export const mosapLogoHorizontal = "/src/assets/mosap3-horizontal.png";
+/** Main square logo — used in sidebar, auth page, navbar, reports, invoices */
+export const mosapLogo = _mosapLogo;
 
-// Angola Republic insignia (ID cards, official documents)
-export const angolaInsignia = "/src/assets/republica-angola.png";
+/** Horizontal logo — used in ID cards and wide layouts */
+export const mosapLogoHorizontal = _mosapLogoHorizontal;
 
-// Brand metadata
+/** Angola Republic insignia — used in official documents and ID cards */
+export const angolaInsignia = _angolaInsignia;
+
+/** Brand display metadata */
 export const BRAND = {
   name: "MOSAP3",
   fullName: "Projecto Mosap3",
@@ -18,7 +23,7 @@ export const BRAND = {
   altText: "MOSAP3",
 } as const;
 
-// Logo sizes by context (Tailwind classes or pixel values)
+/** Tailwind / pixel size presets by context */
 export const LOGO_SIZES = {
   sidebar: { container: "h-10 w-10", image: "h-8 w-8" },
   auth: { height: "h-10" },
