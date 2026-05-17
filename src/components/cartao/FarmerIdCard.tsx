@@ -1,7 +1,8 @@
 import { QRCodeSVG } from "qrcode.react";
 import Barcode from "react-barcode";
-import { forwardRef, useState } from "react";
-import mosapLogo from "@/assets/mosap3-logo.png";
+import { forwardRef } from "react";
+import mosapHorizontal from "@/assets/mosap3-horizontal.png";
+import angolaLogo from "@/assets/republica-angola.png";
 
 export interface FarmerCardData {
   code: string;
@@ -29,9 +30,6 @@ interface Props {
 const CARD_W = 340;
 const CARD_H = 214;
 
-/** Brasão da República de Angola (carregar em src/assets/republica-angola.png). */
-const angolaLogo = "/assets-extra/republica-angola.png";
-
 const StatusBadge = ({ status }: { status?: string }) => {
   const s = (status || "Pendente").toLowerCase();
   const isActive = s === "aprovado" || s === "ativo" || s === "validado";
@@ -46,22 +44,6 @@ const StatusBadge = ({ status }: { status?: string }) => {
       {status || "Pendente"}
     </span>
   );
-};
-
-const HeaderLogo = ({
-  src,
-  fallback,
-  alt,
-  className,
-}: {
-  src: string;
-  fallback: React.ReactNode;
-  alt: string;
-  className?: string;
-}) => {
-  const [err, setErr] = useState(false);
-  if (err) return <>{fallback}</>;
-  return <img src={src} alt={alt} className={className} onError={() => setErr(true)} />;
 };
 
 const FarmerIdCard = forwardRef<HTMLDivElement, Props>(
