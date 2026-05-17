@@ -1,12 +1,15 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { Link } from "react-router-dom";
 import * as XLSX from "xlsx";
 import PageHeader from "@/components/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Loader2, Upload, Info } from "lucide-react";
+import { Loader2, Upload, Info, ArrowUp, ArrowDown, Download, ExternalLink } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllPages } from "@/lib/supabaseFetchAll";
 import { parseAmount, formatKz } from "@/lib/numberFormat";
@@ -58,11 +61,35 @@ function parseDate(v: unknown): number {
   return isNaN(n) ? 0 : n;
 }
 
+type FarmerInfo = { code: string; full_name: string };
+type SortKey =
+  | "phone"
+  | "name"
+  | "snapshots"
+  | "somaRec"
+  | "ultRec"
+  | "dRec"
+  | "somaGasto"
+  | "ultGasto"
+  | "dGasto"
+  | "somaSaldo"
+  | "ultSaldo"
+  | "dSaldo"
+  | "divTotal";
+
 export default function RelatorioSnapshots() {
   const [loadingXlsx, setLoadingXlsx] = useState(false);
   const [loadingDb, setLoadingDb] = useState(false);
   const [aggs, setAggs] = useState<PhoneAgg[] | null>(null);
   const [dbTotals, setDbTotals] = useState<DbTotals | null>(null);
+  const [farmersByPhone, setFarmersByPhone] = useState<Map<string, FarmerInfo>>(new Map());
+  const [loadingFarmers, setLoadingFarmers] = useState(false);
+  const [search, setSearch] = useState("");
+  const [onlyDiff, setOnlyDiff] = useState(true);
+  const [sortKey, setSortKey] = useState<SortKey>("divTotal");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 50;
 
   const fileChosen = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -175,6 +202,138 @@ export default function RelatorioSnapshots() {
     return { totalLinhas: total, min, max, avg };
   }, [aggs]);
 
+  // Lookup automático de agricultores quando há aggs
+  useEffect(() => {
+    if (!aggs || farmersByPhone.size > 0 || loadingFarmers) return;
+    (async () => {
+      setLoadingFarmers(true);
+      try {
+        const rows = await fetchAllPages<{ code: string; full_name: string; phone: string | null }>(
+          () => supabase.from("farmers").select("code, full_name, phone").not("phone", "is", null)
+        );
+        const map = new Map<string, FarmerInfo>();
+        for (const r of rows) {
+          const p = normPhone(r.phone);
+          if (p && !map.has(p)) map.set(p, { code: r.code, full_name: r.full_name });
+        }
+        setFarmersByPhone(map);
+      } catch (err) {
+        console.error(err);
+        toast.error("Erro a carregar agricultores para correspondência.");
+      } finally {
+        setLoadingFarmers(false);
+      }
+    })();
+  }, [aggs, farmersByPhone.size, loadingFarmers]);
+
+  type DivRow = {
+    phone: string;
+    name: string;
+    code: string | null;
+    snapshots: number;
+    somaRec: number;
+    ultRec: number;
+    dRec: number;
+    somaGasto: number;
+    ultGasto: number;
+    dGasto: number;
+    somaSaldo: number;
+    ultSaldo: number;
+    dSaldo: number;
+    divTotal: number;
+  };
+
+  const divRows: DivRow[] = useMemo(() => {
+    if (!aggs) return [];
+    return aggs.map((a) => {
+      const f = farmersByPhone.get(a.phone);
+      const dRec = a.somaRecebido - a.ultimoRecebido;
+      const dGasto = a.somaGasto - a.ultimoGasto;
+      const somaSaldo = Math.max(0, a.somaRecebido - a.somaGasto);
+      const ultSaldo = Math.max(0, a.ultimoRecebido - a.ultimoGasto);
+      return {
+        phone: a.phone,
+        name: f?.full_name ?? "—",
+        code: f?.code ?? null,
+        snapshots: a.snapshots,
+        somaRec: a.somaRecebido,
+        ultRec: a.ultimoRecebido,
+        dRec,
+        somaGasto: a.somaGasto,
+        ultGasto: a.ultimoGasto,
+        dGasto,
+        somaSaldo,
+        ultSaldo,
+        dSaldo: somaSaldo - ultSaldo,
+        divTotal: Math.abs(dRec) + Math.abs(dGasto),
+      };
+    });
+  }, [aggs, farmersByPhone]);
+
+  const filteredSorted = useMemo(() => {
+    const s = search.trim().toLowerCase();
+    let out = divRows.filter((r) => {
+      if (onlyDiff && r.divTotal < 1) return false;
+      if (!s) return true;
+      return (
+        r.phone.includes(s) ||
+        r.name.toLowerCase().includes(s) ||
+        (r.code ?? "").toLowerCase().includes(s)
+      );
+    });
+    const dir = sortDir === "asc" ? 1 : -1;
+    out = [...out].sort((a, b) => {
+      const va = a[sortKey] as number | string;
+      const vb = b[sortKey] as number | string;
+      if (typeof va === "number" && typeof vb === "number") return (va - vb) * dir;
+      return String(va).localeCompare(String(vb)) * dir;
+    });
+    return out;
+  }, [divRows, search, onlyDiff, sortKey, sortDir]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, onlyDiff, sortKey, sortDir]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredSorted.length / PAGE_SIZE));
+  const pageRows = filteredSorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  const toggleSort = (k: SortKey) => {
+    if (sortKey === k) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else {
+      setSortKey(k);
+      setSortDir(k === "phone" || k === "name" ? "asc" : "desc");
+    }
+  };
+
+  const exportCsv = () => {
+    const headers = [
+      "telefone", "agricultor", "codigo", "snapshots",
+      "soma_recebido", "ultimo_recebido", "delta_recebido",
+      "soma_gasto", "ultimo_gasto", "delta_gasto",
+      "soma_saldo", "ultimo_saldo", "delta_saldo",
+      "divergencia_total",
+    ];
+    const csv = [
+      headers.join(","),
+      ...filteredSorted.map((r) =>
+        [
+          r.phone, `"${r.name.replace(/"/g, '""')}"`, r.code ?? "",
+          r.snapshots, r.somaRec, r.ultRec, r.dRec,
+          r.somaGasto, r.ultGasto, r.dGasto,
+          r.somaSaldo, r.ultSaldo, r.dSaldo, r.divTotal,
+        ].join(",")
+      ),
+    ].join("\n");
+    const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `divergencias_snapshot_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="container mx-auto p-4 md:p-6 space-y-6">
       <PageHeader
@@ -283,6 +442,127 @@ export default function RelatorioSnapshots() {
           </CardContent>
         </Card>
       )}
+
+      {aggs && (
+        <Card>
+          <CardHeader className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <CardTitle>4. Divergências por agricultor</CardTitle>
+              <p className="text-sm text-muted-foreground mt-1">
+                {loadingFarmers
+                  ? "A carregar correspondências de agricultores…"
+                  : `${filteredSorted.length.toLocaleString("pt-PT")} de ${divRows.length.toLocaleString("pt-PT")} telefones`}
+              </p>
+            </div>
+            <Button onClick={exportCsv} variant="outline" size="sm" disabled={!filteredSorted.length}>
+              <Download className="h-4 w-4 mr-2" /> Exportar CSV
+            </Button>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex flex-col md:flex-row gap-3 md:items-center">
+              <Input
+                placeholder="Pesquisar por telefone, nome ou código…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="max-w-sm"
+              />
+              <div className="flex items-center gap-2">
+                <Switch id="only-diff" checked={onlyDiff} onCheckedChange={setOnlyDiff} />
+                <Label htmlFor="only-diff" className="text-sm">Apenas com divergência</Label>
+              </div>
+            </div>
+
+            {/* Desktop */}
+            <div className="hidden md:block overflow-x-auto border rounded-lg">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/50 sticky top-0">
+                  <tr className="text-left">
+                    <SortTh k="phone" label="Telefone" sortKey={sortKey} sortDir={sortDir} onClick={toggleSort} />
+                    <SortTh k="name" label="Agricultor" sortKey={sortKey} sortDir={sortDir} onClick={toggleSort} />
+                    <SortTh k="snapshots" label="Snap" sortKey={sortKey} sortDir={sortDir} onClick={toggleSort} align="right" />
+                    <SortTh k="somaRec" label="Soma rec." sortKey={sortKey} sortDir={sortDir} onClick={toggleSort} align="right" />
+                    <SortTh k="ultRec" label="Últ. rec." sortKey={sortKey} sortDir={sortDir} onClick={toggleSort} align="right" />
+                    <SortTh k="dRec" label="Δ rec." sortKey={sortKey} sortDir={sortDir} onClick={toggleSort} align="right" />
+                    <SortTh k="somaGasto" label="Soma gasto" sortKey={sortKey} sortDir={sortDir} onClick={toggleSort} align="right" />
+                    <SortTh k="ultGasto" label="Últ. gasto" sortKey={sortKey} sortDir={sortDir} onClick={toggleSort} align="right" />
+                    <SortTh k="dGasto" label="Δ gasto" sortKey={sortKey} sortDir={sortDir} onClick={toggleSort} align="right" />
+                    <SortTh k="dSaldo" label="Δ saldo" sortKey={sortKey} sortDir={sortDir} onClick={toggleSort} align="right" />
+                    <SortTh k="divTotal" label="Diverg. total" sortKey={sortKey} sortDir={sortDir} onClick={toggleSort} align="right" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {pageRows.map((r) => (
+                    <tr key={r.phone} className="border-t hover:bg-muted/30">
+                      <td className="py-2 px-2 font-mono text-xs">{r.phone}</td>
+                      <td className="py-2 px-2">
+                        {r.code ? (
+                          <Link to={`/agricultor/${r.code}`} className="text-primary hover:underline inline-flex items-center gap-1">
+                            {r.name}
+                            <ExternalLink className="h-3 w-3" />
+                          </Link>
+                        ) : (
+                          <Badge variant="outline" className="text-warning border-warning">
+                            <Link to="/telefones-orfaos">Órfão</Link>
+                          </Badge>
+                        )}
+                      </td>
+                      <td className="py-2 px-2 text-right">{r.snapshots}</td>
+                      <td className="py-2 px-2 text-right">{formatKz(r.somaRec)}</td>
+                      <td className="py-2 px-2 text-right">{formatKz(r.ultRec)}</td>
+                      <td className={`py-2 px-2 text-right ${diffClass(r.dRec)}`}>{formatKz(r.dRec)}</td>
+                      <td className="py-2 px-2 text-right">{formatKz(r.somaGasto)}</td>
+                      <td className="py-2 px-2 text-right">{formatKz(r.ultGasto)}</td>
+                      <td className={`py-2 px-2 text-right ${diffClass(r.dGasto)}`}>{formatKz(r.dGasto)}</td>
+                      <td className={`py-2 px-2 text-right ${diffClass(r.dSaldo)}`}>{formatKz(r.dSaldo)}</td>
+                      <td className="py-2 px-2 text-right font-semibold">{formatKz(r.divTotal)}</td>
+                    </tr>
+                  ))}
+                  {!pageRows.length && (
+                    <tr><td colSpan={11} className="py-6 text-center text-muted-foreground">Sem resultados.</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile */}
+            <div className="md:hidden divide-y border rounded-lg">
+              {pageRows.map((r) => (
+                <div key={r.phone} className="p-3 space-y-1">
+                  <div className="flex justify-between items-start gap-2">
+                    <div className="min-w-0">
+                      <p className="font-medium truncate">
+                        {r.code ? (
+                          <Link to={`/agricultor/${r.code}`} className="text-primary hover:underline">{r.name}</Link>
+                        ) : <span className="text-warning">Órfão</span>}
+                      </p>
+                      <p className="text-xs font-mono text-muted-foreground">{r.phone} · {r.snapshots} snap</p>
+                    </div>
+                    <Badge variant="secondary">{formatKz(r.divTotal)}</Badge>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 text-xs pt-1">
+                    <div><span className="text-muted-foreground">Δ rec.</span><p className={diffClass(r.dRec)}>{formatKz(r.dRec)}</p></div>
+                    <div><span className="text-muted-foreground">Δ gasto</span><p className={diffClass(r.dGasto)}>{formatKz(r.dGasto)}</p></div>
+                    <div><span className="text-muted-foreground">Δ saldo</span><p className={diffClass(r.dSaldo)}>{formatKz(r.dSaldo)}</p></div>
+                  </div>
+                </div>
+              ))}
+              {!pageRows.length && (
+                <div className="p-6 text-center text-muted-foreground">Sem resultados.</div>
+              )}
+            </div>
+
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Página {page} de {totalPages}</span>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="outline" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1}>Anterior</Button>
+                  <Button size="sm" variant="outline" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page >= totalPages}>Seguinte</Button>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
@@ -338,5 +618,30 @@ function Coerencia({ label, a, b }: { label: string; a: number; b: number }) {
         {ok ? "Coerente (<1%)" : `Δ ${(pct * 100).toFixed(1)}%`}
       </Badge>
     </div>
+  );
+}
+
+function diffClass(v: number): string {
+  if (Math.abs(v) < 1) return "text-muted-foreground";
+  return v > 0 ? "text-destructive font-medium" : "text-warning font-medium";
+}
+
+function SortTh({
+  k, label, sortKey, sortDir, onClick, align,
+}: {
+  k: string; label: string; sortKey: string; sortDir: "asc" | "desc";
+  onClick: (k: never) => void; align?: "right";
+}) {
+  const active = sortKey === k;
+  return (
+    <th
+      className={`py-2 px-2 cursor-pointer select-none whitespace-nowrap ${align === "right" ? "text-right" : ""}`}
+      onClick={() => onClick(k as never)}
+    >
+      <span className="inline-flex items-center gap-1">
+        {label}
+        {active && (sortDir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />)}
+      </span>
+    </th>
   );
 }
