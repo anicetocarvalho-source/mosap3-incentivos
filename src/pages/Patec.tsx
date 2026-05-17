@@ -350,13 +350,20 @@ const Patec = () => {
   // Random redistribution (admin only)
   const [randomConfirmOpen, setRandomConfirmOpen] = useState(false);
   const [randomReport, setRandomReport] = useState<null | {
-    total: number; p1: number; p2: number; p3: number; province: string;
+    total: number;
+    province: string;
+    season: string;
+    distribution: Array<{ code: string; name: string; count: number }>;
   }>(null);
 
-  const semPatecPool = farmersByProvince.filter((f) => !f.patec);
+  const semPatecPool = farmersByProvince.filter((f) => !f.patec && !f.patec_code);
 
   const handleRandomReassign = async () => {
     if (semPatecPool.length === 0) return;
+    if (patecsForSeason.length === 0) {
+      toast.error("Não existem PATECs disponíveis para a época seleccionada");
+      return;
+    }
     setSaving(true);
     // Fisher-Yates shuffle
     const ids = semPatecPool.map((f) => f.id);
@@ -364,19 +371,24 @@ const Patec = () => {
       const j = Math.floor(Math.random() * (i + 1));
       [ids[i], ids[j]] = [ids[j], ids[i]];
     }
-    // Split in thirds
-    const buckets: Record<number, string[]> = { 1: [], 2: [], 3: [] };
+    // Split evenly across available PATECs for the season
+    const pool = patecsForSeason;
+    const buckets: Record<string, string[]> = {};
+    pool.forEach((p) => { buckets[p.code] = []; });
     ids.forEach((id, idx) => {
-      const bucket = ((idx % 3) + 1) as 1 | 2 | 3;
-      buckets[bucket].push(id);
+      const p = pool[idx % pool.length];
+      buckets[p.code].push(id);
     });
     let errorCount = 0;
-    for (const patecNum of [1, 2, 3] as const) {
-      const list = buckets[patecNum];
+    for (const p of pool) {
+      const list = buckets[p.code];
+      const legacy = p.legacy_number ?? null;
       for (let i = 0; i < list.length; i += 50) {
         const batch = list.slice(i, i + 50);
-        const codeForLegacy = patecs.find((p) => p.legacy_number === patecNum)?.code ?? null;
-        const { error } = await supabase.from("farmers").update({ patec: patecNum, patec_code: codeForLegacy }).in("id", batch);
+        const { error } = await supabase
+          .from("farmers")
+          .update({ patec_code: p.code, patec: legacy })
+          .in("id", batch);
         if (error) errorCount++;
       }
     }
@@ -386,12 +398,14 @@ const Patec = () => {
       toast.error("Erro ao reatribuir alguns produtores");
     } else {
       toast.success(`Reatribuídos ${ids.length} produtor(es) aleatoriamente`);
+      const seasonName = selectedSeasonId === "all"
+        ? "Todas as épocas"
+        : (seasons.find((s) => s.id === selectedSeasonId)?.name || "—");
       setRandomReport({
         total: ids.length,
-        p1: buckets[1].length,
-        p2: buckets[2].length,
-        p3: buckets[3].length,
         province: filterProvince === "all" ? "Todas as províncias" : filterProvince,
+        season: seasonName,
+        distribution: pool.map((p) => ({ code: p.code, name: p.name, count: buckets[p.code].length })),
       });
     }
     scope && fetchFarmers(scope);
