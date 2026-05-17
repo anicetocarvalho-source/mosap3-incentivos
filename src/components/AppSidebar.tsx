@@ -19,7 +19,7 @@ import { navItems, type NavItem } from "./AppNavbar";
 import { useAuth } from "@/hooks/useAuth";
 import { useModulePermissions, canAccessModule } from "@/hooks/useModulePermissions";
 import { usePatecPendingCount } from "@/hooks/usePatecPendingCount";
-import mosapLogo from "@/assets/mosap3-logo.png";
+import { mosapLogo } from "@/config/brand";
 import { LogOut, User as UserIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";

@@ -35,7 +35,7 @@ import {
   AlertTriangle,
   Sparkles,
 } from "lucide-react";
-import mosapLogo from "@/assets/mosap3-logo.png";
+import { mosapLogo } from "@/config/brand";
 import { useAuth } from "@/hooks/useAuth";
 import { usePatecPendingCount } from "@/hooks/usePatecPendingCount";
 import { supabase } from "@/integrations/supabase/client";
