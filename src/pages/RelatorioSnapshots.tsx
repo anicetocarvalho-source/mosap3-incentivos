@@ -61,11 +61,35 @@ function parseDate(v: unknown): number {
   return isNaN(n) ? 0 : n;
 }
 
+type FarmerInfo = { code: string; full_name: string };
+type SortKey =
+  | "phone"
+  | "name"
+  | "snapshots"
+  | "somaRec"
+  | "ultRec"
+  | "dRec"
+  | "somaGasto"
+  | "ultGasto"
+  | "dGasto"
+  | "somaSaldo"
+  | "ultSaldo"
+  | "dSaldo"
+  | "divTotal";
+
 export default function RelatorioSnapshots() {
   const [loadingXlsx, setLoadingXlsx] = useState(false);
   const [loadingDb, setLoadingDb] = useState(false);
   const [aggs, setAggs] = useState<PhoneAgg[] | null>(null);
   const [dbTotals, setDbTotals] = useState<DbTotals | null>(null);
+  const [farmersByPhone, setFarmersByPhone] = useState<Map<string, FarmerInfo>>(new Map());
+  const [loadingFarmers, setLoadingFarmers] = useState(false);
+  const [search, setSearch] = useState("");
+  const [onlyDiff, setOnlyDiff] = useState(true);
+  const [sortKey, setSortKey] = useState<SortKey>("divTotal");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 50;
 
   const fileChosen = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
