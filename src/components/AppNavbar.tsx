@@ -227,7 +227,7 @@ const AppNavbar = () => {
         {/* Logo */}
         <Link to="/" className="flex items-center gap-2 flex-shrink-0">
           <div className="h-9 w-auto bg-card rounded-lg p-0.5">
-            <img src={mosapLogo} alt="MOSAP3" className="h-full w-auto" />
+            <img src={mosapLogo} alt="MOSAP3" className={LOGO_SIZES.navbar} />
           </div>
           <span className="font-heading font-bold text-base" style={{ color: "hsl(var(--sidebar-primary))" }}>
             MOSAP3
