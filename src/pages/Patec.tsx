@@ -1018,7 +1018,7 @@ const Patec = () => {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditFarmer(null)}>Cancelar</Button>
-            <Button onClick={handleSavePatec} disabled={saving}>{saving ? "Guardando..." : "Guardar"}</Button>
+            <Button onClick={handleSavePatec} disabled={saving || patecsForSeason.length === 0}>{saving ? "Guardando..." : "Guardar"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
