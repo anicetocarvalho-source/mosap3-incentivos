@@ -775,6 +775,20 @@ const Patec = () => {
               ))}
             </SelectContent>
           </Select>
+          {seasons.length > 0 && (
+            <Select value={selectedSeasonId} onValueChange={setSelectedSeasonId}>
+              <SelectTrigger className="w-[220px]">
+                <CalendarDays className="h-4 w-4 mr-2" />
+                <SelectValue placeholder="Época agrícola" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas as épocas</SelectItem>
+                {seasons.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
           <Select value={filterPatec} onValueChange={setFilterPatec}>
             <SelectTrigger className="w-[200px]">
               <Filter className="h-4 w-4 mr-2" />
