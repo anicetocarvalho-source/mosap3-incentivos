@@ -1,7 +1,7 @@
 import { QRCodeSVG } from "qrcode.react";
 import Barcode from "react-barcode";
 import { forwardRef } from "react";
-import { mosapLogoHorizontal, angolaInsignia } from "@/config/brand";
+import { mosapLogoHorizontal, angolaInsignia, LOGO_SIZES } from "@/config/brand";
 
 export interface FarmerCardData {
   code: string;
@@ -85,7 +85,7 @@ const FarmerIdCard = forwardRef<HTMLDivElement, Props>(
                   <img
                     src={angolaInsignia}
                     alt="República de Angola"
-                    className="h-10 w-10 object-contain drop-shadow-sm flex-shrink-0"
+                    className={LOGO_SIZES.idCardAngola}
                   />
                   <div className="leading-tight min-w-0">
                     <p className="text-[10px] font-extrabold tracking-wider">MINAGRIF</p>
@@ -96,7 +96,7 @@ const FarmerIdCard = forwardRef<HTMLDivElement, Props>(
                   <img
                     src={mosapLogoHorizontal}
                     alt="MOSAP3 — Agro-Pecuária Familiar"
-                    className="h-6 object-contain"
+                    className={LOGO_SIZES.idCardMosap}
                   />
                 </div>
               </div>

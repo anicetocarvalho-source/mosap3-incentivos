@@ -14,7 +14,7 @@ import {
   AlertTriangle, RefreshCw, Info,
 } from "lucide-react";
 import { z } from "zod";
-import { mosapLogo } from "@/config/brand";
+import { mosapLogo, LOGO_SIZES } from "@/config/brand";
 import { offlineLogin } from "@/lib/offlineAuth";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { useAuth } from "@/hooks/useAuth";
@@ -264,7 +264,7 @@ const Auth = () => {
 
         <motion.div variants={itemVariants} className="relative flex items-center gap-3">
           <div className="bg-card rounded-2xl p-2.5 shadow-lg">
-            <img src={mosapLogo} alt="MOSAP3" className="h-10 w-auto" />
+            <img src={mosapLogo} alt="MOSAP3" className={LOGO_SIZES.auth} />
           </div>
           <div>
             <h1 className="text-xl font-bold text-primary-foreground font-heading leading-tight">MOSAP3</h1>

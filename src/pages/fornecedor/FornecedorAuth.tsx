@@ -8,7 +8,7 @@ import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Loader2, Mail, Lock, UserPlus, LogIn, Store, Plus, Trash2, MapPin, User, ArrowLeft, Info } from "lucide-react";
-import { mosapLogo } from "@/config/brand";
+import { mosapLogo, LOGO_SIZES } from "@/config/brand";
 
 interface StoreForm {
   name: string;
@@ -143,7 +143,7 @@ const FornecedorAuth = () => {
         </button>
         <div className="flex flex-col items-center mb-6">
           <div className="bg-card rounded-2xl p-3 mb-3 shadow-lg">
-            <img src={mosapLogo} alt="MOSAP3" className="h-14 w-auto" />
+            <img src={mosapLogo} alt="MOSAP3" className={LOGO_SIZES.supplierAuth} />
           </div>
           <h1 className="text-2xl font-bold text-primary-foreground font-heading">MOSAP3Pay</h1>
           <p className="text-sm mt-1 text-primary-foreground/70">Portal do Fornecedor</p>

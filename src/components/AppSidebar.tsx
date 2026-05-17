@@ -19,7 +19,7 @@ import { navItems, type NavItem } from "./AppNavbar";
 import { useAuth } from "@/hooks/useAuth";
 import { useModulePermissions, canAccessModule } from "@/hooks/useModulePermissions";
 import { usePatecPendingCount } from "@/hooks/usePatecPendingCount";
-import { mosapLogo } from "@/config/brand";
+import { mosapLogo, LOGO_SIZES } from "@/config/brand";
 import { LogOut, User as UserIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
@@ -103,12 +103,12 @@ const AppSidebar = () => {
           className="flex items-center gap-2.5 px-2 py-2 rounded-lg transition-colors duration-200 hover:bg-sidebar-accent/60 group/logo"
         >
           <div
-            className={`h-10 w-10 flex-shrink-0 rounded-xl bg-sidebar-accent flex items-center justify-center overflow-hidden transition-all duration-200 group-hover/logo:bg-sidebar-primary/15 group-hover/logo:ring-2 group-hover/logo:ring-sidebar-primary/25 ${isActivePath("/") ? "ring-2 ring-sidebar-primary/40 bg-sidebar-primary/20" : ""}`}
+            className={`${LOGO_SIZES.sidebar.container} flex-shrink-0 rounded-xl bg-sidebar-accent flex items-center justify-center overflow-hidden transition-all duration-200 group-hover/logo:bg-sidebar-primary/15 group-hover/logo:ring-2 group-hover/logo:ring-sidebar-primary/25 ${isActivePath("/") ? "ring-2 ring-sidebar-primary/40 bg-sidebar-primary/20" : ""}`}
           >
             <img
               src={mosapLogo}
               alt="MOSAP3"
-              className="h-8 w-8 object-contain transition-transform duration-200 group-hover/logo:scale-[1.08]"
+              className={`${LOGO_SIZES.sidebar.image} object-contain transition-transform duration-200 group-hover/logo:scale-[1.08]`}
             />
           </div>
           {!collapsed && (

@@ -3,7 +3,7 @@ import { Outlet, useNavigate, Link, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { LayoutDashboard, Package, Monitor, ShoppingCart, LogOut, Menu, X, Warehouse, Settings, Store, Receipt } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { mosapLogo } from "@/config/brand";
+import { mosapLogo, LOGO_SIZES } from "@/config/brand";
 import { toast } from "sonner";
 
 interface Supplier {
@@ -54,7 +54,7 @@ const FornecedorLayout = () => {
     return (
       <div className="min-h-screen flex items-center justify-center p-4">
         <div className="text-center space-y-4 max-w-md">
-          <img src={mosapLogo} alt="MOSAP3" className="h-16 mx-auto" />
+          <img src={mosapLogo} alt="MOSAP3" className={LOGO_SIZES.supplierPending} />
           <h1 className="text-xl font-bold font-heading">Conta Pendente de Activação</h1>
           <p className="text-muted-foreground">A sua conta de fornecedor está a aguardar aprovação pelo administrador do MOSAP3. Será notificado por email quando a conta for activada.</p>
           <Button variant="outline" onClick={handleLogout}><LogOut className="h-4 w-4 mr-2" /> Sair</Button>
@@ -68,7 +68,7 @@ const FornecedorLayout = () => {
       {/* Sidebar */}
       <aside className={`fixed inset-y-0 left-0 z-40 w-64 bg-sidebar text-sidebar-foreground transform transition-transform lg:translate-x-0 ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`}>
         <div className="flex items-center gap-3 p-4 border-b border-sidebar-border">
-          <img src={mosapLogo} alt="MOSAP3" className="h-8" />
+          <img src={mosapLogo} alt="MOSAP3" className={LOGO_SIZES.supplierSidebar} />
           <div>
             <p className="font-heading font-bold text-sm text-sidebar-primary">MOSAP3Pay</p>
             <p className="text-[10px] text-sidebar-foreground/60 truncate">{supplier?.name}</p>
