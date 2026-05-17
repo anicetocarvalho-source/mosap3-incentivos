@@ -137,6 +137,29 @@ const Patec = () => {
     }
   });
 
+  // Default season selector to currently active (in-progress) season once loaded
+  useEffect(() => {
+    if (selectedSeasonId !== "all" || seasons.length === 0) return;
+    const today = new Date().toISOString().slice(0, 10);
+    const current = seasons.find((s) => s.is_active && today >= s.start_date && today <= s.end_date);
+    if (current) setSelectedSeasonId(current.id);
+  }, [seasons]);
+
+  // PATECs assignable for the chosen season (active only; restricted by links when a season is selected)
+  const activePatecs = patecs.filter((p) => p.is_active);
+  const patecsForSeason = selectedSeasonId === "all"
+    ? activePatecs
+    : activePatecs.filter((p) => links.some((l) => l.season_id === selectedSeasonId && l.patec_id === p.id));
+
+  const findPatecByFarmer = (code: string | null, legacy: number | null): Patec | undefined => {
+    if (code) {
+      const m = patecs.find((p) => p.code === code);
+      if (m) return m;
+    }
+    if (legacy != null) return patecs.find((p) => p.legacy_number === legacy);
+    return undefined;
+  };
+
 
   const fetchFarmers = async (resolved: ResolvedScope) => {
     setLoading(true);
