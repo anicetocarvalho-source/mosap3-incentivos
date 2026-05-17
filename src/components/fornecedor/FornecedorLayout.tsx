@@ -54,7 +54,7 @@ const FornecedorLayout = () => {
     return (
       <div className="min-h-screen flex items-center justify-center p-4">
         <div className="text-center space-y-4 max-w-md">
-          <img src={mosapLogo} alt="MOSAP3" className="h-16 mx-auto" />
+          <img src={mosapLogo} alt="MOSAP3" className={LOGO_SIZES.supplierPending} />
           <h1 className="text-xl font-bold font-heading">Conta Pendente de Activação</h1>
           <p className="text-muted-foreground">A sua conta de fornecedor está a aguardar aprovação pelo administrador do MOSAP3. Será notificado por email quando a conta for activada.</p>
           <Button variant="outline" onClick={handleLogout}><LogOut className="h-4 w-4 mr-2" /> Sair</Button>
