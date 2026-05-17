@@ -350,13 +350,20 @@ const Patec = () => {
   // Random redistribution (admin only)
   const [randomConfirmOpen, setRandomConfirmOpen] = useState(false);
   const [randomReport, setRandomReport] = useState<null | {
-    total: number; p1: number; p2: number; p3: number; province: string;
+    total: number;
+    province: string;
+    season: string;
+    distribution: Array<{ code: string; name: string; count: number }>;
   }>(null);
 
-  const semPatecPool = farmersByProvince.filter((f) => !f.patec);
+  const semPatecPool = farmersByProvince.filter((f) => !f.patec && !f.patec_code);
 
   const handleRandomReassign = async () => {
     if (semPatecPool.length === 0) return;
+    if (patecsForSeason.length === 0) {
+      toast.error("Não existem PATECs disponíveis para a época seleccionada");
+      return;
+    }
     setSaving(true);
     // Fisher-Yates shuffle
     const ids = semPatecPool.map((f) => f.id);
@@ -364,19 +371,24 @@ const Patec = () => {
       const j = Math.floor(Math.random() * (i + 1));
       [ids[i], ids[j]] = [ids[j], ids[i]];
     }
-    // Split in thirds
-    const buckets: Record<number, string[]> = { 1: [], 2: [], 3: [] };
+    // Split evenly across available PATECs for the season
+    const pool = patecsForSeason;
+    const buckets: Record<string, string[]> = {};
+    pool.forEach((p) => { buckets[p.code] = []; });
     ids.forEach((id, idx) => {
-      const bucket = ((idx % 3) + 1) as 1 | 2 | 3;
-      buckets[bucket].push(id);
+      const p = pool[idx % pool.length];
+      buckets[p.code].push(id);
     });
     let errorCount = 0;
-    for (const patecNum of [1, 2, 3] as const) {
-      const list = buckets[patecNum];
+    for (const p of pool) {
+      const list = buckets[p.code];
+      const legacy = p.legacy_number ?? null;
       for (let i = 0; i < list.length; i += 50) {
         const batch = list.slice(i, i + 50);
-        const codeForLegacy = patecs.find((p) => p.legacy_number === patecNum)?.code ?? null;
-        const { error } = await supabase.from("farmers").update({ patec: patecNum, patec_code: codeForLegacy }).in("id", batch);
+        const { error } = await supabase
+          .from("farmers")
+          .update({ patec_code: p.code, patec: legacy })
+          .in("id", batch);
         if (error) errorCount++;
       }
     }
@@ -386,12 +398,14 @@ const Patec = () => {
       toast.error("Erro ao reatribuir alguns produtores");
     } else {
       toast.success(`Reatribuídos ${ids.length} produtor(es) aleatoriamente`);
+      const seasonName = selectedSeasonId === "all"
+        ? "Todas as épocas"
+        : (seasons.find((s) => s.id === selectedSeasonId)?.name || "—");
       setRandomReport({
         total: ids.length,
-        p1: buckets[1].length,
-        p2: buckets[2].length,
-        p3: buckets[3].length,
         province: filterProvince === "all" ? "Todas as províncias" : filterProvince,
+        season: seasonName,
+        distribution: pool.map((p) => ({ code: p.code, name: p.name, count: buckets[p.code].length })),
       });
     }
     scope && fetchFarmers(scope);
@@ -1178,11 +1192,19 @@ const Patec = () => {
             <AlertDialogDescription asChild>
               <div className="space-y-2 text-sm">
                 <p>
-                  Vai atribuir PATEC 1, 2 ou 3 de forma aleatória e equilibrada (terços) a{" "}
-                  <strong className="text-foreground">{semPatecPool.length}</strong>{" "}
-                  produtor(es) sem PATEC
+                  Vai distribuir aleatoriamente (equilibrado) <strong className="text-foreground">{semPatecPool.length}</strong>{" "}
+                  produtor(es) sem PATEC pelos{" "}
+                  <strong className="text-foreground">{patecsForSeason.length}</strong> PATEC(s) disponíveis para a época{" "}
+                  <strong className="text-foreground">
+                    {selectedSeasonId === "all" ? "(todas)" : (seasons.find((s) => s.id === selectedSeasonId)?.name || "—")}
+                  </strong>
                   {filterProvince !== "all" ? <> em <strong className="text-foreground">{filterProvince}</strong></> : null}.
                 </p>
+                {patecsForSeason.length === 0 && (
+                  <p className="text-xs text-destructive">
+                    Não existem PATECs vinculados a esta época. Vincule pacotes à época antes de continuar.
+                  </p>
+                )}
                 <p className="text-xs text-muted-foreground">
                   Os produtores que já têm PATEC atribuído não serão alterados.
                 </p>
@@ -1213,29 +1235,28 @@ const Patec = () => {
               <div className="space-y-3 py-2 text-sm">
                 <p className="text-muted-foreground">
                   Âmbito: <span className="font-medium text-foreground">{randomReport.province}</span>
+                  {" · "}Época: <span className="font-medium text-foreground">{randomReport.season}</span>
                 </p>
                 <p>
-                  <strong className="text-foreground">{t}</strong> produtor(es) reatribuídos aleatoriamente em terços.
+                  <strong className="text-foreground">{t}</strong> produtor(es) reatribuídos aleatoriamente de forma equilibrada.
                 </p>
                 <div className="rounded-lg border bg-muted/30 p-3 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium">PATEC 1 — Milho</span>
-                    <Badge variant="outline">{randomReport.p1} · {pct(randomReport.p1)}</Badge>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium">PATEC 2 — Massango</span>
-                    <Badge variant="outline">{randomReport.p2} · {pct(randomReport.p2)}</Badge>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium">PATEC 3 — Massambala</span>
-                    <Badge variant="outline">{randomReport.p3} · {pct(randomReport.p3)}</Badge>
-                  </div>
+                  {randomReport.distribution.map((d) => (
+                    <div key={d.code} className="flex items-center justify-between gap-2">
+                      <span className="font-medium truncate">
+                        <span className="font-mono text-xs mr-1.5">{d.code}</span>{d.name}
+                      </span>
+                      <Badge variant="outline" className="shrink-0">{d.count} · {pct(d.count)}</Badge>
+                    </div>
+                  ))}
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Diferença máxima entre pacotes: <strong className="text-foreground">
-                    {Math.max(randomReport.p1, randomReport.p2, randomReport.p3) - Math.min(randomReport.p1, randomReport.p2, randomReport.p3)}
-                  </strong> produtor(es) (ideal ≤ 1 com distribuição em terços).
-                </p>
+                {randomReport.distribution.length > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    Diferença máxima entre pacotes: <strong className="text-foreground">
+                      {Math.max(...randomReport.distribution.map((d) => d.count)) - Math.min(...randomReport.distribution.map((d) => d.count))}
+                    </strong> produtor(es) (ideal ≤ 1 com distribuição equilibrada).
+                  </p>
+                )}
               </div>
             );
           })()}
