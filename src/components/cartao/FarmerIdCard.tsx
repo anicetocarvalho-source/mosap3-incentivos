@@ -1,7 +1,7 @@
 import { QRCodeSVG } from "qrcode.react";
 import Barcode from "react-barcode";
 import { forwardRef } from "react";
-import { mosapLogoHorizontal, angolaInsignia } from "@/config/brand";
+import { mosapLogoHorizontal, angolaInsignia, LOGO_SIZES } from "@/config/brand";
 
 export interface FarmerCardData {
   code: string;
