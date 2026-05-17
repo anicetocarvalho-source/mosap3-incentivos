@@ -284,12 +284,9 @@ const Patec = () => {
   const handleSavePatec = async () => {
     if (!editFarmer) return;
     const selected = editPatecCode ? patecs.find((p) => p.code === editPatecCode) : null;
-    if (selected && !patecsForSeason.some((p) => p.code === selected.code)) {
-      toast.error("Não existem PATECs disponíveis para a época seleccionada. Seleccione uma época com pacotes vinculados.");
-      return;
-    }
-    if (selected && (selected.legacy_number === null || selected.legacy_number === undefined)) {
-      toast.error(`Inconsistência detectada: o PATEC ${selected.code} não tem número legado (farmers.patec) associado. Actualize o pacote antes de gravar.`);
+    const guard = validatePatecAssignment(selected, patecsForSeason);
+    if (!guard.ok) {
+      toast.error(guard.message);
       return;
     }
     setSaving(true);
