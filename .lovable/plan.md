@@ -1,73 +1,43 @@
-## Objectivo
+## Contexto
 
-Preencher automaticamente `farmers.municipality` (e, quando seguro, `farmers.province`) no momento de INSERT/UPDATE, registando evidência e nível de confiança em `audit_logs`. Só grava se `confidence >= 75`; caso contrário regista apenas sugestão.
+24 agricultores têm `school` NULL/vazio. Todos têm `phone` e estão localizados em 5 municípios (Balombo, Bocoio, Cubal, Menongue, Ondjiva). Nenhum tem BI, nenhum tem parcelas GPS. Não há trigger útil — é um backfill pontual.
 
-## Restrições descobertas
+A análise por **vizinhança numérica de telefone** (10 vizinhos mais próximos no mesmo município com ECA conhecida) produz votação maioritária clara para todos os 24, com 9-10/10 votos para uma só ECA. Distância numérica mínima ≤30 em 23 casos; apenas `AGR-976107290` tem dist_min=405 (mais fraco mas único candidato).
 
-- `municipalities` só tem `name` + `province_id` (sem geometria) — point-in-polygon clássico não é viável.
-- `farmer_parcels` tem `lat`/`lon` em texto, mas só por agricultor, não há boundaries.
-- `schools` tem `province_id` + `municipality_id` (FK fiável).
-- Estado actual: 0 agricultores sem província/município; feature opera sobre futuros INSERT/UPDATE e importações em lote.
+## Estratégia
 
-## Estratégia de inferência (ordem de prioridade)
+Cascata por agricultor (ordem decrescente de confiança):
 
-| # | Fonte                                          | Confiança | Condição                                                                 |
-|---|------------------------------------------------|-----------|--------------------------------------------------------------------------|
-| 1 | ECA (`schools.municipality_id` + `province_id`)| 95        | `NEW.school` resolve para uma escola única e a província bate certo      |
-| 2 | Outro agricultor com mesmo BI                  | 90        | BI normalizado, status ≠ Removido, município já preenchido               |
-| 3 | Outro agricultor com mesmo telefone (últimos 9 dígitos) | 80 | Match único                                                              |
-| 4 | Parcela GPS — vizinho mais próximo (Haversine ≤5 km) com município conhecido | 75 | `farmer_parcels.lat/lon` válidos                       |
-| 5 | Prefixo de telefone Unitel (tabela `phone_prefix_regions` opcional, futuro) | 50 | Apenas sugestão, nunca grava                                            |
+| # | Fonte                                                         | Confiança | Quando se aplica                                              |
+|---|---------------------------------------------------------------|-----------|---------------------------------------------------------------|
+| 1 | Mesmo telefone (últimos 9 dígitos) de outro agricultor com ECA | 95        | Hoje não existe; mantido por simetria com `infer_farmer_location` |
+| 2 | Cluster por proximidade numérica de telefone no mesmo município | 80-90   | Maioria ≥6/10 vizinhos votam mesma ECA e dist_min ≤50         |
+| 3 | Cluster por proximidade fraca                                  | 60      | Maioria ≥6/10 mas dist_min >50 (ex: `AGR-976107290`)          |
+| 4 | Sem sinal                                                      | 0        | Marca explicitamente como "ECA Desconhecida" no audit_logs    |
 
-**Regra "província NULL"**: só preenche `municipality` se a `province` resultante for igual à `NEW.province` ou se `NEW.province` for NULL **e** a fonte for de confiança ≥90 (nesse caso preenche também `province`). Nunca sobrescreve valores já presentes.
+**Limite para aplicar**: ≥75. Abaixo disso → regista `school_suggestion` no audit_logs sem alterar a linha; agricultor fica com `school='ECA Desconhecida'` para visibilidade.
 
-## Implementação técnica
+## Implementação
 
-### 1. Migration: função `infer_farmer_location(_new farmers)`
-- Retorna `jsonb { province, municipality, confidence, source, evidence }`.
-- Implementa a cascata acima em PL/pgSQL com `SECURITY DEFINER`, `search_path=public`.
-- Helpers: `normalize_phone9(text)`, `haversine_km(lat1,lon1,lat2,lon2)`.
+Tudo num único SQL idempotente (não cria triggers nem funções permanentes — é um backfill pontual). Passos:
 
-### 2. Migration: trigger `trg_farmers_autofill_location`
-- `BEFORE INSERT OR UPDATE OF school, province, municipality, phone, bi ON farmers FOR EACH ROW`.
-- Só actua se `NEW.municipality IS NULL OR NEW.municipality = ''`.
-- Chama `infer_farmer_location(NEW)`.
-- Se `confidence >= 75`:
-  - Atribui `NEW.municipality` (e `NEW.province` se aplicável e estava NULL).
-  - `INSERT INTO audit_logs (action='auto_assign_municipality', entity_type='farmer', entity_id=NEW.code, details=evidence_jsonb)`.
-- Se `confidence < 75` mas há sugestão: regista `action='municipality_suggestion'` no `audit_logs` sem alterar a linha.
-- Nunca falha o INSERT — captura excepções e regista `action='auto_assign_failed'`.
-
-### 3. RPC opcional (admin) — fora do âmbito desta task
-A escolha foi "apenas trigger". Não criamos endpoint manual; mas a função `infer_farmer_location` fica reutilizável.
-
-### 4. Formato dos detalhes do audit_log
-
-```json
-{
-  "farmer_code": "AGR-912345678",
-  "applied": true,
-  "confidence": 95,
-  "source": "school",
-  "assigned": { "province": "Huíla", "municipality": "Lubango" },
-  "previous": { "province": null, "municipality": null },
-  "evidence": {
-    "school_id": "uuid…",
-    "school_name": "ECA Lubango Centro",
-    "alternatives_considered": ["phone", "bi"]
-  }
-}
-```
+1. **CTE `voted`**: para cada órfão calcula a ECA mais votada entre os 10 vizinhos com phone numérico mais próximo no mesmo município, devolvendo `school`, `votos`, `dist_min`.
+2. **CTE `final_assign`**: classifica cada caso em `confidence` (95/85/75/60/0) e `applied` (true/false).
+3. **UPDATE** os 24 agricultores: aplica a ECA quando `confidence ≥ 75`; caso contrário escreve `'ECA Desconhecida'`.
+4. **INSERT** uma linha em `audit_logs` por agricultor com `action='backfill_school'` e `details` contendo:
+   - `farmer_code`, `applied`, `confidence`, `source`
+   - `assigned_school`, `votes`, `total_neighbors`, `min_phone_distance`
+   - `alternatives` (top 3 ECAs com contagem)
+   - `previous_school: null`
 
 ## Verificação
 
-1. `psql` — inserir agricultor de teste com `school` válida e `municipality=NULL` → confirmar preenchimento + linha em `audit_logs`.
-2. Inserir com BI duplicado de outro agricultor → confirmar fonte=`bi_match`.
-3. Inserir sem qualquer sinal → confirmar que linha entra sem alteração e regista `municipality_suggestion` com confidence baixa (ou nada).
-4. Confirmar idempotência: UPDATE noutra coluna não dispara nova atribuição.
+1. `SELECT count(*) FROM farmers WHERE school IS NULL OR school IN ('','ECA Desconhecida')` → 0 NULL, eventuais "Desconhecida".
+2. `SELECT details->>'source', count(*) FROM audit_logs WHERE action='backfill_school' GROUP BY 1` — distribuição.
+3. Spot-check 3 agricultores ↔ ECAs atribuídas confirma plausibilidade geográfica.
 
 ## Fora de âmbito
 
-- UI admin / página de revisão de sugestões (pode ser feita depois lendo `audit_logs` por `action='municipality_suggestion'`).
-- Tabela `phone_prefix_regions` (sinal 5) — fica como hook futuro.
-- Backfill dos 14 819 agricultores existentes (todos já têm município).
+- Trigger permanente (cobertura futura já está garantida via `trg_farmers_autofill_location` em INSERT/UPDATE — município, não ECA; pode ser estendido depois se necessário).
+- Geocoding ou consulta a fontes externas.
+- Backfill em massa de outros campos.
