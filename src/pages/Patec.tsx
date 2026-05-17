@@ -329,12 +329,9 @@ const Patec = () => {
     if (!bulkPatecCode || selectedIds.size === 0) return;
     const selected = patecs.find((p) => p.code === bulkPatecCode);
     if (!selected) return;
-    if (!patecsForSeason.some((p) => p.code === selected.code)) {
-      toast.error("Não existem PATECs disponíveis para a época seleccionada. Seleccione uma época com pacotes vinculados.");
-      return;
-    }
-    if (selected.legacy_number === null || selected.legacy_number === undefined) {
-      toast.error(`Inconsistência detectada: o PATEC ${selected.code} não tem número legado (farmers.patec) associado. Actualize o pacote antes de gravar.`);
+    const guard = validatePatecAssignment(selected, patecsForSeason);
+    if (!guard.ok) {
+      toast.error(guard.message);
       return;
     }
     setSaving(true);
