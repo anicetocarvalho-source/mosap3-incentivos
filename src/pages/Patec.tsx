@@ -284,16 +284,19 @@ const Patec = () => {
   const handleSavePatec = async () => {
     if (!editFarmer) return;
     setSaving(true);
-    const newPatec = editPatec ? parseInt(editPatec) : null;
+    const selected = editPatecCode ? patecs.find((p) => p.code === editPatecCode) : null;
     const { error } = await supabase
       .from("farmers")
-      .update({ patec: newPatec })
+      .update({
+        patec_code: selected?.code ?? null,
+        patec: selected?.legacy_number ?? null,
+      })
       .eq("id", editFarmer.id);
     setSaving(false);
     if (error) {
       toast.error("Erro ao atribuir PATEC");
     } else {
-      toast.success(`PATEC ${newPatec || "removido"} atribuído a ${editFarmer.full_name}`);
+      toast.success(selected ? `${selected.code} atribuído a ${editFarmer.full_name}` : `PATEC removido de ${editFarmer.full_name}`);
       setEditFarmer(null);
       scope && fetchFarmers(scope);
     }
@@ -318,23 +321,27 @@ const Patec = () => {
   const clearSelection = () => setSelectedIds(new Set());
 
   const handleBulkSave = async () => {
-    if (!bulkPatec || selectedIds.size === 0) return;
+    if (!bulkPatecCode || selectedIds.size === 0) return;
+    const selected = patecs.find((p) => p.code === bulkPatecCode);
+    if (!selected) return;
     setSaving(true);
-    const newPatec = parseInt(bulkPatec);
     const ids = Array.from(selectedIds);
     let errorCount = 0;
     for (let i = 0; i < ids.length; i += 50) {
       const batch = ids.slice(i, i + 50);
-      const { error } = await supabase.from("farmers").update({ patec: newPatec }).in("id", batch);
+      const { error } = await supabase
+        .from("farmers")
+        .update({ patec_code: selected.code, patec: selected.legacy_number ?? null })
+        .in("id", batch);
       if (error) errorCount++;
     }
     setSaving(false);
     setBulkDialogOpen(false);
-    setBulkPatec("");
+    setBulkPatecCode("");
     if (errorCount > 0) {
       toast.error(`Erro ao atribuir PATEC a alguns produtores`);
     } else {
-      toast.success(`PATEC ${newPatec} atribuído a ${ids.length} produtor(es)`);
+      toast.success(`${selected.code} atribuído a ${ids.length} produtor(es)`);
     }
     setSelectedIds(new Set());
     scope && fetchFarmers(scope);
