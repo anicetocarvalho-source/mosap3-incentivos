@@ -2,7 +2,7 @@ import { useRef } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { Button } from "@/components/ui/button";
 import { Printer, Download } from "lucide-react";
-import { mosapLogo } from "@/config/brand";
+import { mosapLogo, LOGO_SIZES } from "@/config/brand";
 
 interface InvoiceItem {
   product_name: string;
