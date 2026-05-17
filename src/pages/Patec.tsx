@@ -1235,29 +1235,28 @@ const Patec = () => {
               <div className="space-y-3 py-2 text-sm">
                 <p className="text-muted-foreground">
                   Âmbito: <span className="font-medium text-foreground">{randomReport.province}</span>
+                  {" · "}Época: <span className="font-medium text-foreground">{randomReport.season}</span>
                 </p>
                 <p>
-                  <strong className="text-foreground">{t}</strong> produtor(es) reatribuídos aleatoriamente em terços.
+                  <strong className="text-foreground">{t}</strong> produtor(es) reatribuídos aleatoriamente de forma equilibrada.
                 </p>
                 <div className="rounded-lg border bg-muted/30 p-3 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium">PATEC 1 — Milho</span>
-                    <Badge variant="outline">{randomReport.p1} · {pct(randomReport.p1)}</Badge>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium">PATEC 2 — Massango</span>
-                    <Badge variant="outline">{randomReport.p2} · {pct(randomReport.p2)}</Badge>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium">PATEC 3 — Massambala</span>
-                    <Badge variant="outline">{randomReport.p3} · {pct(randomReport.p3)}</Badge>
-                  </div>
+                  {randomReport.distribution.map((d) => (
+                    <div key={d.code} className="flex items-center justify-between gap-2">
+                      <span className="font-medium truncate">
+                        <span className="font-mono text-xs mr-1.5">{d.code}</span>{d.name}
+                      </span>
+                      <Badge variant="outline" className="shrink-0">{d.count} · {pct(d.count)}</Badge>
+                    </div>
+                  ))}
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Diferença máxima entre pacotes: <strong className="text-foreground">
-                    {Math.max(randomReport.p1, randomReport.p2, randomReport.p3) - Math.min(randomReport.p1, randomReport.p2, randomReport.p3)}
-                  </strong> produtor(es) (ideal ≤ 1 com distribuição em terços).
-                </p>
+                {randomReport.distribution.length > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    Diferença máxima entre pacotes: <strong className="text-foreground">
+                      {Math.max(...randomReport.distribution.map((d) => d.count)) - Math.min(...randomReport.distribution.map((d) => d.count))}
+                    </strong> produtor(es) (ideal ≤ 1 com distribuição equilibrada).
+                  </p>
+                )}
               </div>
             );
           })()}
