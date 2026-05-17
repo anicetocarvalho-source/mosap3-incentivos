@@ -162,7 +162,7 @@ export const InvoicePDF = ({
           {/* Header */}
           <div className="header" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20, paddingBottom: 15, borderBottom: "2px solid #1a6b3c" }}>
             <div className="header-left">
-              <img src={mosapLogo} alt="MOSAP3" style={{ height: 40, marginBottom: 6 }} />
+              <img src={mosapLogo} alt="MOSAP3" style={{ height: LOGO_SIZES.invoicePx, marginBottom: 6 }} />
               <h1 style={{ fontSize: 18, color: "#1a6b3c", fontWeight: 700 }}>MOSAP3Pay</h1>
               <p style={{ fontSize: 10, color: "#666" }}>Sistema de Gestão de Vendas Agrícolas</p>
             </div>
