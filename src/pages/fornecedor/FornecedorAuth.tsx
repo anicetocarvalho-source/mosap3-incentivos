@@ -8,7 +8,7 @@ import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Loader2, Mail, Lock, UserPlus, LogIn, Store, Plus, Trash2, MapPin, User, ArrowLeft, Info } from "lucide-react";
-import { mosapLogo } from "@/config/brand";
+import { mosapLogo, LOGO_SIZES } from "@/config/brand";
 
 interface StoreForm {
   name: string;
