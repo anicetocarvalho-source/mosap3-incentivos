@@ -620,3 +620,28 @@ function Coerencia({ label, a, b }: { label: string; a: number; b: number }) {
     </div>
   );
 }
+
+function diffClass(v: number): string {
+  if (Math.abs(v) < 1) return "text-muted-foreground";
+  return v > 0 ? "text-destructive font-medium" : "text-warning font-medium";
+}
+
+function SortTh({
+  k, label, sortKey, sortDir, onClick, align,
+}: {
+  k: string; label: string; sortKey: string; sortDir: "asc" | "desc";
+  onClick: (k: never) => void; align?: "right";
+}) {
+  const active = sortKey === k;
+  return (
+    <th
+      className={`py-2 px-2 cursor-pointer select-none whitespace-nowrap ${align === "right" ? "text-right" : ""}`}
+      onClick={() => onClick(k as never)}
+    >
+      <span className="inline-flex items-center gap-1">
+        {label}
+        {active && (sortDir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />)}
+      </span>
+    </th>
+  );
+}
