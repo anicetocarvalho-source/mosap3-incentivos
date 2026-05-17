@@ -85,7 +85,7 @@ const FarmerIdCard = forwardRef<HTMLDivElement, Props>(
                   <img
                     src={angolaInsignia}
                     alt="República de Angola"
-                    className="h-10 w-10 object-contain drop-shadow-sm flex-shrink-0"
+                    className={LOGO_SIZES.idCardAngola}
                   />
                   <div className="leading-tight min-w-0">
                     <p className="text-[10px] font-extrabold tracking-wider">MINAGRIF</p>
