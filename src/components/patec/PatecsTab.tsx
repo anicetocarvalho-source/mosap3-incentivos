@@ -4,13 +4,14 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Pencil, Trash2, Package, AlertCircle, CalendarDays } from "lucide-react";
+import { Plus, Pencil, Trash2, Package, AlertCircle, CalendarDays, ListTree } from "lucide-react";
 import { toast } from "sonner";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import PatecFormDialog from "./PatecFormDialog";
+import PatecCompositionDialog from "./PatecCompositionDialog";
 import type { Patec } from "@/hooks/usePatecs";
 import type { Season, PatecSeasonLink } from "@/hooks/useSeasons";
 
