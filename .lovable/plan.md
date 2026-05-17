@@ -1,91 +1,73 @@
-## Importação de 70.379 transações + 12 fornecedores
+## Objectivo
 
-### Ficheiro analisado: `Dados_Transacoes_Actual_Mosap.xlsx`
+Preencher automaticamente `farmers.municipality` (e, quando seguro, `farmers.province`) no momento de INSERT/UPDATE, registando evidência e nível de confiança em `audit_logs`. Só grava se `confidence >= 75`; caso contrário regista apenas sugestão.
 
-- **70.379 transações** com ID único (1 a 70.483)
-- **11.353 telefones únicos** — corresponde exactamente aos agricultores com gasto > 0 na BD ✓
-- **Total**: 2.226,09 M Kz (idêntico ao agregado já carregado em `farmers.total_gasto`) ✓
-- **12 empresas fornecedoras** e 36 produtos distintos
-- **5.493 transações sem data válida** (5.492 NaT + 1 com data 1970)
-- **105 transações sem ECA** (preenchível como `—`)
+## Restrições descobertas
 
-### Decisões aprovadas
+- `municipalities` só tem `name` + `province_id` (sem geometria) — point-in-polygon clássico não é viável.
+- `farmer_parcels` tem `lat`/`lon` em texto, mas só por agricultor, não há boundaries.
+- `schools` tem `province_id` + `municipality_id` (FK fiável).
+- Estado actual: 0 agricultores sem província/município; feature opera sobre futuros INSERT/UPDATE e importações em lote.
 
-| Tema | Escolha |
-|---|---|
-| Destino | Só `farmer_transactions` (não cria `pos_sales` fiscais) |
-| Fornecedores | Criar 12 em `suppliers` (status `Ativo`, NIF/contactos a preencher) |
-| Transações sem data | Atribuir `2025-09-01` |
-| Recálculo do saldo | Reescrever `valor_recebido` (mesmo valor) para disparar trigger e regerar gasto/saldo a partir do detalhe |
+## Estratégia de inferência (ordem de prioridade)
 
-### Top 12 fornecedores a criar
-1. TOPO AGRO COMERCIO E AGROPECUARIO LIMITADA (22.852 tx)
-2. AGROSAPI LDA (9.530)
-3. ELSENGO COMERCIO GERAL LDA (8.436)
-4. SONISAP INVESTMENT LDA (8.340)
-5. JARDINS DA YOBA PRODUCAO AGRICULA LDA (6.577)
-6. RIBBEN LIMITADA (5.593)
-7. RURAL SHOP PRESTACAO DE SERVICOS LDA (4.121)
-8. INDU AGRI ANGOLA (2.094)
-9. FERTISEME FERTILIZANTES E SEMENTES LDA (1.748)
-10. JDTS COMERCIO GERAL E PREST DE SERV (762)
-11. + 2 outros
+| # | Fonte                                          | Confiança | Condição                                                                 |
+|---|------------------------------------------------|-----------|--------------------------------------------------------------------------|
+| 1 | ECA (`schools.municipality_id` + `province_id`)| 95        | `NEW.school` resolve para uma escola única e a província bate certo      |
+| 2 | Outro agricultor com mesmo BI                  | 90        | BI normalizado, status ≠ Removido, município já preenchido               |
+| 3 | Outro agricultor com mesmo telefone (últimos 9 dígitos) | 80 | Match único                                                              |
+| 4 | Parcela GPS — vizinho mais próximo (Haversine ≤5 km) com município conhecido | 75 | `farmer_parcels.lat/lon` válidos                       |
+| 5 | Prefixo de telefone Unitel (tabela `phone_prefix_regions` opcional, futuro) | 50 | Apenas sugestão, nunca grava                                            |
 
-### Plano de execução
+**Regra "província NULL"**: só preenche `municipality` se a `province` resultante for igual à `NEW.province` ou se `NEW.province` for NULL **e** a fonte for de confiança ≥90 (nesse caso preenche também `province`). Nunca sobrescreve valores já presentes.
 
-**1. Desactivar triggers ruidosos durante a importação (via migration)**
-- `ALTER TABLE farmer_transactions DISABLE TRIGGER trg_recalc_on_transaction` (evita recalcular 70k vezes)
-- `ALTER TABLE farmer_transactions DISABLE TRIGGER on_transaction_created` (evita criar 70k notificações)
-- Reactivar no fim
+## Implementação técnica
 
-**2. Criar fornecedores (`suppliers`)**
-- 12 registos com `name`, `status='Ativo'`; restantes campos NULL
-- Idempotente: usar `INSERT ... ON CONFLICT DO NOTHING` por nome (cria índice único parcial se necessário)
+### 1. Migration: função `infer_farmer_location(_new farmers)`
+- Retorna `jsonb { province, municipality, confidence, source, evidence }`.
+- Implementa a cascata acima em PL/pgSQL com `SECURITY DEFINER`, `search_path=public`.
+- Helpers: `normalize_phone9(text)`, `haversine_km(lat1,lon1,lat2,lon2)`.
 
-**3. Carregar staging temporário**
-- Tabela `_tx_staging` (telefone, empresa, produto, unidades, valor, data) via `psql COPY`
-- 70.379 linhas, datas NULL/inválidas substituídas por `2025-09-01`
+### 2. Migration: trigger `trg_farmers_autofill_location`
+- `BEFORE INSERT OR UPDATE OF school, province, municipality, phone, bi ON farmers FOR EACH ROW`.
+- Só actua se `NEW.municipality IS NULL OR NEW.municipality = ''`.
+- Chama `infer_farmer_location(NEW)`.
+- Se `confidence >= 75`:
+  - Atribui `NEW.municipality` (e `NEW.province` se aplicável e estava NULL).
+  - `INSERT INTO audit_logs (action='auto_assign_municipality', entity_type='farmer', entity_id=NEW.code, details=evidence_jsonb)`.
+- Se `confidence < 75` mas há sugestão: regista `action='municipality_suggestion'` no `audit_logs` sem alterar a linha.
+- Nunca falha o INSERT — captura excepções e regista `action='auto_assign_failed'`.
 
-**4. Inserir em `farmer_transactions` (bulk SQL)**
-```sql
-INSERT INTO farmer_transactions (farmer_code, product, empresa, valor, valor_num, transaction_date)
-SELECT 'AGR-' || right(s.phone, 9), s.produto, s.empresa,
-       format_ptao_numeric(s.valor), s.valor::numeric,
-       to_char(s.data, 'YYYY-MM-DD')
-FROM _tx_staging s
-WHERE EXISTS (SELECT 1 FROM farmers f WHERE f.code = 'AGR-' || right(s.phone, 9));
+### 3. RPC opcional (admin) — fora do âmbito desta task
+A escolha foi "apenas trigger". Não criamos endpoint manual; mas a função `infer_farmer_location` fica reutilizável.
+
+### 4. Formato dos detalhes do audit_log
+
+```json
+{
+  "farmer_code": "AGR-912345678",
+  "applied": true,
+  "confidence": 95,
+  "source": "school",
+  "assigned": { "province": "Huíla", "municipality": "Lubango" },
+  "previous": { "province": null, "municipality": null },
+  "evidence": {
+    "school_id": "uuid…",
+    "school_name": "ECA Lubango Centro",
+    "alternatives_considered": ["phone", "bi"]
+  }
+}
 ```
-- Validar que todos os 70.379 batem com um agricultor existente
 
-**5. Reactivar triggers**
-- `ALTER TABLE ... ENABLE TRIGGER ...` para ambos
+## Verificação
 
-**6. Disparar recálculo global**
-- Para cada agricultor: `UPDATE farmers SET valor_recebido = valor_recebido WHERE code IN (...)`
-- O trigger `trg_recalc_on_farmer_recebido` reescreve `total_gasto` e `saldo_final` a partir de `SUM(parse_ptao_numeric(valor))` em `farmer_transactions`
-- Define `app.import_source = 'reprocessamento_transacoes'` para o histórico ficar etiquetado correctamente
+1. `psql` — inserir agricultor de teste com `school` válida e `municipality=NULL` → confirmar preenchimento + linha em `audit_logs`.
+2. Inserir com BI duplicado de outro agricultor → confirmar fonte=`bi_match`.
+3. Inserir sem qualquer sinal → confirmar que linha entra sem alteração e regista `municipality_suggestion` com confidence baixa (ou nada).
+4. Confirmar idempotência: UPDATE noutra coluna não dispara nova atribuição.
 
-**7. Verificação**
-- `SELECT count(*) FROM farmer_transactions` → 70.379
-- `SELECT count(DISTINCT farmer_code) FROM farmer_transactions` → 11.353
-- `SELECT round(sum(valor_num)/1e6, 2) FROM farmer_transactions` → ~2.226,09
-- `SELECT round(sum(parse_ptao_numeric(total_gasto))/1e6, 2) FROM farmers` → 2.226,09 (igual)
-- Spot-check em 3 agricultores: `farmers.total_gasto` ≡ `SUM(valor_num)` das suas transações
-- `transacoes_kpis()` (já existe) devolve top-5 produtos/empresas correctamente
-- Página `/transacoes` (se existir) passa a listar dados reais
+## Fora de âmbito
 
-### Garantias
-
-- **Idempotente**: a importação verifica se já existem transações antes de inserir (limpa primeiro `farmer_transactions` para o set completo, evitando duplicação)
-- **Performance**: triggers desactivados durante COPY → ~2-3 min de execução total
-- **Sem perda**: agricultores sem transação ficam com `total_gasto=0,00` e saldo igual ao recebido (correcto)
-- **Auditoria**: 1 entrada em `audit_logs` com totais antes/depois e contagens
-
-### O que NÃO está incluído
-
-- Geração de facturas POS retroactivas (decisão aprovada)
-- Vinculação de fornecedores a `supplier_provinces` (pode fazer-se depois em /fornecedores)
-- Criação de `supplier_products` a partir dos 36 produtos do Excel
-- Mapeamento de produto → PATEC (`patec_items` mantém-se intacto)
-
-Se aprovares, executo a importação e mostro um relatório final com totais e exemplos.
+- UI admin / página de revisão de sugestões (pode ser feita depois lendo `audit_logs` por `action='municipality_suggestion'`).
+- Tabela `phone_prefix_regions` (sinal 5) — fica como hook futuro.
+- Backfill dos 14 819 agricultores existentes (todos já têm município).

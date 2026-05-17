@@ -2413,7 +2413,21 @@ export type Database = {
         }
         Returns: boolean
       }
+      haversine_km: {
+        Args: { _lat1: number; _lat2: number; _lon1: number; _lon2: number }
+        Returns: number
+      }
       import_farmer_transactions_from_staging: { Args: never; Returns: Json }
+      infer_farmer_location: {
+        Args: {
+          _bi: string
+          _farmer_code: string
+          _phone: string
+          _province: string
+          _school: string
+        }
+        Returns: Json
+      }
       invoice_years: {
         Args: never
         Returns: {
@@ -2450,6 +2464,7 @@ export type Database = {
         Returns: string
       }
       normalize_name: { Args: { _s: string }; Returns: string }
+      normalize_phone9: { Args: { _p: string }; Returns: string }
       notify_all_users: {
         Args: {
           _body: string
