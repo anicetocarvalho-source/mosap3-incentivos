@@ -800,7 +800,7 @@ const Patec = () => {
             <Button variant="outline" size="sm" className="h-8 text-xs" onClick={clearSelection}>
               <X className="h-3 w-3 mr-1" /> Limpar
             </Button>
-            <Button size="sm" className="h-8 text-xs" onClick={() => { setBulkDialogOpen(true); setBulkPatec(""); }}>
+            <Button size="sm" className="h-8 text-xs" onClick={() => { setBulkDialogOpen(true); setBulkPatecCode(""); }}>
               <Package className="h-3 w-3 mr-1" /> Atribuir PATEC em lote
             </Button>
           </div>
@@ -850,16 +850,19 @@ const Patec = () => {
                       <Badge variant={f.status === "Ativo" ? "default" : "secondary"} className="text-[10px]">{f.status}</Badge>
                     </TableCell>
                     <TableCell>
-                      {f.patec ? (
-                        <Badge variant="outline" className={`text-[10px] ${patecMeta[f.patec]?.color || ""}`}>
-                          PATEC {f.patec}
-                        </Badge>
-                      ) : (
-                        <span className="text-xs text-destructive font-medium">Não atribuído</span>
-                      )}
+                      {(() => {
+                        const p = findPatecByFarmer(f.patec_code, f.patec);
+                        if (!p) return <span className="text-xs text-destructive font-medium">Não atribuído</span>;
+                        const meta = p.legacy_number ? patecMeta[p.legacy_number] : null;
+                        return <Badge variant="outline" className={`text-[10px] ${meta?.color || ""}`}>{p.code}</Badge>;
+                      })()}
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => { setEditFarmer(f); setEditPatec(f.patec ? String(f.patec) : ""); }}>
+                      <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => {
+                        const p = findPatecByFarmer(f.patec_code, f.patec);
+                        setEditFarmer(f);
+                        setEditPatecCode(p?.code ?? "");
+                      }}>
                         <Edit2 className="h-3 w-3 mr-1" /> Atribuir
                       </Button>
                     </TableCell>
@@ -882,11 +885,12 @@ const Patec = () => {
                     <Checkbox checked={selectedIds.has(f.id)} onCheckedChange={() => toggleSelect(f.id)} />
                     <Link to={`/agricultores/${f.code}`} className="text-sm font-medium text-primary hover:underline">{f.full_name}</Link>
                   </div>
-                  {f.patec ? (
-                    <Badge variant="outline" className={`text-[10px] ${patecMeta[f.patec]?.color || ""}`}>PATEC {f.patec}</Badge>
-                  ) : (
-                    <span className="text-[10px] text-destructive font-medium">Sem PATEC</span>
-                  )}
+                  {(() => {
+                    const p = findPatecByFarmer(f.patec_code, f.patec);
+                    if (!p) return <span className="text-[10px] text-destructive font-medium">Sem PATEC</span>;
+                    const meta = p.legacy_number ? patecMeta[p.legacy_number] : null;
+                    return <Badge variant="outline" className={`text-[10px] ${meta?.color || ""}`}>{p.code}</Badge>;
+                  })()}
                 </div>
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
                   <span className="font-mono">{f.code}</span>
@@ -894,7 +898,11 @@ const Patec = () => {
                 </div>
                 <div className="flex items-center justify-between">
                   <Badge variant={f.status === "Ativo" ? "default" : "secondary"} className="text-[10px]">{f.status}</Badge>
-                  <Button variant="ghost" size="sm" className="h-6 text-[10px] px-2" onClick={() => { setEditFarmer(f); setEditPatec(f.patec ? String(f.patec) : ""); }}>
+                  <Button variant="ghost" size="sm" className="h-6 text-[10px] px-2" onClick={() => {
+                    const p = findPatecByFarmer(f.patec_code, f.patec);
+                    setEditFarmer(f);
+                    setEditPatecCode(p?.code ?? "");
+                  }}>
                     <Edit2 className="h-3 w-3 mr-1" /> Atribuir
                   </Button>
                 </div>
@@ -926,29 +934,50 @@ const Patec = () => {
             <p className="text-sm text-muted-foreground">
               Código: <span className="font-mono font-semibold">{editFarmer?.code}</span>
             </p>
-            <Select value={editPatec} onValueChange={setEditPatec}>
-              <SelectTrigger><SelectValue placeholder="Seleccionar PATEC" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="1">PATEC 1 — Milho + Feijão + Gado</SelectItem>
-                <SelectItem value="2">PATEC 2 — Massango + Feijão + Gado</SelectItem>
-                <SelectItem value="3">PATEC 3 — Massambala + Feijão + Gado</SelectItem>
-              </SelectContent>
-            </Select>
-            {editPatec && (
-              <div className="border rounded-lg p-3 text-xs space-y-2 bg-muted/30">
-                <p className="font-semibold">{patecMeta[parseInt(editPatec)]?.title}</p>
-                <div className="grid grid-cols-3 gap-2">
-                  {["insumos", "pecuaria", "servicos"].map((cat) => (
-                    <div key={cat}>
-                      <p className="font-medium text-muted-foreground mb-1">{categoryLabels[cat]}</p>
-                      <ul className="space-y-0.5">
-                        {getItems(parseInt(editPatec), cat).map((i) => <li key={i.id}>• {i.name}</li>)}
-                      </ul>
-                    </div>
-                  ))}
-                </div>
+            {seasons.length > 0 && (
+              <div className="text-xs text-muted-foreground">
+                Época: <span className="font-medium text-foreground">
+                  {selectedSeasonId === "all" ? "Todas" : (seasons.find((s) => s.id === selectedSeasonId)?.name || "—")}
+                </span>
               </div>
             )}
+            <Select value={editPatecCode || "_none"} onValueChange={(v) => setEditPatecCode(v === "_none" ? "" : v)}>
+              <SelectTrigger><SelectValue placeholder="Seleccionar PATEC" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="_none">— Remover atribuição —</SelectItem>
+                {patecsForSeason.length === 0 ? (
+                  <div className="px-2 py-3 text-xs text-muted-foreground">
+                    Nenhum pacote vinculado a esta época. Vá ao separador <strong>Pacotes</strong> para vincular.
+                  </div>
+                ) : patecsForSeason.map((p) => (
+                  <SelectItem key={p.id} value={p.code}>{p.code} — {p.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {editPatecCode && (() => {
+              const sel = patecs.find((p) => p.code === editPatecCode);
+              if (!sel) return null;
+              const legacy = sel.legacy_number;
+              const meta = legacy ? patecMeta[legacy] : null;
+              return (
+                <div className="border rounded-lg p-3 text-xs space-y-2 bg-muted/30">
+                  <p className="font-semibold">{meta?.title || `${sel.code} — ${sel.name}`}</p>
+                  {sel.cultures && <p className="text-muted-foreground">{sel.cultures}</p>}
+                  {legacy && meta && (
+                    <div className="grid grid-cols-3 gap-2 pt-1">
+                      {["insumos", "pecuaria", "servicos"].map((cat) => (
+                        <div key={cat}>
+                          <p className="font-medium text-muted-foreground mb-1">{categoryLabels[cat]}</p>
+                          <ul className="space-y-0.5">
+                            {getItems(legacy, cat).map((i) => <li key={i.id}>• {i.name}</li>)}
+                          </ul>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditFarmer(null)}>Cancelar</Button>
@@ -968,25 +997,32 @@ const Patec = () => {
               Vai atribuir o mesmo PATEC a <span className="font-bold text-foreground">{selectedIds.size}</span> produtor{selectedIds.size > 1 ? "es" : ""} seleccionado{selectedIds.size > 1 ? "s" : ""}:
             </p>
             <div className="max-h-32 overflow-y-auto border rounded-lg p-2 text-xs space-y-1 bg-muted/20">
-              {filtered.filter((f) => selectedIds.has(f.id)).map((f) => (
-                <div key={f.id} className="flex items-center justify-between">
-                  <span><span className="font-mono text-muted-foreground">{f.code}</span> — {f.full_name}</span>
-                  {f.patec && <Badge variant="outline" className={`text-[9px] ${patecMeta[f.patec]?.color || ""}`}>PATEC {f.patec}</Badge>}
-                </div>
-              ))}
+              {filtered.filter((f) => selectedIds.has(f.id)).map((f) => {
+                const p = findPatecByFarmer(f.patec_code, f.patec);
+                return (
+                  <div key={f.id} className="flex items-center justify-between">
+                    <span><span className="font-mono text-muted-foreground">{f.code}</span> — {f.full_name}</span>
+                    {p && <Badge variant="outline" className="text-[9px]">{p.code}</Badge>}
+                  </div>
+                );
+              })}
             </div>
-            <Select value={bulkPatec} onValueChange={setBulkPatec}>
+            <Select value={bulkPatecCode} onValueChange={setBulkPatecCode}>
               <SelectTrigger><SelectValue placeholder="Seleccionar PATEC para todos" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="1">PATEC 1 — Milho + Feijão + Gado</SelectItem>
-                <SelectItem value="2">PATEC 2 — Massango + Feijão + Gado</SelectItem>
-                <SelectItem value="3">PATEC 3 — Massambala + Feijão + Gado</SelectItem>
+                {patecsForSeason.length === 0 ? (
+                  <div className="px-2 py-3 text-xs text-muted-foreground">
+                    Nenhum pacote vinculado a esta época.
+                  </div>
+                ) : patecsForSeason.map((p) => (
+                  <SelectItem key={p.id} value={p.code}>{p.code} — {p.name}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setBulkDialogOpen(false)}>Cancelar</Button>
-            <Button onClick={() => setBulkConfirmOpen(true)} disabled={saving || !bulkPatec}>
+            <Button onClick={() => setBulkConfirmOpen(true)} disabled={saving || !bulkPatecCode}>
               {`Atribuir a ${selectedIds.size} produtor${selectedIds.size > 1 ? "es" : ""}`}
             </Button>
           </DialogFooter>
