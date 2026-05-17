@@ -98,9 +98,9 @@ const AppSidebar = () => {
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
       <SidebarHeader className="border-b border-sidebar-border">
-        <Link to="/" className="flex items-center gap-2.5 px-1 py-1">
-          <div className="h-9 w-9 flex-shrink-0 bg-card rounded-lg p-1 flex items-center justify-center">
-            <img src={mosapLogo} alt="MOSAP3" className="h-full w-auto" />
+        <Link to="/" className="flex items-center gap-2.5 px-2 py-2">
+          <div className="h-10 w-10 flex-shrink-0 rounded-xl bg-sidebar-accent flex items-center justify-center overflow-hidden">
+            <img src={mosapLogo} alt="MOSAP3" className="h-8 w-8 object-contain" />
           </div>
           {!collapsed && (
             <div className="flex flex-col leading-tight">
