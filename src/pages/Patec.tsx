@@ -375,7 +375,8 @@ const Patec = () => {
       const list = buckets[patecNum];
       for (let i = 0; i < list.length; i += 50) {
         const batch = list.slice(i, i + 50);
-        const { error } = await supabase.from("farmers").update({ patec: patecNum }).in("id", batch);
+        const codeForLegacy = patecs.find((p) => p.legacy_number === patecNum)?.code ?? null;
+        const { error } = await supabase.from("farmers").update({ patec: patecNum, patec_code: codeForLegacy }).in("id", batch);
         if (error) errorCount++;
       }
     }
