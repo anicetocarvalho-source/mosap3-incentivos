@@ -1192,11 +1192,19 @@ const Patec = () => {
             <AlertDialogDescription asChild>
               <div className="space-y-2 text-sm">
                 <p>
-                  Vai atribuir PATEC 1, 2 ou 3 de forma aleatória e equilibrada (terços) a{" "}
-                  <strong className="text-foreground">{semPatecPool.length}</strong>{" "}
-                  produtor(es) sem PATEC
+                  Vai distribuir aleatoriamente (equilibrado) <strong className="text-foreground">{semPatecPool.length}</strong>{" "}
+                  produtor(es) sem PATEC pelos{" "}
+                  <strong className="text-foreground">{patecsForSeason.length}</strong> PATEC(s) disponíveis para a época{" "}
+                  <strong className="text-foreground">
+                    {selectedSeasonId === "all" ? "(todas)" : (seasons.find((s) => s.id === selectedSeasonId)?.name || "—")}
+                  </strong>
                   {filterProvince !== "all" ? <> em <strong className="text-foreground">{filterProvince}</strong></> : null}.
                 </p>
+                {patecsForSeason.length === 0 && (
+                  <p className="text-xs text-destructive">
+                    Não existem PATECs vinculados a esta época. Vincule pacotes à época antes de continuar.
+                  </p>
+                )}
                 <p className="text-xs text-muted-foreground">
                   Os produtores que já têm PATEC atribuído não serão alterados.
                 </p>
