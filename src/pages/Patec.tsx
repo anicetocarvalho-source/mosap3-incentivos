@@ -31,7 +31,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { usePatecs } from "@/hooks/usePatecs";
+import { usePatecs, type Patec } from "@/hooks/usePatecs";
 import { useSeasons } from "@/hooks/useSeasons";
 import PatecsTab from "@/components/patec/PatecsTab";
 import SeasonsTab from "@/components/patec/SeasonsTab";
@@ -44,6 +44,7 @@ interface FarmerPatec {
   municipality: string | null;
   school: string | null;
   patec: number | null;
+  patec_code: string | null;
   status: string;
 }
 
@@ -97,15 +98,18 @@ const Patec = () => {
   const [filterProvince, setFilterProvince] = useState<string>(initialProvince);
   const [page, setPage] = useState(1);
   const [editFarmer, setEditFarmer] = useState<FarmerPatec | null>(null);
-  const [editPatec, setEditPatec] = useState<string>("");
+  const [editPatecCode, setEditPatecCode] = useState<string>("");
   const [saving, setSaving] = useState(false);
   const [viewPatec, setViewPatec] = useState<number | null>(null);
 
   // Bulk selection state
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
-  const [bulkPatec, setBulkPatec] = useState<string>("");
+  const [bulkPatecCode, setBulkPatecCode] = useState<string>("");
   const [bulkConfirmOpen, setBulkConfirmOpen] = useState(false);
+
+  // Season selector for assignment
+  const [selectedSeasonId, setSelectedSeasonId] = useState<string>("all");
 
   // Add item state
   const [addingCategory, setAddingCategory] = useState<{ patec: number; category: string } | null>(null);
@@ -143,7 +147,7 @@ const Patec = () => {
           supabase
             .from("farmers")
             .select(
-              "id, code, full_name, province, municipality, school, patec, status",
+              "id, code, full_name, province, municipality, school, patec, patec_code, status",
               { count: "exact" }
             )
             .order("code"),
