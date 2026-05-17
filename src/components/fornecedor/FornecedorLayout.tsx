@@ -68,7 +68,7 @@ const FornecedorLayout = () => {
       {/* Sidebar */}
       <aside className={`fixed inset-y-0 left-0 z-40 w-64 bg-sidebar text-sidebar-foreground transform transition-transform lg:translate-x-0 ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`}>
         <div className="flex items-center gap-3 p-4 border-b border-sidebar-border">
-          <img src={mosapLogo} alt="MOSAP3" className="h-8" />
+          <img src={mosapLogo} alt="MOSAP3" className={LOGO_SIZES.supplierSidebar} />
           <div>
             <p className="font-heading font-bold text-sm text-sidebar-primary">MOSAP3Pay</p>
             <p className="text-[10px] text-sidebar-foreground/60 truncate">{supplier?.name}</p>
