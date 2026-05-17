@@ -1,54 +1,69 @@
-## Nova secção "Divergências por agricultor" em `/relatorios/snapshots`
+## Redesign do cartão de identificação
 
-Adicionar uma tabela detalhada por telefone/agricultor logo a seguir à secção "3. Comparação Soma vs. Último snapshot", reutilizando o `aggs` já computado (não há leitura extra do Excel).
+Refatorar `src/components/cartao/FarmerIdCard.tsx` para uma composição mais limpa e bem proporcionada, mantendo as dimensões CR80 (85,6 × 54 mm).
 
-### Colunas
+### Frente
 
-| Coluna | Origem |
-|--------|--------|
-| Telefone | `aggs.phone` (9 dígitos canónicos) |
-| Agricultor | `farmers.full_name` (lookup por telefone) |
-| Código | `farmers.code` com link para `/agricultor/:code` |
-| Snapshots | `aggs.snapshots` |
-| Soma recebido | `aggs.somaRecebido` (Kz) |
-| Último recebido | `aggs.ultimoRecebido` (Kz) |
-| Δ recebido | `soma − último` (badge vermelho se >0) |
-| Soma gasto | `aggs.somaGasto` (Kz) |
-| Último gasto | `aggs.ultimoGasto` (Kz) |
-| Δ gasto | `soma − último` |
-| Soma saldo | `max(0, somaRecebido − somaGasto)` |
-| Último saldo | `max(0, ultimoRecebido − ultimoGasto)` |
-| Δ saldo | `soma − último` |
-| Divergência total | `|Δ recebido| + |Δ gasto|` (ordenação por defeito, desc) |
+Nova estrutura em 3 zonas verticais (header / corpo / footer) com grelha consistente:
 
-### Funcionalidade
+```
+┌────────────────────────────────────────────────┐
+│ [Angola]  MINAGRIF                  [MOSAP3]   │ header (h≈42)
+│           República de Angola                  │
+├────────────────────────────────────────────────┤
+│ ┌──────┐  ABEL CANDIEIRO              ┌─────┐ │
+│ │      │  ID  AGR-976091758           │ QR  │ │ corpo
+│ │ FOTO │  Província / Município       │     │ │
+│ │      │  ECA: ...                    └─────┘ │
+│ │      │  PATEC: ...                  Verificar│
+│ └──────┘                                       │
+├────────────────────────────────────────────────┤
+│ Cartão de Identificação do Agricultor   ATIVO  │ footer
+└────────────────────────────────────────────────┘
+```
 
-- **Ordenação clicável** por qualquer coluna numérica (estado local `sortKey` + `sortDir`); por defeito `Divergência total` desc.
-- **Pesquisa** por telefone, nome ou código (Input com debounce simples).
-- **Filtro "Apenas com divergência"** (toggle Switch): esconde linhas onde `|Δ recebido|+|Δ gasto| < 1 Kz`.
-- **Paginação cliente** (50 por página) para evitar render lento quando há milhares de telefones.
-- **Indicador "Órfão"**: linhas onde nenhum agricultor corresponde ao telefone → badge `Órfão` com link para `/telefones-orfaos`.
-- **Botão "Exportar CSV"** que respeita filtros e ordenação actuais, gera ficheiro `divergencias_snapshot_YYYY-MM-DD.csv` via Blob.
+Mudanças específicas:
+- Header com duas marcas: à **esquerda** insígnia da República de Angola + texto "MINAGRIF" / "República de Angola" empilhado; à **direita** logo MOSAP3 em círculo branco. Título "Cartão de Identificação do Agricultor" passa para o footer para libertar o topo.
+- Foto **estilo passaporte** (proporção 3:4, ~64×84 px à escala 1), borda branca fina, canto arredondado discreto, alinhada verticalmente ao bloco de informação.
+- Nome do agricultor com tipografia maior e bold, ID em mono numa linha logo abaixo, província/município/ECA/PATEC em linhas separadas com hierarquia consistente (tracking, opacidade) e truncagem.
+- QR à direita alinhado ao topo do bloco de informação (mesma baseline da foto), com label "Verificar" centrada por baixo.
+- Footer com gradiente subtil e badge de estado à direita usando tokens semânticos (`success` / `warning`) em vez de `text-green-300` literal.
+- Remover os `transform: scale(${scale})` aninhados que estavam a causar desalinhamento entre header/corpo/footer; aplicar `scale` apenas no contentor raiz.
 
-### Lookup agricultores
+### Verso
 
-Após o processamento do Excel, fazer **uma** query `supabase.from('farmers').select('code, full_name, phone').not('phone','is',null)`, paginada via `fetchAllPages`. Construir `Map<phone9digits, {code, full_name}>` usando a função `normPhone` existente no ficheiro.
+```
+┌────────────────────────────────────────────────┐
+│              ║║│║║│║│║│║║│║│║                  │ barcode centrado
+│              AGR-976091758                     │
+├────────────────────────────────────────────────┤
+│  BI:            004XXXXXXLA041                 │
+│  Telefone:      244 976 091 758                │ grid 2 col
+│  Elegibilidade: Sem crédito                    │ key→muted
+│  Emissão:       17/05/2026                     │ value→foreground
+├────────────────────────────────────────────────┤
+│ Cartão emitido pelo sistema MOSAP3.            │
+│ Para verificar autenticidade, leia o QR Code.  │
+└────────────────────────────────────────────────┘
+```
 
-O lookup só corre quando `aggs` está pronto; é cacheado em estado (`farmersByPhone`) e reutilizado se o utilizador recarregar o Excel.
+- Padding lateral consistente com a frente (px-4) e blocos verticalmente espaçados com `space-y`.
+- Grelha de detalhes com colunas alinhadas (label muted, valor foreground), tipografia ligeiramente maior (8–9px à escala 1) para legibilidade.
+- Barcode reduzido de altura mas com mais ar à volta; código por baixo em mono.
+- Footer em duas linhas centradas.
 
-### Apresentação
+### Tokens / cores
+- Manter o gradiente verde MOSAP3 mas usar tokens HSL existentes (`--primary` → variação mais escura) sem cores literais novas.
+- Estado: `success` (Ativo/Aprovado), `warning` (Pendente), `destructive` (Revogado).
 
-- **Desktop**: `<Table>` shadcn com cabeçalho fixo (`sticky top-0`), cabeçalhos clicáveis com seta de ordenação.
-- **Mobile**: cards `divide-y` mostrando apenas Agricultor, Δ recebido, Δ gasto e Δ saldo (com cores semânticas `text-destructive`/`text-warning`).
-- Cores: Δ positivo (soma > último) em `text-destructive`; Δ zero em `text-muted-foreground`.
+### Ativos a adicionar
+Aguardar upload do utilizador:
+- `src/assets/republica-angola.png` (insígnia / brasão da República)
+- `src/assets/minagrif.png` (opcional, se logo separado; caso contrário usar apenas texto "MINAGRIF")
 
-### Ficheiros
+Até as imagens chegarem, deixar `<img>` com `src` apontando para o ficheiro esperado e fallback de texto, para que a substituição depois seja um simples drop-in.
 
-- **Editar apenas**: `src/pages/RelatorioSnapshots.tsx` (adicionar estado, lookup, nova `<Card>` com a tabela, função CSV).
-- Sem alterações de schema, navegação ou outras páginas.
+### Ficheiros tocados
+- `src/components/cartao/FarmerIdCard.tsx` (único componente — afeta automaticamente `CartaoIdLote`, `CartoesId`, `FarmerCardTab`, exportação PDF/PNG via `cardExport.ts`).
 
-### Fora de âmbito
-
-- Não escreve nada na BD — é só visualização/exportação.
-- Não modifica o motor de agregação existente (`aggs`/`PhoneAgg`).
-- Não adiciona novos endpoints nem edge functions.
+Sem alterações em rotas, dados ou exportação.
