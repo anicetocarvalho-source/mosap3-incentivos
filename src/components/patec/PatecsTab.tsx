@@ -171,6 +171,12 @@ export default function PatecsTab({ patecs, seasons, links, farmerCounts, isAdmi
         onSaved={refetch}
       />
 
+      <PatecCompositionDialog
+        open={!!composing}
+        onOpenChange={(o) => !o && setComposing(null)}
+        patec={composing}
+      />
+
       <AlertDialog open={!!deleting} onOpenChange={(o) => !o && setDeleting(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
