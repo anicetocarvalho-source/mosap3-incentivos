@@ -98,9 +98,18 @@ const AppSidebar = () => {
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
       <SidebarHeader className="border-b border-sidebar-border">
-        <Link to="/" className="flex items-center gap-2.5 px-2 py-2">
-          <div className="h-10 w-10 flex-shrink-0 rounded-xl bg-sidebar-accent flex items-center justify-center overflow-hidden">
-            <img src={mosapLogo} alt="MOSAP3" className="h-8 w-8 object-contain" />
+        <Link
+          to="/"
+          className="flex items-center gap-2.5 px-2 py-2 rounded-lg transition-colors duration-200 hover:bg-sidebar-accent/60 group/logo"
+        >
+          <div
+            className={`h-10 w-10 flex-shrink-0 rounded-xl bg-sidebar-accent flex items-center justify-center overflow-hidden transition-all duration-200 group-hover/logo:bg-sidebar-primary/15 group-hover/logo:ring-2 group-hover/logo:ring-sidebar-primary/25 ${isActivePath("/") ? "ring-2 ring-sidebar-primary/40 bg-sidebar-primary/20" : ""}`}
+          >
+            <img
+              src={mosapLogo}
+              alt="MOSAP3"
+              className="h-8 w-8 object-contain transition-transform duration-200 group-hover/logo:scale-[1.08]"
+            />
           </div>
           {!collapsed && (
             <div className="flex flex-col leading-tight">
