@@ -103,6 +103,8 @@ const Patec = () => {
   const [editPatecCode, setEditPatecCode] = useState<string>("");
   const [saving, setSaving] = useState(false);
   const [viewPatec, setViewPatec] = useState<number | null>(null);
+  const [composingPatec, setComposingPatec] = useState<Patec | null>(null);
+  const [itemCountsByCode, setItemCountsByCode] = useState<Record<string, number>>({});
 
   // Bulk selection state
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
