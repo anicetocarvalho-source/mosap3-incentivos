@@ -233,6 +233,30 @@ const Patec = () => {
     return () => { cancelled = true; };
   }, [authReady, user?.id, roles.join(",")]);
 
+  // Realtime: re-fetch counts/items automatically when patec_items change anywhere
+  useEffect(() => {
+    if (!authReady || !user) return;
+    let debounceId: ReturnType<typeof setTimeout> | null = null;
+    const scheduleRefetch = () => {
+      if (debounceId) clearTimeout(debounceId);
+      debounceId = setTimeout(() => {
+        fetchPatecItems();
+      }, 250);
+    };
+    const channel = supabase
+      .channel("patec_items-changes")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "patec_items" },
+        scheduleRefetch
+      )
+      .subscribe();
+    return () => {
+      if (debounceId) clearTimeout(debounceId);
+      supabase.removeChannel(channel);
+    };
+  }, [authReady, user?.id]);
+
   const getItems = (patecNum: number, category: string) =>
     patecItems.filter((i) => i.patec_number === patecNum && i.category === category);
 
