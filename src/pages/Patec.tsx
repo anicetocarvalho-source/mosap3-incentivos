@@ -197,17 +197,26 @@ const Patec = () => {
   };
 
   const fetchPatecItems = async () => {
-    const { data } = await supabase
-      .from("patec_items")
-      .select("*")
-      .order("created_at");
-    const rows = (data as any[]) || [];
-    setPatecItems(rows as PatecItem[]);
-    const counts: Record<string, number> = {};
-    for (const r of rows) {
-      if (r.patec_code) counts[r.patec_code] = (counts[r.patec_code] || 0) + 1;
+    setCompositionLoading(true);
+    setCompositionError(null);
+    try {
+      const { data, error } = await supabase
+        .from("patec_items")
+        .select("*")
+        .order("created_at");
+      if (error) throw error;
+      const rows = (data as any[]) || [];
+      setPatecItems(rows as PatecItem[]);
+      const counts: Record<string, number> = {};
+      for (const r of rows) {
+        if (r.patec_code) counts[r.patec_code] = (counts[r.patec_code] || 0) + 1;
+      }
+      setItemCountsByCode(counts);
+    } catch (err: any) {
+      setCompositionError(err?.message || "Erro ao carregar itens dos PATECs");
+    } finally {
+      setCompositionLoading(false);
     }
-    setItemCountsByCode(counts);
   };
 
   useEffect(() => {
