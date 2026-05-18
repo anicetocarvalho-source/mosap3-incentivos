@@ -132,7 +132,7 @@ const Patec = () => {
   const [editingItemName, setEditingItemName] = useState("");
 
   // New: pacotes & épocas
-  const { patecs, refetch: refetchPatecs } = usePatecs();
+  const { patecs, loading: patecsLoading, refetch: refetchPatecs } = usePatecs();
   const { seasons, links, refetch: refetchSeasons } = useSeasons();
   const farmerCountsByCode = farmers.reduce<Record<string, number>>((acc, f) => {
     const k = (f as any).patec_code || (f.patec ? `_legacy_${f.patec}` : "_none");
