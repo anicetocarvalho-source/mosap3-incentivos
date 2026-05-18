@@ -118,6 +118,9 @@ const Patec = () => {
   const [newItemQty, setNewItemQty] = useState("");
   const [newItemUnit, setNewItemUnit] = useState("kg");
 
+  // Composition list filter
+  const [compositionSearch, setCompositionSearch] = useState("");
+
   // Edit item state
   const [editingItem, setEditingItem] = useState<string | null>(null);
   const [editingItemName, setEditingItemName] = useState("");
