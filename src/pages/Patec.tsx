@@ -814,19 +814,23 @@ const Patec = () => {
             return (
               <ul className="divide-y" role="list">
                 {(() => {
-                  const activePatecs = patecs.filter((p) => p.is_active);
                   const term = compositionSearch.toLowerCase().trim();
+                  const sortedPatecs = [...patecs].sort((a, b) => {
+                    if (a.is_active !== b.is_active) return a.is_active ? -1 : 1;
+                    if ((a.sort_order ?? 0) !== (b.sort_order ?? 0)) return (a.sort_order ?? 0) - (b.sort_order ?? 0);
+                    return a.code.localeCompare(b.code);
+                  });
                   const filtered = term
-                    ? activePatecs.filter((p) =>
+                    ? sortedPatecs.filter((p) =>
                         p.code.toLowerCase().includes(term) ||
                         p.name.toLowerCase().includes(term) ||
                         (p.cultures || "").toLowerCase().includes(term)
                       )
-                    : activePatecs;
+                    : sortedPatecs;
                   if (filtered.length === 0) {
                     return (
                       <li className="px-4 py-6 text-center text-sm text-muted-foreground">
-                        {term ? "Nenhum pacote corresponde à pesquisa." : "Sem pacotes activos."}
+                        {term ? "Nenhum pacote corresponde à pesquisa." : "Sem pacotes disponíveis."}
                       </li>
                     );
                   }
@@ -835,7 +839,13 @@ const Patec = () => {
                     const LegacyIcon = legacyMeta?.icon;
                     const totalItems = itemCountsByCode[p.code] || 0;
                     return (
-                      <li key={p.id} className="flex items-center gap-3 px-4 py-2.5">
+                      <li
+                        key={p.id}
+                        className={cn(
+                          "flex items-center gap-3 px-4 py-2.5",
+                          !p.is_active && "opacity-60 bg-muted/30"
+                        )}
+                      >
                         {legacyMeta ? (
                           <div className={`h-8 w-8 rounded-lg bg-gradient-to-br ${legacyMeta.gradient} flex items-center justify-center shrink-0`} aria-hidden="true">
                             <LegacyIcon className="h-4 w-4 text-white" aria-hidden="true" />
@@ -847,7 +857,13 @@ const Patec = () => {
                         )}
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-semibold leading-tight truncate">
-                            {p.code} <span className="text-muted-foreground font-normal">— {p.name}{p.cultures ? ` · ${p.cultures}` : ""}</span>
+                            {p.code}{" "}
+                            <span className="text-muted-foreground font-normal">
+                              — {p.name}{p.cultures ? ` · ${p.cultures}` : ""}
+                            </span>
+                            {!p.is_active && (
+                              <span className="ml-2 text-[10px] uppercase tracking-wider text-muted-foreground">(inativo)</span>
+                            )}
                           </p>
                         </div>
                         <Badge variant="outline" className="text-[10px] font-normal">
