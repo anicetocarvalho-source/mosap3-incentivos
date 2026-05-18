@@ -198,7 +198,13 @@ const Patec = () => {
       .from("patec_items")
       .select("*")
       .order("created_at");
-    setPatecItems((data as PatecItem[]) || []);
+    const rows = (data as any[]) || [];
+    setPatecItems(rows as PatecItem[]);
+    const counts: Record<string, number> = {};
+    for (const r of rows) {
+      if (r.patec_code) counts[r.patec_code] = (counts[r.patec_code] || 0) + 1;
+    }
+    setItemCountsByCode(counts);
   };
 
   useEffect(() => {
