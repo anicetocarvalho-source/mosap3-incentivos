@@ -842,6 +842,36 @@ const Patec = () => {
         <h2 className="text-sm font-semibold flex items-center gap-2 mb-3">
           <TreeDeciduous className="h-4 w-4 text-primary" aria-hidden="true" />
           Composição dos Pacotes
+          <span className="ml-auto flex items-center gap-1.5">
+            <span className={cn("relative flex h-2 w-2", syncStatus === "connected" && "animate-pulse")}>
+              <span
+                className={cn(
+                  "inline-flex h-2 w-2 rounded-full",
+                  syncStatus === "connected"
+                    ? "bg-success"
+                    : syncStatus === "error"
+                      ? "bg-destructive"
+                      : "bg-muted-foreground"
+                )}
+              />
+            </span>
+            <span
+              className={cn(
+                "text-[10px] uppercase tracking-wider font-medium",
+                syncStatus === "connected"
+                  ? "text-success"
+                  : syncStatus === "error"
+                    ? "text-destructive"
+                    : "text-muted-foreground"
+              )}
+            >
+              {syncStatus === "connected"
+                ? "Sincronizado"
+                : syncStatus === "error"
+                  ? "Erro de sincronização"
+                  : "Desligado"}
+            </span>
+          </span>
         </h2>
         <Card>
           <div className="p-3 pb-0">
