@@ -233,26 +233,61 @@ const Patec = () => {
     return () => { cancelled = true; };
   }, [authReady, user?.id, roles.join(",")]);
 
-  // Realtime: re-fetch counts/items automatically when patec_items change anywhere
+  // Realtime: aplica eventos INSERT/UPDATE/DELETE incrementalmente em
+  // patecItems e itemCountsByCode, sem refazer o fetch completo.
   useEffect(() => {
     if (!authReady || !user) return;
-    let debounceId: ReturnType<typeof setTimeout> | null = null;
-    const scheduleRefetch = () => {
-      if (debounceId) clearTimeout(debounceId);
-      debounceId = setTimeout(() => {
-        fetchPatecItems();
-      }, 250);
+
+    const applyDelta = (code: string | null | undefined, delta: number) => {
+      if (!code) return;
+      setItemCountsByCode((prev) => {
+        const next = { ...prev };
+        const v = (next[code] || 0) + delta;
+        if (v <= 0) delete next[code];
+        else next[code] = v;
+        return next;
+      });
     };
+
     const channel = supabase
       .channel("patec_items-changes")
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "patec_items" },
-        scheduleRefetch
+        { event: "INSERT", schema: "public", table: "patec_items" },
+        (payload) => {
+          const row = payload.new as PatecItem;
+          setPatecItems((prev) =>
+            prev.some((p) => p.id === row.id) ? prev : [...prev, row]
+          );
+          applyDelta((row as any).patec_code, +1);
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "patec_items" },
+        (payload) => {
+          const row = payload.new as PatecItem;
+          const old = payload.old as Partial<PatecItem> & { patec_code?: string | null };
+          setPatecItems((prev) => prev.map((p) => (p.id === row.id ? row : p)));
+          const oldCode = (old as any).patec_code ?? null;
+          const newCode = (row as any).patec_code ?? null;
+          if (oldCode !== newCode) {
+            applyDelta(oldCode, -1);
+            applyDelta(newCode, +1);
+          }
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "DELETE", schema: "public", table: "patec_items" },
+        (payload) => {
+          const old = payload.old as Partial<PatecItem> & { id?: string; patec_code?: string | null };
+          if (old?.id) setPatecItems((prev) => prev.filter((p) => p.id !== old.id));
+          applyDelta((old as any)?.patec_code, -1);
+        }
       )
       .subscribe();
     return () => {
-      if (debounceId) clearTimeout(debounceId);
       supabase.removeChannel(channel);
     };
   }, [authReady, user?.id]);
