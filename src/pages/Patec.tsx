@@ -1183,7 +1183,14 @@ const Patec = () => {
       </AlertDialog>
 
       {/* View PATEC detail Dialog */}
+      <PatecCompositionDialog
+        open={composingPatec !== null}
+        onOpenChange={(o) => !o && setComposingPatec(null)}
+        patec={composingPatec}
+      />
+
       <Dialog open={viewPatec !== null} onOpenChange={(o) => !o && setViewPatec(null)}>
+
         <DialogContent className="max-w-lg">
           {viewPatec && patecMeta[viewPatec] && (
             <>
