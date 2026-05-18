@@ -109,6 +109,7 @@ const Patec = () => {
   const [itemCountsByCode, setItemCountsByCode] = useState<Record<string, number>>({});
   const [compositionLoading, setCompositionLoading] = useState(true);
   const [compositionError, setCompositionError] = useState<string | null>(null);
+  const [syncStatus, setSyncStatus] = useState<'connected' | 'disconnected' | 'error'>('disconnected');
 
   // Bulk selection state
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
