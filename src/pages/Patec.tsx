@@ -748,39 +748,42 @@ const Patec = () => {
         </div>
       )}
 
-      {/* Composition cards - improved */}
+      {/* Composition - compact list */}
       <div>
         <h2 className="text-sm font-semibold flex items-center gap-2 mb-3">
           <TreeDeciduous className="h-4 w-4 text-primary" />
           Composição dos Pacotes
         </h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {[1, 2, 3].map((p) => {
-            const meta = patecMeta[p];
-            const Icon = meta.icon;
-            return (
-              <Card key={p} className={`overflow-hidden ${meta.bgAccent}`}>
-                <CardHeader className="pb-2">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className={`h-7 w-7 rounded-lg bg-gradient-to-br ${meta.gradient} flex items-center justify-center`}>
-                        <Icon className="h-3.5 w-3.5 text-white" />
-                      </div>
-                      <CardTitle className="text-sm">PATEC {p}</CardTitle>
-                    </div>
-                    <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setViewPatec(p)}>
-                      <Eye className="h-3 w-3 mr-1" /> Detalhes
-                    </Button>
+        <Card>
+          <div className="divide-y">
+            {[1, 2, 3].map((p) => {
+              const meta = patecMeta[p];
+              const Icon = meta.icon;
+              const totalItems =
+                getItems(p, "insumos").length +
+                getItems(p, "pecuaria").length +
+                getItems(p, "servicos").length;
+              return (
+                <div key={p} className="flex items-center gap-3 px-4 py-2.5">
+                  <div className={`h-8 w-8 rounded-lg bg-gradient-to-br ${meta.gradient} flex items-center justify-center shrink-0`}>
+                    <Icon className="h-4 w-4 text-white" />
                   </div>
-                  <p className="text-[11px] text-muted-foreground mt-1">{meta.cultures} + Gado</p>
-                </CardHeader>
-                <CardContent className="text-xs space-y-3 pt-0">
-                  {["insumos", "pecuaria", "servicos"].map((cat) => renderItemList(p, cat))}
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold leading-tight truncate">
+                      PATEC {p} <span className="text-muted-foreground font-normal">— {meta.cultures} + Gado</span>
+                    </p>
+                  </div>
+                  <Badge variant="outline" className="text-[10px] font-normal">
+                    {totalItems} {totalItems === 1 ? "item" : "itens"}
+                  </Badge>
+                  <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setViewPatec(p)}>
+                    <Eye className="h-3 w-3 mr-1" /> Detalhes
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
       </div>
 
       {/* Filters + Bulk action bar */}
