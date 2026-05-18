@@ -347,6 +347,35 @@ const Patec = () => {
     };
   }, [authReady, user?.id]);
 
+  // Reconciliação: garante que itemCountsByCode[code] do PATEC actualmente
+  // seleccionado coincide com a contagem autoritativa do servidor, mesmo
+  // após escritas concorrentes de outros utilizadores ou eventos realtime
+  // perdidos. Corre quando se abre a composição e quando o canal realtime
+  // (re)liga.
+  useEffect(() => {
+    const code = composingPatec?.code;
+    if (!code || !authReady || !user) return;
+    let cancelled = false;
+    (async () => {
+      const { count, error } = await supabase
+        .from("patec_items")
+        .select("id", { count: "exact", head: true })
+        .eq("patec_code", code);
+      if (cancelled || error || count == null) return;
+      setItemCountsByCode((prev) => {
+        const current = prev[code] || 0;
+        if (current === count) return prev;
+        const next = { ...prev };
+        if (count <= 0) delete next[code];
+        else next[code] = count;
+        return next;
+      });
+    })();
+    return () => { cancelled = true; };
+  }, [composingPatec?.code, syncStatus, authReady, user?.id]);
+
+
+
   const getItems = (patecNum: number, category: string) =>
     patecItems.filter((i) => i.patec_number === patecNum && i.category === category);
 
