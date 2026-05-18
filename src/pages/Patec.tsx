@@ -287,7 +287,11 @@ const Patec = () => {
           applyDelta((old as any)?.patec_code, -1);
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") setSyncStatus("connected");
+        else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") setSyncStatus("error");
+        else setSyncStatus("disconnected");
+      });
     return () => {
       supabase.removeChannel(channel);
     };
