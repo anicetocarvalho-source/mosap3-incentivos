@@ -36,6 +36,7 @@ import { useSeasons } from "@/hooks/useSeasons";
 import PatecsTab from "@/components/patec/PatecsTab";
 import SeasonsTab from "@/components/patec/SeasonsTab";
 import { validatePatecAssignment } from "@/lib/patecAssignmentGuard";
+import PatecCompositionDialog from "@/components/patec/PatecCompositionDialog";
 
 interface FarmerPatec {
   id: string;
