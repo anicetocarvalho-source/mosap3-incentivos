@@ -118,6 +118,9 @@ const Patec = () => {
   const [newItemQty, setNewItemQty] = useState("");
   const [newItemUnit, setNewItemUnit] = useState("kg");
 
+  // Composition list filter
+  const [compositionSearch, setCompositionSearch] = useState("");
+
   // Edit item state
   const [editingItem, setEditingItem] = useState<string | null>(null);
   const [editingItemName, setEditingItemName] = useState("");
@@ -755,8 +758,29 @@ const Patec = () => {
           Composição dos Pacotes
         </h2>
         <Card>
+          <div className="p-3 pb-0">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" aria-hidden="true" />
+              <Input
+                placeholder="Pesquisar PATEC..."
+                value={compositionSearch}
+                onChange={(e) => setCompositionSearch(e.target.value)}
+                className="pl-9 h-8 text-sm"
+                aria-label="Pesquisar PATEC na composição"
+              />
+            </div>
+          </div>
           <ul className="divide-y" role="list">
-            {[1, 2, 3].map((p) => {
+            {[1, 2, 3].filter((p) => {
+              if (!compositionSearch.trim()) return true;
+              const meta = patecMeta[p];
+              const term = compositionSearch.toLowerCase().trim();
+              return (
+                `patec ${p}`.includes(term) ||
+                meta.cultures.toLowerCase().includes(term) ||
+                meta.title.toLowerCase().includes(term)
+              );
+            }).map((p) => {
               const meta = patecMeta[p];
               const Icon = meta.icon;
               const totalItems =
