@@ -751,11 +751,11 @@ const Patec = () => {
       {/* Composition - compact list */}
       <div>
         <h2 className="text-sm font-semibold flex items-center gap-2 mb-3">
-          <TreeDeciduous className="h-4 w-4 text-primary" />
+          <TreeDeciduous className="h-4 w-4 text-primary" aria-hidden="true" />
           Composição dos Pacotes
         </h2>
         <Card>
-          <div className="divide-y">
+          <ul className="divide-y" role="list">
             {[1, 2, 3].map((p) => {
               const meta = patecMeta[p];
               const Icon = meta.icon;
@@ -764,9 +764,9 @@ const Patec = () => {
                 getItems(p, "pecuaria").length +
                 getItems(p, "servicos").length;
               return (
-                <div key={p} className="flex items-center gap-3 px-4 py-2.5">
-                  <div className={`h-8 w-8 rounded-lg bg-gradient-to-br ${meta.gradient} flex items-center justify-center shrink-0`}>
-                    <Icon className="h-4 w-4 text-white" />
+                <li key={p} className="flex items-center gap-3 px-4 py-2.5">
+                  <div className={`h-8 w-8 rounded-lg bg-gradient-to-br ${meta.gradient} flex items-center justify-center shrink-0`} aria-hidden="true">
+                    <Icon className="h-4 w-4 text-white" aria-hidden="true" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold leading-tight truncate">
@@ -776,13 +776,19 @@ const Patec = () => {
                   <Badge variant="outline" className="text-[10px] font-normal">
                     {totalItems} {totalItems === 1 ? "item" : "itens"}
                   </Badge>
-                  <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setViewPatec(p)}>
-                    <Eye className="h-3 w-3 mr-1" /> Detalhes
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={() => setViewPatec(p)}
+                    aria-label={`Ver detalhes da composição do PATEC ${p}`}
+                  >
+                    <Eye className="h-3 w-3 mr-1" aria-hidden="true" /> Detalhes
                   </Button>
-                </div>
+                </li>
               );
             })}
-          </div>
+          </ul>
         </Card>
       </div>
 
