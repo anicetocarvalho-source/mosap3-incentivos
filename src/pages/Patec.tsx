@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { EmptyState } from "@/components/ui/empty-state";
+import { LoadingState } from "@/components/ui/loading-state";
 import { TableRowsSkeleton, CardListSkeleton } from "@/components/ui/loading-skeletons";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -105,6 +106,8 @@ const Patec = () => {
   const [viewPatec, setViewPatec] = useState<number | null>(null);
   const [composingPatec, setComposingPatec] = useState<Patec | null>(null);
   const [itemCountsByCode, setItemCountsByCode] = useState<Record<string, number>>({});
+  const [compositionLoading, setCompositionLoading] = useState(true);
+  const [compositionError, setCompositionError] = useState<string | null>(null);
 
   // Bulk selection state
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -129,7 +132,7 @@ const Patec = () => {
   const [editingItemName, setEditingItemName] = useState("");
 
   // New: pacotes & épocas
-  const { patecs, refetch: refetchPatecs } = usePatecs();
+  const { patecs, loading: patecsLoading, refetch: refetchPatecs } = usePatecs();
   const { seasons, links, refetch: refetchSeasons } = useSeasons();
   const farmerCountsByCode = farmers.reduce<Record<string, number>>((acc, f) => {
     const k = (f as any).patec_code || (f.patec ? `_legacy_${f.patec}` : "_none");
@@ -194,17 +197,26 @@ const Patec = () => {
   };
 
   const fetchPatecItems = async () => {
-    const { data } = await supabase
-      .from("patec_items")
-      .select("*")
-      .order("created_at");
-    const rows = (data as any[]) || [];
-    setPatecItems(rows as PatecItem[]);
-    const counts: Record<string, number> = {};
-    for (const r of rows) {
-      if (r.patec_code) counts[r.patec_code] = (counts[r.patec_code] || 0) + 1;
+    setCompositionLoading(true);
+    setCompositionError(null);
+    try {
+      const { data, error } = await supabase
+        .from("patec_items")
+        .select("*")
+        .order("created_at");
+      if (error) throw error;
+      const rows = (data as any[]) || [];
+      setPatecItems(rows as PatecItem[]);
+      const counts: Record<string, number> = {};
+      for (const r of rows) {
+        if (r.patec_code) counts[r.patec_code] = (counts[r.patec_code] || 0) + 1;
+      }
+      setItemCountsByCode(counts);
+    } catch (err: any) {
+      setCompositionError(err?.message || "Erro ao carregar itens dos PATECs");
+    } finally {
+      setCompositionLoading(false);
     }
-    setItemCountsByCode(counts);
   };
 
   useEffect(() => {
@@ -779,61 +791,84 @@ const Patec = () => {
               />
             </div>
           </div>
-          <ul className="divide-y" role="list">
-            {(() => {
-              const activePatecs = patecs.filter((p) => p.is_active);
-              const term = compositionSearch.toLowerCase().trim();
-              const filtered = term
-                ? activePatecs.filter((p) =>
-                    p.code.toLowerCase().includes(term) ||
-                    p.name.toLowerCase().includes(term) ||
-                    (p.cultures || "").toLowerCase().includes(term)
-                  )
-                : activePatecs;
-              if (filtered.length === 0) {
-                return (
-                  <li className="px-4 py-6 text-center text-sm text-muted-foreground">
-                    {term ? "Nenhum pacote corresponde à pesquisa." : "Sem pacotes activos."}
-                  </li>
-                );
-              }
-              return filtered.map((p) => {
-                const legacyMeta = p.legacy_number != null ? patecMeta[p.legacy_number] : null;
-                const LegacyIcon = legacyMeta?.icon;
-                const totalItems = itemCountsByCode[p.code] || 0;
-                return (
-                  <li key={p.id} className="flex items-center gap-3 px-4 py-2.5">
-                    {legacyMeta ? (
-                      <div className={`h-8 w-8 rounded-lg bg-gradient-to-br ${legacyMeta.gradient} flex items-center justify-center shrink-0`} aria-hidden="true">
-                        <LegacyIcon className="h-4 w-4 text-white" aria-hidden="true" />
-                      </div>
-                    ) : (
-                      <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0" aria-hidden="true">
-                        <Package className="h-4 w-4 text-primary" aria-hidden="true" />
-                      </div>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold leading-tight truncate">
-                        {p.code} <span className="text-muted-foreground font-normal">— {p.name}{p.cultures ? ` · ${p.cultures}` : ""}</span>
-                      </p>
-                    </div>
-                    <Badge variant="outline" className="text-[10px] font-normal">
-                      {totalItems} {totalItems === 1 ? "item" : "itens"}
-                    </Badge>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 text-xs"
-                      onClick={() => setComposingPatec(p)}
-                      aria-label={`Ver detalhes da composição do ${p.code}`}
-                    >
-                      <Eye className="h-3 w-3 mr-1" aria-hidden="true" /> Detalhes
-                    </Button>
-                  </li>
-                );
-              });
-            })()}
-          </ul>
+          {(() => {
+            const isLoading = compositionLoading || patecsLoading;
+            if (isLoading) {
+              return (
+                <div className="px-4 py-6">
+                  <LoadingState variant="spinner" label="A carregar pacotes..." />
+                </div>
+              );
+            }
+            if (compositionError) {
+              return (
+                <div className="px-4 py-6">
+                  <ErrorState
+                    title="Erro ao carregar composição"
+                    description={compositionError}
+                    onRetry={fetchPatecItems}
+                  />
+                </div>
+              );
+            }
+            return (
+              <ul className="divide-y" role="list">
+                {(() => {
+                  const activePatecs = patecs.filter((p) => p.is_active);
+                  const term = compositionSearch.toLowerCase().trim();
+                  const filtered = term
+                    ? activePatecs.filter((p) =>
+                        p.code.toLowerCase().includes(term) ||
+                        p.name.toLowerCase().includes(term) ||
+                        (p.cultures || "").toLowerCase().includes(term)
+                      )
+                    : activePatecs;
+                  if (filtered.length === 0) {
+                    return (
+                      <li className="px-4 py-6 text-center text-sm text-muted-foreground">
+                        {term ? "Nenhum pacote corresponde à pesquisa." : "Sem pacotes activos."}
+                      </li>
+                    );
+                  }
+                  return filtered.map((p) => {
+                    const legacyMeta = p.legacy_number != null ? patecMeta[p.legacy_number] : null;
+                    const LegacyIcon = legacyMeta?.icon;
+                    const totalItems = itemCountsByCode[p.code] || 0;
+                    return (
+                      <li key={p.id} className="flex items-center gap-3 px-4 py-2.5">
+                        {legacyMeta ? (
+                          <div className={`h-8 w-8 rounded-lg bg-gradient-to-br ${legacyMeta.gradient} flex items-center justify-center shrink-0`} aria-hidden="true">
+                            <LegacyIcon className="h-4 w-4 text-white" aria-hidden="true" />
+                          </div>
+                        ) : (
+                          <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0" aria-hidden="true">
+                            <Package className="h-4 w-4 text-primary" aria-hidden="true" />
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold leading-tight truncate">
+                            {p.code} <span className="text-muted-foreground font-normal">— {p.name}{p.cultures ? ` · ${p.cultures}` : ""}</span>
+                          </p>
+                        </div>
+                        <Badge variant="outline" className="text-[10px] font-normal">
+                          {totalItems} {totalItems === 1 ? "item" : "itens"}
+                        </Badge>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 text-xs"
+                          onClick={() => setComposingPatec(p)}
+                          aria-label={`Ver detalhes da composição do ${p.code}`}
+                        >
+                          <Eye className="h-3 w-3 mr-1" aria-hidden="true" /> Detalhes
+                        </Button>
+                      </li>
+                    );
+                  });
+                })()}
+              </ul>
+            );
+          })()}
         </Card>
       </div>
 
