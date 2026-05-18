@@ -36,6 +36,7 @@ import { useSeasons } from "@/hooks/useSeasons";
 import PatecsTab from "@/components/patec/PatecsTab";
 import SeasonsTab from "@/components/patec/SeasonsTab";
 import { validatePatecAssignment } from "@/lib/patecAssignmentGuard";
+import PatecCompositionDialog from "@/components/patec/PatecCompositionDialog";
 
 interface FarmerPatec {
   id: string;
@@ -102,6 +103,8 @@ const Patec = () => {
   const [editPatecCode, setEditPatecCode] = useState<string>("");
   const [saving, setSaving] = useState(false);
   const [viewPatec, setViewPatec] = useState<number | null>(null);
+  const [composingPatec, setComposingPatec] = useState<Patec | null>(null);
+  const [itemCountsByCode, setItemCountsByCode] = useState<Record<string, number>>({});
 
   // Bulk selection state
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -195,7 +198,13 @@ const Patec = () => {
       .from("patec_items")
       .select("*")
       .order("created_at");
-    setPatecItems((data as PatecItem[]) || []);
+    const rows = (data as any[]) || [];
+    setPatecItems(rows as PatecItem[]);
+    const counts: Record<string, number> = {};
+    for (const r of rows) {
+      if (r.patec_code) counts[r.patec_code] = (counts[r.patec_code] || 0) + 1;
+    }
+    setItemCountsByCode(counts);
   };
 
   useEffect(() => {
@@ -771,47 +780,59 @@ const Patec = () => {
             </div>
           </div>
           <ul className="divide-y" role="list">
-            {[1, 2, 3].filter((p) => {
-              if (!compositionSearch.trim()) return true;
-              const meta = patecMeta[p];
+            {(() => {
+              const activePatecs = patecs.filter((p) => p.is_active);
               const term = compositionSearch.toLowerCase().trim();
-              return (
-                `patec ${p}`.includes(term) ||
-                meta.cultures.toLowerCase().includes(term) ||
-                meta.title.toLowerCase().includes(term)
-              );
-            }).map((p) => {
-              const meta = patecMeta[p];
-              const Icon = meta.icon;
-              const totalItems =
-                getItems(p, "insumos").length +
-                getItems(p, "pecuaria").length +
-                getItems(p, "servicos").length;
-              return (
-                <li key={p} className="flex items-center gap-3 px-4 py-2.5">
-                  <div className={`h-8 w-8 rounded-lg bg-gradient-to-br ${meta.gradient} flex items-center justify-center shrink-0`} aria-hidden="true">
-                    <Icon className="h-4 w-4 text-white" aria-hidden="true" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold leading-tight truncate">
-                      PATEC {p} <span className="text-muted-foreground font-normal">— {meta.cultures} + Gado</span>
-                    </p>
-                  </div>
-                  <Badge variant="outline" className="text-[10px] font-normal">
-                    {totalItems} {totalItems === 1 ? "item" : "itens"}
-                  </Badge>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 text-xs"
-                    onClick={() => setViewPatec(p)}
-                    aria-label={`Ver detalhes da composição do PATEC ${p}`}
-                  >
-                    <Eye className="h-3 w-3 mr-1" aria-hidden="true" /> Detalhes
-                  </Button>
-                </li>
-              );
-            })}
+              const filtered = term
+                ? activePatecs.filter((p) =>
+                    p.code.toLowerCase().includes(term) ||
+                    p.name.toLowerCase().includes(term) ||
+                    (p.cultures || "").toLowerCase().includes(term)
+                  )
+                : activePatecs;
+              if (filtered.length === 0) {
+                return (
+                  <li className="px-4 py-6 text-center text-sm text-muted-foreground">
+                    {term ? "Nenhum pacote corresponde à pesquisa." : "Sem pacotes activos."}
+                  </li>
+                );
+              }
+              return filtered.map((p) => {
+                const legacyMeta = p.legacy_number != null ? patecMeta[p.legacy_number] : null;
+                const LegacyIcon = legacyMeta?.icon;
+                const totalItems = itemCountsByCode[p.code] || 0;
+                return (
+                  <li key={p.id} className="flex items-center gap-3 px-4 py-2.5">
+                    {legacyMeta ? (
+                      <div className={`h-8 w-8 rounded-lg bg-gradient-to-br ${legacyMeta.gradient} flex items-center justify-center shrink-0`} aria-hidden="true">
+                        <LegacyIcon className="h-4 w-4 text-white" aria-hidden="true" />
+                      </div>
+                    ) : (
+                      <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0" aria-hidden="true">
+                        <Package className="h-4 w-4 text-primary" aria-hidden="true" />
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold leading-tight truncate">
+                        {p.code} <span className="text-muted-foreground font-normal">— {p.name}{p.cultures ? ` · ${p.cultures}` : ""}</span>
+                      </p>
+                    </div>
+                    <Badge variant="outline" className="text-[10px] font-normal">
+                      {totalItems} {totalItems === 1 ? "item" : "itens"}
+                    </Badge>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() => setComposingPatec(p)}
+                      aria-label={`Ver detalhes da composição do ${p.code}`}
+                    >
+                      <Eye className="h-3 w-3 mr-1" aria-hidden="true" /> Detalhes
+                    </Button>
+                  </li>
+                );
+              });
+            })()}
           </ul>
         </Card>
       </div>
@@ -1162,7 +1183,14 @@ const Patec = () => {
       </AlertDialog>
 
       {/* View PATEC detail Dialog */}
+      <PatecCompositionDialog
+        open={composingPatec !== null}
+        onOpenChange={(o) => !o && setComposingPatec(null)}
+        patec={composingPatec}
+      />
+
       <Dialog open={viewPatec !== null} onOpenChange={(o) => !o && setViewPatec(null)}>
+
         <DialogContent className="max-w-lg">
           {viewPatec && patecMeta[viewPatec] && (
             <>
