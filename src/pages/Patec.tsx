@@ -235,19 +235,77 @@ const Patec = () => {
   }, [authReady, user?.id, roles.join(",")]);
 
   // Realtime: aplica eventos INSERT/UPDATE/DELETE incrementalmente em
-  // patecItems e itemCountsByCode, sem refazer o fetch completo.
+  // patecItems e itemCountsByCode. Eventos em rajada são acumulados num
+  // buffer e aplicados num único batch (debounce 150ms) para minimizar
+  // re-renderizações.
   useEffect(() => {
     if (!authReady || !user) return;
 
-    const applyDelta = (code: string | null | undefined, delta: number) => {
-      if (!code) return;
+    type Ev =
+      | { kind: "insert"; row: PatecItem }
+      | { kind: "update"; row: PatecItem; oldCode: string | null }
+      | { kind: "delete"; id?: string; oldCode: string | null };
+
+    const buffer: Ev[] = [];
+    let flushTimer: ReturnType<typeof setTimeout> | null = null;
+    const DEBOUNCE_MS = 150;
+
+    const flush = () => {
+      flushTimer = null;
+      if (buffer.length === 0) return;
+      const events = buffer.splice(0, buffer.length);
+
+      // Aplica todas as mutações de patecItems numa única setState
+      setPatecItems((prev) => {
+        const map = new Map(prev.map((p) => [p.id, p] as const));
+        for (const ev of events) {
+          if (ev.kind === "insert") map.set(ev.row.id, ev.row);
+          else if (ev.kind === "update") map.set(ev.row.id, ev.row);
+          else if (ev.kind === "delete" && ev.id) map.delete(ev.id);
+        }
+        return Array.from(map.values());
+      });
+
+      // Calcula deltas agregados por código e aplica num único setState
+      const deltas = new Map<string, number>();
+      const bump = (code: string | null | undefined, d: number) => {
+        if (!code) return;
+        deltas.set(code, (deltas.get(code) || 0) + d);
+      };
+      for (const ev of events) {
+        if (ev.kind === "insert") bump((ev.row as any).patec_code, +1);
+        else if (ev.kind === "delete") bump(ev.oldCode, -1);
+        else if (ev.kind === "update") {
+          const newCode = (ev.row as any).patec_code ?? null;
+          if (ev.oldCode !== newCode) {
+            bump(ev.oldCode, -1);
+            bump(newCode, +1);
+          }
+        }
+      }
+      if (deltas.size === 0) return;
       setItemCountsByCode((prev) => {
         const next = { ...prev };
-        const v = (next[code] || 0) + delta;
-        if (v <= 0) delete next[code];
-        else next[code] = v;
-        return next;
+        let changed = false;
+        deltas.forEach((d, code) => {
+          const v = (next[code] || 0) + d;
+          if (v <= 0) {
+            if (code in next) {
+              delete next[code];
+              changed = true;
+            }
+          } else if (next[code] !== v) {
+            next[code] = v;
+            changed = true;
+          }
+        });
+        return changed ? next : prev;
       });
+    };
+
+    const schedule = (ev: Ev) => {
+      buffer.push(ev);
+      if (flushTimer == null) flushTimer = setTimeout(flush, DEBOUNCE_MS);
     };
 
     const channel = supabase
@@ -255,37 +313,27 @@ const Patec = () => {
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "patec_items" },
-        (payload) => {
-          const row = payload.new as PatecItem;
-          setPatecItems((prev) =>
-            prev.some((p) => p.id === row.id) ? prev : [...prev, row]
-          );
-          applyDelta((row as any).patec_code, +1);
-        }
+        (payload) => schedule({ kind: "insert", row: payload.new as PatecItem })
       )
       .on(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "patec_items" },
-        (payload) => {
-          const row = payload.new as PatecItem;
-          const old = payload.old as Partial<PatecItem> & { patec_code?: string | null };
-          setPatecItems((prev) => prev.map((p) => (p.id === row.id ? row : p)));
-          const oldCode = (old as any).patec_code ?? null;
-          const newCode = (row as any).patec_code ?? null;
-          if (oldCode !== newCode) {
-            applyDelta(oldCode, -1);
-            applyDelta(newCode, +1);
-          }
-        }
+        (payload) =>
+          schedule({
+            kind: "update",
+            row: payload.new as PatecItem,
+            oldCode: ((payload.old as any)?.patec_code ?? null) as string | null,
+          })
       )
       .on(
         "postgres_changes",
         { event: "DELETE", schema: "public", table: "patec_items" },
-        (payload) => {
-          const old = payload.old as Partial<PatecItem> & { id?: string; patec_code?: string | null };
-          if (old?.id) setPatecItems((prev) => prev.filter((p) => p.id !== old.id));
-          applyDelta((old as any)?.patec_code, -1);
-        }
+        (payload) =>
+          schedule({
+            kind: "delete",
+            id: (payload.old as any)?.id,
+            oldCode: ((payload.old as any)?.patec_code ?? null) as string | null,
+          })
       )
       .subscribe((status) => {
         if (status === "SUBSCRIBED") setSyncStatus("connected");
@@ -293,6 +341,8 @@ const Patec = () => {
         else setSyncStatus("disconnected");
       });
     return () => {
+      if (flushTimer) clearTimeout(flushTimer);
+      flush();
       supabase.removeChannel(channel);
     };
   }, [authReady, user?.id]);
