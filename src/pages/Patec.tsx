@@ -1223,9 +1223,11 @@ const Patec = () => {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todos os Produtores</SelectItem>
-              <SelectItem value="1">🌾 PATEC 1 — Milho</SelectItem>
-              <SelectItem value="2">🌱 PATEC 2 — Massango</SelectItem>
-              <SelectItem value="3">🍃 PATEC 3 — Massambala</SelectItem>
+              {[...patecs].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)).map((p) => (
+                <SelectItem key={p.id} value={p.code}>
+                  {p.code} — {p.cultures || p.name}{!p.is_active ? " (inativo)" : ""}
+                </SelectItem>
+              ))}
               <SelectItem value="none">⚠️ Sem PATEC</SelectItem>
             </SelectContent>
           </Select>
