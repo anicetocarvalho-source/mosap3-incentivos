@@ -111,6 +111,7 @@ const App = () => (
               <Route path="/mosap3pay/fornecedores" element={<Mosap3PayFornecedores />} />
               <Route path="/mosap3pay/pos" element={<Mosap3PayPOS />} />
               <Route path="/mosap3pay/vendas" element={<Mosap3PayVendas />} />
+              <Route path="/mosap3pay/painel-vendas" element={<Mosap3PayPainelVendas />} />
               <Route path="/mosap3pay/relatorios" element={<Mosap3PayRelatorios />} />
               <Route path="/mosap3pay/facturas" element={<Mosap3PayFacturas />} />
               <Route path="/mosap3pay/facturas/:id" element={<Mosap3PayFacturaDetalhe />} />
