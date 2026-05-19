@@ -1285,6 +1285,14 @@ const Patec = () => {
               <SelectItem value="none">⚠️ Sem PATEC</SelectItem>
             </SelectContent>
           </Select>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-9"
+            onClick={() => { setRegionDialogOpen(true); setRegionScope("provincia"); setRegionValues([]); setRegionPatecCode(""); setRegionOverwrite(false); }}
+          >
+            <MapPin className="h-4 w-4 mr-1" /> Atribuir por região
+          </Button>
         </div>
 
         {isSomeSelected && (
