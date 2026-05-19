@@ -239,14 +239,14 @@ const Patec = () => {
   // buffer e aplicados num único batch (debounce 150ms) para minimizar
   // re-renderizações. Códigos afectados são marcados como "dirty" e
   // reconciliados em lote contra a contagem autoritativa do servidor.
-  const dirtyCodesRef = useRef<Set<string>>(new Set());
+  const dirtyCodesRef = useRef<Set<string>>(new Set<string>());
   const reconcileTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const RECONCILE_DEBOUNCE_MS = 800;
 
   const reconcileDirtyCodes = useCallback(async () => {
     reconcileTimerRef.current = null;
     const codes = Array.from(dirtyCodesRef.current);
-    dirtyCodesRef.current = new Set();
+    dirtyCodesRef.current = new Set<string>();
     if (codes.length === 0) return;
 
     // Fetch counts autoritativos em paralelo (head:true → sem payload)
