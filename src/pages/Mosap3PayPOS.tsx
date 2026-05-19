@@ -1131,10 +1131,21 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
 
   // ===== OTP helpers (definidos após processSale para evitar uso antes da declaração) =====
 
-  /** Remove a chave de idempotência do sessionStorage para o OTP indicado. */
+  /** Remove a chave de idempotência e o lock de processamento do sessionStorage para o OTP indicado. */
   const clearOtpIdempotencyKey = (id: string | null) => {
     if (!id) return;
-    try { sessionStorage.removeItem(`pos_otp_idem_${id}`); } catch { /* sessionStorage indisponível */ }
+    try {
+      sessionStorage.removeItem(`pos_otp_idem_${id}`);
+      sessionStorage.removeItem(`pos_otp_processing_${id}`);
+    } catch { /* sessionStorage indisponível */ }
+    setOtpProcessingLocked(false);
+  };
+
+  /** Marca o OTP como "em processamento" — sobrevive a refresh da página. */
+  const markOtpProcessing = (id: string | null) => {
+    if (!id) return;
+    try { sessionStorage.setItem(`pos_otp_processing_${id}`, String(Date.now())); } catch { /* noop */ }
+    setOtpProcessingLocked(true);
   };
 
   const sendOtp = async () => {
