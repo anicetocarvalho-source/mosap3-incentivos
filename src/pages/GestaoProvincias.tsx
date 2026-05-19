@@ -55,13 +55,51 @@ const GestaoProvincias = () => {
     addSchool,
   } = useProvincesData();
 
+  // Canonical farmer counts (matches Dashboard / Lista / Relatórios).
+  // Inclui Removidos por design — ver memória "Removidos contam em TODOS os agregados".
+  const [farmerRows, setFarmerRows] = useState<{ province: string | null; municipality: string | null; school: string | null }[] | null>(null);
+
+  useEffect(() => {
+    fetchAllPages<{ province: string | null; municipality: string | null; school: string | null }>(() =>
+      supabase.from("farmers").select("province, municipality, school", { count: "exact" })
+    )
+      .then(setFarmerRows)
+      .catch((e) => {
+        console.error("[GestaoProvincias] failed to load farmers:", e);
+        setFarmerRows([]);
+      });
+  }, []);
+
+  const norm = (v: string | null | undefined) => (v || "").trim().toLowerCase();
+
+  const { realByProvince, realBySchool, totalProdutores } = useMemo(() => {
+    const byProv = new Map<string, number>();
+    const bySch = new Map<string, number>();
+    let total = 0;
+    for (const r of farmerRows ?? []) {
+      total++;
+      const p = norm(r.province);
+      if (p) byProv.set(p, (byProv.get(p) ?? 0) + 1);
+      const key = `${p}|${norm(r.municipality)}|${norm(r.school)}`;
+      bySch.set(key, (bySch.get(key) ?? 0) + 1);
+    }
+    return { realByProvince: byProv, realBySchool: bySch, totalProdutores: total };
+  }, [farmerRows]);
+
+  const countFarmersForSchool = (s: { name: string; province_id: string; municipality_id: string }) => {
+    const prov = provinces.find((p) => p.id === s.province_id);
+    const mun = municipalities.find((m) => m.id === s.municipality_id);
+    return realBySchool.get(`${norm(prov?.name)}|${norm(mun?.name)}|${norm(s.name)}`) ?? 0;
+  };
+
+  const countFarmersForProvince = (prov: DbProvince) => realByProvince.get(norm(prov.name)) ?? 0;
+
   const filtered = provinces.filter((p) =>
     p.name.toLowerCase().includes(search.toLowerCase()) ||
     p.capital.toLowerCase().includes(search.toLowerCase())
   );
 
   const totalEscolas = schools.length;
-  const totalProdutores = schools.reduce((a, s) => a + s.total_farmers, 0);
   const totalMunicipios = municipalities.length;
 
   const selectedMunicipalities = selectedProvince ? getMunicipalitiesByProvince(selectedProvince.id) : [];
