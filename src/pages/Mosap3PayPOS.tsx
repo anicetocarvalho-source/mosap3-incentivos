@@ -280,6 +280,7 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
   const otpSendingRef = useRef(false);
   const otpVerifyingRef = useRef(false);
   const [otpExpired, setOtpExpired] = useState(false);
+  const [otpNowTick, setOtpNowTick] = useState(0);
   const otpExpiryNotifiedRef = useRef(false);
   useEffect(() => {
     if (!otpDialogOpen) return;
