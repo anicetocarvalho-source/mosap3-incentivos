@@ -303,7 +303,7 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
         toast.error("O código OTP expirou. Clique em \"Reenviar SMS\" para gerar um novo.", { duration: 8000 });
       }
     }
-  }, [otpSecondsLeft, otpDialogOpen, otpExpiresAt, otpExpired]);
+  }, [otpSecondsLeft, otpDialogOpen, otpExpiresAt, otpExpired, otpId]);
 
   // Estado adicional vindo do backend (tentativas restantes, etc.)
   const [otpAttemptsLeft, setOtpAttemptsLeft] = useState<number | null>(null);
