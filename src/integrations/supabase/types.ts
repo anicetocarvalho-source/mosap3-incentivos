@@ -1517,6 +1517,7 @@ export type Database = {
           expires_at: string
           farmer_code: string
           id: string
+          idempotency_expires_at: string | null
           idempotency_key: string | null
           last_result: Json | null
           phone: string
@@ -1533,6 +1534,7 @@ export type Database = {
           expires_at?: string
           farmer_code: string
           id?: string
+          idempotency_expires_at?: string | null
           idempotency_key?: string | null
           last_result?: Json | null
           phone: string
@@ -1549,6 +1551,7 @@ export type Database = {
           expires_at?: string
           farmer_code?: string
           id?: string
+          idempotency_expires_at?: string | null
           idempotency_key?: string | null
           last_result?: Json | null
           phone?: string
@@ -2434,6 +2437,7 @@ export type Database = {
     }
     Functions: {
       bulk_insert_orphan_phones: { Args: { _data: Json }; Returns: Json }
+      cleanup_pos_otp_idempotency: { Args: { p_max?: number }; Returns: number }
       credit_notes_kpis: { Args: { _search?: string }; Returns: Json }
       dashboard_charts: {
         Args: { p_ecas?: string[]; p_provinces?: string[]; p_scope: string }
