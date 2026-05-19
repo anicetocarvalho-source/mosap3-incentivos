@@ -288,78 +288,7 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
   // referenciar otpNowTick para silenciar lint sem alterar lógica
   void otpNowTick;
 
-  const sendOtp = useCallback(async () => {
-    if (!farmer || !selectedSupplierId) return;
-    if (!farmer.phone) {
-      toast.error("Agricultor sem telefone — pagamento por OTP indisponível.");
-      return;
-    }
-    setOtpSending(true);
-    setOtpCode("");
-    try {
-      const { data, error } = await supabase.functions.invoke("pos-otp-send", {
-        body: {
-          supplier_id: selectedSupplierId,
-          farmer_code: farmer.code,
-          phone: farmer.phone,
-          amount: cartTotal,
-        },
-      });
-      if (error || !data?.success) {
-        toast.error(data?.error || error?.message || "Falha ao enviar OTP.");
-        setOtpSending(false);
-        return;
-      }
-      setOtpId(data.otp_id);
-      setOtpExpiresAt(data.expires_at);
-      setOtpMaskedPhone(data.masked_phone || "");
-      setOtpDevCode(data.dev_code || null);
-      setConfirmOpen(false);
-      setOtpDialogOpen(true);
-      if (data.dev_code) {
-        toast.info(`Modo dev: OTP do agricultor = ${data.dev_code}`, { duration: 10000 });
-      } else if (data.sms_sent) {
-        toast.success(`SMS enviado para ${data.masked_phone}.`);
-      }
-    } catch (e) {
-      toast.error((e as Error)?.message || "Erro ao enviar OTP.");
-    } finally {
-      setOtpSending(false);
-    }
-  }, [farmer, selectedSupplierId, cartTotal]);
-
-  const verifyOtpAndPay = useCallback(async () => {
-    if (!otpId || !/^\d{6}$/.test(otpCode)) {
-      toast.error("Introduza o código de 6 dígitos.");
-      return;
-    }
-    setOtpVerifying(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("pos-otp-verify", {
-        body: { otp_id: otpId, code: otpCode },
-      });
-      if (error || !data?.success) {
-        const msg = data?.error || error?.message || "Código inválido.";
-        toast.error(msg);
-        setOtpVerifying(false);
-        if (data?.reason === "expired" || data?.reason === "locked") {
-          setOtpId(null);
-        }
-        return;
-      }
-      // OTP OK — fechar diálogo e seguir para o fluxo de venda + Push USSD Unitel Money
-      setOtpDialogOpen(false);
-      setOtpId(null);
-      setOtpCode("");
-      setOtpDevCode(null);
-      setOtpVerifying(false);
-      await processSale();
-    } catch (e) {
-      toast.error((e as Error)?.message || "Erro ao validar OTP.");
-      setOtpVerifying(false);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [otpId, otpCode]);
+  // sendOtp e verifyOtpAndPay são definidos após processSale (mais abaixo no ficheiro).
 
   // Reset automático do bloqueio PATEC quando muda o produtor,
   // o carrinho fica vazio ou os itens do carrinho mudam — evita
