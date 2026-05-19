@@ -1,49 +1,41 @@
-## Resumo
+## Objectivo
 
-Dois melhoramentos na página `/patec`, separador **Atribuição**:
+Popular a tabela `supplier_products` para que todos os 12 fornecedores activos disponham do catálogo completo dos PATEC, permitindo testar de ponta a ponta o fluxo de venda no POS (validação de saldo, IVA, séries fiscais, abate de stock e Notas de Crédito).
 
-1. **UX do popup de atribuição individual** — quando o PATEC tem muitos itens (composição grande) o conteúdo cresce e o diálogo deixa de ser navegável. Tornar o `DialogContent` scrollável e isolar a composição num bloco com altura máxima + scroll próprio. Adicionar atalho "Ver composição completa" que reaproveita o `PatecCompositionDialog` já existente.
+## Dados base
 
-2. **Atribuição em massa por Província / Município / Escola (ECA)** — novo botão na barra de filtros que abre um diálogo dedicado para atribuir um PATEC a todos os produtores de uma região, sem precisar de seleccionar linha a linha.
+- 12 fornecedores activos (`suppliers.status = 'Ativo'`).
+- 117 nomes distintos de itens em `patec_items` (agregando duplicados como Amoxacilina/Amoxaclina/Amoxicilina e Bronquite/Bronquiti Infecciosa).
+- `supplier_products` actualmente vazio (0 registos).
 
-## Alterações
+## O que será feito (uma única migração de dados, via `supabase--insert`)
 
-### Ficheiro: `src/pages/Patec.tsx`
+1. **Inserir 117 produtos × 12 fornecedores = 1.404 linhas** em `supplier_products`, via `INSERT ... SELECT` que faz o produto cartesiano de:
+   - `suppliers` activos
+   - itens distintos de `patec_items` (DISTINCT por `name`, agregando `category`/`subcategory`/`unit`/`patec_number` mais frequentes).
+2. **Mapeamento de colunas:**
+   - `name` ← `patec_items.name`
+   - `description` ← `"Item PATEC — <subcategory>"`
+   - `category` ← `'insumos'` (fixo) e `patec_category` ← `patec_items.category` (agricultura/pecuaria)
+   - `unit` ← `COALESCE(patec_items.unit, 'un')`
+   - `price` ← **1000** Kz
+   - `stock` ← **1000**
+   - `min_stock` ← `5` (default)
+   - `iva_rate` ← `14.00`
+   - `patec_number` ← número PATEC mais comum do item (para o ecrã POS marcar "do pacote do produtor")
+   - `status` ← `'Ativo'`
+3. **Idempotência**: a query usa `ON CONFLICT DO NOTHING` num índice `(supplier_id, lower(name))` — para isso, primeiro criamos esse índice único via migração curta, e só depois executamos o INSERT. (Permite re-correr o seed sem duplicar.)
 
-#### A. Popup de atribuição individual (Edit Dialog ~ linhas 1370–1430)
-- `<DialogContent className="max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">`.
-- Envolver o corpo num `<div className="flex-1 overflow-y-auto pr-1">` para permitir scroll quando a composição é grande.
-- Cartão de composição: `max-h-[40vh] overflow-y-auto` e adicionar botão "Ver composição completa" que abre `PatecCompositionDialog` com o PATEC seleccionado (estado já existe: `compositionPatec`).
-- `DialogFooter` fica fixo (fora do bloco scrollável).
+## Como verificar
 
-#### B. Novo dialog "Atribuir por região"
-- Botão adicional na zona de filtros (linha ~1234), à direita do Select de PATEC: `Atribuir por região` (`MapPin` icon, variant `outline`, `size sm`).
-- Estado novo:
-  - `regionDialogOpen: boolean`
-  - `regionScope: "provincia" | "municipio" | "escola"` (default `provincia`)
-  - `regionValues: string[]` (multi-select)
-  - `regionPatecCode: string`
-  - `regionOverwrite: boolean` (default `false`) — se `false`, só atribui a quem ainda **não tem** PATEC; se `true`, substitui também os já atribuídos.
-- Opções derivadas de `farmers` carregados (respeitando o scope do utilizador, já presente):
-  - Províncias: `Array.from(new Set(farmers.map(f => f.province)))`.
-  - Municípios: idem para `f.municipality`, filtrados pelas províncias seleccionadas (se houver).
-  - Escolas: idem para `f.school`, filtradas por município/província.
-- Pré-visualização: contagem dos produtores afectados com a regra de overwrite aplicada (`x produtores serão actualizados`).
-- Confirmação: usa o mesmo padrão de `handleBulkSave` (lotes de 50, `validatePatecAssignment`, refetch, toast). Função nova `handleRegionAssign()`.
-- PATEC seleccionável: usa `patecsForSeason` (mesma regra da época).
+- Após o INSERT: `SELECT COUNT(*) FROM supplier_products` ⇒ esperado 1.404.
+- Abrir `/mosap3pay/pos` (Terminal POS) com um agricultor que tenha saldo e PATEC atribuído → confirmar:
+  - Catálogo lista os produtos com badge "Do pacote".
+  - Adicionar item → calcula IVA 14% e abate saldo.
+  - Stock decrementa após emissão de Factura (Série FT).
+  - Nota de Crédito (Série NC) repõe saldo.
 
-#### C. Mensagens / acessibilidade
-- Mensagens em PT-AO.
-- `aria-label` nos selects/checkboxes.
+## Notas
 
-### Sem alterações
-- Sem mudanças na BD nem em RPCs (reutiliza `farmers.update` por lotes).
-- Sem mudanças noutras páginas.
-
-## Critérios de aceitação
-
-- No diálogo individual com um PATEC grande (PATEC-01..10), é possível fazer scroll dentro do popup e o `Guardar/Cancelar` permanece visível.
-- Existe botão "Ver composição completa" no popup individual que abre o `PatecCompositionDialog`.
-- Botão "Atribuir por região" abre diálogo com selecção de Província/Município/Escola (multi-select), pré-visualização da contagem, escolha de PATEC e opção "Substituir atribuições existentes".
-- Ao confirmar, todos os produtores correspondentes recebem o PATEC (lotes de 50). Toast de sucesso/erro e refetch automático.
-- Respeita scope (Sénior/Júnior/Extensionista só vê e altera os seus produtores) — basta operar sobre `farmers` já carregados em memória, que já passam por `applyFarmerScopeFilter`.
+- Apenas seed de dados — não há alterações de UI, RLS ou edge functions.
+- Caso prefiras preços diferenciados por categoria mais à frente (ex.: sementes vs. medicamentos), fica trivial fazer um UPDATE posterior.
