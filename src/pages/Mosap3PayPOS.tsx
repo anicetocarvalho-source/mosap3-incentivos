@@ -311,6 +311,16 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
   // Estado adicional vindo do backend (tentativas restantes, etc.)
   const [otpAttemptsLeft, setOtpAttemptsLeft] = useState<number | null>(null);
 
+  // Hidrata o lock de processamento ao montar / quando otpId muda
+  // (permite que um refresh durante a verificação mantenha o botão bloqueado).
+  useEffect(() => {
+    if (!otpId) { setOtpProcessingLocked(false); return; }
+    try {
+      const v = sessionStorage.getItem(`pos_otp_processing_${otpId}`);
+      setOtpProcessingLocked(!!v);
+    } catch { /* noop */ }
+  }, [otpId]);
+
   // Polling do estado do OTP no backend para reflectir em tempo real
   // alterações feitas pelas edge functions (verificado/expirado/falhado).
   useEffect(() => {
