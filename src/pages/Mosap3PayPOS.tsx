@@ -277,6 +277,8 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
   const [otpSending, setOtpSending] = useState(false);
   const [otpVerifying, setOtpVerifying] = useState(false);
   const [otpNowTick, setOtpNowTick] = useState(0);
+  const [otpExpired, setOtpExpired] = useState(false);
+  const otpExpiryNotifiedRef = useRef(false);
   useEffect(() => {
     if (!otpDialogOpen) return;
     const t = setInterval(() => setOtpNowTick((n) => n + 1), 1000);
@@ -285,8 +287,18 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
   const otpSecondsLeft = otpExpiresAt
     ? Math.max(0, Math.floor((new Date(otpExpiresAt).getTime() - Date.now()) / 1000))
     : 0;
-  // referenciar otpNowTick para silenciar lint sem alterar lógica
   void otpNowTick;
+  // Detecta expiração e dispara aviso/bloqueio automático uma única vez
+  useEffect(() => {
+    if (!otpDialogOpen || !otpExpiresAt) return;
+    if (otpSecondsLeft === 0 && !otpExpired) {
+      setOtpExpired(true);
+      if (!otpExpiryNotifiedRef.current) {
+        otpExpiryNotifiedRef.current = true;
+        toast.error("O código OTP expirou. Clique em \"Reenviar SMS\" para gerar um novo.", { duration: 8000 });
+      }
+    }
+  }, [otpSecondsLeft, otpDialogOpen, otpExpiresAt, otpExpired]);
 
   // sendOtp e verifyOtpAndPay são definidos após processSale (mais abaixo no ficheiro).
 
