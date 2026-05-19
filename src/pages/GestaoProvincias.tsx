@@ -230,7 +230,7 @@ const GestaoProvincias = () => {
     toast({ title: "PDF gerado", description: "Use a opção 'Guardar como PDF' na janela de impressão." });
   };
 
-  if (loading) {
+  if (loading || farmerRows === null) {
     return (
       <div className="flex items-center justify-center h-64">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
