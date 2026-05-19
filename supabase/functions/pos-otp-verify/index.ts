@@ -61,16 +61,24 @@ Deno.serve(async (req) => {
       return json({ success: false, error: "OTP não encontrado.", reason: "not_found" }, 404);
     }
 
-    // Idempotência: se a mesma chave já foi usada com sucesso neste OTP,
-    // devolvemos o resultado em cache em vez de processar novamente.
+    // Idempotência: replay só vale enquanto idempotency_expires_at > now().
+    const idemValid =
+      otp.idempotency_expires_at == null ||
+      new Date(otp.idempotency_expires_at).getTime() > Date.now();
     if (
       idempotency_key &&
       otp.idempotency_key === idempotency_key &&
       otp.status === "usado" &&
-      otp.last_result
+      otp.last_result &&
+      idemValid
     ) {
       return json({ ...(otp.last_result as Record<string, unknown>), idempotent_replay: true });
     }
+
+    // Limpeza oportunística (best-effort) de chaves antigas.
+    admin.rpc("cleanup_pos_otp_idempotency", { p_max: 100 }).then(
+      ({ error }) => { if (error) console.warn("cleanup_pos_otp_idempotency:", error.message); },
+    );
 
     if (otp.status === "usado") {
       // Sem idempotency_key correspondente — é tentativa duplicada legítima.
