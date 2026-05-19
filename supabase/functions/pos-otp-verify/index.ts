@@ -145,14 +145,18 @@ Deno.serve(async (req) => {
       // resposta consistente (idempotente) se a chave coincidir.
       const { data: fresh } = await admin
         .from("pos_payment_otps")
-        .select("status, idempotency_key, last_result")
+        .select("status, idempotency_key, idempotency_expires_at, last_result")
         .eq("id", otp_id)
         .maybeSingle();
+      const freshIdemValid =
+        !fresh?.idempotency_expires_at ||
+        new Date(fresh.idempotency_expires_at).getTime() > Date.now();
       if (
         fresh?.status === "usado" &&
         idempotency_key &&
         fresh.idempotency_key === idempotency_key &&
-        fresh.last_result
+        fresh.last_result &&
+        freshIdemValid
       ) {
         return json({ ...(fresh.last_result as Record<string, unknown>), idempotent_replay: true });
       }
