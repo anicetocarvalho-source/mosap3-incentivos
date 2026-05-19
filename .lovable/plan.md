@@ -1,18 +1,17 @@
-## Mudança
+## Resumo
 
-Adicionar um botão **"Actualizar contagens"** no cabeçalho de `/provincias` (junto aos botões de export), que rebusca os produtores da BD e recalcula `realByProvince` / `realBySchool` sem recarregar a página.
+Adicionar um toast de erro visível quando o carregamento dos dados de `farmers` falhar na página `/provincias`, tanto na carga inicial quanto ao clicar no botão "Actualizar contagens".
 
-## Implementação
+## Alterações
 
-Ficheiro único: `src/pages/GestaoProvincias.tsx`.
+**Ficheiro:** `src/pages/GestaoProvincias.tsx`
 
-1. Extrair o fetch dos produtores (actualmente dentro do `useEffect`) para uma função `refreshFarmerCounts` reutilizável, que faz `fetchAllPages` da tabela `farmers` (colunas `province, municipality, school`, sem filtro de Removidos — regra de memória).
-2. Adicionar estado `refreshing` para mostrar spinner no botão enquanto o fetch corre.
-3. Chamar `refreshFarmerCounts()` no `useEffect` inicial e ao clicar no botão.
-4. Adicionar o botão ao grupo de acções no header:
-   - Ícone `RefreshCw` (lucide), `variant="outline"`, `size="sm"`.
-   - Desactivado e com spinner enquanto `refreshing`.
-   - Toast de sucesso com o novo total ("Contagens actualizadas — N produtores").
-5. Também chamar `refetch()` do `useProvincesData` para apanhar mudanças em municípios/escolas.
+1. **Toast de erro sempre visível**: no bloco `catch` de `refreshFarmerCounts`, o toast de erro deve ser exibido **sempre** que houver falha, independentemente do parâmetro `notify`. Atualmente só aparece quando `notify === true` (i.e., ao clicar no botão).
+2. **Mensagem descritiva**: incluir detalhe do erro na descrição do toast (ex.: "Falha ao consultar produtores: [mensagem do erro]").
+3. **Não bloquear UI**: manter o comportamento existente que atribui `[]` a `farmerRows` em caso de erro, para que a página não fique em loading infinito.
 
-Sem alterações de hooks, BD, ou outras páginas.
+## Critérios de aceitação
+
+- Se a carga inicial de `farmers` falhar, o utilizador vê um toast de erro.
+- Se o utilizador clicar "Actualizar contagens" e falhar, o toast de erro continua a aparecer.
+- A UI não fica presa no estado de carregamento quando ocorre erro.

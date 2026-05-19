@@ -77,9 +77,12 @@ const GestaoProvincias = () => {
     } catch (e) {
       console.error("[GestaoProvincias] failed to load farmers:", e);
       setFarmerRows((prev) => prev ?? []);
-      if (notify) {
-        toast({ title: "Erro", description: "Não foi possível actualizar as contagens.", variant: "destructive" });
-      }
+      const msg = e instanceof Error ? e.message : String(e);
+      toast({
+        title: "Erro ao carregar contagens",
+        description: `Falha ao consultar produtores: ${msg}`,
+        variant: "destructive",
+      });
     } finally {
       setRefreshing(false);
     }
