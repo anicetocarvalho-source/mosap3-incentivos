@@ -865,64 +865,81 @@ const Patec = () => {
         </div>
       </div>
 
-      {/* Stats cards — visual upgrade */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        <Card className={`cursor-pointer transition-all hover:shadow-md ${filterPatec === "all" ? "ring-2 ring-primary/30 border-primary/50" : "hover:border-primary/30"}`} onClick={() => setFilterPatec("all")}>
-          <CardContent className="p-4 text-center">
-            <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center mx-auto mb-2">
-              <Users className="h-4 w-4 text-primary" />
-            </div>
-            <p className="text-2xl font-bold">{stats.total}</p>
-            <p className="text-xs text-muted-foreground">Total Produtores</p>
-          </CardContent>
-        </Card>
-        {[1, 2, 3].map((p) => {
-          const meta = patecMeta[p];
-          const Icon = meta.icon;
-          const count = p === 1 ? stats.patec1 : p === 2 ? stats.patec2 : stats.patec3;
-          const pct = stats.total > 0 ? Math.round((count / stats.total) * 100) : 0;
-          return (
-            <Card key={p} className={`cursor-pointer transition-all hover:shadow-md ${filterPatec === String(p) ? "ring-2 ring-primary/30 border-primary/50" : "hover:border-primary/30"}`} onClick={() => setFilterPatec(String(p))}>
+      {/* Stats cards — um cartão por PATEC + Total + Sem PATEC */}
+      {(() => {
+        const sortedPatecs = [...patecs].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+        return (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+            <Card className={`cursor-pointer transition-all hover:shadow-md ${filterPatec === "all" ? "ring-2 ring-primary/30 border-primary/50" : "hover:border-primary/30"}`} onClick={() => setFilterPatec("all")}>
               <CardContent className="p-4 text-center">
-                <div className={`h-8 w-8 rounded-lg bg-gradient-to-br ${meta.gradient} flex items-center justify-center mx-auto mb-2`}>
-                  <Icon className="h-4 w-4 text-white" />
+                <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center mx-auto mb-2">
+                  <Users className="h-4 w-4 text-primary" />
                 </div>
-                <p className="text-2xl font-bold">{count}</p>
-                <p className="text-xs text-muted-foreground">PATEC {p}</p>
-                <div className="mt-2 space-y-1">
-                  <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-                    <div className={`h-full rounded-full bg-gradient-to-r ${meta.gradient}`} style={{ width: `${pct}%` }} />
-                  </div>
-                  <p className="text-[10px] text-muted-foreground">{pct}% • {meta.cultures}</p>
-                </div>
+                <p className="text-2xl font-bold">{stats.total}</p>
+                <p className="text-xs text-muted-foreground">Total Produtores</p>
               </CardContent>
             </Card>
-          );
-        })}
-        <Card className={`cursor-pointer transition-all hover:shadow-md ${filterPatec === "none" ? "ring-2 ring-destructive/30 border-destructive/50" : "hover:border-destructive/30"}`} onClick={() => setFilterPatec("none")}>
-          <CardContent className="p-4 text-center">
-            <div className="h-8 w-8 rounded-lg bg-destructive/10 flex items-center justify-center mx-auto mb-2">
-              <AlertCircle className="h-4 w-4 text-destructive" />
-            </div>
-            <p className="text-2xl font-bold text-destructive">{stats.semPatec}</p>
-            <p className="text-xs text-muted-foreground">Sem PATEC</p>
-          </CardContent>
-        </Card>
-      </div>
+            {sortedPatecs.map((p) => {
+              const meta = getPatecVisual(p);
+              const Icon = meta.icon;
+              const count = countsByCode[p.code] || 0;
+              const pct = stats.total > 0 ? Math.round((count / stats.total) * 100) : 0;
+              return (
+                <Card
+                  key={p.id}
+                  className={cn(
+                    "cursor-pointer transition-all hover:shadow-md",
+                    filterPatec === p.code ? "ring-2 ring-primary/30 border-primary/50" : "hover:border-primary/30",
+                    !p.is_active && "opacity-60"
+                  )}
+                  onClick={() => setFilterPatec(p.code)}
+                >
+                  <CardContent className="p-4 text-center">
+                    <div className={`h-8 w-8 rounded-lg bg-gradient-to-br ${meta.gradient} flex items-center justify-center mx-auto mb-2`}>
+                      <Icon className="h-4 w-4 text-white" />
+                    </div>
+                    <p className="text-2xl font-bold">{count}</p>
+                    <p className="text-xs text-muted-foreground truncate" title={`${p.code} — ${p.cultures || p.name}`}>{p.code}</p>
+                    <div className="mt-2 space-y-1">
+                      <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                        <div className={`h-full rounded-full bg-gradient-to-r ${meta.gradient}`} style={{ width: `${pct}%` }} />
+                      </div>
+                      <p className="text-[10px] text-muted-foreground truncate">{pct}% • {p.cultures || p.name}</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+            <Card className={`cursor-pointer transition-all hover:shadow-md ${filterPatec === "none" ? "ring-2 ring-destructive/30 border-destructive/50" : "hover:border-destructive/30"}`} onClick={() => setFilterPatec("none")}>
+              <CardContent className="p-4 text-center">
+                <div className="h-8 w-8 rounded-lg bg-destructive/10 flex items-center justify-center mx-auto mb-2">
+                  <AlertCircle className="h-4 w-4 text-destructive" />
+                </div>
+                <p className="text-2xl font-bold text-destructive">{stats.semPatec}</p>
+                <p className="text-xs text-muted-foreground">Sem PATEC</p>
+              </CardContent>
+            </Card>
+          </div>
+        );
+      })()}
 
-      {/* Validação de distribuição (terços) */}
+      {/* Validação de equilíbrio (ideal = 100/N por pacote) */}
       {(() => {
-        const assigned = stats.patec1 + stats.patec2 + stats.patec3;
-        if (assigned === 0) return null;
-        const pct = (n: number) => (assigned > 0 ? (n / assigned) * 100 : 0);
-        const p1 = pct(stats.patec1), p2 = pct(stats.patec2), p3 = pct(stats.patec3);
+        const activePatecs = patecs.filter((p) => p.is_active);
+        const N = activePatecs.length;
+        if (N === 0 || stats.assigned === 0) return null;
+        const ideal = 100 / N;
         const fmt = (v: number) => v.toFixed(1).replace(".", ",") + "%";
-        const maxDev = Math.max(Math.abs(p1 - 33.33), Math.abs(p2 - 33.33), Math.abs(p3 - 33.33));
+        const pcts = activePatecs.map((p) => {
+          const c = countsByCode[p.code] || 0;
+          return { p, count: c, pct: stats.assigned > 0 ? (c / stats.assigned) * 100 : 0 };
+        });
+        const maxDev = Math.max(...pcts.map((x) => Math.abs(x.pct - ideal)));
         const balanced = maxDev <= 2;
         const semPct = stats.total > 0 ? (stats.semPatec / stats.total) * 100 : 0;
         return (
           <Card className={balanced ? "border-success/40 bg-success/5" : "border-warning/40 bg-warning/5"}>
-            <CardContent className="p-4">
+            <CardContent className="p-4 space-y-3">
               <div className="flex items-start justify-between gap-3 flex-wrap">
                 <div className="flex items-center gap-2">
                   {balanced ? (
@@ -932,83 +949,88 @@ const Patec = () => {
                   )}
                   <div>
                     <p className="text-sm font-semibold">
-                      {balanced ? "Distribuição equilibrada em terços" : "Distribuição desequilibrada"}
+                      {balanced ? `Distribuição equilibrada entre ${N} pacotes` : "Distribuição desequilibrada"}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      Ideal: 33,3% por pacote · desvio máximo {fmt(maxDev)} {balanced ? "(≤ 2pp)" : "(> 2pp)"}
+                      Ideal: {fmt(ideal)} por pacote · desvio máximo {fmt(maxDev)} {balanced ? "(≤ 2pp)" : "(> 2pp)"}
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-3 text-xs">
-                  <Badge variant="outline">PATEC 1: <strong className="ml-1">{stats.patec1}</strong> · {fmt(p1)}</Badge>
-                  <Badge variant="outline">PATEC 2: <strong className="ml-1">{stats.patec2}</strong> · {fmt(p2)}</Badge>
-                  <Badge variant="outline">PATEC 3: <strong className="ml-1">{stats.patec3}</strong> · {fmt(p3)}</Badge>
-                  <Badge variant={stats.semPatec === 0 ? "outline" : "destructive"}>
-                    Sem PATEC: <strong className="ml-1">{stats.semPatec}</strong> · {fmt(semPct)}
+                {isAdmin && stats.semPatec > 0 && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 text-xs"
+                    onClick={() => {
+                      if (patecsForSeason.length === 0) {
+                        toast.error("Não existem PATECs disponíveis para a época seleccionada. Seleccione uma época com pacotes vinculados.");
+                        return;
+                      }
+                      setRandomConfirmOpen(true);
+                    }}
+                    disabled={saving}
+                  >
+                    <Shuffle className="h-3.5 w-3.5 mr-1.5" />
+                    Reatribuir aleatoriamente
+                  </Button>
+                )}
+              </div>
+              <div className="flex items-center gap-1.5 text-xs flex-wrap">
+                {pcts.map(({ p, count, pct }) => (
+                  <Badge key={p.id} variant="outline" className="font-normal">
+                    {p.code}: <strong className="ml-1">{count}</strong> · {fmt(pct)}
                   </Badge>
-                  {isAdmin && stats.semPatec > 0 && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-8 text-xs"
-                      onClick={() => {
-                        if (patecsForSeason.length === 0) {
-                          toast.error("Não existem PATECs disponíveis para a época seleccionada. Seleccione uma época com pacotes vinculados.");
-                          return;
-                        }
-                        setRandomConfirmOpen(true);
-                      }}
-                      disabled={saving}
-                    >
-                      <Shuffle className="h-3.5 w-3.5 mr-1.5" />
-                      Reatribuir aleatoriamente
-                    </Button>
-                  )}
-                </div>
+                ))}
+                <Badge variant={stats.semPatec === 0 ? "outline" : "destructive"} className="font-normal">
+                  Sem PATEC: <strong className="ml-1">{stats.semPatec}</strong> · {fmt(semPct)}
+                </Badge>
               </div>
             </CardContent>
           </Card>
         );
       })()}
 
-      {/* Gráfico de distribuição PATEC */}
-      {stats.total > 0 && (
-        <div>
-          <h2 className="text-sm font-semibold flex items-center gap-2 mb-3">
-            <BarChart className="h-4 w-4 text-primary" />
-            Distribuição dos Pacotes
-          </h2>
-          <div className="rounded-xl border border-border bg-card p-4 md:p-6 shadow-[var(--shadow-card)]">
-            <ResponsiveContainer width="100%" height={260}>
-              <RechartsBarChart data={[
-                { name: "PATEC 1", value: stats.patec1, fill: "hsl(38, 92%, 50%)" },
-                { name: "PATEC 2", value: stats.patec2, fill: "hsl(160, 84%, 39%)" },
-                { name: "PATEC 3", value: stats.patec3, fill: "hsl(263, 70%, 50%)" },
-                { name: "Sem PATEC", value: stats.semPatec, fill: "hsl(var(--destructive))" },
-              ]} margin={{ top: 8, right: 16, left: 8, bottom: 8 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-                <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                <YAxis tick={{ fontSize: 12 }} allowDecimals={false} />
-                <Tooltip
-                  formatter={(v: number) => [v.toLocaleString("pt-AO"), "Agricultores"]}
-                  contentStyle={{ borderRadius: "8px", border: "1px solid hsl(var(--border))", background: "hsl(var(--card))" }}
-                  labelStyle={{ color: "hsl(var(--foreground))", fontWeight: 600 }}
-                />
-                <Bar dataKey="value" radius={[6, 6, 0, 0]}>
-                  {[
-                    { fill: "hsl(38, 92%, 50%)" },
-                    { fill: "hsl(160, 84%, 39%)" },
-                    { fill: "hsl(263, 70%, 50%)" },
-                    { fill: "hsl(var(--destructive))" },
-                  ].map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.fill} />
-                  ))}
-                </Bar>
-              </RechartsBarChart>
-            </ResponsiveContainer>
+      {/* Gráfico de distribuição PATEC (todos os pacotes + Sem PATEC) */}
+      {stats.total > 0 && (() => {
+        const sortedPatecs = [...patecs].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+        const chartData = [
+          ...sortedPatecs.map((p) => ({
+            name: p.code.replace("PATEC-", "P"),
+            fullName: p.code,
+            value: countsByCode[p.code] || 0,
+            fill: getPatecVisual(p).chartFill,
+          })),
+          { name: "Sem", fullName: "Sem PATEC", value: stats.semPatec, fill: "hsl(var(--destructive))" },
+        ];
+        return (
+          <div>
+            <h2 className="text-sm font-semibold flex items-center gap-2 mb-3">
+              <BarChart className="h-4 w-4 text-primary" />
+              Distribuição dos Pacotes
+            </h2>
+            <div className="rounded-xl border border-border bg-card p-4 md:p-6 shadow-[var(--shadow-card)]">
+              <ResponsiveContainer width="100%" height={280}>
+                <RechartsBarChart data={chartData} margin={{ top: 8, right: 16, left: 8, bottom: 24 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                  <XAxis dataKey="name" tick={{ fontSize: 11 }} interval={0} />
+                  <YAxis tick={{ fontSize: 12 }} allowDecimals={false} />
+                  <Tooltip
+                    formatter={(v: number) => [v.toLocaleString("pt-AO"), "Agricultores"]}
+                    labelFormatter={(_, payload) => (payload?.[0]?.payload as any)?.fullName ?? ""}
+                    contentStyle={{ borderRadius: "8px", border: "1px solid hsl(var(--border))", background: "hsl(var(--card))" }}
+                    labelStyle={{ color: "hsl(var(--foreground))", fontWeight: 600 }}
+                  />
+                  <Bar dataKey="value" radius={[6, 6, 0, 0]}>
+                    {chartData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.fill} />
+                    ))}
+                  </Bar>
+                </RechartsBarChart>
+              </ResponsiveContainer>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Composition - compact list */}
       <div>
