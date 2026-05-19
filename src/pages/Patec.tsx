@@ -1705,11 +1705,58 @@ const Patec = () => {
               </div>
             </label>
 
-            <div className="border rounded-lg p-3 bg-primary/5 border-primary/20">
-              <p className="text-sm">
-                <span className="font-bold text-primary text-lg">{regionTargetFarmers.length}</span>{" "}
-                produtor{regionTargetFarmers.length === 1 ? "" : "es"} {regionTargetFarmers.length === 1 ? "será actualizado" : "serão actualizados"}.
-              </p>
+            {/* Live preview panel */}
+            <div className="border rounded-lg p-4 bg-primary/5 border-primary/20 space-y-3">
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  {regionScope === "provincia" ? "Províncias" : regionScope === "municipio" ? "Municípios" : "Escolas de Campo"} seleccionadas
+                </h4>
+                <Badge variant="outline" className="text-[10px]">{regionValues.length}</Badge>
+              </div>
+              {regionValues.length > 0 ? (
+                <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
+                  {regionValues.map((v) => (
+                    <Badge key={v} variant="secondary" className="text-[11px] font-normal">
+                      {v}
+                    </Badge>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground italic">Nenhuma selecção.</p>
+              )}
+              <div className="border-t border-primary/10 pt-3">
+                {(() => {
+                  const total = regionTargetFarmers.length;
+                  const comPatec = regionTargetFarmers.filter((f) => f.patec_code || f.patec).length;
+                  const semPatec = total - comPatec;
+                  return (
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-muted-foreground">Total de produtores afectados</span>
+                        <span className="font-bold text-primary text-xl">{total}</span>
+                      </div>
+                      {total > 0 && regionOverwrite && (
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                          <span className="flex items-center gap-1">
+                            <span className="inline-block w-2 h-2 rounded-full bg-success" />
+                            {semPatec} nova{semPatec === 1 ? "" : "s"} atribuição{semPatec === 1 ? "" : "es"}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <span className="inline-block w-2 h-2 rounded-full bg-warning" />
+                            {comPatec} substituição{comPatec === 1 ? "" : "es"}
+                          </span>
+                        </div>
+                      )}
+                      {total > 0 && !regionOverwrite && (
+                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                          <span className="inline-block w-2 h-2 rounded-full bg-success" />
+                          {total} nova{total === 1 ? "" : "s"} atribuição{total === 1 ? "" : "es"} (apenas produtores sem PATEC)
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+              </div>
             </div>
           </div>
           <DialogFooter className="border-t pt-3">
