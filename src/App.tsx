@@ -60,6 +60,7 @@ import FornecedorPOSVenda from "@/pages/fornecedor/FornecedorPOSVenda";
 import FornecedorVendas from "@/pages/fornecedor/FornecedorVendas";
 import FornecedorFacturas from "@/pages/fornecedor/FornecedorFacturas";
 import FornecedorStock from "@/pages/fornecedor/FornecedorStock";
+import FornecedorPrecosStock from "@/pages/fornecedor/FornecedorPrecosStock";
 import FornecedorPerfil from "@/pages/fornecedor/FornecedorPerfil";
 import FornecedorLojas from "@/pages/fornecedor/FornecedorLojas";
 import NotFound from "@/pages/NotFound";
@@ -147,6 +148,7 @@ const App = () => (
             <Route index element={<FornecedorDashboard />} />
             <Route path="produtos" element={<FornecedorProdutos />} />
             <Route path="stock" element={<FornecedorStock />} />
+            <Route path="precos" element={<FornecedorPrecosStock />} />
             <Route path="pos" element={<FornecedorPOS />} />
             <Route path="pos/venda" element={<FornecedorPOSVenda />} />
             <Route path="vendas" element={<FornecedorVendas />} />

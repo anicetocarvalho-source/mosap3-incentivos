@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Outlet, useNavigate, Link, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { LayoutDashboard, Package, Monitor, ShoppingCart, LogOut, Menu, X, Warehouse, Settings, Store, Receipt } from "lucide-react";
+import { LayoutDashboard, Package, Monitor, ShoppingCart, LogOut, Menu, X, Warehouse, Settings, Store, Receipt, Tag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { mosapLogo, LOGO_SIZES } from "@/config/brand";
 import { toast } from "sonner";
@@ -16,6 +16,7 @@ const navItems = [
   { to: "/fornecedor", icon: LayoutDashboard, label: "Dashboard" },
   { to: "/fornecedor/produtos", icon: Package, label: "Produtos" },
   { to: "/fornecedor/stock", icon: Warehouse, label: "Stock" },
+  { to: "/fornecedor/precos", icon: Tag, label: "Preços & Stock" },
   { to: "/fornecedor/pos/venda", icon: ShoppingCart, label: "Vender (Terminal POS)" },
   { to: "/fornecedor/pos", icon: Monitor, label: "Terminais POS" },
   { to: "/fornecedor/vendas", icon: ShoppingCart, label: "Vendas" },
