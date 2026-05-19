@@ -1123,6 +1123,13 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
   };
 
   // ===== OTP helpers (definidos após processSale para evitar uso antes da declaração) =====
+
+  /** Remove a chave de idempotência do sessionStorage para o OTP indicado. */
+  const clearOtpIdempotencyKey = (id: string | null) => {
+    if (!id) return;
+    try { sessionStorage.removeItem(`pos_otp_idem_${id}`); } catch { /* sessionStorage indisponível */ }
+  };
+
   const sendOtp = async () => {
     if (otpSendingRef.current || otpVerifyingRef.current) {
       toast.info("Operação OTP em curso. Aguarde…");
@@ -1133,6 +1140,8 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
       toast.error("Agricultor sem telefone — pagamento por OTP indisponível.");
       return;
     }
+    // Se houver OTP anterior pendente, limpar a chave de idempotência órfã
+    if (otpId) clearOtpIdempotencyKey(otpId);
     otpSendingRef.current = true;
     setOtpSending(true);
     setOtpStatus("sending");
@@ -1195,7 +1204,7 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
       toast.error("Código expirado. Solicite um novo SMS antes de continuar.");
       return;
     }
-    if (!otpId || !/^\d{6}$/.test(otpCode)) {
+    if (!otpId || /^\d{6}$/.test(otpCode)) {
       toast.error("Introduza o código de 6 dígitos.");
       return;
     }
@@ -1228,6 +1237,8 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
         } else {
           setOtpStatus("failed");
         }
+        // Estado terminal (erro/expirado/bloqueado) → limpar idempotência para evitar reaproveitamento no próximo pagamento.
+        clearOtpIdempotencyKey(otpId);
         return;
       }
       if (data.idempotent_replay) {
@@ -1236,7 +1247,7 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
       setOtpStatus("verified");
       setOtpDialogOpen(false);
       // Limpa chave de idempotência — o OTP foi consumido.
-      try { sessionStorage.removeItem(`pos_otp_idem_${otpId}`); } catch { /* */ }
+      clearOtpIdempotencyKey(otpId);
       setOtpId(null);
       setOtpCode("");
       setOtpDevCode(null);
@@ -1244,6 +1255,7 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
     } catch (e) {
       toast.error((e as Error)?.message || "Erro ao validar OTP.");
       setOtpStatus("failed");
+      // Não limpar a chave em erro de rede — permite retry idempotente.
     } finally {
       otpVerifyingRef.current = false;
       setOtpVerifying(false);
