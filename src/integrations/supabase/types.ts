@@ -1657,6 +1657,42 @@ export type Database = {
           },
         ]
       }
+      product_price_history: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          delta: number | null
+          id: string
+          new_price: number
+          previous_price: number
+          product_id: string
+          reason: string | null
+          supplier_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          delta?: number | null
+          id?: string
+          new_price: number
+          previous_price: number
+          product_id: string
+          reason?: string | null
+          supplier_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          delta?: number | null
+          id?: string
+          new_price?: number
+          previous_price?: number
+          product_id?: string
+          reason?: string | null
+          supplier_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
