@@ -61,16 +61,24 @@ Deno.serve(async (req) => {
       return json({ success: false, error: "OTP não encontrado.", reason: "not_found" }, 404);
     }
 
-    // Idempotência: se a mesma chave já foi usada com sucesso neste OTP,
-    // devolvemos o resultado em cache em vez de processar novamente.
+    // Idempotência: replay só vale enquanto idempotency_expires_at > now().
+    const idemValid =
+      otp.idempotency_expires_at == null ||
+      new Date(otp.idempotency_expires_at).getTime() > Date.now();
     if (
       idempotency_key &&
       otp.idempotency_key === idempotency_key &&
       otp.status === "usado" &&
-      otp.last_result
+      otp.last_result &&
+      idemValid
     ) {
       return json({ ...(otp.last_result as Record<string, unknown>), idempotent_replay: true });
     }
+
+    // Limpeza oportunística (best-effort) de chaves antigas.
+    admin.rpc("cleanup_pos_otp_idempotency", { p_max: 100 }).then(
+      ({ error }) => { if (error) console.warn("cleanup_pos_otp_idempotency:", error.message); },
+    );
 
     if (otp.status === "usado") {
       // Sem idempotency_key correspondente — é tentativa duplicada legítima.
@@ -107,6 +115,11 @@ Deno.serve(async (req) => {
     // Marcação atómica via CAS: só transita pendente→usado se ainda estiver pendente.
     // Isto evita que duas chamadas paralelas (double-click / refresh) ambas “ganhem”.
     const result = { success: true } as Record<string, unknown>;
+    // TTL da idempotência: 24h. Após este prazo, a chave é descartada
+    // pela função cleanup_pos_otp_idempotency e novos replays são rejeitados.
+    const idempotency_expires_at = idempotency_key
+      ? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+      : null;
     const { data: updated, error: updErr } = await admin
       .from("pos_payment_otps")
       .update({
@@ -114,6 +127,7 @@ Deno.serve(async (req) => {
         used_at: new Date().toISOString(),
         attempts: (otp.attempts ?? 0) + 1,
         idempotency_key: idempotency_key,
+        idempotency_expires_at,
         last_result: result,
       })
       .eq("id", otp_id)
@@ -131,14 +145,18 @@ Deno.serve(async (req) => {
       // resposta consistente (idempotente) se a chave coincidir.
       const { data: fresh } = await admin
         .from("pos_payment_otps")
-        .select("status, idempotency_key, last_result")
+        .select("status, idempotency_key, idempotency_expires_at, last_result")
         .eq("id", otp_id)
         .maybeSingle();
+      const freshIdemValid =
+        !fresh?.idempotency_expires_at ||
+        new Date(fresh.idempotency_expires_at).getTime() > Date.now();
       if (
         fresh?.status === "usado" &&
         idempotency_key &&
         fresh.idempotency_key === idempotency_key &&
-        fresh.last_result
+        fresh.last_result &&
+        freshIdemValid
       ) {
         return json({ ...(fresh.last_result as Record<string, unknown>), idempotent_replay: true });
       }
