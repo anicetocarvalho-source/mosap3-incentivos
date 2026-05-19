@@ -1,57 +1,35 @@
 ## Resumo
 
-Substituir o carregamento de todas as linhas de `farmers` na página `/provincias` por uma RPC agregada no Postgres que devolve contagens por província, município e escola — eliminando o `fetchAllPages` de produtores no cliente.
+Adicionar `src/test/provincias-parity.test.ts` que valida que os totais de Produtores na página `/provincias` (RPC `get_farmer_counts_by_location`) batem certo com:
+- `dashboard_kpis.total_farmers` (Dashboard)
+- `fetchAllPages` sobre `farmers` com `includeRemoved: true` (Lista de Agricultores em modo Admin)
 
-## Alterações
+Para o mesmo dataset e mesmo "filtro" (escopo global Admin, incluindo Removidos — regra canónica do projecto).
 
-### 1. Backend — Migração SQL
+## Ficheiro novo
 
-Criar função `public.get_farmer_counts_by_location()`:
+`src/test/provincias-parity.test.ts`
 
-```sql
-CREATE OR REPLACE FUNCTION public.get_farmer_counts_by_location()
-RETURNS TABLE (
-  province text,
-  municipality text,
-  school text,
-  total bigint
-)
-LANGUAGE sql
-STABLE
-SECURITY DEFINER
-SET search_path = public
-AS $$
-  SELECT
-    COALESCE(NULLIF(TRIM(LOWER(province)), ''), '') AS province,
-    COALESCE(NULLIF(TRIM(LOWER(municipality)), ''), '') AS municipality,
-    COALESCE(NULLIF(TRIM(LOWER(school)), ''), '') AS school,
-    COUNT(*)::bigint AS total
-  FROM public.farmers
-  GROUP BY 1, 2, 3;
-$$;
+Segue exactamente o padrão de `dashboard-list-parity.test.ts`:
 
-REVOKE ALL ON FUNCTION public.get_farmer_counts_by_location() FROM public, anon;
-GRANT EXECUTE ON FUNCTION public.get_farmer_counts_by_location() TO authenticated;
-```
+1. **Dataset partilhado** — reutiliza a mesma forma (`ATIVOS=138` + `REMOVIDOS=14` = 152). Atribui `province / municipality / school` aleatórios mas determinísticos a cada linha para podermos validar agregação por escola.
+2. **Mock `supabase`** com:
+   - `from('farmers')` igual ao existente (suporta `.neq` Removido para o cenário "Lista").
+   - `rpc('dashboard_kpis')` devolve `total_farmers = DATASET.length`.
+   - `rpc('get_farmer_counts_by_location')` agrega o dataset por `(province, municipality, school)` normalizados com `trim + lower` (replicando a função SQL) e devolve `[{ province, municipality, school, total }]`.
+3. **Testes**:
+   - **`get_farmer_counts_by_location` soma == DATASET.length** (inclui Removidos).
+   - **Soma das contagens == `dashboard_kpis.total_farmers`** — paridade `/provincias` ↔ Dashboard.
+   - **Soma das contagens == `fetchAllPages(farmers, includeRemoved:true)`** — paridade `/provincias` ↔ Lista (Admin).
+   - **Soma por província na RPC == soma equivalente derivada do dataset bruto** — garante que o agregado server-side não perde linhas (ex.: nulls).
+   - **Província só com Removidos aparece nas contagens** — garante que nunca alguém volta a filtrar `Removido` na RPC.
 
-Notas:
-- `SECURITY DEFINER` para contornar RLS — a função apenas devolve agregados (não dados pessoais).
-- Inclui Removidos (regra canónica do projecto).
-- Normalização (`trim`+`lower`) feita no servidor, alinhada com `norm()` do front.
+## Sem alterações
 
-### 2. Frontend — `src/pages/GestaoProvincias.tsx`
-
-- Remover `fetchAllPages` sobre `farmers` em `refreshFarmerCounts`.
-- Chamar `supabase.rpc('get_farmer_counts_by_location')`.
-- Trocar `farmerRows` (lista de linhas) por `farmerCounts` (lista de agregados `{province, municipality, school, total}`).
-- Recalcular `realByProvince`, `realBySchool`, `totalProdutores` somando `total` em vez de contar linhas.
-- Manter botão "Actualizar contagens", spinner, toast de sucesso e toast de erro (já implementados).
-
-### 3. Sem alterações
-- Hooks (`useProvincesData`), restantes páginas, tabela `farmers`, RLS de `farmers`.
+- Sem mudanças em ficheiros de produção, hooks ou SQL.
+- Apenas um ficheiro de teste novo.
 
 ## Critérios de aceitação
 
-- Página `/provincias` carrega contagens com **uma única chamada RPC** (sem paginação cliente).
-- Totais dos cards (Produtores totais, por província, por escola) idênticos aos actuais.
-- Botão "Actualizar contagens" continua a funcionar; toast de erro aparece se a RPC falhar.
+- `bunx vitest run src/test/provincias-parity.test.ts` passa.
+- Se alguém alterar a RPC para excluir Removidos ou mudar a normalização, pelo menos um teste falha.
