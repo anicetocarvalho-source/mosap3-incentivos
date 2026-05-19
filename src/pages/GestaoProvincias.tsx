@@ -52,23 +52,44 @@ const GestaoProvincias = () => {
     provinces, municipalities, schools, loading,
     getMunicipalitiesByProvince, getSchoolsByProvince,
     addMunicipality, updateMunicipality, deleteMunicipality,
-    addSchool,
+    addSchool, refetch,
   } = useProvincesData();
 
   // Canonical farmer counts (matches Dashboard / Lista / Relatórios).
   // Inclui Removidos por design — ver memória "Removidos contam em TODOS os agregados".
   const [farmerRows, setFarmerRows] = useState<{ province: string | null; municipality: string | null; school: string | null }[] | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const refreshFarmerCounts = async (notify = false) => {
+    setRefreshing(true);
+    try {
+      const rows = await fetchAllPages<{ province: string | null; municipality: string | null; school: string | null }>(() =>
+        supabase.from("farmers").select("province, municipality, school", { count: "exact" })
+      );
+      setFarmerRows(rows);
+      if (notify) {
+        await refetch();
+        toast({
+          title: "Contagens actualizadas",
+          description: `${rows.length.toLocaleString("pt-AO")} produtores na base de dados.`,
+        });
+      }
+    } catch (e) {
+      console.error("[GestaoProvincias] failed to load farmers:", e);
+      setFarmerRows((prev) => prev ?? []);
+      if (notify) {
+        toast({ title: "Erro", description: "Não foi possível actualizar as contagens.", variant: "destructive" });
+      }
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   useEffect(() => {
-    fetchAllPages<{ province: string | null; municipality: string | null; school: string | null }>(() =>
-      supabase.from("farmers").select("province, municipality, school", { count: "exact" })
-    )
-      .then(setFarmerRows)
-      .catch((e) => {
-        console.error("[GestaoProvincias] failed to load farmers:", e);
-        setFarmerRows([]);
-      });
+    refreshFarmerCounts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
 
   const norm = (v: string | null | undefined) => (v || "").trim().toLowerCase();
 
