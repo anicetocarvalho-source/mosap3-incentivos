@@ -186,7 +186,7 @@ const GestaoProvincias = () => {
     const rows = schools.map((s) => {
       const prov = provinces.find((p) => p.id === s.province_id);
       const mun = municipalities.find((m) => m.id === s.municipality_id);
-      return `${prov?.name ?? ""};${mun?.name ?? ""};${s.name};${s.technician ?? ""};${s.technician_phone ?? ""};${s.total_farmers};${s.status}`;
+      return `${prov?.name ?? ""};${mun?.name ?? ""};${s.name};${s.technician ?? ""};${s.technician_phone ?? ""};${countFarmersForSchool(s)};${s.status}`;
     }).join("\n");
     downloadFile(header + rows, "escolas_campo.csv", "text/csv;charset=utf-8");
     toast({ title: "Exportado", description: "Lista de escolas exportada em CSV." });
