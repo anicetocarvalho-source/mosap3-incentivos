@@ -1,5 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { MapPin, Search, School, ChevronRight, Plus, Trash2, Edit2, X, Building, Download, FileText, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { fetchAllPages } from "@/lib/supabaseFetchAll";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -53,13 +55,51 @@ const GestaoProvincias = () => {
     addSchool,
   } = useProvincesData();
 
+  // Canonical farmer counts (matches Dashboard / Lista / Relatórios).
+  // Inclui Removidos por design — ver memória "Removidos contam em TODOS os agregados".
+  const [farmerRows, setFarmerRows] = useState<{ province: string | null; municipality: string | null; school: string | null }[] | null>(null);
+
+  useEffect(() => {
+    fetchAllPages<{ province: string | null; municipality: string | null; school: string | null }>(() =>
+      supabase.from("farmers").select("province, municipality, school", { count: "exact" })
+    )
+      .then(setFarmerRows)
+      .catch((e) => {
+        console.error("[GestaoProvincias] failed to load farmers:", e);
+        setFarmerRows([]);
+      });
+  }, []);
+
+  const norm = (v: string | null | undefined) => (v || "").trim().toLowerCase();
+
+  const { realByProvince, realBySchool, totalProdutores } = useMemo(() => {
+    const byProv = new Map<string, number>();
+    const bySch = new Map<string, number>();
+    let total = 0;
+    for (const r of farmerRows ?? []) {
+      total++;
+      const p = norm(r.province);
+      if (p) byProv.set(p, (byProv.get(p) ?? 0) + 1);
+      const key = `${p}|${norm(r.municipality)}|${norm(r.school)}`;
+      bySch.set(key, (bySch.get(key) ?? 0) + 1);
+    }
+    return { realByProvince: byProv, realBySchool: bySch, totalProdutores: total };
+  }, [farmerRows]);
+
+  const countFarmersForSchool = (s: { name: string; province_id: string; municipality_id: string }) => {
+    const prov = provinces.find((p) => p.id === s.province_id);
+    const mun = municipalities.find((m) => m.id === s.municipality_id);
+    return realBySchool.get(`${norm(prov?.name)}|${norm(mun?.name)}|${norm(s.name)}`) ?? 0;
+  };
+
+  const countFarmersForProvince = (prov: DbProvince) => realByProvince.get(norm(prov.name)) ?? 0;
+
   const filtered = provinces.filter((p) =>
     p.name.toLowerCase().includes(search.toLowerCase()) ||
     p.capital.toLowerCase().includes(search.toLowerCase())
   );
 
   const totalEscolas = schools.length;
-  const totalProdutores = schools.reduce((a, s) => a + s.total_farmers, 0);
   const totalMunicipios = municipalities.length;
 
   const selectedMunicipalities = selectedProvince ? getMunicipalitiesByProvince(selectedProvince.id) : [];
@@ -146,7 +186,7 @@ const GestaoProvincias = () => {
     const rows = schools.map((s) => {
       const prov = provinces.find((p) => p.id === s.province_id);
       const mun = municipalities.find((m) => m.id === s.municipality_id);
-      return `${prov?.name ?? ""};${mun?.name ?? ""};${s.name};${s.technician ?? ""};${s.technician_phone ?? ""};${s.total_farmers};${s.status}`;
+      return `${prov?.name ?? ""};${mun?.name ?? ""};${s.name};${s.technician ?? ""};${s.technician_phone ?? ""};${countFarmersForSchool(s)};${s.status}`;
     }).join("\n");
     downloadFile(header + rows, "escolas_campo.csv", "text/csv;charset=utf-8");
     toast({ title: "Exportado", description: "Lista de escolas exportada em CSV." });
@@ -163,7 +203,7 @@ const GestaoProvincias = () => {
     const escolasRows = schools.map((s) => {
       const prov = provinces.find((p) => p.id === s.province_id);
       const mun = municipalities.find((m) => m.id === s.municipality_id);
-      return `<tr><td>${prov?.name ?? ""}</td><td>${mun?.name ?? ""}</td><td>${s.name}</td><td>${s.technician ?? ""}</td><td>${s.total_farmers}</td><td>${s.status}</td></tr>`;
+      return `<tr><td>${prov?.name ?? ""}</td><td>${mun?.name ?? ""}</td><td>${s.name}</td><td>${s.technician ?? ""}</td><td>${countFarmersForSchool(s)}</td><td>${s.status}</td></tr>`;
     }).join("");
 
     printWindow.document.write(`<!DOCTYPE html><html><head><title>MOSAP3 — Projecto Mosap3</title>
@@ -190,7 +230,7 @@ const GestaoProvincias = () => {
     toast({ title: "PDF gerado", description: "Use a opção 'Guardar como PDF' na janela de impressão." });
   };
 
-  if (loading) {
+  if (loading || farmerRows === null) {
     return (
       <div className="flex items-center justify-center h-64">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -259,7 +299,7 @@ const GestaoProvincias = () => {
         {filtered.map((prov) => {
           const provMunicipalities = getMunicipalitiesByProvince(prov.id);
           const provSchools = getSchoolsByProvince(prov.id);
-          const provFarmers = provSchools.reduce((a, s) => a + s.total_farmers, 0);
+          const provFarmers = countFarmersForProvince(prov);
           return (
             <Card
               key={prov.id}
@@ -444,7 +484,7 @@ const GestaoProvincias = () => {
                             <TableCell className="text-sm font-medium">{s.name}</TableCell>
                             <TableCell className="text-sm">{mun?.name ?? ""}</TableCell>
                             <TableCell className="text-sm">{s.technician ?? ""}</TableCell>
-                            <TableCell className="text-sm text-center">{s.total_farmers}</TableCell>
+                            <TableCell className="text-sm text-center">{countFarmersForSchool(s)}</TableCell>
                             <TableCell className="text-center">
                               <Badge variant={s.status === "Ativa" ? "default" : "secondary"} className="text-[10px]">
                                 {s.status}
