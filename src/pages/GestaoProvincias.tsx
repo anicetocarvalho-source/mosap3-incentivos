@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { MapPin, Search, School, ChevronRight, Plus, Trash2, Edit2, X, Building, Download, FileText, Loader2, RefreshCw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { fetchAllPages } from "@/lib/supabaseFetchAll";
+
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -57,26 +57,32 @@ const GestaoProvincias = () => {
 
   // Canonical farmer counts (matches Dashboard / Lista / Relatórios).
   // Inclui Removidos por design — ver memória "Removidos contam em TODOS os agregados".
-  const [farmerRows, setFarmerRows] = useState<{ province: string | null; municipality: string | null; school: string | null }[] | null>(null);
+  const [farmerCounts, setFarmerCounts] = useState<{ province: string; municipality: string; school: string; total: number }[] | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
   const refreshFarmerCounts = async (notify = false) => {
     setRefreshing(true);
     try {
-      const rows = await fetchAllPages<{ province: string | null; municipality: string | null; school: string | null }>(() =>
-        supabase.from("farmers").select("province, municipality, school", { count: "exact" })
-      );
-      setFarmerRows(rows);
+      const { data, error } = await supabase.rpc("get_farmer_counts_by_location");
+      if (error) throw error;
+      const rows = (data ?? []).map((r: any) => ({
+        province: r.province ?? "",
+        municipality: r.municipality ?? "",
+        school: r.school ?? "",
+        total: Number(r.total) || 0,
+      }));
+      setFarmerCounts(rows);
       if (notify) {
         await refetch();
+        const total = rows.reduce((s, r) => s + r.total, 0);
         toast({
           title: "Contagens actualizadas",
-          description: `${rows.length.toLocaleString("pt-AO")} produtores na base de dados.`,
+          description: `${total.toLocaleString("pt-AO")} produtores na base de dados.`,
         });
       }
     } catch (e) {
-      console.error("[GestaoProvincias] failed to load farmers:", e);
-      setFarmerRows((prev) => prev ?? []);
+      console.error("[GestaoProvincias] failed to load farmer counts:", e);
+      setFarmerCounts((prev) => prev ?? []);
       const msg = e instanceof Error ? e.message : String(e);
       toast({
         title: "Erro ao carregar contagens",
@@ -100,15 +106,14 @@ const GestaoProvincias = () => {
     const byProv = new Map<string, number>();
     const bySch = new Map<string, number>();
     let total = 0;
-    for (const r of farmerRows ?? []) {
-      total++;
-      const p = norm(r.province);
-      if (p) byProv.set(p, (byProv.get(p) ?? 0) + 1);
-      const key = `${p}|${norm(r.municipality)}|${norm(r.school)}`;
-      bySch.set(key, (bySch.get(key) ?? 0) + 1);
+    for (const r of farmerCounts ?? []) {
+      total += r.total;
+      if (r.province) byProv.set(r.province, (byProv.get(r.province) ?? 0) + r.total);
+      const key = `${r.province}|${r.municipality}|${r.school}`;
+      bySch.set(key, (bySch.get(key) ?? 0) + r.total);
     }
     return { realByProvince: byProv, realBySchool: bySch, totalProdutores: total };
-  }, [farmerRows]);
+  }, [farmerCounts]);
 
   const countFarmersForSchool = (s: { name: string; province_id: string; municipality_id: string }) => {
     const prov = provinces.find((p) => p.id === s.province_id);
@@ -254,7 +259,7 @@ const GestaoProvincias = () => {
     toast({ title: "PDF gerado", description: "Use a opção 'Guardar como PDF' na janela de impressão." });
   };
 
-  if (loading || farmerRows === null) {
+  if (loading || farmerCounts === null) {
     return (
       <div className="flex items-center justify-center h-64">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
