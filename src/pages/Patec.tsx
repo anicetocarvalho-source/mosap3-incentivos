@@ -1590,10 +1590,23 @@ const Patec = () => {
               </SelectContent>
             </Select>
           </div>
+          {assignProgress && (
+            <div className="border-t pt-3 space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-medium">A atribuir... lote {assignProgress.batchesDone}/{assignProgress.batches}</span>
+                <span className="text-muted-foreground">{assignProgress.done}/{assignProgress.total}</span>
+              </div>
+              <Progress value={assignProgress.total ? (assignProgress.done / assignProgress.total) * 100 : 0} />
+              <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                <span className="flex items-center gap-1"><span className="inline-block w-2 h-2 rounded-full bg-success" />{assignProgress.success} sucesso</span>
+                <span className="flex items-center gap-1"><span className="inline-block w-2 h-2 rounded-full bg-destructive" />{assignProgress.failed} falhas</span>
+              </div>
+            </div>
+          )}
           <DialogFooter className="border-t pt-3">
-            <Button variant="outline" onClick={() => setBulkDialogOpen(false)}>Cancelar</Button>
+            <Button variant="outline" onClick={() => setBulkDialogOpen(false)} disabled={saving}>Cancelar</Button>
             <Button onClick={() => setBulkConfirmOpen(true)} disabled={saving || !bulkPatecCode || patecsForSeason.length === 0}>
-              {`Atribuir a ${selectedIds.size} produtor${selectedIds.size > 1 ? "es" : ""}`}
+              {saving ? (<><Loader2 className="w-4 h-4 mr-1 animate-spin" />A atribuir...</>) : `Atribuir a ${selectedIds.size} produtor${selectedIds.size > 1 ? "es" : ""}`}
             </Button>
           </DialogFooter>
         </DialogContent>
