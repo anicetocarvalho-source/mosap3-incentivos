@@ -1,17 +1,57 @@
 ## Resumo
 
-Adicionar um toast de erro visível quando o carregamento dos dados de `farmers` falhar na página `/provincias`, tanto na carga inicial quanto ao clicar no botão "Actualizar contagens".
+Substituir o carregamento de todas as linhas de `farmers` na página `/provincias` por uma RPC agregada no Postgres que devolve contagens por província, município e escola — eliminando o `fetchAllPages` de produtores no cliente.
 
 ## Alterações
 
-**Ficheiro:** `src/pages/GestaoProvincias.tsx`
+### 1. Backend — Migração SQL
 
-1. **Toast de erro sempre visível**: no bloco `catch` de `refreshFarmerCounts`, o toast de erro deve ser exibido **sempre** que houver falha, independentemente do parâmetro `notify`. Atualmente só aparece quando `notify === true` (i.e., ao clicar no botão).
-2. **Mensagem descritiva**: incluir detalhe do erro na descrição do toast (ex.: "Falha ao consultar produtores: [mensagem do erro]").
-3. **Não bloquear UI**: manter o comportamento existente que atribui `[]` a `farmerRows` em caso de erro, para que a página não fique em loading infinito.
+Criar função `public.get_farmer_counts_by_location()`:
+
+```sql
+CREATE OR REPLACE FUNCTION public.get_farmer_counts_by_location()
+RETURNS TABLE (
+  province text,
+  municipality text,
+  school text,
+  total bigint
+)
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT
+    COALESCE(NULLIF(TRIM(LOWER(province)), ''), '') AS province,
+    COALESCE(NULLIF(TRIM(LOWER(municipality)), ''), '') AS municipality,
+    COALESCE(NULLIF(TRIM(LOWER(school)), ''), '') AS school,
+    COUNT(*)::bigint AS total
+  FROM public.farmers
+  GROUP BY 1, 2, 3;
+$$;
+
+REVOKE ALL ON FUNCTION public.get_farmer_counts_by_location() FROM public, anon;
+GRANT EXECUTE ON FUNCTION public.get_farmer_counts_by_location() TO authenticated;
+```
+
+Notas:
+- `SECURITY DEFINER` para contornar RLS — a função apenas devolve agregados (não dados pessoais).
+- Inclui Removidos (regra canónica do projecto).
+- Normalização (`trim`+`lower`) feita no servidor, alinhada com `norm()` do front.
+
+### 2. Frontend — `src/pages/GestaoProvincias.tsx`
+
+- Remover `fetchAllPages` sobre `farmers` em `refreshFarmerCounts`.
+- Chamar `supabase.rpc('get_farmer_counts_by_location')`.
+- Trocar `farmerRows` (lista de linhas) por `farmerCounts` (lista de agregados `{province, municipality, school, total}`).
+- Recalcular `realByProvince`, `realBySchool`, `totalProdutores` somando `total` em vez de contar linhas.
+- Manter botão "Actualizar contagens", spinner, toast de sucesso e toast de erro (já implementados).
+
+### 3. Sem alterações
+- Hooks (`useProvincesData`), restantes páginas, tabela `farmers`, RLS de `farmers`.
 
 ## Critérios de aceitação
 
-- Se a carga inicial de `farmers` falhar, o utilizador vê um toast de erro.
-- Se o utilizador clicar "Actualizar contagens" e falhar, o toast de erro continua a aparecer.
-- A UI não fica presa no estado de carregamento quando ocorre erro.
+- Página `/provincias` carrega contagens com **uma única chamada RPC** (sem paginação cliente).
+- Totais dos cards (Produtores totais, por província, por escola) idênticos aos actuais.
+- Botão "Actualizar contagens" continua a funcionar; toast de erro aparece se a RPC falhar.

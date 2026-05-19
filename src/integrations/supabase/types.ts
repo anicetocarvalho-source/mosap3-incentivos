@@ -2414,6 +2414,15 @@ export type Database = {
           was_new: boolean
         }[]
       }
+      get_farmer_counts_by_location: {
+        Args: never
+        Returns: {
+          municipality: string
+          province: string
+          school: string
+          total: number
+        }[]
+      }
       has_any_backoffice_role: { Args: { _user_id: string }; Returns: boolean }
       has_role: {
         Args: {
