@@ -279,6 +279,9 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
   const [otpStatus, setOtpStatus] = useState<"idle" | "sending" | "sent" | "verifying" | "verified" | "expired" | "failed">("idle");
   const otpSendingRef = useRef(false);
   const otpVerifyingRef = useRef(false);
+  // Lock persistente (sessionStorage) que sobrevive a recargas:
+  // marcado quando uma verificação está em curso para o `otpId` actual.
+  const [otpProcessingLocked, setOtpProcessingLocked] = useState(false);
   const [otpExpired, setOtpExpired] = useState(false);
   const [otpNowTick, setOtpNowTick] = useState(0);
   const otpExpiryNotifiedRef = useRef(false);
