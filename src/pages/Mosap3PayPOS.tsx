@@ -304,6 +304,54 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
     }
   }, [otpSecondsLeft, otpDialogOpen, otpExpiresAt, otpExpired]);
 
+  // Estado adicional vindo do backend (tentativas restantes, etc.)
+  const [otpAttemptsLeft, setOtpAttemptsLeft] = useState<number | null>(null);
+
+  // Polling do estado do OTP no backend para reflectir em tempo real
+  // alterações feitas pelas edge functions (verificado/expirado/falhado).
+  useEffect(() => {
+    if (!otpDialogOpen || !otpId) return;
+    let cancelled = false;
+
+    const poll = async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke("pos-otp-status", {
+          body: { otp_id: otpId },
+        });
+        if (cancelled || error || !data?.success) return;
+
+        if (typeof data.attempts_left === "number") setOtpAttemptsLeft(data.attempts_left);
+
+        const remote = data.status as string;
+        // Não sobrepor estados terminais locais (verifying/verified/sending)
+        if (otpVerifyingRef.current || otpSendingRef.current) return;
+
+        if (remote === "usado" && otpStatus !== "verified") {
+          setOtpStatus("verified");
+          toast.success("OTP verificado pelo backend.");
+        } else if (remote === "expirado" && !otpExpired) {
+          setOtpExpired(true);
+          setOtpStatus("expired");
+          setOtpExpiresAt(null);
+          if (!otpExpiryNotifiedRef.current) {
+            otpExpiryNotifiedRef.current = true;
+            toast.error("Código OTP expirou (sincronizado com servidor).", { duration: 8000 });
+          }
+        } else if (remote === "falhado" && otpStatus !== "failed") {
+          setOtpStatus("failed");
+          toast.error("OTP bloqueado por demasiadas tentativas. Gere um novo código.");
+        }
+      } catch {
+        // silenciar erros transientes de polling
+      }
+    };
+
+    poll();
+    const t = setInterval(poll, 3000);
+    return () => { cancelled = true; clearInterval(t); };
+  }, [otpDialogOpen, otpId, otpStatus, otpExpired]);
+
+
   // sendOtp e verifyOtpAndPay são definidos após processSale (mais abaixo no ficheiro).
 
   // Reset automático do bloqueio PATEC quando muda o produtor,
@@ -1090,6 +1138,7 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
     setOtpStatus("sending");
     setOtpCode("");
     setOtpExpired(false);
+    setOtpAttemptsLeft(null);
     otpExpiryNotifiedRef.current = false;
     try {
       const { data, error } = await supabase.functions.invoke("pos-otp-send", {
@@ -2147,6 +2196,11 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
                   </button>
                 )}
               </div>
+              {otpAttemptsLeft !== null && otpAttemptsLeft < 5 && (
+                <p className="mt-1 text-xs text-warning">
+                  Tentativas restantes: <strong>{otpAttemptsLeft}</strong>
+                </p>
+              )}
             </div>
           </div>
           <DialogFooter>
