@@ -237,7 +237,54 @@ const Patec = () => {
   // Realtime: aplica eventos INSERT/UPDATE/DELETE incrementalmente em
   // patecItems e itemCountsByCode. Eventos em rajada são acumulados num
   // buffer e aplicados num único batch (debounce 150ms) para minimizar
-  // re-renderizações.
+  // re-renderizações. Códigos afectados são marcados como "dirty" e
+  // reconciliados em lote contra a contagem autoritativa do servidor.
+  const dirtyCodesRef = useRef<Set<string>>(new Set());
+  const reconcileTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const RECONCILE_DEBOUNCE_MS = 800;
+
+  const reconcileDirtyCodes = useCallback(async () => {
+    reconcileTimerRef.current = null;
+    const codes = Array.from(dirtyCodesRef.current);
+    dirtyCodesRef.current = new Set();
+    if (codes.length === 0) return;
+
+    // Fetch counts autoritativos em paralelo (head:true → sem payload)
+    const results = await Promise.all(
+      codes.map(async (code) => {
+        const { count, error } = await supabase
+          .from("patec_items")
+          .select("id", { count: "exact", head: true })
+          .eq("patec_code", code);
+        return { code, count, error };
+      })
+    );
+
+    setItemCountsByCode((prev) => {
+      const next = { ...prev };
+      let changed = false;
+      for (const { code, count, error } of results) {
+        if (error || count == null) continue;
+        const current = prev[code] || 0;
+        if (current === count) continue;
+        if (count <= 0) {
+          if (code in next) { delete next[code]; changed = true; }
+        } else {
+          next[code] = count;
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, []);
+
+  const scheduleReconcile = useCallback(() => {
+    if (reconcileTimerRef.current) clearTimeout(reconcileTimerRef.current);
+    reconcileTimerRef.current = setTimeout(() => {
+      void reconcileDirtyCodes();
+    }, RECONCILE_DEBOUNCE_MS);
+  }, [reconcileDirtyCodes]);
+
   useEffect(() => {
     if (!authReady || !user) return;
 
@@ -271,6 +318,7 @@ const Patec = () => {
       const bump = (code: string | null | undefined, d: number) => {
         if (!code) return;
         deltas.set(code, (deltas.get(code) || 0) + d);
+        dirtyCodesRef.current.add(code);
       };
       for (const ev of events) {
         if (ev.kind === "insert") bump((ev.row as any).patec_code, +1);
@@ -280,27 +328,35 @@ const Patec = () => {
           if (ev.oldCode !== newCode) {
             bump(ev.oldCode, -1);
             bump(newCode, +1);
+          } else if (newCode) {
+            // Sem mudança de código: marca como dirty para apanhar
+            // escritas concorrentes perdidas via reconciliação.
+            dirtyCodesRef.current.add(newCode);
           }
         }
       }
-      if (deltas.size === 0) return;
-      setItemCountsByCode((prev) => {
-        const next = { ...prev };
-        let changed = false;
-        deltas.forEach((d, code) => {
-          const v = (next[code] || 0) + d;
-          if (v <= 0) {
-            if (code in next) {
-              delete next[code];
+      if (deltas.size > 0) {
+        setItemCountsByCode((prev) => {
+          const next = { ...prev };
+          let changed = false;
+          deltas.forEach((d, code) => {
+            const v = (next[code] || 0) + d;
+            if (v <= 0) {
+              if (code in next) {
+                delete next[code];
+                changed = true;
+              }
+            } else if (next[code] !== v) {
+              next[code] = v;
               changed = true;
             }
-          } else if (next[code] !== v) {
-            next[code] = v;
-            changed = true;
-          }
+          });
+          return changed ? next : prev;
         });
-        return changed ? next : prev;
-      });
+      }
+
+      // Agenda reconciliação em lote para todos os códigos tocados
+      if (dirtyCodesRef.current.size > 0) scheduleReconcile();
     };
 
     const schedule = (ev: Ev) => {
@@ -336,22 +392,31 @@ const Patec = () => {
           })
       )
       .subscribe((status) => {
-        if (status === "SUBSCRIBED") setSyncStatus("connected");
-        else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") setSyncStatus("error");
+        if (status === "SUBSCRIBED") {
+          setSyncStatus("connected");
+          // Ao (re)ligar, marca todos os códigos já carregados como dirty
+          // para reconciliar eventos perdidos durante a desconexão.
+          setItemCountsByCode((prev) => {
+            Object.keys(prev).forEach((c) => dirtyCodesRef.current.add(c));
+            return prev;
+          });
+          scheduleReconcile();
+        } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") setSyncStatus("error");
         else setSyncStatus("disconnected");
       });
     return () => {
       if (flushTimer) clearTimeout(flushTimer);
       flush();
+      if (reconcileTimerRef.current) {
+        clearTimeout(reconcileTimerRef.current);
+        reconcileTimerRef.current = null;
+      }
       supabase.removeChannel(channel);
     };
-  }, [authReady, user?.id]);
+  }, [authReady, user?.id, scheduleReconcile]);
 
-  // Reconciliação: garante que itemCountsByCode[code] do PATEC actualmente
-  // seleccionado coincide com a contagem autoritativa do servidor, mesmo
-  // após escritas concorrentes de outros utilizadores ou eventos realtime
-  // perdidos. Corre quando se abre a composição e quando o canal realtime
-  // (re)liga.
+  // Reconciliação imediata do PATEC actualmente seleccionado (composição
+  // aberta) — garante leitura fresca sem esperar pelo debounce de lote.
   useEffect(() => {
     const code = composingPatec?.code;
     if (!code || !authReady || !user) return;
