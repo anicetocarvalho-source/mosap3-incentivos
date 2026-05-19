@@ -139,6 +139,20 @@ const Patec = () => {
   const [regionOverwrite, setRegionOverwrite] = useState<boolean>(false);
   const [regionConfirmOpen, setRegionConfirmOpen] = useState(false);
 
+  // Assignment progress (shared by bulk + region)
+  type AssignProgress = {
+    total: number;
+    done: number;
+    success: number;
+    failed: number;
+    batches: number;
+    batchesDone: number;
+    errors: string[];
+  };
+  const [assignProgress, setAssignProgress] = useState<AssignProgress | null>(null);
+  const [assignReport, setAssignReport] = useState<(AssignProgress & { patecCode: string; scope: string }) | null>(null);
+  const [assignReportOpen, setAssignReportOpen] = useState(false);
+
   // Season selector for assignment
   const [selectedSeasonId, setSelectedSeasonId] = useState<string>("all");
 
