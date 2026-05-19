@@ -2572,8 +2572,6 @@ export type Database = {
         Args: { _province_name: string; _school_name: string }
         Returns: undefined
       }
-      show_limit: { Args: never; Returns: number }
-      show_trgm: { Args: { "": string }; Returns: string[] }
       test_parse_ptao_numeric: {
         Args: never
         Returns: {
