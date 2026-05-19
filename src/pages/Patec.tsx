@@ -1866,6 +1866,62 @@ const Patec = () => {
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* Assignment final report */}
+      <AlertDialog open={assignReportOpen} onOpenChange={setAssignReportOpen}>
+        <AlertDialogContent className="max-w-lg">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              {assignReport && assignReport.failed === 0 ? (
+                <><Check className="w-5 h-5 text-success" /> Atribuição concluída</>
+              ) : (
+                <><AlertCircle className="w-5 h-5 text-destructive" /> Atribuição concluída com erros</>
+              )}
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3 text-sm">
+                {assignReport && (
+                  <>
+                    <div className="border rounded-lg p-3 bg-muted/30 space-y-1 text-foreground">
+                      <p><span className="text-muted-foreground">PATEC:</span> <strong>{assignReport.patecCode}</strong></p>
+                      <p className="text-xs"><span className="text-muted-foreground">Âmbito:</span> {assignReport.scope}</p>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 text-center">
+                      <div className="border rounded-lg p-2">
+                        <div className="text-xl font-bold">{assignReport.total}</div>
+                        <div className="text-[10px] uppercase text-muted-foreground">Total</div>
+                      </div>
+                      <div className="border rounded-lg p-2 bg-success/10 border-success/30">
+                        <div className="text-xl font-bold text-success">{assignReport.success}</div>
+                        <div className="text-[10px] uppercase text-muted-foreground">Sucesso</div>
+                      </div>
+                      <div className="border rounded-lg p-2 bg-destructive/10 border-destructive/30">
+                        <div className="text-xl font-bold text-destructive">{assignReport.failed}</div>
+                        <div className="text-[10px] uppercase text-muted-foreground">Falhas</div>
+                      </div>
+                    </div>
+                    {assignReport.errors.length > 0 && (
+                      <div className="space-y-1">
+                        <p className="text-xs font-semibold text-destructive">Erros ({assignReport.errors.length}):</p>
+                        <div className="max-h-40 overflow-y-auto border rounded-lg p-2 bg-destructive/5 text-xs space-y-1 font-mono">
+                          {assignReport.errors.map((e, i) => (
+                            <div key={i} className="break-words">{e}</div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setAssignReportOpen(false)}>Fechar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+
+
       {/* View PATEC detail Dialog */}
       <PatecCompositionDialog
         open={composingPatec !== null}
