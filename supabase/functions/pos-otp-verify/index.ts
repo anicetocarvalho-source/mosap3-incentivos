@@ -115,6 +115,11 @@ Deno.serve(async (req) => {
     // Marcação atómica via CAS: só transita pendente→usado se ainda estiver pendente.
     // Isto evita que duas chamadas paralelas (double-click / refresh) ambas “ganhem”.
     const result = { success: true } as Record<string, unknown>;
+    // TTL da idempotência: 24h. Após este prazo, a chave é descartada
+    // pela função cleanup_pos_otp_idempotency e novos replays são rejeitados.
+    const idempotency_expires_at = idempotency_key
+      ? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+      : null;
     const { data: updated, error: updErr } = await admin
       .from("pos_payment_otps")
       .update({
@@ -122,6 +127,7 @@ Deno.serve(async (req) => {
         used_at: new Date().toISOString(),
         attempts: (otp.attempts ?? 0) + 1,
         idempotency_key: idempotency_key,
+        idempotency_expires_at,
         last_result: result,
       })
       .eq("id", otp_id)
