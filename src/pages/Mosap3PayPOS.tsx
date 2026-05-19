@@ -267,6 +267,29 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
   const [parcelSize, setParcelSize] = useState<number | null>(null);
   const [parcelDialogOpen, setParcelDialogOpen] = useState(false);
 
+  // OTP do agricultor (verificação prévia ao pagamento Unitel Money)
+  const [otpDialogOpen, setOtpDialogOpen] = useState(false);
+  const [otpId, setOtpId] = useState<string | null>(null);
+  const [otpExpiresAt, setOtpExpiresAt] = useState<string | null>(null);
+  const [otpMaskedPhone, setOtpMaskedPhone] = useState<string>("");
+  const [otpCode, setOtpCode] = useState<string>("");
+  const [otpDevCode, setOtpDevCode] = useState<string | null>(null);
+  const [otpSending, setOtpSending] = useState(false);
+  const [otpVerifying, setOtpVerifying] = useState(false);
+  const [otpNowTick, setOtpNowTick] = useState(0);
+  useEffect(() => {
+    if (!otpDialogOpen) return;
+    const t = setInterval(() => setOtpNowTick((n) => n + 1), 1000);
+    return () => clearInterval(t);
+  }, [otpDialogOpen]);
+  const otpSecondsLeft = otpExpiresAt
+    ? Math.max(0, Math.floor((new Date(otpExpiresAt).getTime() - Date.now()) / 1000))
+    : 0;
+  // referenciar otpNowTick para silenciar lint sem alterar lógica
+  void otpNowTick;
+
+  // sendOtp e verifyOtpAndPay são definidos após processSale (mais abaixo no ficheiro).
+
   // Reset automático do bloqueio PATEC quando muda o produtor,
   // o carrinho fica vazio ou os itens do carrinho mudam — evita
   // que um aviso antigo fique preso na UI.
@@ -1035,6 +1058,75 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
     }
   };
 
+  // ===== OTP helpers (definidos após processSale para evitar uso antes da declaração) =====
+  const sendOtp = async () => {
+    if (!farmer || !selectedSupplierId) return;
+    if (!farmer.phone) {
+      toast.error("Agricultor sem telefone — pagamento por OTP indisponível.");
+      return;
+    }
+    setOtpSending(true);
+    setOtpCode("");
+    try {
+      const { data, error } = await supabase.functions.invoke("pos-otp-send", {
+        body: {
+          supplier_id: selectedSupplierId,
+          farmer_code: farmer.code,
+          phone: farmer.phone,
+          amount: cartTotal,
+        },
+      });
+      if (error || !data?.success) {
+        toast.error(data?.error || error?.message || "Falha ao enviar OTP.");
+        return;
+      }
+      setOtpId(data.otp_id);
+      setOtpExpiresAt(data.expires_at);
+      setOtpMaskedPhone(data.masked_phone || "");
+      setOtpDevCode(data.dev_code || null);
+      setConfirmOpen(false);
+      setOtpDialogOpen(true);
+      if (data.dev_code) {
+        toast.info(`Modo dev: OTP do agricultor = ${data.dev_code}`, { duration: 10000 });
+      } else if (data.sms_sent) {
+        toast.success(`SMS enviado para ${data.masked_phone}.`);
+      }
+    } catch (e) {
+      toast.error((e as Error)?.message || "Erro ao enviar OTP.");
+    } finally {
+      setOtpSending(false);
+    }
+  };
+
+  const verifyOtpAndPay = async () => {
+    if (!otpId || !/^\d{6}$/.test(otpCode)) {
+      toast.error("Introduza o código de 6 dígitos.");
+      return;
+    }
+    setOtpVerifying(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("pos-otp-verify", {
+        body: { otp_id: otpId, code: otpCode },
+      });
+      if (error || !data?.success) {
+        toast.error(data?.error || error?.message || "Código inválido.");
+        if (data?.reason === "expired" || data?.reason === "locked") setOtpId(null);
+        return;
+      }
+      setOtpDialogOpen(false);
+      setOtpId(null);
+      setOtpCode("");
+      setOtpDevCode(null);
+      await processSale();
+    } catch (e) {
+      toast.error((e as Error)?.message || "Erro ao validar OTP.");
+    } finally {
+      setOtpVerifying(false);
+    }
+  };
+
+
+
   const pollPaymentStatus = async (saleId: string, conversationId: string) => {
     let attempts = 0;
     const maxAttempts = 12; // ~60 seconds (5s intervals)
@@ -1425,9 +1517,13 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
           <DialogContent className="bg-[hsl(220,18%,14%)] border-[hsl(220,15%,22%)] text-[hsl(0,0%,88%)]">
             <DialogHeader><DialogTitle>Confirmar Venda</DialogTitle></DialogHeader>
             <div className="space-y-3">
-              <div className="p-3 bg-[hsl(220,15%,12%)] rounded-lg">
+              <div className="p-3 bg-[hsl(220,15%,12%)] rounded-lg space-y-1">
                 <p className="font-medium">{farmer?.full_name}</p>
                 <p className="text-xs text-[hsl(220,10%,45%)]">{farmer?.code} • {farmer?.patec ? patecLabels[farmer.patec] : "Sem PATEC"}</p>
+                <div className="flex items-center justify-between pt-1">
+                  <span className="text-xs text-[hsl(220,10%,55%)]">🌾 Parcela: <strong className="text-[hsl(0,0%,90%)]">{parcelSize ? PARCEL_OPTIONS.find((p) => p.value === parcelSize)?.label : "— não definida —"}</strong></span>
+                  <button type="button" onClick={() => { setConfirmOpen(false); setParcelDialogOpen(true); }} className="text-[11px] text-[hsl(45,90%,55%)] hover:underline">Alterar</button>
+                </div>
               </div>
               <div className="space-y-1">
                 {cart.map((c) => (
@@ -1465,8 +1561,8 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
             )}
             <DialogFooter>
               <Button variant="outline" onClick={() => setConfirmOpen(false)}>Cancelar</Button>
-              <Button onClick={processSale} disabled={processing || !!patecBlock} className="bg-[hsl(45,70%,40%)] text-[hsl(220,20%,10%)] hover:bg-[hsl(45,75%,45%)]">
-                {processing ? "Processando..." : "Confirmar"}
+              <Button onClick={sendOtp} disabled={processing || otpSending || !!patecBlock || !parcelSize || !farmer?.phone} className="bg-[hsl(45,70%,40%)] text-[hsl(220,20%,10%)] hover:bg-[hsl(45,75%,45%)]">
+                {otpSending ? "A enviar OTP..." : "Enviar OTP e Pagar"}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -1882,9 +1978,19 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
         <DialogContent>
           <DialogHeader><DialogTitle>Confirmar Venda</DialogTitle></DialogHeader>
           <div className="space-y-3">
-            <div className="p-3 bg-muted/50 rounded-lg">
+            <div className="p-3 bg-muted/50 rounded-lg space-y-1">
               <p className="font-medium">{farmer?.full_name}</p>
-              <p className="text-xs text-muted-foreground">{farmer?.code} • {farmer?.patec ? patecLabels[farmer.patec] : "Sem PATEC"}</p>
+              <p className="text-xs text-muted-foreground">{farmer?.code} • {farmer?.patec ? patecLabels[farmer.patec] : "Sem PATEC"} • Tel: {farmer?.phone || "—"}</p>
+              <div className="flex items-center justify-between pt-1">
+                <span className="text-xs">🌾 <strong>Parcela:</strong> {parcelSize ? PARCEL_OPTIONS.find((p) => p.value === parcelSize)?.label : <span className="text-destructive">não definida</span>}</span>
+                <button type="button" onClick={() => { setConfirmOpen(false); setParcelDialogOpen(true); }} className="text-[11px] text-primary hover:underline">Alterar parcela</button>
+              </div>
+              {!parcelSize && (
+                <p className="text-[11px] text-destructive">Defina a parcela antes de confirmar — as quantidades dependem dela.</p>
+              )}
+              {!farmer?.phone && (
+                <p className="text-[11px] text-destructive">Agricultor sem telefone — não é possível enviar OTP. Actualize o contacto.</p>
+              )}
             </div>
             <div className="space-y-1">
               {cart.map((c) => (
@@ -1915,7 +2021,54 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setConfirmOpen(false)}>Cancelar</Button>
-            <Button onClick={processSale} disabled={processing || !!patecBlock}>{processing ? "Processando..." : "Confirmar e Pagar"}</Button>
+            <Button onClick={sendOtp} disabled={processing || otpSending || !!patecBlock || !parcelSize || !farmer?.phone}>
+              {otpSending ? "A enviar OTP..." : "Enviar OTP e Pagar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* OTP Dialog — verificação do agricultor antes do Push USSD Unitel Money */}
+      <Dialog open={otpDialogOpen} onOpenChange={(o) => { if (!otpVerifying) setOtpDialogOpen(o); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Verificação do Agricultor</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Foi enviado um código de 6 dígitos por SMS para <strong className="text-foreground">{otpMaskedPhone || farmer?.phone}</strong>.
+              Peça ao agricultor o código e introduza-o abaixo. Após validação será enviado um <em>Push USSD</em> para o agricultor confirmar o pagamento com o PIN Unitel Money.
+            </p>
+            {otpDevCode && (
+              <Alert>
+                <AlertTitle className="text-xs">Modo de desenvolvimento</AlertTitle>
+                <AlertDescription className="text-xs font-mono">Código: <strong>{otpDevCode}</strong></AlertDescription>
+              </Alert>
+            )}
+            <div>
+              <input
+                inputMode="numeric"
+                pattern="\d{6}"
+                maxLength={6}
+                autoFocus
+                value={otpCode}
+                onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                className="w-full text-center text-3xl tracking-[0.6em] font-mono py-3 rounded-md border bg-background"
+                placeholder="••••••"
+              />
+              <div className="flex items-center justify-between mt-2 text-xs text-muted-foreground">
+                <span>Expira em: <strong className={otpSecondsLeft < 30 ? "text-destructive" : "text-foreground"}>{Math.floor(otpSecondsLeft / 60)}:{String(otpSecondsLeft % 60).padStart(2, "0")}</strong></span>
+                <button type="button" onClick={sendOtp} disabled={otpSending || otpSecondsLeft > 4 * 60 + 30} className="text-primary hover:underline disabled:opacity-50">
+                  Reenviar SMS
+                </button>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOtpDialogOpen(false)} disabled={otpVerifying}>Cancelar</Button>
+            <Button onClick={verifyOtpAndPay} disabled={otpVerifying || otpCode.length !== 6 || otpSecondsLeft === 0}>
+              {otpVerifying ? "A validar..." : "Validar e Pagar"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
