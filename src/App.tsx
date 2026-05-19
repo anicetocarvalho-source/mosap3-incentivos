@@ -41,6 +41,7 @@ import Mosap3Pay from "@/pages/Mosap3Pay";
 import Mosap3PayFornecedores from "@/pages/Mosap3PayFornecedores";
 import Mosap3PayPOS from "@/pages/Mosap3PayPOS";
 import Mosap3PayVendas from "@/pages/Mosap3PayVendas";
+import Mosap3PayPainelVendas from "@/pages/Mosap3PayPainelVendas";
 import Mosap3PayRelatorios from "@/pages/Mosap3PayRelatorios";
 import Mosap3PayNotasCredito from "@/pages/Mosap3PayNotasCredito";
 import Mosap3PayFacturas from "@/pages/Mosap3PayFacturas";
@@ -110,6 +111,7 @@ const App = () => (
               <Route path="/mosap3pay/fornecedores" element={<Mosap3PayFornecedores />} />
               <Route path="/mosap3pay/pos" element={<Mosap3PayPOS />} />
               <Route path="/mosap3pay/vendas" element={<Mosap3PayVendas />} />
+              <Route path="/mosap3pay/painel-vendas" element={<Mosap3PayPainelVendas />} />
               <Route path="/mosap3pay/relatorios" element={<Mosap3PayRelatorios />} />
               <Route path="/mosap3pay/facturas" element={<Mosap3PayFacturas />} />
               <Route path="/mosap3pay/facturas/:id" element={<Mosap3PayFacturaDetalhe />} />
