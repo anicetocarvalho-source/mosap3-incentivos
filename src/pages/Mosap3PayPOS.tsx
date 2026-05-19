@@ -329,17 +329,20 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
 
         if (remote === "usado" && otpStatus !== "verified") {
           setOtpStatus("verified");
+          clearOtpIdempotencyKey(otpId);
           toast.success("OTP verificado pelo backend.");
         } else if (remote === "expirado" && !otpExpired) {
           setOtpExpired(true);
           setOtpStatus("expired");
           setOtpExpiresAt(null);
+          clearOtpIdempotencyKey(otpId);
           if (!otpExpiryNotifiedRef.current) {
             otpExpiryNotifiedRef.current = true;
             toast.error("Código OTP expirou (sincronizado com servidor).", { duration: 8000 });
           }
         } else if (remote === "falhado" && otpStatus !== "failed") {
           setOtpStatus("failed");
+          clearOtpIdempotencyKey(otpId);
           toast.error("OTP bloqueado por demasiadas tentativas. Gere um novo código.");
         }
       } catch {
