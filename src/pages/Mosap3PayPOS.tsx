@@ -276,7 +276,9 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
   const [otpDevCode, setOtpDevCode] = useState<string | null>(null);
   const [otpSending, setOtpSending] = useState(false);
   const [otpVerifying, setOtpVerifying] = useState(false);
-  const [otpNowTick, setOtpNowTick] = useState(0);
+  const [otpStatus, setOtpStatus] = useState<"idle" | "sending" | "sent" | "verifying" | "verified" | "expired" | "failed">("idle");
+  const otpSendingRef = useRef(false);
+  const otpVerifyingRef = useRef(false);
   const [otpExpired, setOtpExpired] = useState(false);
   const otpExpiryNotifiedRef = useRef(false);
   useEffect(() => {
