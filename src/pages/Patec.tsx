@@ -131,6 +131,14 @@ const Patec = () => {
   const [bulkPatecCode, setBulkPatecCode] = useState<string>("");
   const [bulkConfirmOpen, setBulkConfirmOpen] = useState(false);
 
+  // Region bulk assign state
+  const [regionDialogOpen, setRegionDialogOpen] = useState(false);
+  const [regionScope, setRegionScope] = useState<"provincia" | "municipio" | "escola">("provincia");
+  const [regionValues, setRegionValues] = useState<string[]>([]);
+  const [regionPatecCode, setRegionPatecCode] = useState<string>("");
+  const [regionOverwrite, setRegionOverwrite] = useState<boolean>(false);
+  const [regionConfirmOpen, setRegionConfirmOpen] = useState(false);
+
   // Season selector for assignment
   const [selectedSeasonId, setSelectedSeasonId] = useState<string>("all");
 
