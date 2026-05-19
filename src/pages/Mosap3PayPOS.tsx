@@ -2196,6 +2196,11 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
                   </button>
                 )}
               </div>
+              {otpAttemptsLeft !== null && otpAttemptsLeft < 5 && (
+                <p className="mt-1 text-xs text-warning">
+                  Tentativas restantes: <strong>{otpAttemptsLeft}</strong>
+                </p>
+              )}
             </div>
           </div>
           <DialogFooter>
