@@ -1517,9 +1517,13 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
           <DialogContent className="bg-[hsl(220,18%,14%)] border-[hsl(220,15%,22%)] text-[hsl(0,0%,88%)]">
             <DialogHeader><DialogTitle>Confirmar Venda</DialogTitle></DialogHeader>
             <div className="space-y-3">
-              <div className="p-3 bg-[hsl(220,15%,12%)] rounded-lg">
+              <div className="p-3 bg-[hsl(220,15%,12%)] rounded-lg space-y-1">
                 <p className="font-medium">{farmer?.full_name}</p>
                 <p className="text-xs text-[hsl(220,10%,45%)]">{farmer?.code} • {farmer?.patec ? patecLabels[farmer.patec] : "Sem PATEC"}</p>
+                <div className="flex items-center justify-between pt-1">
+                  <span className="text-xs text-[hsl(220,10%,55%)]">🌾 Parcela: <strong className="text-[hsl(0,0%,90%)]">{parcelSize ? PARCEL_OPTIONS.find((p) => p.value === parcelSize)?.label : "— não definida —"}</strong></span>
+                  <button type="button" onClick={() => { setConfirmOpen(false); setParcelDialogOpen(true); }} className="text-[11px] text-[hsl(45,90%,55%)] hover:underline">Alterar</button>
+                </div>
               </div>
               <div className="space-y-1">
                 {cart.map((c) => (
