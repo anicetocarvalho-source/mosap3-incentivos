@@ -131,6 +131,14 @@ const Patec = () => {
   const [bulkPatecCode, setBulkPatecCode] = useState<string>("");
   const [bulkConfirmOpen, setBulkConfirmOpen] = useState(false);
 
+  // Region bulk assign state
+  const [regionDialogOpen, setRegionDialogOpen] = useState(false);
+  const [regionScope, setRegionScope] = useState<"provincia" | "municipio" | "escola">("provincia");
+  const [regionValues, setRegionValues] = useState<string[]>([]);
+  const [regionPatecCode, setRegionPatecCode] = useState<string>("");
+  const [regionOverwrite, setRegionOverwrite] = useState<boolean>(false);
+  const [regionConfirmOpen, setRegionConfirmOpen] = useState(false);
+
   // Season selector for assignment
   const [selectedSeasonId, setSelectedSeasonId] = useState<string>("all");
 
@@ -617,6 +625,52 @@ const Patec = () => {
       toast.success(`${selected.code} atribuído a ${ids.length} produtor(es)`);
     }
     setSelectedIds(new Set());
+    scope && fetchFarmers(scope);
+  };
+
+  // Region bulk assign: target farmers by Província / Município / Escola
+  const regionTargetFarmers = (() => {
+    if (regionValues.length === 0) return [];
+    const norm = (s: string | null | undefined) => (s || "").trim().toLowerCase();
+    const set = new Set(regionValues.map(norm));
+    return farmers.filter((f) => {
+      const key = regionScope === "provincia" ? f.province : regionScope === "municipio" ? f.municipality : f.school;
+      if (!set.has(norm(key))) return false;
+      if (!regionOverwrite && (f.patec_code || f.patec)) return false;
+      return true;
+    });
+  })();
+
+  const handleRegionAssign = async () => {
+    if (!regionPatecCode || regionTargetFarmers.length === 0) return;
+    const selected = patecs.find((p) => p.code === regionPatecCode);
+    if (!selected) return;
+    const guard = validatePatecAssignment(selected, patecsForSeason);
+    if (!guard.ok) {
+      toast.error(guard.message);
+      return;
+    }
+    setSaving(true);
+    const ids = regionTargetFarmers.map((f) => f.id);
+    let errorCount = 0;
+    for (let i = 0; i < ids.length; i += 50) {
+      const batch = ids.slice(i, i + 50);
+      const { error } = await supabase
+        .from("farmers")
+        .update({ patec_code: selected.code, patec: selected.legacy_number ?? null })
+        .in("id", batch);
+      if (error) errorCount++;
+    }
+    setSaving(false);
+    setRegionConfirmOpen(false);
+    setRegionDialogOpen(false);
+    setRegionValues([]);
+    setRegionPatecCode("");
+    if (errorCount > 0) {
+      toast.error("Erro ao atribuir PATEC a alguns produtores");
+    } else {
+      toast.success(`${selected.code} atribuído a ${ids.length} produtor(es)`);
+    }
     scope && fetchFarmers(scope);
   };
 
@@ -1231,6 +1285,14 @@ const Patec = () => {
               <SelectItem value="none">⚠️ Sem PATEC</SelectItem>
             </SelectContent>
           </Select>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-9"
+            onClick={() => { setRegionDialogOpen(true); setRegionScope("provincia"); setRegionValues([]); setRegionPatecCode(""); setRegionOverwrite(false); }}
+          >
+            <MapPin className="h-4 w-4 mr-1" /> Atribuir por região
+          </Button>
         </div>
 
         {isSomeSelected && (
@@ -1369,11 +1431,11 @@ const Patec = () => {
 
       {/* Edit Dialog (single) */}
       <Dialog open={!!editFarmer} onOpenChange={(o) => !o && setEditFarmer(null)}>
-        <DialogContent>
+        <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col overflow-hidden">
           <DialogHeader>
             <DialogTitle>Atribuir PATEC — {editFarmer?.full_name}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-4">
+          <div className="flex-1 overflow-y-auto pr-1 space-y-4 py-4">
             <p className="text-sm text-muted-foreground">
               Código: <span className="font-mono font-semibold">{editFarmer?.code}</span>
             </p>
@@ -1404,25 +1466,46 @@ const Patec = () => {
               const meta = legacy ? patecMeta[legacy] : null;
               return (
                 <div className="border rounded-lg p-3 text-xs space-y-2 bg-muted/30">
-                  <p className="font-semibold">{meta?.title || `${sel.code} — ${sel.name}`}</p>
-                  {sel.cultures && <p className="text-muted-foreground">{sel.cultures}</p>}
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="font-semibold">{meta?.title || `${sel.code} — ${sel.name}`}</p>
+                      {sel.cultures && <p className="text-muted-foreground">{sel.cultures}</p>}
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-[11px] shrink-0"
+                      onClick={() => setComposingPatec(sel)}
+                    >
+                      <Eye className="h-3 w-3 mr-1" /> Ver composição completa
+                    </Button>
+                  </div>
                   {legacy && meta && (
-                    <div className="grid grid-cols-3 gap-2 pt-1">
-                      {["insumos", "pecuaria", "servicos"].map((cat) => (
-                        <div key={cat}>
-                          <p className="font-medium text-muted-foreground mb-1">{categoryLabels[cat]}</p>
-                          <ul className="space-y-0.5">
-                            {getItems(legacy, cat).map((i) => <li key={i.id}>• {i.name}</li>)}
-                          </ul>
-                        </div>
-                      ))}
+                    <div className="max-h-[40vh] overflow-y-auto pr-1">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
+                        {["insumos", "pecuaria", "servicos"].map((cat) => {
+                          const items = getItems(legacy, cat);
+                          if (items.length === 0) return null;
+                          return (
+                            <div key={cat}>
+                              <p className="font-medium text-muted-foreground mb-1">
+                                {categoryLabels[cat]} <span className="text-[10px]">({items.length})</span>
+                              </p>
+                              <ul className="space-y-0.5">
+                                {items.map((i) => <li key={i.id}>• {i.name}</li>)}
+                              </ul>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                   )}
                 </div>
               );
             })()}
           </div>
-          <DialogFooter>
+          <DialogFooter className="border-t pt-3">
             <Button variant="outline" onClick={() => setEditFarmer(null)}>Cancelar</Button>
             <Button onClick={handleSavePatec} disabled={saving || patecsForSeason.length === 0}>{saving ? "Guardando..." : "Guardar"}</Button>
           </DialogFooter>
@@ -1520,6 +1603,147 @@ const Patec = () => {
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={() => { setBulkConfirmOpen(false); handleBulkSave(); }} disabled={saving}>
               {saving ? "Guardando..." : "Confirmar Atribuição"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Region bulk assign Dialog */}
+      <Dialog open={regionDialogOpen} onOpenChange={(o) => { if (!o) setRegionDialogOpen(false); }}>
+        <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col overflow-hidden">
+          <DialogHeader>
+            <DialogTitle>Atribuir PATEC por região</DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto pr-1 space-y-4 py-4">
+            <p className="text-sm text-muted-foreground">
+              Atribua o mesmo PATEC a todos os produtores de uma ou mais Províncias, Municípios ou Escolas de Campo (ECA).
+            </p>
+
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-muted-foreground">Âmbito geográfico</label>
+              <Select value={regionScope} onValueChange={(v: any) => { setRegionScope(v); setRegionValues([]); }}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="provincia">Por Província</SelectItem>
+                  <SelectItem value="municipio">Por Município</SelectItem>
+                  <SelectItem value="escola">Por Escola de Campo (ECA)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-muted-foreground">
+                Seleccionar {regionScope === "provincia" ? "províncias" : regionScope === "municipio" ? "municípios" : "escolas"}
+              </label>
+              {(() => {
+                const key = regionScope === "provincia" ? "province" : regionScope === "municipio" ? "municipality" : "school";
+                const counts = farmers.reduce<Record<string, number>>((acc, f) => {
+                  const v = (f as any)[key];
+                  if (!v) return acc;
+                  acc[v] = (acc[v] || 0) + 1;
+                  return acc;
+                }, {});
+                const options = Object.keys(counts).sort((a, b) => a.localeCompare(b));
+                if (options.length === 0) {
+                  return <p className="text-xs text-muted-foreground italic">Sem dados disponíveis no seu âmbito.</p>;
+                }
+                const allSelected = options.length > 0 && options.every((o) => regionValues.includes(o));
+                return (
+                  <div className="border rounded-lg max-h-64 overflow-y-auto divide-y">
+                    <div className="flex items-center gap-2 p-2 bg-muted/30 sticky top-0">
+                      <Checkbox
+                        checked={allSelected}
+                        onCheckedChange={() => setRegionValues(allSelected ? [] : options)}
+                        aria-label="Seleccionar todos"
+                      />
+                      <span className="text-xs font-medium">Seleccionar todos ({options.length})</span>
+                    </div>
+                    {options.map((opt) => (
+                      <label key={opt} className="flex items-center gap-2 p-2 hover:bg-muted/40 cursor-pointer text-sm">
+                        <Checkbox
+                          checked={regionValues.includes(opt)}
+                          onCheckedChange={() => setRegionValues((prev) => prev.includes(opt) ? prev.filter((x) => x !== opt) : [...prev, opt])}
+                          aria-label={opt}
+                        />
+                        <span className="flex-1">{opt}</span>
+                        <Badge variant="secondary" className="text-[10px]">{counts[opt]} prod.</Badge>
+                      </label>
+                    ))}
+                  </div>
+                );
+              })()}
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-muted-foreground">PATEC a atribuir</label>
+              <Select value={regionPatecCode} onValueChange={setRegionPatecCode}>
+                <SelectTrigger><SelectValue placeholder="Seleccionar PATEC" /></SelectTrigger>
+                <SelectContent>
+                  {patecsForSeason.length === 0 ? (
+                    <div className="px-2 py-3 text-xs text-muted-foreground">
+                      Nenhum pacote vinculado a esta época.
+                    </div>
+                  ) : patecsForSeason.map((p) => (
+                    <SelectItem key={p.id} value={p.code}>{p.code} — {p.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <label className="flex items-start gap-2 text-sm cursor-pointer border rounded-lg p-3 bg-muted/20">
+              <Checkbox
+                checked={regionOverwrite}
+                onCheckedChange={(v) => setRegionOverwrite(!!v)}
+                aria-label="Substituir atribuições existentes"
+                className="mt-0.5"
+              />
+              <div className="space-y-0.5">
+                <p className="font-medium">Substituir atribuições existentes</p>
+                <p className="text-xs text-muted-foreground">
+                  Se desmarcado, apenas produtores <strong>sem PATEC</strong> serão actualizados.
+                </p>
+              </div>
+            </label>
+
+            <div className="border rounded-lg p-3 bg-primary/5 border-primary/20">
+              <p className="text-sm">
+                <span className="font-bold text-primary text-lg">{regionTargetFarmers.length}</span>{" "}
+                produtor{regionTargetFarmers.length === 1 ? "" : "es"} {regionTargetFarmers.length === 1 ? "será actualizado" : "serão actualizados"}.
+              </p>
+            </div>
+          </div>
+          <DialogFooter className="border-t pt-3">
+            <Button variant="outline" onClick={() => setRegionDialogOpen(false)}>Cancelar</Button>
+            <Button
+              onClick={() => setRegionConfirmOpen(true)}
+              disabled={saving || !regionPatecCode || regionTargetFarmers.length === 0 || patecsForSeason.length === 0}
+            >
+              {saving ? "A atribuir..." : `Atribuir a ${regionTargetFarmers.length}`}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Region confirm */}
+      <AlertDialog open={regionConfirmOpen} onOpenChange={setRegionConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar atribuição por região</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2 text-sm text-muted-foreground">
+                <p>
+                  Vai atribuir <strong className="text-foreground">{regionPatecCode || "—"}</strong> a{" "}
+                  <strong className="text-foreground">{regionTargetFarmers.length}</strong> produtor(es)
+                  {regionOverwrite ? " (incluindo os já atribuídos)" : " (apenas os sem PATEC)"}.
+                </p>
+                <p className="text-xs">Esta acção pode ser revertida individualmente em cada produtor.</p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={saving}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleRegionAssign} disabled={saving}>
+              {saving ? "A atribuir..." : "Confirmar"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
