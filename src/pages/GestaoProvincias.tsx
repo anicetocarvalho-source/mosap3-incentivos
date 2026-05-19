@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { MapPin, Search, School, ChevronRight, Plus, Trash2, Edit2, X, Building, Download, FileText, Loader2 } from "lucide-react";
+import { MapPin, Search, School, ChevronRight, Plus, Trash2, Edit2, X, Building, Download, FileText, Loader2, RefreshCw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllPages } from "@/lib/supabaseFetchAll";
 import { Card } from "@/components/ui/card";
@@ -52,23 +52,44 @@ const GestaoProvincias = () => {
     provinces, municipalities, schools, loading,
     getMunicipalitiesByProvince, getSchoolsByProvince,
     addMunicipality, updateMunicipality, deleteMunicipality,
-    addSchool,
+    addSchool, refetch,
   } = useProvincesData();
 
   // Canonical farmer counts (matches Dashboard / Lista / Relatórios).
   // Inclui Removidos por design — ver memória "Removidos contam em TODOS os agregados".
   const [farmerRows, setFarmerRows] = useState<{ province: string | null; municipality: string | null; school: string | null }[] | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const refreshFarmerCounts = async (notify = false) => {
+    setRefreshing(true);
+    try {
+      const rows = await fetchAllPages<{ province: string | null; municipality: string | null; school: string | null }>(() =>
+        supabase.from("farmers").select("province, municipality, school", { count: "exact" })
+      );
+      setFarmerRows(rows);
+      if (notify) {
+        await refetch();
+        toast({
+          title: "Contagens actualizadas",
+          description: `${rows.length.toLocaleString("pt-AO")} produtores na base de dados.`,
+        });
+      }
+    } catch (e) {
+      console.error("[GestaoProvincias] failed to load farmers:", e);
+      setFarmerRows((prev) => prev ?? []);
+      if (notify) {
+        toast({ title: "Erro", description: "Não foi possível actualizar as contagens.", variant: "destructive" });
+      }
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   useEffect(() => {
-    fetchAllPages<{ province: string | null; municipality: string | null; school: string | null }>(() =>
-      supabase.from("farmers").select("province, municipality, school", { count: "exact" })
-    )
-      .then(setFarmerRows)
-      .catch((e) => {
-        console.error("[GestaoProvincias] failed to load farmers:", e);
-        setFarmerRows([]);
-      });
+    refreshFarmerCounts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
 
   const norm = (v: string | null | undefined) => (v || "").trim().toLowerCase();
 
@@ -248,6 +269,10 @@ const GestaoProvincias = () => {
           </p>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => refreshFarmerCounts(true)} disabled={refreshing}>
+            {refreshing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+            Actualizar contagens
+          </Button>
           <Button variant="outline" size="sm" className="gap-1.5" onClick={exportMunicipiosCSV}>
             <Download className="h-3.5 w-3.5" />
             Municípios CSV
