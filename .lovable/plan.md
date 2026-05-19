@@ -1,50 +1,36 @@
-# Redesign do Cartão de Identificação do Agricultor
+## Problema
 
-Substituir o visual atual (cartão verde com gradiente) pelo novo design oficial fornecido nas imagens, mantendo o logotipo **MOSAP3** no canto superior direito (em vez de SIGAFLO).
+Em `src/pages/GestaoProvincias.tsx` os totais de **Produtores** (cards de resumo, cards por província e diálogo de detalhe) são calculados a partir de `schools.total_farmers`, que é um valor em cache desactualizado.
 
-Ficheiro único afetado: `src/components/cartao/FarmerIdCard.tsx`.
+Exemplo real (BD):
+- `SUM(schools.total_farmers)` = **16 211**
+- `COUNT(*) FROM farmers` (canónico, com Removidos) = **14 819**
 
-## Frente
+→ A página mostra **16 211 produtores**, enquanto Dashboard, Lista de Agricultores e Relatórios mostram **14 819**. Acresce que algumas escolas com nome duplicado em municípios diferentes têm o mesmo `total_farmers` somado em duplicado (já detectado pelo `ValidateSchoolCountsButton`).
 
-Layout claro (fundo branco) em formato CR80 (proporção ~85.6 × 54 mm):
+Os totais de **Províncias** (5), **Municípios** (8) e **Escolas** (817) já vêm das tabelas correctas e estão alinhados — não precisam de mudança.
 
-- **Cabeçalho**
-  - Esquerda: insígnia da República de Angola + texto "REPÚBLICA DE ANGOLA / Ministério da Agricultura e Florestas" (uppercase, tracking largo, cinza).
-  - Direita: logotipo horizontal **MOSAP3** + subtítulo "SISTEMA INTEGRADO DE GESTÃO AGRO FLORESTAL" em verde-escuro.
-- **Faixa verde** com texto branco centrado: "CARTÃO DE IDENTIFICAÇÃO DO AGRICULTOR".
-- **Corpo (3 colunas)**
-  - Foto do agricultor num quadrado verde-claro arredondado; fallback com iniciais grandes em verde.
-  - Bloco central com pares label/valor: `NOME COMPLETO`, `ID SIGAFLO` (= `farmer.code`, mono), `BI / NIF`, `TIPO DE PRODUTOR`.
-  - Bloco direito: `PROVÍNCIA` e `MUNICÍPIO` (bullet verde antes do valor) + QR code com legenda "VERIFIQUE A AUTENTICIDADE DESTE CARTÃO".
-- **Rodapé curvo verde** com onda SVG e quatro pilares com bullet dourado: `PRODUZIR · PRESERVAR · DESENVOLVER · INCLUIR`.
-- StatusBadge ("Aprovado/Pendente/...") mantido, reposicionado discretamente sobre o cabeçalho.
+## Objectivo
 
-## Verso
+Que os contadores de Produtores em `/provincias` (cards de topo, cards por província, badges no diálogo) correspondam exactamente ao que /dashboard, /agricultores e /escolas mostram. Regra do projecto (memória): Removidos contam em todos os agregados, portanto **não** aplicar `.neq('status','Removido')`.
 
-- **Painel esquerdo verde-escuro (~40%)** com texto branco:
-  - `DATA DE EMISSÃO` (data atual)
-  - `DATA DE VALIDADE` (emissão + 5 anos)
-  - `ESTADO DO REGISTO` (derivado de `farmer.status` → "ATIVO"/"INATIVO"/"PENDENTE")
-  - Assinatura "Autoridade" em itálico script + label "AUTORIDADE EMISSORA".
-- **Área direita branca**:
-  - `CÓDIGO DE BARRAS` no topo (Code128 do `farmer.code`) com o código por baixo em mono.
-  - Caixa verde-claro: "LINHA DE APOIO SIGAFLO" (label fica, é o nome da linha) com ícone telefone, número, email e site (valores das `system_settings` se já existirem; senão constantes razoáveis).
-  - Linha legal em baixo: "Este cartão é pessoal e intransmissível. O uso indevido implica sanções nos termos da lei."
-- BI e telefone do agricultor podem aparecer discretamente acima do disclaimer (manter info atual sem perder dados).
+## Mudanças
 
-## Detalhes técnicos
+**Ficheiro único:** `src/pages/GestaoProvincias.tsx` (apenas UI / leitura, sem alterar BD nem hooks partilhados).
 
-- Continuar a usar `forwardRef`, props (`farmer`, `cardToken`, `side`, `scale`) e `innerScale` para impressão/lote — nenhuma alteração na API exportada, portanto `CartaoIdLote`, `FarmerCardTab`, `useFarmerCard` continuam a funcionar sem mudanças.
-- Manter constantes `CARD_W = 340` / `CARD_H = 214` (ajustar +6px de altura se necessário para acomodar rodapé curvo, validando que não quebra a grelha de impressão em `CartaoIdLote`).
-- Cores via tokens semânticos HSL (`--primary`, `--success`, `--warning`, novo `--gold` se necessário em `index.css`/`tailwind.config.ts`) — sem cores hardcoded fora dos tokens existentes.
-- Onda do rodapé como `<svg>` inline (path simples) preenchido em duas tonalidades de verde.
-- Datas formatadas com `toLocaleDateString("pt-AO")`; validade = `now + 5 anos`.
-- Inicial do nome: `farmer.full_name.trim().split(/\s+/).map(w=>w[0]).slice(0,2).join('').toUpperCase()`.
-- `verifyUrl` e geração de QR/Barcode permanecem idênticos.
-- Sem alterações em backend, hooks ou rotas.
+1. Adicionar fetch agregado dos produtores reais, agrupado por `province` e por `school` (normalizado: trim + lowercase), uma única vez ao carregar a página. Usar `fetchAllPages` para ultrapassar o limite de 1000 linhas, seleccionando apenas `province, municipality, school`.
+2. Construir dois `Map`:
+   - `realByProvince: Map<provinceNameNorm, number>`
+   - `realBySchool: Map<"prov|mun|school", number>` (chave usa nome da província e do município resolvidos por id, igual à lógica do `ValidateSchoolCountsButton`).
+3. Substituir todos os usos de `s.total_farmers` por `realBySchool.get(...) ?? 0` e todos os usos de `reduce(... + total_farmers)` por `realByProvince.get(provName) ?? 0`.
+4. KPI global "Produtores" = soma de `realByProvince` (= total de farmers).
+5. Exports CSV e PDF passam a usar os mesmos valores.
+6. Adicionar estado de loading enquanto o agregado de farmers não chega (reutilizar o spinner já existente).
 
-## Fora de scope
+Sem alterações em hooks, BD, ou outras páginas. Sem alteração visual além dos números corrigidos.
 
-- Página de verificação pública.
-- Estrutura de dados / migrações.
-- Outros componentes que consomem `FarmerCardData`.
+## Validação
+
+- Total do card "Produtores" deve ser **14 819** (= Dashboard).
+- Soma dos cards por província deve ser **14 819** (Benguela 6 630, Huíla 2 934, Cunene 2 407, Cuando-Cubango 2 280, Namibe 568).
+- `bunx tsc --noEmit` continua a passar.
