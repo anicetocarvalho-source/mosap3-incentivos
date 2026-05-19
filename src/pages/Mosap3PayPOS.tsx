@@ -1176,6 +1176,7 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
     setOtpStatus("sending");
     setOtpCode("");
     setOtpExpired(false);
+    setOtpIdempotentReplay(false);
     setOtpAttemptsLeft(null);
     otpExpiryNotifiedRef.current = false;
     try {
