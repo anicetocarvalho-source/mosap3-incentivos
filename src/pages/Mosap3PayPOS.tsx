@@ -276,8 +276,11 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
   const [otpDevCode, setOtpDevCode] = useState<string | null>(null);
   const [otpSending, setOtpSending] = useState(false);
   const [otpVerifying, setOtpVerifying] = useState(false);
-  const [otpNowTick, setOtpNowTick] = useState(0);
+  const [otpStatus, setOtpStatus] = useState<"idle" | "sending" | "sent" | "verifying" | "verified" | "expired" | "failed">("idle");
+  const otpSendingRef = useRef(false);
+  const otpVerifyingRef = useRef(false);
   const [otpExpired, setOtpExpired] = useState(false);
+  const [otpNowTick, setOtpNowTick] = useState(0);
   const otpExpiryNotifiedRef = useRef(false);
   useEffect(() => {
     if (!otpDialogOpen) return;
@@ -293,6 +296,7 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
     if (!otpDialogOpen || !otpExpiresAt) return;
     if (otpSecondsLeft === 0 && !otpExpired) {
       setOtpExpired(true);
+      setOtpStatus("expired");
       if (!otpExpiryNotifiedRef.current) {
         otpExpiryNotifiedRef.current = true;
         toast.error("O código OTP expirou. Clique em \"Reenviar SMS\" para gerar um novo.", { duration: 8000 });
@@ -1072,12 +1076,18 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
 
   // ===== OTP helpers (definidos após processSale para evitar uso antes da declaração) =====
   const sendOtp = async () => {
+    if (otpSendingRef.current || otpVerifyingRef.current) {
+      toast.info("Operação OTP em curso. Aguarde…");
+      return;
+    }
     if (!farmer || !selectedSupplierId) return;
     if (!farmer.phone) {
       toast.error("Agricultor sem telefone — pagamento por OTP indisponível.");
       return;
     }
+    otpSendingRef.current = true;
     setOtpSending(true);
+    setOtpStatus("sending");
     setOtpCode("");
     setOtpExpired(false);
     otpExpiryNotifiedRef.current = false;
@@ -1092,6 +1102,7 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
       });
       if (error || !data?.success) {
         toast.error(data?.error || error?.message || "Falha ao enviar OTP.");
+        setOtpStatus("failed");
         return;
       }
       setOtpId(data.otp_id);
@@ -1100,6 +1111,7 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
       setOtpDevCode(data.dev_code || null);
       setConfirmOpen(false);
       setOtpDialogOpen(true);
+      setOtpStatus("sent");
       if (data.dev_code) {
         toast.info(`Modo dev: OTP do agricultor = ${data.dev_code}`, { duration: 10000 });
       } else if (data.sms_sent) {
@@ -1107,12 +1119,18 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
       }
     } catch (e) {
       toast.error((e as Error)?.message || "Erro ao enviar OTP.");
+      setOtpStatus("failed");
     } finally {
+      otpSendingRef.current = false;
       setOtpSending(false);
     }
   };
 
   const verifyOtpAndPay = async () => {
+    if (otpVerifyingRef.current || otpSendingRef.current) {
+      toast.info("Operação OTP em curso. Aguarde…");
+      return;
+    }
     if (otpExpired || otpSecondsLeft === 0) {
       toast.error("Código expirado. Solicite um novo SMS antes de continuar.");
       return;
@@ -1121,7 +1139,9 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
       toast.error("Introduza o código de 6 dígitos.");
       return;
     }
+    otpVerifyingRef.current = true;
     setOtpVerifying(true);
+    setOtpStatus("verifying");
     try {
       const { data, error } = await supabase.functions.invoke("pos-otp-verify", {
         body: { otp_id: otpId, code: otpCode },
@@ -1131,9 +1151,13 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
         if (data?.reason === "expired" || data?.reason === "locked") {
           setOtpExpired(true);
           setOtpExpiresAt(null);
+          setOtpStatus("expired");
+        } else {
+          setOtpStatus("failed");
         }
         return;
       }
+      setOtpStatus("verified");
       setOtpDialogOpen(false);
       setOtpId(null);
       setOtpCode("");
@@ -1141,10 +1165,13 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
       await processSale();
     } catch (e) {
       toast.error((e as Error)?.message || "Erro ao validar OTP.");
+      setOtpStatus("failed");
     } finally {
+      otpVerifyingRef.current = false;
       setOtpVerifying(false);
     }
   };
+
 
 
 
@@ -2053,7 +2080,27 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
       <Dialog open={otpDialogOpen} onOpenChange={(o) => { if (!otpVerifying) setOtpDialogOpen(o); }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Verificação do Agricultor</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              Verificação do Agricultor
+              {(() => {
+                const map: Record<typeof otpStatus, { label: string; cls: string; dot: string }> = {
+                  idle:      { label: "Aguardando",   cls: "bg-muted text-muted-foreground", dot: "bg-muted-foreground" },
+                  sending:   { label: "A enviar SMS", cls: "bg-info/10 text-info",           dot: "bg-info animate-pulse" },
+                  sent:      { label: "Enviado",      cls: "bg-warning/10 text-warning",     dot: "bg-warning" },
+                  verifying: { label: "Em processamento", cls: "bg-info/10 text-info",       dot: "bg-info animate-pulse" },
+                  verified:  { label: "Verificado",   cls: "bg-success/10 text-success",     dot: "bg-success" },
+                  expired:   { label: "Expirado",     cls: "bg-destructive/10 text-destructive", dot: "bg-destructive" },
+                  failed:    { label: "Falhou",       cls: "bg-destructive/10 text-destructive", dot: "bg-destructive" },
+                };
+                const s = map[otpStatus];
+                return (
+                  <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-full ${s.cls}`}>
+                    <span className={`h-2 w-2 rounded-full ${s.dot}`} />
+                    {s.label}
+                  </span>
+                );
+              })()}
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">
