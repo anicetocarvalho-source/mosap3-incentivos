@@ -1058,6 +1058,75 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
     }
   };
 
+  // ===== OTP helpers (definidos após processSale para evitar uso antes da declaração) =====
+  const sendOtp = async () => {
+    if (!farmer || !selectedSupplierId) return;
+    if (!farmer.phone) {
+      toast.error("Agricultor sem telefone — pagamento por OTP indisponível.");
+      return;
+    }
+    setOtpSending(true);
+    setOtpCode("");
+    try {
+      const { data, error } = await supabase.functions.invoke("pos-otp-send", {
+        body: {
+          supplier_id: selectedSupplierId,
+          farmer_code: farmer.code,
+          phone: farmer.phone,
+          amount: cartTotal,
+        },
+      });
+      if (error || !data?.success) {
+        toast.error(data?.error || error?.message || "Falha ao enviar OTP.");
+        return;
+      }
+      setOtpId(data.otp_id);
+      setOtpExpiresAt(data.expires_at);
+      setOtpMaskedPhone(data.masked_phone || "");
+      setOtpDevCode(data.dev_code || null);
+      setConfirmOpen(false);
+      setOtpDialogOpen(true);
+      if (data.dev_code) {
+        toast.info(`Modo dev: OTP do agricultor = ${data.dev_code}`, { duration: 10000 });
+      } else if (data.sms_sent) {
+        toast.success(`SMS enviado para ${data.masked_phone}.`);
+      }
+    } catch (e) {
+      toast.error((e as Error)?.message || "Erro ao enviar OTP.");
+    } finally {
+      setOtpSending(false);
+    }
+  };
+
+  const verifyOtpAndPay = async () => {
+    if (!otpId || !/^\d{6}$/.test(otpCode)) {
+      toast.error("Introduza o código de 6 dígitos.");
+      return;
+    }
+    setOtpVerifying(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("pos-otp-verify", {
+        body: { otp_id: otpId, code: otpCode },
+      });
+      if (error || !data?.success) {
+        toast.error(data?.error || error?.message || "Código inválido.");
+        if (data?.reason === "expired" || data?.reason === "locked") setOtpId(null);
+        return;
+      }
+      setOtpDialogOpen(false);
+      setOtpId(null);
+      setOtpCode("");
+      setOtpDevCode(null);
+      await processSale();
+    } catch (e) {
+      toast.error((e as Error)?.message || "Erro ao validar OTP.");
+    } finally {
+      setOtpVerifying(false);
+    }
+  };
+
+
+
   const pollPaymentStatus = async (saleId: string, conversationId: string) => {
     let attempts = 0;
     const maxAttempts = 12; // ~60 seconds (5s intervals)
