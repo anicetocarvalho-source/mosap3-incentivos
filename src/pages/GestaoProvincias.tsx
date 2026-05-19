@@ -484,7 +484,7 @@ const GestaoProvincias = () => {
                             <TableCell className="text-sm font-medium">{s.name}</TableCell>
                             <TableCell className="text-sm">{mun?.name ?? ""}</TableCell>
                             <TableCell className="text-sm">{s.technician ?? ""}</TableCell>
-                            <TableCell className="text-sm text-center">{s.total_farmers}</TableCell>
+                            <TableCell className="text-sm text-center">{countFarmersForSchool(s)}</TableCell>
                             <TableCell className="text-center">
                               <Badge variant={s.status === "Ativa" ? "default" : "secondary"} className="text-[10px]">
                                 {s.status}
