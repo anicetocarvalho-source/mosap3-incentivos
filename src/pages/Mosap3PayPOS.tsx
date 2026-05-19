@@ -2021,7 +2021,54 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setConfirmOpen(false)}>Cancelar</Button>
-            <Button onClick={processSale} disabled={processing || !!patecBlock}>{processing ? "Processando..." : "Confirmar e Pagar"}</Button>
+            <Button onClick={sendOtp} disabled={processing || otpSending || !!patecBlock || !parcelSize || !farmer?.phone}>
+              {otpSending ? "A enviar OTP..." : "Enviar OTP e Pagar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* OTP Dialog — verificação do agricultor antes do Push USSD Unitel Money */}
+      <Dialog open={otpDialogOpen} onOpenChange={(o) => { if (!otpVerifying) setOtpDialogOpen(o); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Verificação do Agricultor</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Foi enviado um código de 6 dígitos por SMS para <strong className="text-foreground">{otpMaskedPhone || farmer?.phone}</strong>.
+              Peça ao agricultor o código e introduza-o abaixo. Após validação será enviado um <em>Push USSD</em> para o agricultor confirmar o pagamento com o PIN Unitel Money.
+            </p>
+            {otpDevCode && (
+              <Alert>
+                <AlertTitle className="text-xs">Modo de desenvolvimento</AlertTitle>
+                <AlertDescription className="text-xs font-mono">Código: <strong>{otpDevCode}</strong></AlertDescription>
+              </Alert>
+            )}
+            <div>
+              <input
+                inputMode="numeric"
+                pattern="\d{6}"
+                maxLength={6}
+                autoFocus
+                value={otpCode}
+                onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                className="w-full text-center text-3xl tracking-[0.6em] font-mono py-3 rounded-md border bg-background"
+                placeholder="••••••"
+              />
+              <div className="flex items-center justify-between mt-2 text-xs text-muted-foreground">
+                <span>Expira em: <strong className={otpSecondsLeft < 30 ? "text-destructive" : "text-foreground"}>{Math.floor(otpSecondsLeft / 60)}:{String(otpSecondsLeft % 60).padStart(2, "0")}</strong></span>
+                <button type="button" onClick={sendOtp} disabled={otpSending || otpSecondsLeft > 4 * 60 + 30} className="text-primary hover:underline disabled:opacity-50">
+                  Reenviar SMS
+                </button>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOtpDialogOpen(false)} disabled={otpVerifying}>Cancelar</Button>
+            <Button onClick={verifyOtpAndPay} disabled={otpVerifying || otpCode.length !== 6 || otpSecondsLeft === 0}>
+              {otpVerifying ? "A validar..." : "Validar e Pagar"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
