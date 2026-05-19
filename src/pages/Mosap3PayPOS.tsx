@@ -279,6 +279,9 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
   const [otpStatus, setOtpStatus] = useState<"idle" | "sending" | "sent" | "verifying" | "verified" | "expired" | "failed">("idle");
   const otpSendingRef = useRef(false);
   const otpVerifyingRef = useRef(false);
+  // Lock persistente (sessionStorage) que sobrevive a recargas:
+  // marcado quando uma verificação está em curso para o `otpId` actual.
+  const [otpProcessingLocked, setOtpProcessingLocked] = useState(false);
   const [otpExpired, setOtpExpired] = useState(false);
   const [otpNowTick, setOtpNowTick] = useState(0);
   const otpExpiryNotifiedRef = useRef(false);
@@ -307,6 +310,16 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
 
   // Estado adicional vindo do backend (tentativas restantes, etc.)
   const [otpAttemptsLeft, setOtpAttemptsLeft] = useState<number | null>(null);
+
+  // Hidrata o lock de processamento ao montar / quando otpId muda
+  // (permite que um refresh durante a verificação mantenha o botão bloqueado).
+  useEffect(() => {
+    if (!otpId) { setOtpProcessingLocked(false); return; }
+    try {
+      const v = sessionStorage.getItem(`pos_otp_processing_${otpId}`);
+      setOtpProcessingLocked(!!v);
+    } catch { /* noop */ }
+  }, [otpId]);
 
   // Polling do estado do OTP no backend para reflectir em tempo real
   // alterações feitas pelas edge functions (verificado/expirado/falhado).
@@ -1128,10 +1141,21 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
 
   // ===== OTP helpers (definidos após processSale para evitar uso antes da declaração) =====
 
-  /** Remove a chave de idempotência do sessionStorage para o OTP indicado. */
+  /** Remove a chave de idempotência e o lock de processamento do sessionStorage para o OTP indicado. */
   const clearOtpIdempotencyKey = (id: string | null) => {
     if (!id) return;
-    try { sessionStorage.removeItem(`pos_otp_idem_${id}`); } catch { /* sessionStorage indisponível */ }
+    try {
+      sessionStorage.removeItem(`pos_otp_idem_${id}`);
+      sessionStorage.removeItem(`pos_otp_processing_${id}`);
+    } catch { /* sessionStorage indisponível */ }
+    setOtpProcessingLocked(false);
+  };
+
+  /** Marca o OTP como "em processamento" — sobrevive a refresh da página. */
+  const markOtpProcessing = (id: string | null) => {
+    if (!id) return;
+    try { sessionStorage.setItem(`pos_otp_processing_${id}`, String(Date.now())); } catch { /* noop */ }
+    setOtpProcessingLocked(true);
   };
 
   const sendOtp = async () => {
@@ -1204,6 +1228,17 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
       toast.info("Operação OTP em curso. Aguarde…");
       return;
     }
+    // Lock persistente: se já existe uma verificação em curso para este OTP
+    // (mesmo após refresh), recusar nova tentativa.
+    if (otpId) {
+      try {
+        if (sessionStorage.getItem(`pos_otp_processing_${otpId}`)) {
+          toast.info("Verificação já em curso para este OTP. Aguarde a conclusão…");
+          setOtpProcessingLocked(true);
+          return;
+        }
+      } catch { /* noop */ }
+    }
     if (otpExpired || otpSecondsLeft === 0) {
       toast.error("Código expirado. Solicite um novo SMS antes de continuar.");
       return;
@@ -1215,6 +1250,8 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
     otpVerifyingRef.current = true;
     setOtpVerifying(true);
     setOtpStatus("verifying");
+    markOtpProcessing(otpId);
+
     try {
       // Idempotência: reutiliza chave gerada no sendOtp (resiste a refresh/duplo-clique).
       let idempotency_key: string | null = null;
@@ -2272,8 +2309,8 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
                 {otpSending ? "A reenviar..." : "Gerar novo OTP"}
               </Button>
             ) : (
-              <Button onClick={verifyOtpAndPay} disabled={otpVerifying || otpStatus === "sending" || otpCode.length !== 6}>
-                {otpVerifying ? "A validar..." : "Validar e Pagar"}
+              <Button onClick={verifyOtpAndPay} disabled={otpVerifying || otpProcessingLocked || otpStatus === "sending" || otpCode.length !== 6}>
+                {otpVerifying || otpProcessingLocked ? "A validar..." : "Validar e Pagar"}
               </Button>
             )}
           </DialogFooter>
