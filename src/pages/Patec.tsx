@@ -18,6 +18,7 @@ import { TableRowsSkeleton, CardListSkeleton } from "@/components/ui/loading-ske
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { resolveScope, applyFarmerScopeFilter, type ResolvedScope } from "@/lib/farmerScope";
@@ -138,6 +139,20 @@ const Patec = () => {
   const [regionPatecCode, setRegionPatecCode] = useState<string>("");
   const [regionOverwrite, setRegionOverwrite] = useState<boolean>(false);
   const [regionConfirmOpen, setRegionConfirmOpen] = useState(false);
+
+  // Assignment progress (shared by bulk + region)
+  type AssignProgress = {
+    total: number;
+    done: number;
+    success: number;
+    failed: number;
+    batches: number;
+    batchesDone: number;
+    errors: string[];
+  };
+  const [assignProgress, setAssignProgress] = useState<AssignProgress | null>(null);
+  const [assignReport, setAssignReport] = useState<(AssignProgress & { patecCode: string; scope: string }) | null>(null);
+  const [assignReportOpen, setAssignReportOpen] = useState(false);
 
   // Season selector for assignment
   const [selectedSeasonId, setSelectedSeasonId] = useState<string>("all");
@@ -607,22 +622,36 @@ const Patec = () => {
     }
     setSaving(true);
     const ids = Array.from(selectedIds);
-    let errorCount = 0;
+    const totalBatches = Math.ceil(ids.length / 50);
+    const progress: AssignProgress = { total: ids.length, done: 0, success: 0, failed: 0, batches: totalBatches, batchesDone: 0, errors: [] };
+    setAssignProgress({ ...progress });
     for (let i = 0; i < ids.length; i += 50) {
       const batch = ids.slice(i, i + 50);
       const { error } = await supabase
         .from("farmers")
         .update({ patec_code: selected.code, patec: selected.legacy_number ?? null })
         .in("id", batch);
-      if (error) errorCount++;
+      progress.done += batch.length;
+      progress.batchesDone += 1;
+      if (error) {
+        progress.failed += batch.length;
+        progress.errors.push(`Lote ${progress.batchesDone}/${totalBatches} (${batch.length}): ${error.message}`);
+      } else {
+        progress.success += batch.length;
+      }
+      setAssignProgress({ ...progress });
     }
     setSaving(false);
+    setBulkConfirmOpen(false);
     setBulkDialogOpen(false);
     setBulkPatecCode("");
-    if (errorCount > 0) {
-      toast.error(`Erro ao atribuir PATEC a alguns produtores`);
+    setAssignProgress(null);
+    setAssignReport({ ...progress, patecCode: selected.code, scope: `${ids.length} seleccionado(s)` });
+    setAssignReportOpen(true);
+    if (progress.failed > 0) {
+      toast.error(`${progress.success}/${progress.total} atribuídos · ${progress.failed} falharam`);
     } else {
-      toast.success(`${selected.code} atribuído a ${ids.length} produtor(es)`);
+      toast.success(`${selected.code} atribuído a ${progress.success} produtor(es)`);
     }
     setSelectedIds(new Set());
     scope && fetchFarmers(scope);
@@ -652,24 +681,39 @@ const Patec = () => {
     }
     setSaving(true);
     const ids = regionTargetFarmers.map((f) => f.id);
-    let errorCount = 0;
+    const scopeLabel =
+      regionScope === "provincia" ? "Províncias" : regionScope === "municipio" ? "Municípios" : "Escolas";
+    const totalBatches = Math.ceil(ids.length / 50);
+    const progress: AssignProgress = { total: ids.length, done: 0, success: 0, failed: 0, batches: totalBatches, batchesDone: 0, errors: [] };
+    setAssignProgress({ ...progress });
     for (let i = 0; i < ids.length; i += 50) {
       const batch = ids.slice(i, i + 50);
       const { error } = await supabase
         .from("farmers")
         .update({ patec_code: selected.code, patec: selected.legacy_number ?? null })
         .in("id", batch);
-      if (error) errorCount++;
+      progress.done += batch.length;
+      progress.batchesDone += 1;
+      if (error) {
+        progress.failed += batch.length;
+        progress.errors.push(`Lote ${progress.batchesDone}/${totalBatches} (${batch.length}): ${error.message}`);
+      } else {
+        progress.success += batch.length;
+      }
+      setAssignProgress({ ...progress });
     }
     setSaving(false);
     setRegionConfirmOpen(false);
     setRegionDialogOpen(false);
     setRegionValues([]);
     setRegionPatecCode("");
-    if (errorCount > 0) {
-      toast.error("Erro ao atribuir PATEC a alguns produtores");
+    setAssignProgress(null);
+    setAssignReport({ ...progress, patecCode: selected.code, scope: `${scopeLabel}: ${regionValues.join(", ") || "—"}` });
+    setAssignReportOpen(true);
+    if (progress.failed > 0) {
+      toast.error(`${progress.success}/${progress.total} atribuídos · ${progress.failed} falharam`);
     } else {
-      toast.success(`${selected.code} atribuído a ${ids.length} produtor(es)`);
+      toast.success(`${selected.code} atribuído a ${progress.success} produtor(es)`);
     }
     scope && fetchFarmers(scope);
   };
@@ -1546,10 +1590,23 @@ const Patec = () => {
               </SelectContent>
             </Select>
           </div>
+          {assignProgress && (
+            <div className="border-t pt-3 space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-medium">A atribuir... lote {assignProgress.batchesDone}/{assignProgress.batches}</span>
+                <span className="text-muted-foreground">{assignProgress.done}/{assignProgress.total}</span>
+              </div>
+              <Progress value={assignProgress.total ? (assignProgress.done / assignProgress.total) * 100 : 0} />
+              <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                <span className="flex items-center gap-1"><span className="inline-block w-2 h-2 rounded-full bg-success" />{assignProgress.success} sucesso</span>
+                <span className="flex items-center gap-1"><span className="inline-block w-2 h-2 rounded-full bg-destructive" />{assignProgress.failed} falhas</span>
+              </div>
+            </div>
+          )}
           <DialogFooter className="border-t pt-3">
-            <Button variant="outline" onClick={() => setBulkDialogOpen(false)}>Cancelar</Button>
+            <Button variant="outline" onClick={() => setBulkDialogOpen(false)} disabled={saving}>Cancelar</Button>
             <Button onClick={() => setBulkConfirmOpen(true)} disabled={saving || !bulkPatecCode || patecsForSeason.length === 0}>
-              {`Atribuir a ${selectedIds.size} produtor${selectedIds.size > 1 ? "es" : ""}`}
+              {saving ? (<><Loader2 className="w-4 h-4 mr-1 animate-spin" />A atribuir...</>) : `Atribuir a ${selectedIds.size} produtor${selectedIds.size > 1 ? "es" : ""}`}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1759,13 +1816,26 @@ const Patec = () => {
               </div>
             </div>
           </div>
+          {assignProgress && (
+            <div className="border-t pt-3 space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-medium">A atribuir... lote {assignProgress.batchesDone}/{assignProgress.batches}</span>
+                <span className="text-muted-foreground">{assignProgress.done}/{assignProgress.total}</span>
+              </div>
+              <Progress value={assignProgress.total ? (assignProgress.done / assignProgress.total) * 100 : 0} />
+              <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                <span className="flex items-center gap-1"><span className="inline-block w-2 h-2 rounded-full bg-success" />{assignProgress.success} sucesso</span>
+                <span className="flex items-center gap-1"><span className="inline-block w-2 h-2 rounded-full bg-destructive" />{assignProgress.failed} falhas</span>
+              </div>
+            </div>
+          )}
           <DialogFooter className="border-t pt-3">
-            <Button variant="outline" onClick={() => setRegionDialogOpen(false)}>Cancelar</Button>
+            <Button variant="outline" onClick={() => setRegionDialogOpen(false)} disabled={saving}>Cancelar</Button>
             <Button
               onClick={() => setRegionConfirmOpen(true)}
               disabled={saving || !regionPatecCode || regionTargetFarmers.length === 0 || patecsForSeason.length === 0}
             >
-              {saving ? "A atribuir..." : `Atribuir a ${regionTargetFarmers.length}`}
+              {saving ? (<><Loader2 className="w-4 h-4 mr-1 animate-spin" />A atribuir...</>) : `Atribuir a ${regionTargetFarmers.length}`}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1795,6 +1865,62 @@ const Patec = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Assignment final report */}
+      <AlertDialog open={assignReportOpen} onOpenChange={setAssignReportOpen}>
+        <AlertDialogContent className="max-w-lg">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              {assignReport && assignReport.failed === 0 ? (
+                <><Check className="w-5 h-5 text-success" /> Atribuição concluída</>
+              ) : (
+                <><AlertCircle className="w-5 h-5 text-destructive" /> Atribuição concluída com erros</>
+              )}
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3 text-sm">
+                {assignReport && (
+                  <>
+                    <div className="border rounded-lg p-3 bg-muted/30 space-y-1 text-foreground">
+                      <p><span className="text-muted-foreground">PATEC:</span> <strong>{assignReport.patecCode}</strong></p>
+                      <p className="text-xs"><span className="text-muted-foreground">Âmbito:</span> {assignReport.scope}</p>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 text-center">
+                      <div className="border rounded-lg p-2">
+                        <div className="text-xl font-bold">{assignReport.total}</div>
+                        <div className="text-[10px] uppercase text-muted-foreground">Total</div>
+                      </div>
+                      <div className="border rounded-lg p-2 bg-success/10 border-success/30">
+                        <div className="text-xl font-bold text-success">{assignReport.success}</div>
+                        <div className="text-[10px] uppercase text-muted-foreground">Sucesso</div>
+                      </div>
+                      <div className="border rounded-lg p-2 bg-destructive/10 border-destructive/30">
+                        <div className="text-xl font-bold text-destructive">{assignReport.failed}</div>
+                        <div className="text-[10px] uppercase text-muted-foreground">Falhas</div>
+                      </div>
+                    </div>
+                    {assignReport.errors.length > 0 && (
+                      <div className="space-y-1">
+                        <p className="text-xs font-semibold text-destructive">Erros ({assignReport.errors.length}):</p>
+                        <div className="max-h-40 overflow-y-auto border rounded-lg p-2 bg-destructive/5 text-xs space-y-1 font-mono">
+                          {assignReport.errors.map((e, i) => (
+                            <div key={i} className="break-words">{e}</div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setAssignReportOpen(false)}>Fechar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+
 
       {/* View PATEC detail Dialog */}
       <PatecCompositionDialog
