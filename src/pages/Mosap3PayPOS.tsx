@@ -2079,7 +2079,27 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
       <Dialog open={otpDialogOpen} onOpenChange={(o) => { if (!otpVerifying) setOtpDialogOpen(o); }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Verificação do Agricultor</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              Verificação do Agricultor
+              {(() => {
+                const map: Record<typeof otpStatus, { label: string; cls: string; dot: string }> = {
+                  idle:      { label: "Aguardando",   cls: "bg-muted text-muted-foreground", dot: "bg-muted-foreground" },
+                  sending:   { label: "A enviar SMS", cls: "bg-info/10 text-info",           dot: "bg-info animate-pulse" },
+                  sent:      { label: "Enviado",      cls: "bg-warning/10 text-warning",     dot: "bg-warning" },
+                  verifying: { label: "Em processamento", cls: "bg-info/10 text-info",       dot: "bg-info animate-pulse" },
+                  verified:  { label: "Verificado",   cls: "bg-success/10 text-success",     dot: "bg-success" },
+                  expired:   { label: "Expirado",     cls: "bg-destructive/10 text-destructive", dot: "bg-destructive" },
+                  failed:    { label: "Falhou",       cls: "bg-destructive/10 text-destructive", dot: "bg-destructive" },
+                };
+                const s = map[otpStatus];
+                return (
+                  <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-full ${s.cls}`}>
+                    <span className={`h-2 w-2 rounded-full ${s.dot}`} />
+                    {s.label}
+                  </span>
+                );
+              })()}
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">
