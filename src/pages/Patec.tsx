@@ -61,10 +61,24 @@ interface PatecItem {
   unit: string | null;
 }
 
-const patecMeta: Record<number, { title: string; color: string; cultures: string; icon: any; gradient: string; bgAccent: string }> = {
-  1: { title: "PATEC 1 — Milho + Feijão + Gado", color: "bg-amber-100 text-amber-800 border-amber-300", cultures: "Milho + Feijão", icon: Wheat, gradient: "from-amber-500 to-orange-500", bgAccent: "bg-amber-50 dark:bg-amber-950/30" },
-  2: { title: "PATEC 2 — Massango + Feijão + Gado", color: "bg-emerald-100 text-emerald-800 border-emerald-300", cultures: "Massango + Feijão", icon: Sprout, gradient: "from-emerald-500 to-teal-500", bgAccent: "bg-emerald-50 dark:bg-emerald-950/30" },
-  3: { title: "PATEC 3 — Massambala + Feijão + Gado", color: "bg-violet-100 text-violet-800 border-violet-300", cultures: "Massambala + Feijão", icon: Leaf, gradient: "from-violet-500 to-purple-500", bgAccent: "bg-violet-50 dark:bg-violet-950/30" },
+const patecMeta: Record<number, { title: string; color: string; cultures: string; icon: any; gradient: string; bgAccent: string; chartFill: string }> = {
+  1: { title: "PATEC 1 — Milho + Feijão", color: "bg-amber-100 text-amber-800 border-amber-300", cultures: "Milho + Feijão", icon: Wheat, gradient: "from-amber-500 to-orange-500", bgAccent: "bg-amber-50 dark:bg-amber-950/30", chartFill: "hsl(38, 92%, 50%)" },
+  2: { title: "PATEC 2 — Massango + Feijão", color: "bg-emerald-100 text-emerald-800 border-emerald-300", cultures: "Massango + Feijão", icon: Sprout, gradient: "from-emerald-500 to-teal-500", bgAccent: "bg-emerald-50 dark:bg-emerald-950/30", chartFill: "hsl(160, 84%, 39%)" },
+  3: { title: "PATEC 3 — Massambala + Feijão", color: "bg-violet-100 text-violet-800 border-violet-300", cultures: "Massambala + Feijão", icon: Leaf, gradient: "from-violet-500 to-purple-500", bgAccent: "bg-violet-50 dark:bg-violet-950/30", chartFill: "hsl(263, 70%, 50%)" },
+  4: { title: "PATEC 4 — Mandioca + Feijão", color: "bg-lime-100 text-lime-800 border-lime-300", cultures: "Mandioca + Feijão", icon: TreeDeciduous, gradient: "from-lime-500 to-green-600", bgAccent: "bg-lime-50 dark:bg-lime-950/30", chartFill: "hsl(84, 81%, 44%)" },
+  5: { title: "PATEC 5 — Alho", color: "bg-stone-100 text-stone-800 border-stone-300", cultures: "Alho", icon: Flower2, gradient: "from-stone-400 to-zinc-500", bgAccent: "bg-stone-50 dark:bg-stone-900/40", chartFill: "hsl(220, 9%, 55%)" },
+  6: { title: "PATEC 6 — Batata Doce", color: "bg-orange-100 text-orange-800 border-orange-300", cultures: "Batata Doce", icon: Apple, gradient: "from-orange-500 to-rose-500", bgAccent: "bg-orange-50 dark:bg-orange-950/30", chartFill: "hsl(20, 90%, 55%)" },
+  7: { title: "PATEC 7 — Batata Rena", color: "bg-yellow-100 text-yellow-800 border-yellow-300", cultures: "Batata Rena", icon: Cherry, gradient: "from-yellow-500 to-amber-600", bgAccent: "bg-yellow-50 dark:bg-yellow-950/30", chartFill: "hsl(48, 95%, 50%)" },
+  8: { title: "PATEC 8 — Cebola", color: "bg-rose-100 text-rose-800 border-rose-300", cultures: "Cebola", icon: Flower2, gradient: "from-rose-500 to-pink-600", bgAccent: "bg-rose-50 dark:bg-rose-950/30", chartFill: "hsl(340, 82%, 55%)" },
+  9: { title: "PATEC 9 — Cenoura", color: "bg-orange-100 text-orange-800 border-orange-300", cultures: "Cenoura", icon: Carrot, gradient: "from-orange-600 to-red-500", bgAccent: "bg-orange-50 dark:bg-orange-950/30", chartFill: "hsl(14, 88%, 52%)" },
+  10: { title: "PATEC 10 — Repolho", color: "bg-green-100 text-green-800 border-green-300", cultures: "Repolho", icon: Leaf, gradient: "from-green-500 to-emerald-600", bgAccent: "bg-green-50 dark:bg-green-950/30", chartFill: "hsl(142, 71%, 42%)" },
+};
+
+const FALLBACK_PATEC_META = { gradient: "from-slate-400 to-slate-600", icon: Package, chartFill: "hsl(215, 16%, 47%)", color: "bg-muted text-muted-foreground border-border" };
+
+const getPatecVisual = (p: { legacy_number: number | null }) => {
+  if (p.legacy_number != null && patecMeta[p.legacy_number]) return patecMeta[p.legacy_number];
+  return FALLBACK_PATEC_META;
 };
 
 const categoryLabels: Record<string, string> = {
