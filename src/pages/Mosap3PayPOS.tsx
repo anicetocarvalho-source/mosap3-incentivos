@@ -1561,8 +1561,8 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
             )}
             <DialogFooter>
               <Button variant="outline" onClick={() => setConfirmOpen(false)}>Cancelar</Button>
-              <Button onClick={processSale} disabled={processing || !!patecBlock} className="bg-[hsl(45,70%,40%)] text-[hsl(220,20%,10%)] hover:bg-[hsl(45,75%,45%)]">
-                {processing ? "Processando..." : "Confirmar"}
+              <Button onClick={sendOtp} disabled={processing || otpSending || !!patecBlock || !parcelSize || !farmer?.phone} className="bg-[hsl(45,70%,40%)] text-[hsl(220,20%,10%)] hover:bg-[hsl(45,75%,45%)]">
+                {otpSending ? "A enviar OTP..." : "Enviar OTP e Pagar"}
               </Button>
             </DialogFooter>
           </DialogContent>
