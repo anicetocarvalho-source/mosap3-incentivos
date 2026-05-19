@@ -2258,6 +2258,17 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
               Foi enviado um código de 6 dígitos por SMS para <strong className="text-foreground">{otpMaskedPhone || farmer?.phone}</strong>.
               Peça ao agricultor o código e introduza-o abaixo. Após validação será enviado um <em>Push USSD</em> para o agricultor confirmar o pagamento com o PIN Unitel Money.
             </p>
+            {otpIdempotentReplay && (
+              <Alert className="bg-info/10 border-info/30 text-info">
+                <AlertTitle className="text-sm flex items-center gap-2">
+                  <Check className="h-4 w-4" />
+                  Pagamento já validado
+                </AlertTitle>
+                <AlertDescription className="text-xs">
+                  Este pagamento foi confirmado anteriormente. A resposta está a ser recuperada automaticamente para evitar duplicação.
+                </AlertDescription>
+              </Alert>
+            )}
             {otpDevCode && (
               <Alert>
                 <AlertTitle className="text-xs">Modo de desenvolvimento</AlertTitle>
