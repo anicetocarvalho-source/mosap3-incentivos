@@ -1369,11 +1369,11 @@ const Patec = () => {
 
       {/* Edit Dialog (single) */}
       <Dialog open={!!editFarmer} onOpenChange={(o) => !o && setEditFarmer(null)}>
-        <DialogContent>
+        <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col overflow-hidden">
           <DialogHeader>
             <DialogTitle>Atribuir PATEC — {editFarmer?.full_name}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-4">
+          <div className="flex-1 overflow-y-auto pr-1 space-y-4 py-4">
             <p className="text-sm text-muted-foreground">
               Código: <span className="font-mono font-semibold">{editFarmer?.code}</span>
             </p>
@@ -1404,25 +1404,46 @@ const Patec = () => {
               const meta = legacy ? patecMeta[legacy] : null;
               return (
                 <div className="border rounded-lg p-3 text-xs space-y-2 bg-muted/30">
-                  <p className="font-semibold">{meta?.title || `${sel.code} — ${sel.name}`}</p>
-                  {sel.cultures && <p className="text-muted-foreground">{sel.cultures}</p>}
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="font-semibold">{meta?.title || `${sel.code} — ${sel.name}`}</p>
+                      {sel.cultures && <p className="text-muted-foreground">{sel.cultures}</p>}
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-[11px] shrink-0"
+                      onClick={() => setComposingPatec(sel)}
+                    >
+                      <Eye className="h-3 w-3 mr-1" /> Ver composição completa
+                    </Button>
+                  </div>
                   {legacy && meta && (
-                    <div className="grid grid-cols-3 gap-2 pt-1">
-                      {["insumos", "pecuaria", "servicos"].map((cat) => (
-                        <div key={cat}>
-                          <p className="font-medium text-muted-foreground mb-1">{categoryLabels[cat]}</p>
-                          <ul className="space-y-0.5">
-                            {getItems(legacy, cat).map((i) => <li key={i.id}>• {i.name}</li>)}
-                          </ul>
-                        </div>
-                      ))}
+                    <div className="max-h-[40vh] overflow-y-auto pr-1">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
+                        {["insumos", "pecuaria", "servicos"].map((cat) => {
+                          const items = getItems(legacy, cat);
+                          if (items.length === 0) return null;
+                          return (
+                            <div key={cat}>
+                              <p className="font-medium text-muted-foreground mb-1">
+                                {categoryLabels[cat]} <span className="text-[10px]">({items.length})</span>
+                              </p>
+                              <ul className="space-y-0.5">
+                                {items.map((i) => <li key={i.id}>• {i.name}</li>)}
+                              </ul>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                   )}
                 </div>
               );
             })()}
           </div>
-          <DialogFooter>
+          <DialogFooter className="border-t pt-3">
             <Button variant="outline" onClick={() => setEditFarmer(null)}>Cancelar</Button>
             <Button onClick={handleSavePatec} disabled={saving || patecsForSeason.length === 0}>{saving ? "Guardando..." : "Guardar"}</Button>
           </DialogFooter>
