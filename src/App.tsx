@@ -60,6 +60,7 @@ import FornecedorPOSVenda from "@/pages/fornecedor/FornecedorPOSVenda";
 import FornecedorVendas from "@/pages/fornecedor/FornecedorVendas";
 import FornecedorFacturas from "@/pages/fornecedor/FornecedorFacturas";
 import FornecedorStock from "@/pages/fornecedor/FornecedorStock";
+import FornecedorPrecosStock from "@/pages/fornecedor/FornecedorPrecosStock";
 import FornecedorPerfil from "@/pages/fornecedor/FornecedorPerfil";
 import FornecedorLojas from "@/pages/fornecedor/FornecedorLojas";
 import NotFound from "@/pages/NotFound";
