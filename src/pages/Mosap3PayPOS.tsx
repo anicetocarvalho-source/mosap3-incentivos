@@ -1978,9 +1978,19 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
         <DialogContent>
           <DialogHeader><DialogTitle>Confirmar Venda</DialogTitle></DialogHeader>
           <div className="space-y-3">
-            <div className="p-3 bg-muted/50 rounded-lg">
+            <div className="p-3 bg-muted/50 rounded-lg space-y-1">
               <p className="font-medium">{farmer?.full_name}</p>
-              <p className="text-xs text-muted-foreground">{farmer?.code} • {farmer?.patec ? patecLabels[farmer.patec] : "Sem PATEC"}</p>
+              <p className="text-xs text-muted-foreground">{farmer?.code} • {farmer?.patec ? patecLabels[farmer.patec] : "Sem PATEC"} • Tel: {farmer?.phone || "—"}</p>
+              <div className="flex items-center justify-between pt-1">
+                <span className="text-xs">🌾 <strong>Parcela:</strong> {parcelSize ? PARCEL_OPTIONS.find((p) => p.value === parcelSize)?.label : <span className="text-destructive">não definida</span>}</span>
+                <button type="button" onClick={() => { setConfirmOpen(false); setParcelDialogOpen(true); }} className="text-[11px] text-primary hover:underline">Alterar parcela</button>
+              </div>
+              {!parcelSize && (
+                <p className="text-[11px] text-destructive">Defina a parcela antes de confirmar — as quantidades dependem dela.</p>
+              )}
+              {!farmer?.phone && (
+                <p className="text-[11px] text-destructive">Agricultor sem telefone — não é possível enviar OTP. Actualize o contacto.</p>
+              )}
             </div>
             <div className="space-y-1">
               {cart.map((c) => (
