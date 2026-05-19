@@ -2309,8 +2309,8 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
                 {otpSending ? "A reenviar..." : "Gerar novo OTP"}
               </Button>
             ) : (
-              <Button onClick={verifyOtpAndPay} disabled={otpVerifying || otpStatus === "sending" || otpCode.length !== 6}>
-                {otpVerifying ? "A validar..." : "Validar e Pagar"}
+              <Button onClick={verifyOtpAndPay} disabled={otpVerifying || otpProcessingLocked || otpStatus === "sending" || otpCode.length !== 6}>
+                {otpVerifying || otpProcessingLocked ? "A validar..." : "Validar e Pagar"}
               </Button>
             )}
           </DialogFooter>
