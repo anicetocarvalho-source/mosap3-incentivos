@@ -277,6 +277,8 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
   const [otpSending, setOtpSending] = useState(false);
   const [otpVerifying, setOtpVerifying] = useState(false);
   const [otpNowTick, setOtpNowTick] = useState(0);
+  const [otpExpired, setOtpExpired] = useState(false);
+  const otpExpiryNotifiedRef = useRef(false);
   useEffect(() => {
     if (!otpDialogOpen) return;
     const t = setInterval(() => setOtpNowTick((n) => n + 1), 1000);
@@ -285,8 +287,18 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
   const otpSecondsLeft = otpExpiresAt
     ? Math.max(0, Math.floor((new Date(otpExpiresAt).getTime() - Date.now()) / 1000))
     : 0;
-  // referenciar otpNowTick para silenciar lint sem alterar lógica
   void otpNowTick;
+  // Detecta expiração e dispara aviso/bloqueio automático uma única vez
+  useEffect(() => {
+    if (!otpDialogOpen || !otpExpiresAt) return;
+    if (otpSecondsLeft === 0 && !otpExpired) {
+      setOtpExpired(true);
+      if (!otpExpiryNotifiedRef.current) {
+        otpExpiryNotifiedRef.current = true;
+        toast.error("O código OTP expirou. Clique em \"Reenviar SMS\" para gerar um novo.", { duration: 8000 });
+      }
+    }
+  }, [otpSecondsLeft, otpDialogOpen, otpExpiresAt, otpExpired]);
 
   // sendOtp e verifyOtpAndPay são definidos após processSale (mais abaixo no ficheiro).
 
@@ -1067,6 +1079,8 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
     }
     setOtpSending(true);
     setOtpCode("");
+    setOtpExpired(false);
+    otpExpiryNotifiedRef.current = false;
     try {
       const { data, error } = await supabase.functions.invoke("pos-otp-send", {
         body: {
@@ -1099,6 +1113,10 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
   };
 
   const verifyOtpAndPay = async () => {
+    if (otpExpired || otpSecondsLeft === 0) {
+      toast.error("Código expirado. Solicite um novo SMS antes de continuar.");
+      return;
+    }
     if (!otpId || !/^\d{6}$/.test(otpCode)) {
       toast.error("Introduza o código de 6 dígitos.");
       return;
@@ -1110,7 +1128,10 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
       });
       if (error || !data?.success) {
         toast.error(data?.error || error?.message || "Código inválido.");
-        if (data?.reason === "expired" || data?.reason === "locked") setOtpId(null);
+        if (data?.reason === "expired" || data?.reason === "locked") {
+          setOtpExpired(true);
+          setOtpExpiresAt(null);
+        }
         return;
       }
       setOtpDialogOpen(false);
@@ -2045,6 +2066,14 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
                 <AlertDescription className="text-xs font-mono">Código: <strong>{otpDevCode}</strong></AlertDescription>
               </Alert>
             )}
+            {otpExpired && (
+              <Alert variant="destructive">
+                <AlertTitle className="text-sm">Código OTP expirado</AlertTitle>
+                <AlertDescription className="text-xs">
+                  O código deixou de ser válido por motivos de segurança. O carrinho e o agricultor foram preservados — basta gerar um novo código para retomar o pagamento.
+                </AlertDescription>
+              </Alert>
+            )}
             <div>
               <input
                 inputMode="numeric"
@@ -2052,23 +2081,38 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
                 maxLength={6}
                 autoFocus
                 value={otpCode}
+                disabled={otpExpired || otpSecondsLeft === 0}
                 onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                className="w-full text-center text-3xl tracking-[0.6em] font-mono py-3 rounded-md border bg-background"
+                className="w-full text-center text-3xl tracking-[0.6em] font-mono py-3 rounded-md border bg-background disabled:opacity-50 disabled:cursor-not-allowed"
                 placeholder="••••••"
               />
               <div className="flex items-center justify-between mt-2 text-xs text-muted-foreground">
-                <span>Expira em: <strong className={otpSecondsLeft < 30 ? "text-destructive" : "text-foreground"}>{Math.floor(otpSecondsLeft / 60)}:{String(otpSecondsLeft % 60).padStart(2, "0")}</strong></span>
-                <button type="button" onClick={sendOtp} disabled={otpSending || otpSecondsLeft > 4 * 60 + 30} className="text-primary hover:underline disabled:opacity-50">
-                  Reenviar SMS
-                </button>
+                <span>
+                  {otpExpired || otpSecondsLeft === 0 ? (
+                    <strong className="text-destructive">Expirado</strong>
+                  ) : (
+                    <>Expira em: <strong className={otpSecondsLeft < 30 ? "text-destructive" : "text-foreground"}>{Math.floor(otpSecondsLeft / 60)}:{String(otpSecondsLeft % 60).padStart(2, "0")}</strong></>
+                  )}
+                </span>
+                {!otpExpired && otpSecondsLeft > 0 && (
+                  <button type="button" onClick={sendOtp} disabled={otpSending || otpSecondsLeft > 4 * 60 + 30} className="text-primary hover:underline disabled:opacity-50">
+                    Reenviar SMS
+                  </button>
+                )}
               </div>
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOtpDialogOpen(false)} disabled={otpVerifying}>Cancelar</Button>
-            <Button onClick={verifyOtpAndPay} disabled={otpVerifying || otpCode.length !== 6 || otpSecondsLeft === 0}>
-              {otpVerifying ? "A validar..." : "Validar e Pagar"}
-            </Button>
+            {otpExpired || otpSecondsLeft === 0 ? (
+              <Button onClick={sendOtp} disabled={otpSending} className="bg-[hsl(45,70%,40%)] text-[hsl(220,20%,10%)] hover:bg-[hsl(45,75%,45%)]">
+                {otpSending ? "A reenviar..." : "Gerar novo OTP"}
+              </Button>
+            ) : (
+              <Button onClick={verifyOtpAndPay} disabled={otpVerifying || otpCode.length !== 6}>
+                {otpVerifying ? "A validar..." : "Validar e Pagar"}
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
