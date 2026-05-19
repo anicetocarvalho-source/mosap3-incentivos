@@ -41,6 +41,9 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const otp_id = String(body.otp_id || "").trim();
     const code = String(body.code || "").trim();
+    const idempotency_key = body.idempotency_key
+      ? String(body.idempotency_key).trim().slice(0, 100)
+      : null;
 
     if (!otp_id || !/^\d{6}$/.test(code)) {
       return json({ success: false, error: "Código OTP inválido.", reason: "invalid_input" }, 400);
@@ -58,7 +61,19 @@ Deno.serve(async (req) => {
       return json({ success: false, error: "OTP não encontrado.", reason: "not_found" }, 404);
     }
 
+    // Idempotência: se a mesma chave já foi usada com sucesso neste OTP,
+    // devolvemos o resultado em cache em vez de processar novamente.
+    if (
+      idempotency_key &&
+      otp.idempotency_key === idempotency_key &&
+      otp.status === "usado" &&
+      otp.last_result
+    ) {
+      return json({ ...(otp.last_result as Record<string, unknown>), idempotent_replay: true });
+    }
+
     if (otp.status === "usado") {
+      // Sem idempotency_key correspondente — é tentativa duplicada legítima.
       return json({ success: false, error: "Este código já foi usado.", reason: "used" }, 400);
     }
     if (otp.status === "falhado") {
@@ -89,20 +104,56 @@ Deno.serve(async (req) => {
       }, 400);
     }
 
-    await admin
+    // Marcação atómica via CAS: só transita pendente→usado se ainda estiver pendente.
+    // Isto evita que duas chamadas paralelas (double-click / refresh) ambas “ganhem”.
+    const result = { success: true } as Record<string, unknown>;
+    const { data: updated, error: updErr } = await admin
       .from("pos_payment_otps")
-      .update({ status: "usado", used_at: new Date().toISOString(), attempts: (otp.attempts ?? 0) + 1 })
-      .eq("id", otp_id);
+      .update({
+        status: "usado",
+        used_at: new Date().toISOString(),
+        attempts: (otp.attempts ?? 0) + 1,
+        idempotency_key: idempotency_key,
+        last_result: result,
+      })
+      .eq("id", otp_id)
+      .eq("status", "pendente")
+      .select("id, idempotency_key, last_result")
+      .maybeSingle();
+
+    if (updErr) {
+      console.error("pos-otp-verify CAS error:", updErr);
+      return json({ success: false, error: "Erro ao confirmar OTP." }, 500);
+    }
+
+    if (!updated) {
+      // Outra requisição concorrente já marcou como 'usado'. Re-lê para devolver
+      // resposta consistente (idempotente) se a chave coincidir.
+      const { data: fresh } = await admin
+        .from("pos_payment_otps")
+        .select("status, idempotency_key, last_result")
+        .eq("id", otp_id)
+        .maybeSingle();
+      if (
+        fresh?.status === "usado" &&
+        idempotency_key &&
+        fresh.idempotency_key === idempotency_key &&
+        fresh.last_result
+      ) {
+        return json({ ...(fresh.last_result as Record<string, unknown>), idempotent_replay: true });
+      }
+      return json({ success: false, error: "Este código já foi usado.", reason: "used" }, 409);
+    }
 
     await admin.from("audit_logs").insert({
       user_id: user.id,
       action: "otp_verified",
       entity_type: "pos_otp",
       entity_id: otp_id,
-      details: { farmer_code: otp.farmer_code, amount: otp.amount },
+      details: { farmer_code: otp.farmer_code, amount: otp.amount, idempotency_key },
     });
 
-    return json({ success: true });
+    return json(result);
   } catch (e) {
     console.error("pos-otp-verify error:", e);
     return json({ success: false, error: (e as Error)?.message || "Erro inesperado" }, 500);
