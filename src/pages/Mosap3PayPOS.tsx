@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Monitor, Search, ShoppingCart, Plus, Minus, Trash2, CreditCard, User, Package, AlertTriangle, Check, Printer, Maximize, Minimize, Keyboard, Banknote, Smartphone, ArrowRightLeft, Settings2, Users } from "lucide-react";
+import { Monitor, Search, ShoppingCart, Plus, Minus, Trash2, CreditCard, User, Package, AlertTriangle, Check, Printer, Maximize, Minimize, Keyboard, Banknote, Smartphone, ArrowRightLeft, Settings2, Users, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
