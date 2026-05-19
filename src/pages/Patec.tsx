@@ -1514,15 +1514,15 @@ const Patec = () => {
 
       {/* Bulk assign Dialog */}
       <Dialog open={bulkDialogOpen} onOpenChange={(o) => !o && setBulkDialogOpen(false)}>
-        <DialogContent>
+        <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col overflow-hidden">
           <DialogHeader>
             <DialogTitle>Atribuir PATEC em Lote</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-4">
+          <div className="flex-1 overflow-y-auto pr-1 space-y-4 py-4">
             <p className="text-sm text-muted-foreground">
               Vai atribuir o mesmo PATEC a <span className="font-bold text-foreground">{selectedIds.size}</span> produtor{selectedIds.size > 1 ? "es" : ""} seleccionado{selectedIds.size > 1 ? "s" : ""}:
             </p>
-            <div className="max-h-32 overflow-y-auto border rounded-lg p-2 text-xs space-y-1 bg-muted/20">
+            <div className="max-h-48 overflow-y-auto border rounded-lg p-2 text-xs space-y-1 bg-muted/20">
               {filtered.filter((f) => selectedIds.has(f.id)).map((f) => {
                 const p = findPatecByFarmer(f.patec_code, f.patec);
                 return (
@@ -1546,7 +1546,7 @@ const Patec = () => {
               </SelectContent>
             </Select>
           </div>
-          <DialogFooter>
+          <DialogFooter className="border-t pt-3">
             <Button variant="outline" onClick={() => setBulkDialogOpen(false)}>Cancelar</Button>
             <Button onClick={() => setBulkConfirmOpen(true)} disabled={saving || !bulkPatecCode || patecsForSeason.length === 0}>
               {`Atribuir a ${selectedIds.size} produtor${selectedIds.size > 1 ? "es" : ""}`}
