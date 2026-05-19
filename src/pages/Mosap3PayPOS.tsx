@@ -1158,6 +1158,17 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
       setOtpExpiresAt(data.expires_at);
       setOtpMaskedPhone(data.masked_phone || "");
       setOtpDevCode(data.dev_code || null);
+      // Idempotência: gerar (ou reusar) chave estável por otp_id e persistir
+      // em sessionStorage para resistir a recargas/duplo-clique.
+      try {
+        const storageKey = `pos_otp_idem_${data.otp_id}`;
+        if (!sessionStorage.getItem(storageKey)) {
+          const k =
+            (crypto as Crypto & { randomUUID?: () => string }).randomUUID?.() ||
+            `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+          sessionStorage.setItem(storageKey, k);
+        }
+      } catch { /* sessionStorage indisponível */ }
       setConfirmOpen(false);
       setOtpDialogOpen(true);
       setOtpStatus("sent");
