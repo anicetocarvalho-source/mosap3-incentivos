@@ -1,41 +1,106 @@
-## Objectivo
 
-Popular a tabela `supplier_products` para que todos os 12 fornecedores activos disponham do catálogo completo dos PATEC, permitindo testar de ponta a ponta o fluxo de venda no POS (validação de saldo, IVA, séries fiscais, abate de stock e Notas de Crédito).
+## Objetivo
 
-## Dados base
+Reforçar o fluxo do POS (`/mosap3pay/pos`) em dois pontos:
 
-- 12 fornecedores activos (`suppliers.status = 'Ativo'`).
-- 117 nomes distintos de itens em `patec_items` (agregando duplicados como Amoxacilina/Amoxaclina/Amoxicilina e Bronquite/Bronquiti Infecciosa).
-- `supplier_products` actualmente vazio (0 registos).
+1. **Parcela visível e editável no momento da confirmação da compra.**
+2. **Verificação OTP do agricultor antes** de disparar o Push USSD da carteira Unitel Money.
 
-## O que será feito (uma única migração de dados, via `supabase--insert`)
+---
 
-1. **Inserir 117 produtos × 12 fornecedores = 1.404 linhas** em `supplier_products`, via `INSERT ... SELECT` que faz o produto cartesiano de:
-   - `suppliers` activos
-   - itens distintos de `patec_items` (DISTINCT por `name`, agregando `category`/`subcategory`/`unit`/`patec_number` mais frequentes).
-2. **Mapeamento de colunas:**
-   - `name` ← `patec_items.name`
-   - `description` ← `"Item PATEC — <subcategory>"`
-   - `category` ← `'insumos'` (fixo) e `patec_category` ← `patec_items.category` (agricultura/pecuaria)
-   - `unit` ← `COALESCE(patec_items.unit, 'un')`
-   - `price` ← **1000** Kz
-   - `stock` ← **1000**
-   - `min_stock` ← `5` (default)
-   - `iva_rate` ← `14.00`
-   - `patec_number` ← número PATEC mais comum do item (para o ecrã POS marcar "do pacote do produtor")
-   - `status` ← `'Ativo'`
-3. **Idempotência**: a query usa `ON CONFLICT DO NOTHING` num índice `(supplier_id, lower(name))` — para isso, primeiro criamos esse índice único via migração curta, e só depois executamos o INSERT. (Permite re-correr o seed sem duplicar.)
+## 1. Parcela no diálogo "Confirmar Venda"
 
-## Como verificar
+Hoje a parcela só aparece como badge no painel do agricultor (linha 1631 de `Mosap3PayPOS.tsx`). No diálogo final `Confirmar Venda` (linha 1881) ela não consta.
 
-- Após o INSERT: `SELECT COUNT(*) FROM supplier_products` ⇒ esperado 1.404.
-- Abrir `/mosap3pay/pos` (Terminal POS) com um agricultor que tenha saldo e PATEC atribuído → confirmar:
-  - Catálogo lista os produtos com badge "Do pacote".
-  - Adicionar item → calcula IVA 14% e abate saldo.
-  - Stock decrementa após emissão de Factura (Série FT).
-  - Nota de Crédito (Série NC) repõe saldo.
+Mudanças (apenas UI em `Mosap3PayPOS.tsx`):
 
-## Notas
+- No bloco de dados do agricultor dentro do `Dialog open={confirmOpen}`, acrescentar uma linha com:
+  - 🌾 **Parcela:** label seleccionado (ex.: "1 hectare")
+  - Botão "Alterar" que fecha o diálogo de confirmação e reabre `parcelDialogOpen`, mantendo o carrinho. Ao gravar a nova parcela o sistema já recalcula quantidades (lógica `prefillCartFromPatec` existente).
+- Se `parcelSize` for `null` (caso bordo), mostrar aviso e desactivar "Confirmar e Pagar" até ser definida.
+- Mesmo bloco replicado no diálogo equivalente do **Modo Kiosk** (linha 1424).
 
-- Apenas seed de dados — não há alterações de UI, RLS ou edge functions.
-- Caso prefiras preços diferenciados por categoria mais à frente (ex.: sementes vs. medicamentos), fica trivial fazer um UPDATE posterior.
+Sem alterações de schema nem de lógica de negócio — a parcela já é gravada em `pos_sales.parcel_size` (linha 875).
+
+---
+
+## 2. Fluxo OTP antes do pagamento Unitel Money
+
+### Fluxo desejado
+
+```text
+Carrinho pronto
+   │
+   ▼
+[Confirmar e Pagar]  ← diálogo existente
+   │
+   ▼
+Sistema gera OTP de 6 dígitos, grava em BD, envia SMS ao telefone do agricultor
+   │
+   ▼
+Novo diálogo "Verificação do Agricultor"
+   - mostra: telefone mascarado, contador de expiração (5 min), botão Reenviar (após 30s)
+   - input de 6 dígitos que o fornecedor digita com o código que o agricultor leu
+   - botão "Validar e Pagar"
+   │
+   ▼ (OTP válido)
+Cria pos_sale  +  invoca edge function unitel-money-payment (action=pay)
+   │
+   ▼
+Unitel dispara Push USSD ao telemóvel do agricultor (PIN Unitel Money)
+   │
+   ▼
+Polling de estado (já existe) → Pago / Falhou / Timeout
+```
+
+### Backend (migração)
+
+Tabela nova `pos_payment_otps`:
+
+| coluna | tipo | notas |
+|---|---|---|
+| id | uuid PK | |
+| supplier_id | uuid | quem iniciou |
+| farmer_code | text | |
+| phone | text | snapshot |
+| code_hash | text | SHA-256 do OTP (nunca em claro) |
+| amount | numeric | total esperado |
+| attempts | int | máx. 5 |
+| status | text | `pendente` · `usado` · `expirado` · `falhado` |
+| expires_at | timestamptz | now() + 5 min |
+| created_at / used_at | timestamptz | |
+
+RLS:
+- Fornecedor só vê / insere registos onde `supplier_id` corresponde ao seu `suppliers.user_id`.
+- Backoffice/admin: leitura total.
+- Sem UPDATE/DELETE pelo cliente — toda a validação passa por edge functions com service role.
+
+Índice `(farmer_code, status, expires_at)` para procura rápida.
+
+### Edge functions
+
+- **`pos-otp-send`** — recebe `{ supplier_id, farmer_code, phone, amount }`, gera OTP, grava hash, envia SMS via Unitel SMS Gateway, devolve `{ otp_id, expires_at }`.
+- **`pos-otp-verify`** — recebe `{ otp_id, code }`, valida hash, expiração e tentativas, marca `usado`, devolve `{ success: true }` ou erro estruturado (`expired`, `invalid`, `locked`).
+
+Ambas com `verify_jwt` (sessão do fornecedor) e validação Zod do input.
+
+### Frontend (`Mosap3PayPOS.tsx`)
+
+- Substituir o handler actual do botão "Confirmar e Pagar":
+  1. Chama `pos-otp-send` → fecha `confirmOpen`, abre novo `otpDialogOpen`.
+  2. Diálogo OTP: input de 6 dígitos, contador de expiração, "Reenviar SMS" (rate-limited).
+  3. Ao "Validar e Pagar" → chama `pos-otp-verify`; se OK chama o `processSale` existente (que cria a venda e invoca `unitel-money-payment`).
+- Estado novo: `otpDialogOpen`, `otpId`, `otpExpiresAt`, `otpCode`, `otpAttempts`, `sendingOtp`, `verifyingOtp`.
+- Mensagens claras em PT-AO.
+- Se agricultor sem `phone` → bloquear, com aviso "Agricultor sem telefone — pagamento por OTP indisponível".
+
+### Notas operacionais
+
+- A configuração Unitel Money continua opcional: se não estiver activa, o passo Push USSD faz fallback (já tratado pela edge function `unitel-money-payment`, devolve 200 com `fallback: true`).
+- Auditoria: registar `audit_logs` com `action='otp_sent'` e `action='otp_verified'`.
+
+---
+
+## Pergunta antes de implementar
+
+O envio do SMS do OTP requer um gateway. O sistema **já tem credenciais Unitel** (BuyGoods). Confirmas que devo usar o **mesmo endpoint Unitel para o envio de SMS** (será preciso adicionar o secret de SMS se for diferente), ou preferes que eu **simule o envio** numa primeira fase (OTP gravado em BD e mostrado em toast para o fornecedor — útil para testes) e a integração SMS fique para uma fase 2?
