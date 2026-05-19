@@ -269,6 +269,10 @@ const GestaoProvincias = () => {
           </p>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => refreshFarmerCounts(true)} disabled={refreshing}>
+            {refreshing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+            Actualizar contagens
+          </Button>
           <Button variant="outline" size="sm" className="gap-1.5" onClick={exportMunicipiosCSV}>
             <Download className="h-3.5 w-3.5" />
             Municípios CSV
