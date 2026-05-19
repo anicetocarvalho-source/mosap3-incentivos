@@ -1816,13 +1816,26 @@ const Patec = () => {
               </div>
             </div>
           </div>
+          {assignProgress && (
+            <div className="border-t pt-3 space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-medium">A atribuir... lote {assignProgress.batchesDone}/{assignProgress.batches}</span>
+                <span className="text-muted-foreground">{assignProgress.done}/{assignProgress.total}</span>
+              </div>
+              <Progress value={assignProgress.total ? (assignProgress.done / assignProgress.total) * 100 : 0} />
+              <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                <span className="flex items-center gap-1"><span className="inline-block w-2 h-2 rounded-full bg-success" />{assignProgress.success} sucesso</span>
+                <span className="flex items-center gap-1"><span className="inline-block w-2 h-2 rounded-full bg-destructive" />{assignProgress.failed} falhas</span>
+              </div>
+            </div>
+          )}
           <DialogFooter className="border-t pt-3">
-            <Button variant="outline" onClick={() => setRegionDialogOpen(false)}>Cancelar</Button>
+            <Button variant="outline" onClick={() => setRegionDialogOpen(false)} disabled={saving}>Cancelar</Button>
             <Button
               onClick={() => setRegionConfirmOpen(true)}
               disabled={saving || !regionPatecCode || regionTargetFarmers.length === 0 || patecsForSeason.length === 0}
             >
-              {saving ? "A atribuir..." : `Atribuir a ${regionTargetFarmers.length}`}
+              {saving ? (<><Loader2 className="w-4 h-4 mr-1 animate-spin" />A atribuir...</>) : `Atribuir a ${regionTargetFarmers.length}`}
             </Button>
           </DialogFooter>
         </DialogContent>
