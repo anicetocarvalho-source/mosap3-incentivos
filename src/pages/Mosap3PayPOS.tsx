@@ -1228,6 +1228,17 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
       toast.info("Operação OTP em curso. Aguarde…");
       return;
     }
+    // Lock persistente: se já existe uma verificação em curso para este OTP
+    // (mesmo após refresh), recusar nova tentativa.
+    if (otpId) {
+      try {
+        if (sessionStorage.getItem(`pos_otp_processing_${otpId}`)) {
+          toast.info("Verificação já em curso para este OTP. Aguarde a conclusão…");
+          setOtpProcessingLocked(true);
+          return;
+        }
+      } catch { /* noop */ }
+    }
     if (otpExpired || otpSecondsLeft === 0) {
       toast.error("Código expirado. Solicite um novo SMS antes de continuar.");
       return;
@@ -1239,6 +1250,8 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
     otpVerifyingRef.current = true;
     setOtpVerifying(true);
     setOtpStatus("verifying");
+    markOtpProcessing(otpId);
+
     try {
       // Idempotência: reutiliza chave gerada no sendOtp (resiste a refresh/duplo-clique).
       let idempotency_key: string | null = null;
