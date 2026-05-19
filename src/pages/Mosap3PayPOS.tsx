@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Monitor, Search, ShoppingCart, Plus, Minus, Trash2, CreditCard, User, Package, AlertTriangle, Check, Printer, Maximize, Minimize, Keyboard, Banknote, Smartphone, ArrowRightLeft, Settings2, Users } from "lucide-react";
+import { Monitor, Search, ShoppingCart, Plus, Minus, Trash2, CreditCard, User, Package, AlertTriangle, Check, Printer, Maximize, Minimize, Keyboard, Banknote, Smartphone, ArrowRightLeft, Settings2, Users, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -2126,8 +2126,11 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
       </Dialog>
 
       {/* OTP Dialog — verificação do agricultor antes do Push USSD Unitel Money */}
-      <Dialog open={otpDialogOpen} onOpenChange={(o) => { if (!otpVerifying) setOtpDialogOpen(o); }}>
-        <DialogContent>
+      <Dialog open={otpDialogOpen} onOpenChange={(o) => { if (otpStatus !== "sending" && otpStatus !== "verifying") setOtpDialogOpen(o); }}>
+        <DialogContent
+          onPointerDownOutside={(e) => { if (otpStatus === "sending" || otpStatus === "verifying") e.preventDefault(); }}
+          onEscapeKeyDown={(e) => { if (otpStatus === "sending" || otpStatus === "verifying") e.preventDefault(); }}
+        >
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               Verificação do Agricultor
@@ -2151,7 +2154,21 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
               })()}
             </DialogTitle>
           </DialogHeader>
-          <div className="space-y-3">
+          <div className="space-y-3 relative">
+            {/* Overlay de bloqueio durante envio/verificação */}
+            {(otpStatus === "sending" || otpStatus === "verifying") && (
+              <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-background/80 backdrop-blur-[1px] rounded-md">
+                <Loader2 className="h-8 w-8 text-primary animate-spin" />
+                <p className="text-sm font-medium text-foreground">
+                  {otpStatus === "sending" ? "A enviar SMS... por favor aguarde" : "A validar pagamento... não feche"}
+                </p>
+                <p className="text-xs text-muted-foreground max-w-[16rem] text-center">
+                  {otpStatus === "sending"
+                    ? "O código está a ser gerado e enviado para o telefone do agricultor."
+                    : "O pagamento está a ser processado. Interromper pode causar inconsistências."}
+                </p>
+              </div>
+            )}
             <p className="text-sm text-muted-foreground">
               Foi enviado um código de 6 dígitos por SMS para <strong className="text-foreground">{otpMaskedPhone || farmer?.phone}</strong>.
               Peça ao agricultor o código e introduza-o abaixo. Após validação será enviado um <em>Push USSD</em> para o agricultor confirmar o pagamento com o PIN Unitel Money.
@@ -2177,7 +2194,7 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
                 maxLength={6}
                 autoFocus
                 value={otpCode}
-                disabled={otpExpired || otpSecondsLeft === 0}
+                disabled={otpExpired || otpSecondsLeft === 0 || otpStatus === "sending" || otpStatus === "verifying"}
                 onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
                 className="w-full text-center text-3xl tracking-[0.6em] font-mono py-3 rounded-md border bg-background disabled:opacity-50 disabled:cursor-not-allowed"
                 placeholder="••••••"
@@ -2204,13 +2221,13 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setOtpDialogOpen(false)} disabled={otpVerifying}>Cancelar</Button>
+            <Button variant="outline" onClick={() => setOtpDialogOpen(false)} disabled={otpStatus === "sending" || otpStatus === "verifying"}>Cancelar</Button>
             {otpExpired || otpSecondsLeft === 0 ? (
-              <Button onClick={sendOtp} disabled={otpSending} className="bg-[hsl(45,70%,40%)] text-[hsl(220,20%,10%)] hover:bg-[hsl(45,75%,45%)]">
+              <Button onClick={sendOtp} disabled={otpSending || otpStatus === "verifying"} className="bg-[hsl(45,70%,40%)] text-[hsl(220,20%,10%)] hover:bg-[hsl(45,75%,45%)]">
                 {otpSending ? "A reenviar..." : "Gerar novo OTP"}
               </Button>
             ) : (
-              <Button onClick={verifyOtpAndPay} disabled={otpVerifying || otpCode.length !== 6}>
+              <Button onClick={verifyOtpAndPay} disabled={otpVerifying || otpStatus === "sending" || otpCode.length !== 6}>
                 {otpVerifying ? "A validar..." : "Validar e Pagar"}
               </Button>
             )}
