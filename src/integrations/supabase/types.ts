@@ -1507,6 +1507,51 @@ export type Database = {
         }
         Relationships: []
       }
+      pos_payment_otps: {
+        Row: {
+          amount: number
+          attempts: number
+          code_hash: string
+          created_at: string
+          created_by: string | null
+          expires_at: string
+          farmer_code: string
+          id: string
+          phone: string
+          status: string
+          supplier_id: string
+          used_at: string | null
+        }
+        Insert: {
+          amount?: number
+          attempts?: number
+          code_hash: string
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string
+          farmer_code: string
+          id?: string
+          phone: string
+          status?: string
+          supplier_id: string
+          used_at?: string | null
+        }
+        Update: {
+          amount?: number
+          attempts?: number
+          code_hash?: string
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string
+          farmer_code?: string
+          id?: string
+          phone?: string
+          status?: string
+          supplier_id?: string
+          used_at?: string | null
+        }
+        Relationships: []
+      }
       pos_sale_items: {
         Row: {
           created_at: string
