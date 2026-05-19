@@ -1285,6 +1285,7 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
         return;
       }
       if (data.idempotent_replay) {
+        setOtpIdempotentReplay(true);
         toast.info("Pagamento já validado (resposta idempotente).");
       }
       setOtpStatus("verified");
