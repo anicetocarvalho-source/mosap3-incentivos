@@ -18,6 +18,7 @@ import { TableRowsSkeleton, CardListSkeleton } from "@/components/ui/loading-ske
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { resolveScope, applyFarmerScopeFilter, type ResolvedScope } from "@/lib/farmerScope";
