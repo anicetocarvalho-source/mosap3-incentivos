@@ -1079,6 +1079,8 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
     }
     setOtpSending(true);
     setOtpCode("");
+    setOtpExpired(false);
+    otpExpiryNotifiedRef.current = false;
     try {
       const { data, error } = await supabase.functions.invoke("pos-otp-send", {
         body: {
