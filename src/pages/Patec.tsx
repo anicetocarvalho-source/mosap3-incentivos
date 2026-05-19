@@ -510,23 +510,38 @@ const Patec = () => {
     filterProvince === "all" || f.province === filterProvince
   );
 
+  // Resolve PATEC do filtro (pode ser código novo ou legacy 1/2/3)
+  const filterPatecResolved = filterPatec === "all" || filterPatec === "none"
+    ? null
+    : patecs.find((p) => p.code === filterPatec || String(p.legacy_number) === filterPatec) ?? null;
+
   const filtered = farmersByProvince.filter((f) => {
     const matchesSearch =
       f.full_name.toLowerCase().includes(search.toLowerCase()) ||
       f.code.toLowerCase().includes(search.toLowerCase());
     const matchesPatec =
       filterPatec === "all" ||
-      (filterPatec === "none" && !f.patec) ||
-      String(f.patec) === filterPatec;
+      (filterPatec === "none" && !f.patec && !f.patec_code) ||
+      (filterPatecResolved &&
+        (f.patec_code === filterPatecResolved.code ||
+          (f.patec_code == null && filterPatecResolved.legacy_number != null && f.patec === filterPatecResolved.legacy_number)));
     return matchesSearch && matchesPatec;
   });
 
+  // Contagens dinâmicas por pacote (suporta atribuição por patec_code ou legacy patec)
+  const countsByCode: Record<string, number> = {};
+  for (const p of patecs) countsByCode[p.code] = 0;
+  let semPatecCount = 0;
+  for (const f of farmersByProvince) {
+    const matched = findPatecByFarmer(f.patec_code, f.patec);
+    if (matched) countsByCode[matched.code] = (countsByCode[matched.code] || 0) + 1;
+    else if (!f.patec_code && !f.patec) semPatecCount++;
+    else semPatecCount++; // patec_code/legacy desconhecido → tratar como sem PATEC válido
+  }
   const stats = {
     total: farmersByProvince.length,
-    patec1: farmersByProvince.filter((f) => f.patec === 1).length,
-    patec2: farmersByProvince.filter((f) => f.patec === 2).length,
-    patec3: farmersByProvince.filter((f) => f.patec === 3).length,
-    semPatec: farmersByProvince.filter((f) => !f.patec).length,
+    semPatec: semPatecCount,
+    assigned: farmersByProvince.length - semPatecCount,
   };
 
   const handleSavePatec = async () => {
