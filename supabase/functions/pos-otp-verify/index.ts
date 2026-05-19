@@ -41,6 +41,9 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const otp_id = String(body.otp_id || "").trim();
     const code = String(body.code || "").trim();
+    const idempotency_key = body.idempotency_key
+      ? String(body.idempotency_key).trim().slice(0, 100)
+      : null;
 
     if (!otp_id || !/^\d{6}$/.test(code)) {
       return json({ success: false, error: "Código OTP inválido.", reason: "invalid_input" }, 400);
@@ -56,6 +59,17 @@ Deno.serve(async (req) => {
 
     if (selErr || !otp) {
       return json({ success: false, error: "OTP não encontrado.", reason: "not_found" }, 404);
+    }
+
+    // Idempotência: se a mesma chave já foi usada com sucesso neste OTP,
+    // devolvemos o resultado em cache em vez de processar novamente.
+    if (
+      idempotency_key &&
+      otp.idempotency_key === idempotency_key &&
+      otp.status === "usado" &&
+      otp.last_result
+    ) {
+      return json({ ...(otp.last_result as Record<string, unknown>), idempotent_replay: true });
     }
 
     if (otp.status === "usado") {
