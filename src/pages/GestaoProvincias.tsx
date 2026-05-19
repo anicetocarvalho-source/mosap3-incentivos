@@ -299,7 +299,7 @@ const GestaoProvincias = () => {
         {filtered.map((prov) => {
           const provMunicipalities = getMunicipalitiesByProvince(prov.id);
           const provSchools = getSchoolsByProvince(prov.id);
-          const provFarmers = provSchools.reduce((a, s) => a + s.total_farmers, 0);
+          const provFarmers = countFarmersForProvince(prov);
           return (
             <Card
               key={prov.id}
