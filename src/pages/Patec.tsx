@@ -680,24 +680,39 @@ const Patec = () => {
     }
     setSaving(true);
     const ids = regionTargetFarmers.map((f) => f.id);
-    let errorCount = 0;
+    const scopeLabel =
+      regionScope === "provincia" ? "Províncias" : regionScope === "municipio" ? "Municípios" : "Escolas";
+    const totalBatches = Math.ceil(ids.length / 50);
+    const progress: AssignProgress = { total: ids.length, done: 0, success: 0, failed: 0, batches: totalBatches, batchesDone: 0, errors: [] };
+    setAssignProgress({ ...progress });
     for (let i = 0; i < ids.length; i += 50) {
       const batch = ids.slice(i, i + 50);
       const { error } = await supabase
         .from("farmers")
         .update({ patec_code: selected.code, patec: selected.legacy_number ?? null })
         .in("id", batch);
-      if (error) errorCount++;
+      progress.done += batch.length;
+      progress.batchesDone += 1;
+      if (error) {
+        progress.failed += batch.length;
+        progress.errors.push(`Lote ${progress.batchesDone}/${totalBatches} (${batch.length}): ${error.message}`);
+      } else {
+        progress.success += batch.length;
+      }
+      setAssignProgress({ ...progress });
     }
     setSaving(false);
     setRegionConfirmOpen(false);
     setRegionDialogOpen(false);
     setRegionValues([]);
     setRegionPatecCode("");
-    if (errorCount > 0) {
-      toast.error("Erro ao atribuir PATEC a alguns produtores");
+    setAssignProgress(null);
+    setAssignReport({ ...progress, patecCode: selected.code, scope: `${scopeLabel}: ${regionValues.join(", ") || "—"}` });
+    setAssignReportOpen(true);
+    if (progress.failed > 0) {
+      toast.error(`${progress.success}/${progress.total} atribuídos · ${progress.failed} falharam`);
     } else {
-      toast.success(`${selected.code} atribuído a ${ids.length} produtor(es)`);
+      toast.success(`${selected.code} atribuído a ${progress.success} produtor(es)`);
     }
     scope && fetchFarmers(scope);
   };
