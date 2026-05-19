@@ -1203,8 +1203,21 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
     setOtpVerifying(true);
     setOtpStatus("verifying");
     try {
+      // Idempotência: reutiliza chave gerada no sendOtp (resiste a refresh/duplo-clique).
+      let idempotency_key: string | null = null;
+      try {
+        const storageKey = `pos_otp_idem_${otpId}`;
+        idempotency_key = sessionStorage.getItem(storageKey);
+        if (!idempotency_key) {
+          idempotency_key =
+            (crypto as Crypto & { randomUUID?: () => string }).randomUUID?.() ||
+            `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+          sessionStorage.setItem(storageKey, idempotency_key);
+        }
+      } catch { /* sessionStorage indisponível */ }
+
       const { data, error } = await supabase.functions.invoke("pos-otp-verify", {
-        body: { otp_id: otpId, code: otpCode },
+        body: { otp_id: otpId, code: otpCode, idempotency_key },
       });
       if (error || !data?.success) {
         toast.error(data?.error || error?.message || "Código inválido.");
@@ -1217,8 +1230,13 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
         }
         return;
       }
+      if (data.idempotent_replay) {
+        toast.info("Pagamento já validado (resposta idempotente).");
+      }
       setOtpStatus("verified");
       setOtpDialogOpen(false);
+      // Limpa chave de idempotência — o OTP foi consumido.
+      try { sessionStorage.removeItem(`pos_otp_idem_${otpId}`); } catch { /* */ }
       setOtpId(null);
       setOtpCode("");
       setOtpDevCode(null);
