@@ -148,6 +148,7 @@ const App = () => (
             <Route index element={<FornecedorDashboard />} />
             <Route path="produtos" element={<FornecedorProdutos />} />
             <Route path="stock" element={<FornecedorStock />} />
+            <Route path="precos" element={<FornecedorPrecosStock />} />
             <Route path="pos" element={<FornecedorPOS />} />
             <Route path="pos/venda" element={<FornecedorPOSVenda />} />
             <Route path="vendas" element={<FornecedorVendas />} />
