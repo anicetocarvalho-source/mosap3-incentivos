@@ -1,35 +1,49 @@
 ## Resumo
 
-Adicionar `src/test/provincias-parity.test.ts` que valida que os totais de Produtores na página `/provincias` (RPC `get_farmer_counts_by_location`) batem certo com:
-- `dashboard_kpis.total_farmers` (Dashboard)
-- `fetchAllPages` sobre `farmers` com `includeRemoved: true` (Lista de Agricultores em modo Admin)
+Dois melhoramentos na página `/patec`, separador **Atribuição**:
 
-Para o mesmo dataset e mesmo "filtro" (escopo global Admin, incluindo Removidos — regra canónica do projecto).
+1. **UX do popup de atribuição individual** — quando o PATEC tem muitos itens (composição grande) o conteúdo cresce e o diálogo deixa de ser navegável. Tornar o `DialogContent` scrollável e isolar a composição num bloco com altura máxima + scroll próprio. Adicionar atalho "Ver composição completa" que reaproveita o `PatecCompositionDialog` já existente.
 
-## Ficheiro novo
+2. **Atribuição em massa por Província / Município / Escola (ECA)** — novo botão na barra de filtros que abre um diálogo dedicado para atribuir um PATEC a todos os produtores de uma região, sem precisar de seleccionar linha a linha.
 
-`src/test/provincias-parity.test.ts`
+## Alterações
 
-Segue exactamente o padrão de `dashboard-list-parity.test.ts`:
+### Ficheiro: `src/pages/Patec.tsx`
 
-1. **Dataset partilhado** — reutiliza a mesma forma (`ATIVOS=138` + `REMOVIDOS=14` = 152). Atribui `province / municipality / school` aleatórios mas determinísticos a cada linha para podermos validar agregação por escola.
-2. **Mock `supabase`** com:
-   - `from('farmers')` igual ao existente (suporta `.neq` Removido para o cenário "Lista").
-   - `rpc('dashboard_kpis')` devolve `total_farmers = DATASET.length`.
-   - `rpc('get_farmer_counts_by_location')` agrega o dataset por `(province, municipality, school)` normalizados com `trim + lower` (replicando a função SQL) e devolve `[{ province, municipality, school, total }]`.
-3. **Testes**:
-   - **`get_farmer_counts_by_location` soma == DATASET.length** (inclui Removidos).
-   - **Soma das contagens == `dashboard_kpis.total_farmers`** — paridade `/provincias` ↔ Dashboard.
-   - **Soma das contagens == `fetchAllPages(farmers, includeRemoved:true)`** — paridade `/provincias` ↔ Lista (Admin).
-   - **Soma por província na RPC == soma equivalente derivada do dataset bruto** — garante que o agregado server-side não perde linhas (ex.: nulls).
-   - **Província só com Removidos aparece nas contagens** — garante que nunca alguém volta a filtrar `Removido` na RPC.
+#### A. Popup de atribuição individual (Edit Dialog ~ linhas 1370–1430)
+- `<DialogContent className="max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">`.
+- Envolver o corpo num `<div className="flex-1 overflow-y-auto pr-1">` para permitir scroll quando a composição é grande.
+- Cartão de composição: `max-h-[40vh] overflow-y-auto` e adicionar botão "Ver composição completa" que abre `PatecCompositionDialog` com o PATEC seleccionado (estado já existe: `compositionPatec`).
+- `DialogFooter` fica fixo (fora do bloco scrollável).
 
-## Sem alterações
+#### B. Novo dialog "Atribuir por região"
+- Botão adicional na zona de filtros (linha ~1234), à direita do Select de PATEC: `Atribuir por região` (`MapPin` icon, variant `outline`, `size sm`).
+- Estado novo:
+  - `regionDialogOpen: boolean`
+  - `regionScope: "provincia" | "municipio" | "escola"` (default `provincia`)
+  - `regionValues: string[]` (multi-select)
+  - `regionPatecCode: string`
+  - `regionOverwrite: boolean` (default `false`) — se `false`, só atribui a quem ainda **não tem** PATEC; se `true`, substitui também os já atribuídos.
+- Opções derivadas de `farmers` carregados (respeitando o scope do utilizador, já presente):
+  - Províncias: `Array.from(new Set(farmers.map(f => f.province)))`.
+  - Municípios: idem para `f.municipality`, filtrados pelas províncias seleccionadas (se houver).
+  - Escolas: idem para `f.school`, filtradas por município/província.
+- Pré-visualização: contagem dos produtores afectados com a regra de overwrite aplicada (`x produtores serão actualizados`).
+- Confirmação: usa o mesmo padrão de `handleBulkSave` (lotes de 50, `validatePatecAssignment`, refetch, toast). Função nova `handleRegionAssign()`.
+- PATEC seleccionável: usa `patecsForSeason` (mesma regra da época).
 
-- Sem mudanças em ficheiros de produção, hooks ou SQL.
-- Apenas um ficheiro de teste novo.
+#### C. Mensagens / acessibilidade
+- Mensagens em PT-AO.
+- `aria-label` nos selects/checkboxes.
+
+### Sem alterações
+- Sem mudanças na BD nem em RPCs (reutiliza `farmers.update` por lotes).
+- Sem mudanças noutras páginas.
 
 ## Critérios de aceitação
 
-- `bunx vitest run src/test/provincias-parity.test.ts` passa.
-- Se alguém alterar a RPC para excluir Removidos ou mudar a normalização, pelo menos um teste falha.
+- No diálogo individual com um PATEC grande (PATEC-01..10), é possível fazer scroll dentro do popup e o `Guardar/Cancelar` permanece visível.
+- Existe botão "Ver composição completa" no popup individual que abre o `PatecCompositionDialog`.
+- Botão "Atribuir por região" abre diálogo com selecção de Província/Município/Escola (multi-select), pré-visualização da contagem, escolha de PATEC e opção "Substituir atribuições existentes".
+- Ao confirmar, todos os produtores correspondentes recebem o PATEC (lotes de 50). Toast de sucesso/erro e refetch automático.
+- Respeita scope (Sénior/Júnior/Extensionista só vê e altera os seus produtores) — basta operar sobre `farmers` já carregados em memória, que já passam por `applyFarmerScopeFilter`.
