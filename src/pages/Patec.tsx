@@ -628,6 +628,52 @@ const Patec = () => {
     scope && fetchFarmers(scope);
   };
 
+  // Region bulk assign: target farmers by Província / Município / Escola
+  const regionTargetFarmers = (() => {
+    if (regionValues.length === 0) return [];
+    const norm = (s: string | null | undefined) => (s || "").trim().toLowerCase();
+    const set = new Set(regionValues.map(norm));
+    return farmers.filter((f) => {
+      const key = regionScope === "provincia" ? f.province : regionScope === "municipio" ? f.municipality : f.school;
+      if (!set.has(norm(key))) return false;
+      if (!regionOverwrite && (f.patec_code || f.patec)) return false;
+      return true;
+    });
+  })();
+
+  const handleRegionAssign = async () => {
+    if (!regionPatecCode || regionTargetFarmers.length === 0) return;
+    const selected = patecs.find((p) => p.code === regionPatecCode);
+    if (!selected) return;
+    const guard = validatePatecAssignment(selected, patecsForSeason);
+    if (!guard.ok) {
+      toast.error(guard.message);
+      return;
+    }
+    setSaving(true);
+    const ids = regionTargetFarmers.map((f) => f.id);
+    let errorCount = 0;
+    for (let i = 0; i < ids.length; i += 50) {
+      const batch = ids.slice(i, i + 50);
+      const { error } = await supabase
+        .from("farmers")
+        .update({ patec_code: selected.code, patec: selected.legacy_number ?? null })
+        .in("id", batch);
+      if (error) errorCount++;
+    }
+    setSaving(false);
+    setRegionConfirmOpen(false);
+    setRegionDialogOpen(false);
+    setRegionValues([]);
+    setRegionPatecCode("");
+    if (errorCount > 0) {
+      toast.error("Erro ao atribuir PATEC a alguns produtores");
+    } else {
+      toast.success(`${selected.code} atribuído a ${ids.length} produtor(es)`);
+    }
+    scope && fetchFarmers(scope);
+  };
+
   // Random redistribution (admin only)
   const [randomConfirmOpen, setRandomConfirmOpen] = useState(false);
   const [randomReport, setRandomReport] = useState<null | {
