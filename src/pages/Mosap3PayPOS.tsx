@@ -1075,12 +1075,18 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
 
   // ===== OTP helpers (definidos após processSale para evitar uso antes da declaração) =====
   const sendOtp = async () => {
+    if (otpSendingRef.current || otpVerifyingRef.current) {
+      toast.info("Operação OTP em curso. Aguarde…");
+      return;
+    }
     if (!farmer || !selectedSupplierId) return;
     if (!farmer.phone) {
       toast.error("Agricultor sem telefone — pagamento por OTP indisponível.");
       return;
     }
+    otpSendingRef.current = true;
     setOtpSending(true);
+    setOtpStatus("sending");
     setOtpCode("");
     setOtpExpired(false);
     otpExpiryNotifiedRef.current = false;
@@ -1095,6 +1101,7 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
       });
       if (error || !data?.success) {
         toast.error(data?.error || error?.message || "Falha ao enviar OTP.");
+        setOtpStatus("failed");
         return;
       }
       setOtpId(data.otp_id);
@@ -1103,6 +1110,7 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
       setOtpDevCode(data.dev_code || null);
       setConfirmOpen(false);
       setOtpDialogOpen(true);
+      setOtpStatus("sent");
       if (data.dev_code) {
         toast.info(`Modo dev: OTP do agricultor = ${data.dev_code}`, { duration: 10000 });
       } else if (data.sms_sent) {
@@ -1110,12 +1118,18 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
       }
     } catch (e) {
       toast.error((e as Error)?.message || "Erro ao enviar OTP.");
+      setOtpStatus("failed");
     } finally {
+      otpSendingRef.current = false;
       setOtpSending(false);
     }
   };
 
   const verifyOtpAndPay = async () => {
+    if (otpVerifyingRef.current || otpSendingRef.current) {
+      toast.info("Operação OTP em curso. Aguarde…");
+      return;
+    }
     if (otpExpired || otpSecondsLeft === 0) {
       toast.error("Código expirado. Solicite um novo SMS antes de continuar.");
       return;
@@ -1124,7 +1138,9 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
       toast.error("Introduza o código de 6 dígitos.");
       return;
     }
+    otpVerifyingRef.current = true;
     setOtpVerifying(true);
+    setOtpStatus("verifying");
     try {
       const { data, error } = await supabase.functions.invoke("pos-otp-verify", {
         body: { otp_id: otpId, code: otpCode },
@@ -1134,9 +1150,13 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
         if (data?.reason === "expired" || data?.reason === "locked") {
           setOtpExpired(true);
           setOtpExpiresAt(null);
+          setOtpStatus("expired");
+        } else {
+          setOtpStatus("failed");
         }
         return;
       }
+      setOtpStatus("verified");
       setOtpDialogOpen(false);
       setOtpId(null);
       setOtpCode("");
@@ -1144,10 +1164,13 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
       await processSale();
     } catch (e) {
       toast.error((e as Error)?.message || "Erro ao validar OTP.");
+      setOtpStatus("failed");
     } finally {
+      otpVerifyingRef.current = false;
       setOtpVerifying(false);
     }
   };
+
 
 
 
