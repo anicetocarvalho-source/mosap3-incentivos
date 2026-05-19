@@ -1128,7 +1128,10 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
       });
       if (error || !data?.success) {
         toast.error(data?.error || error?.message || "Código inválido.");
-        if (data?.reason === "expired" || data?.reason === "locked") setOtpId(null);
+        if (data?.reason === "expired" || data?.reason === "locked") {
+          setOtpExpired(true);
+          setOtpExpiresAt(null);
+        }
         return;
       }
       setOtpDialogOpen(false);
