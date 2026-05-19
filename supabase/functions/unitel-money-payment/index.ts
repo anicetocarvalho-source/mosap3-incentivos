@@ -331,9 +331,12 @@ Deno.serve(async (req) => {
   } catch (error: unknown) {
     console.error("Unitel Money error:", error);
     const msg = error instanceof Error ? error.message : "Erro desconhecido";
-    return new Response(JSON.stringify({ error: msg }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    const notConfigured = /não estão activados|não configurados|incompletas/i.test(msg);
+    // Return 200 with structured fallback so the client handles gracefully
+    // (avoids FunctionsHttpError / blank-screen runtime error in POS).
+    return new Response(
+      JSON.stringify({ success: false, error: msg, fallback: true, not_configured: notConfigured }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
   }
 });
