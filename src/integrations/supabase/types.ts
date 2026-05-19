@@ -1517,6 +1517,8 @@ export type Database = {
           expires_at: string
           farmer_code: string
           id: string
+          idempotency_key: string | null
+          last_result: Json | null
           phone: string
           status: string
           supplier_id: string
@@ -1531,6 +1533,8 @@ export type Database = {
           expires_at?: string
           farmer_code: string
           id?: string
+          idempotency_key?: string | null
+          last_result?: Json | null
           phone: string
           status?: string
           supplier_id: string
@@ -1545,6 +1549,8 @@ export type Database = {
           expires_at?: string
           farmer_code?: string
           id?: string
+          idempotency_key?: string | null
+          last_result?: Json | null
           phone?: string
           status?: string
           supplier_id?: string
