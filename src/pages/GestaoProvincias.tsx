@@ -203,7 +203,7 @@ const GestaoProvincias = () => {
     const escolasRows = schools.map((s) => {
       const prov = provinces.find((p) => p.id === s.province_id);
       const mun = municipalities.find((m) => m.id === s.municipality_id);
-      return `<tr><td>${prov?.name ?? ""}</td><td>${mun?.name ?? ""}</td><td>${s.name}</td><td>${s.technician ?? ""}</td><td>${s.total_farmers}</td><td>${s.status}</td></tr>`;
+      return `<tr><td>${prov?.name ?? ""}</td><td>${mun?.name ?? ""}</td><td>${s.name}</td><td>${s.technician ?? ""}</td><td>${countFarmersForSchool(s)}</td><td>${s.status}</td></tr>`;
     }).join("");
 
     printWindow.document.write(`<!DOCTYPE html><html><head><title>MOSAP3 — Projecto Mosap3</title>
