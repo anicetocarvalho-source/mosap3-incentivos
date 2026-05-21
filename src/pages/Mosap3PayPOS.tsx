@@ -1013,9 +1013,9 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
     setPatecBlock(null);
 
     setProcessing(true);
-    setPaymentStatus("processing");
+    setPaymentStatus(prepaid ? "paid" : "processing");
 
-    const saleCode = generateSaleCode();
+    const saleCode = prepaid?.saleCode || generateSaleCode();
     const { data: { user } } = await supabase.auth.getUser();
 
     try {
@@ -1033,7 +1033,9 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
           iva_total: cartIva,
           total: cartTotal,
           payment_method: kioskPayMethod || "unitel_money",
-          payment_status: "pendente",
+          payment_status: prepaid ? "pago" : "pendente",
+          unitel_transaction_id: prepaid?.conversationId ?? null,
+          payment_reference: prepaid?.conversationId ?? null,
           created_by: user?.id,
         }).select().single()).then((res) => {
           if (res.error) throw res.error;
