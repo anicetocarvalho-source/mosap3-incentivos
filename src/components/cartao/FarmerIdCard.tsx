@@ -56,13 +56,8 @@ const getInitials = (name: string) =>
     .join("")
     .toUpperCase() || "—";
 
-const getRegistroEstado = (status?: string) => {
-  const s = (status || "").toLowerCase();
-  if (s === "aprovado" || s === "ativo" || s === "validado") return "ATIVO";
-  if (s === "pendente") return "PENDENTE";
-  if (s === "removido" || s === "inativo") return "INATIVO";
-  return (status || "PENDENTE").toUpperCase();
-};
+
+
 
 const FarmerIdCard = forwardRef<HTMLDivElement, Props>(
   ({ farmer, cardToken, side = "both", scale = 1 }, ref) => {
