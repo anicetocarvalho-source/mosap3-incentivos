@@ -292,6 +292,15 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
     const t = setInterval(() => setOtpNowTick((n) => n + 1), 1000);
     return () => clearInterval(t);
   }, [otpDialogOpen]);
+
+  // Cooldown do botão "Reenviar SMS"
+  useEffect(() => {
+    if (otpResendCooldown <= 0) return;
+    const t = setInterval(() => {
+      setOtpResendCooldown((c) => Math.max(1, c - 1));
+    }, 1000);
+    return () => clearInterval(t);
+  }, [otpResendCooldown]);
   const otpSecondsLeft = otpExpiresAt
     ? Math.max(0, Math.floor((new Date(otpExpiresAt).getTime() - Date.now()) / 1000))
     : 0;
