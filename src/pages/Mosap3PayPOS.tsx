@@ -2539,6 +2539,90 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
         </DialogContent>
       </Dialog>
 
+      {/* Wallet Dialog — STK Push do PIN da carteira Money do agricultor */}
+      <Dialog
+        open={walletDialogOpen}
+        onOpenChange={(o) => {
+          // Não permite fechar por click-outside enquanto aguardamos o PIN.
+          if (!o && (walletStatus === "connecting" || walletStatus === "awaiting_pin")) return;
+          setWalletDialogOpen(o);
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Smartphone className="h-5 w-5 text-primary" />
+              Confirmação na carteira Money
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <div className="rounded-lg border bg-muted/40 p-3 text-sm space-y-1">
+              <div className="flex justify-between"><span className="text-muted-foreground">Agricultor</span><span className="font-medium">{farmer?.full_name}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Telemóvel</span><span className="font-mono">{maskPhone(farmer?.phone)}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Total</span><span className="font-semibold">{cartTotal.toLocaleString("pt-AO")} Kz</span></div>
+            </div>
+
+            {walletStatus === "connecting" && (
+              <Alert>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <AlertTitle>A conectar à carteira Money…</AlertTitle>
+                <AlertDescription>A enviar pedido de confirmação para o telemóvel do agricultor.</AlertDescription>
+              </Alert>
+            )}
+
+            {walletStatus === "awaiting_pin" && (
+              <Alert className="border-primary/40">
+                <Smartphone className="h-4 w-4 text-primary" />
+                <AlertTitle>Aguardando PIN no telemóvel — {walletSecondsLeft}s</AlertTitle>
+                <AlertDescription>
+                  O agricultor recebeu um pedido no telemóvel. Peça-lhe para abrir a notificação Unitel Money e introduzir o PIN da carteira para autorizar o pagamento.
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {walletStatus === "paid" && (
+              <Alert className="border-success/40 bg-success/10">
+                <Check className="h-4 w-4 text-success" />
+                <AlertTitle>Pagamento confirmado</AlertTitle>
+                <AlertDescription>PIN aceite. A registar a venda…</AlertDescription>
+              </Alert>
+            )}
+
+            {walletStatus === "failed" && (
+              <Alert variant="destructive">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>Pagamento não concluído</AlertTitle>
+                <AlertDescription>{walletError || "O agricultor recusou ou ocorreu um erro na carteira Money."}</AlertDescription>
+              </Alert>
+            )}
+
+            {walletStatus === "timeout" && (
+              <Alert variant="destructive">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>Tempo esgotado</AlertTitle>
+                <AlertDescription>O agricultor não introduziu o PIN dentro do tempo limite.</AlertDescription>
+              </Alert>
+            )}
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-2">
+            {(walletStatus === "awaiting_pin" || walletStatus === "connecting") && (
+              <Button variant="outline" onClick={cancelWalletPayment}>Cancelar</Button>
+            )}
+            {(walletStatus === "failed" || walletStatus === "timeout") && (
+              <>
+                <Button variant="outline" onClick={() => { setWalletDialogOpen(false); setWalletStatus("idle"); }}>Fechar</Button>
+                <Button variant="outline" onClick={fallbackToManualSale}>Registar manual</Button>
+                <Button onClick={resendWalletPayment}>Reenviar pedido</Button>
+              </>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+
+
       {/* Receipt Dialog */}
       <Dialog open={receiptOpen} onOpenChange={setReceiptOpen}>
         <DialogContent>
