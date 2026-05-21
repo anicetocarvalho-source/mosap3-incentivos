@@ -109,6 +109,7 @@ const App = () => (
               <Route path="/patec" element={<Patec />} />
               <Route path="/mosap3pay" element={<Mosap3Pay />} />
               <Route path="/mosap3pay/fornecedores" element={<Mosap3PayFornecedores />} />
+              <Route path="/mosap3pay/fornecedores/aprovacoes" element={<RoleGuard allowedRoles={["admin"]}><Mosap3PayFornecedoresPendentes /></RoleGuard>} />
               <Route path="/mosap3pay/pos" element={<Mosap3PayPOS />} />
               <Route path="/mosap3pay/vendas" element={<Mosap3PayVendas />} />
               <Route path="/mosap3pay/painel-vendas" element={<Mosap3PayPainelVendas />} />
