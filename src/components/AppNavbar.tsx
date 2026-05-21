@@ -106,6 +106,7 @@ export const navItems: NavItem[] = [
     children: [
       { label: "Dashboard", path: "/mosap3pay", icon: CreditCard },
       { label: "Fornecedores", path: "/mosap3pay/fornecedores", icon: Store },
+      { label: "Aprovação de Fornecedores", path: "/mosap3pay/fornecedores/aprovacoes", icon: ShieldCheck, adminOnly: true },
       { label: "Terminal POS", path: "/mosap3pay/pos", icon: Monitor },
      { label: "Vendas", path: "/mosap3pay/vendas", icon: ShoppingCart },
      { label: "Painel de Vendas", path: "/mosap3pay/painel-vendas", icon: BarChart3 },
