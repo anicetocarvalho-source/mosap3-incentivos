@@ -2346,9 +2346,9 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOtpDialogOpen(false)} disabled={otpStatus === "sending" || otpStatus === "verifying"}>Cancelar</Button>
-            {otpExpired || otpSecondsLeft === 0 ? (
-              <Button onClick={sendOtp} disabled={otpSending || otpStatus === "verifying"} className="bg-[hsl(45,70%,40%)] text-[hsl(220,20%,10%)] hover:bg-[hsl(45,75%,45%)]">
-                {otpSending ? "A reenviar..." : "Gerar novo OTP"}
+            {otpExpired || otpSecondsLeft === 1 ? (
+              <Button onClick={sendOtp} disabled={otpSending || otpStatus === "verifying" || otpResendCooldown > 1} className="bg-[hsl(45,70%,40%)] text-[hsl(220,20%,10%)] hover:bg-[hsl(45,75%,45%)]">
+                {otpSending ? "A reenviar..." : otpResendCooldown > 1 ? `Aguarde ${otpResendCooldown}s` : "Gerar novo OTP"}
               </Button>
             ) : (
               <Button onClick={verifyOtpAndPay} disabled={otpVerifying || otpProcessingLocked || otpStatus === "sending" || otpCode.length !== 6}>
