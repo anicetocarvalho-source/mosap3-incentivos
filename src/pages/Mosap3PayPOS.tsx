@@ -1132,7 +1132,7 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
       iva_total: cartIva,
       total: cartTotal,
       payment_method: "unitel_money",
-      payment_status: "pendente",
+      payment_status: prepaid ? "pago" : "pendente",
       items: cart.map((c) => ({
         product_name: c.product.name,
         quantity: c.quantity,
@@ -1147,8 +1147,11 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
     setInvoiceHash(hash);
     setInvoiceQR(buildQRContent(invoiceInfo, hash));
 
-    // Try Unitel Money payment
-    if (farmer.phone) {
+    if (prepaid) {
+      // Pagamento já confirmado pela carteira Money antes de gravar a venda.
+      setPaymentStatus("paid");
+    } else if (farmer.phone) {
+      // Caminho legacy (sem fluxo de carteira): inicia pagamento e faz polling.
       try {
         const { data: payRes, error: payErr } = await supabase.functions.invoke("unitel-money-payment", {
           body: {
@@ -1167,7 +1170,6 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
         } else {
           toast.info("Pagamento Unitel Money iniciado. Aguardando confirmação...");
           setPaymentStatus("polling");
-          // Start polling for payment status
           pollPaymentStatus(sale.id, payRes.conversation_id);
         }
       } catch (e) {
@@ -1179,6 +1181,7 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
       toast.warning("Produtor sem telefone — pagamento manual necessário.");
       setPaymentStatus("idle");
     }
+
 
     setProcessing(false);
     setConfirmOpen(false);
