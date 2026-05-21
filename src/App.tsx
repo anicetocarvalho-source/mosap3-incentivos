@@ -39,6 +39,7 @@ import RevisaoInferencias from "@/pages/RevisaoInferencias";
 import RelatorioSnapshots from "@/pages/RelatorioSnapshots";
 import Mosap3Pay from "@/pages/Mosap3Pay";
 import Mosap3PayFornecedores from "@/pages/Mosap3PayFornecedores";
+import Mosap3PayFornecedoresPendentes from "@/pages/Mosap3PayFornecedoresPendentes";
 import Mosap3PayPOS from "@/pages/Mosap3PayPOS";
 import Mosap3PayVendas from "@/pages/Mosap3PayVendas";
 import Mosap3PayPainelVendas from "@/pages/Mosap3PayPainelVendas";
@@ -109,6 +110,7 @@ const App = () => (
               <Route path="/patec" element={<Patec />} />
               <Route path="/mosap3pay" element={<Mosap3Pay />} />
               <Route path="/mosap3pay/fornecedores" element={<Mosap3PayFornecedores />} />
+              <Route path="/mosap3pay/fornecedores/aprovacoes" element={<RoleGuard allowedRoles={["admin"]}><Mosap3PayFornecedoresPendentes /></RoleGuard>} />
               <Route path="/mosap3pay/pos" element={<Mosap3PayPOS />} />
               <Route path="/mosap3pay/vendas" element={<Mosap3PayVendas />} />
               <Route path="/mosap3pay/painel-vendas" element={<Mosap3PayPainelVendas />} />

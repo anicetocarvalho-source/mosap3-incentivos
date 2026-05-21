@@ -34,6 +34,7 @@ import {
   Wand2,
   AlertTriangle,
   Sparkles,
+  ShieldCheck,
 } from "lucide-react";
 import { mosapLogo, LOGO_SIZES } from "@/config/brand";
 import { useAuth } from "@/hooks/useAuth";
@@ -52,7 +53,7 @@ type NavItem = {
   icon: any;
   label: string;
   path?: string;
-  children?: { label: string; path: string; icon?: any }[];
+  children?: { label: string; path: string; icon?: any; allowedRoles?: AppRole[] }[];
   allowedRoles?: AppRole[];
   sidebar?: boolean;
   moduleName?: string;
@@ -106,6 +107,7 @@ export const navItems: NavItem[] = [
     children: [
       { label: "Dashboard", path: "/mosap3pay", icon: CreditCard },
       { label: "Fornecedores", path: "/mosap3pay/fornecedores", icon: Store },
+      { label: "Aprovação de Fornecedores", path: "/mosap3pay/fornecedores/aprovacoes", icon: ShieldCheck, allowedRoles: ["admin"] },
       { label: "Terminal POS", path: "/mosap3pay/pos", icon: Monitor },
      { label: "Vendas", path: "/mosap3pay/vendas", icon: ShoppingCart },
      { label: "Painel de Vendas", path: "/mosap3pay/painel-vendas", icon: BarChart3 },
