@@ -196,18 +196,25 @@ Deno.test("OTP já em estado 'falhado' rejeita imediatamente sem incrementar ten
   assertEquals(writes.length, 0, "estado terminal não deve gerar escritas");
 });
 
-Deno.test("após reenvio (novo otp_id), o OTP antigo continua independente do novo", async () => {
-  // Simula sendOtp: criamos um segundo OTP novo após o primeiro ter sido usado/expirado.
-  const oldRow = await baseRow({ id: "otp-old", status: "expirado" });
+Deno.test("após reenvio: OTP antigo (status='expirado') devolve 409 'superseded' e o novo aceita o código", async () => {
+  // sendOtp marca todos os OTPs pendentes do agricultor como 'expirado' antes de inserir o novo.
+  // Mesmo que expires_at do antigo ainda esteja no futuro, o status terminal deve bloquear o uso.
+  const oldRow = await baseRow({
+    id: "otp-old",
+    status: "expirado",
+    expires_at: new Date(Date.now() + 5 * 60_000).toISOString(), // ainda dentro do TTL original
+  });
   const newRow = await baseRow({ id: "otp-new" });
 
   const oldStore = makeStore(oldRow);
   const newStore = makeStore(newRow);
 
-  // Tentar usar o antigo continua falhando (estado terminal — código não consumido novamente).
+  // Submeter o código antigo deve devolver 409 'superseded' e NÃO tocar no estado.
   const rOld = await verifyOtp(oldStore.store, { otp_id: "otp-old", code: CODE, idempotency_key: "k1" });
-  assert(rOld.status >= 400, "OTP antigo em estado terminal não deve devolver 200");
+  assertEquals(rOld.status, 409);
   assertEquals(rOld.body.success, false);
+  assertEquals(rOld.body.reason, "superseded");
+  assertEquals(oldStore.writes.length, 0, "OTP superseded não deve gerar escritas");
 
   // O novo OTP aceita o código correcto com nova chave de idempotência.
   const rNew = await verifyOtp(newStore.store, { otp_id: "otp-new", code: CODE, idempotency_key: "k2" });
