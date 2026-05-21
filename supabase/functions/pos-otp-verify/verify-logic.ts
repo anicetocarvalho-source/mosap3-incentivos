@@ -89,6 +89,12 @@ export async function verifyOtp(
   if (otp.status === "falhado") {
     return { status: 400, body: { success: false, error: "Demasiadas tentativas. Solicite um novo código.", reason: "locked" } };
   }
+  if (otp.status === "expirado") {
+    // Superseded by a resend (or explicitly expired by the send endpoint).
+    // We return 409 so the client knows the OTP is no longer the active one
+    // and must use the freshly-sent code, not just re-try the same input.
+    return { status: 409, body: { success: false, error: "Este código foi substituído por um novo. Use o código mais recente.", reason: "superseded" } };
+  }
   if (new Date(otp.expires_at).getTime() < now) {
     await store.update(otp_id, { status: "expirado" });
     return { status: 400, body: { success: false, error: "Código expirado. Solicite um novo.", reason: "expired" } };
