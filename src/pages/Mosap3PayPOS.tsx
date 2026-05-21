@@ -2106,14 +2106,24 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
                     <div className="flex-1">
                       <p className="font-semibold">{farmer.full_name}</p>
                       <p className="text-xs text-muted-foreground">Código: {farmer.code} • Tel: {farmer.phone || "—"}</p>
-                      {parcelSize && (
-                        <button
-                          onClick={() => setParcelDialogOpen(true)}
-                          className="text-[11px] text-primary hover:underline mt-1 inline-flex items-center gap-1"
-                          title="Alterar tamanho da parcela"
-                        >
-                          🌾 Parcela: <strong>{PARCEL_OPTIONS.find((p) => p.value === parcelSize)?.label}</strong> · Alterar
-                        </button>
+                      {farmer.patec && farmerBalance > 0 && (
+                        parcelSize ? (
+                          <button
+                            onClick={() => setParcelDialogOpen(true)}
+                            className="text-[11px] text-primary hover:underline mt-1 inline-flex items-center gap-1"
+                            title="Alterar tamanho da parcela"
+                          >
+                            🌾 Parcela: <strong>{PARCEL_OPTIONS.find((p) => p.value === parcelSize)?.label}</strong> · Alterar
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => setParcelDialogOpen(true)}
+                            className="mt-1 inline-flex items-center gap-1 rounded-md border border-warning bg-warning/10 px-2 py-0.5 text-[11px] font-medium text-warning-foreground hover:bg-warning/20"
+                            title="Definir tamanho da parcela"
+                          >
+                            🌾 Definir tamanho da parcela
+                          </button>
+                        )
                       )}
                     </div>
                     <div className="text-right">
