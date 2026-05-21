@@ -37,9 +37,11 @@ export interface FarmerDbRecord {
   total_gasto: string | null;
   saldo_final: string | null;
   patec: number | null;
+  registered_by: string | null;
   created_at: string;
   updated_at: string;
 }
+
 
 /**
  * Fetches farmer data from the database by code (e.g. "AGR-001").
@@ -76,6 +78,27 @@ export function useFarmerFromDb(code: string | undefined) {
     fetch();
     return () => { cancelled = true; };
   }, [code, fetchKey]);
+
+  // Fetch the extensionist (profile) who registered this farmer
+  const [registeredBy, setRegisteredBy] = useState<{ name: string | null; phone: string | null } | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    if (!farmer?.registered_by) { setRegisteredBy(null); return () => { cancelled = true; }; }
+    supabase
+      .from("profiles")
+      .select("full_name, phone")
+      .eq("user_id", farmer.registered_by)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (cancelled) return;
+        setRegisteredBy({
+          name: (data as any)?.full_name || null,
+          phone: (data as any)?.phone || null,
+        });
+      });
+    return () => { cancelled = true; };
+  }, [farmer?.registered_by]);
+
 
   // Sign photo URLs
   const [signedPhotos, setSignedPhotos] = useState<Record<string, string> | null>(null);
@@ -140,9 +163,12 @@ export function useFarmerFromDb(code: string | undefined) {
     school: farmer.school || "",
     status: farmer.status,
     registeredAt: formatDate(farmer.created_at),
+    registeredByName: registeredBy?.name || null,
+    registeredByPhone: registeredBy?.phone || null,
     photos: signedPhotos || undefined,
     biometrics: dbBiometrics,
   } : null;
+
 
   // Raw paths for reference
   const dbPhotos = farmer ? {

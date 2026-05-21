@@ -148,7 +148,23 @@ const CartaoIdLote = () => {
         return;
       }
 
+      // Pré-fetch dos extensionistas (nome + telefone) em uma única chamada
+      const uniqueRegisteredBy = Array.from(
+        new Set(successfulFarmers.map((f) => f.registered_by).filter(Boolean) as string[])
+      );
+      const registeredByMap = new Map<string, { name: string | null; phone: string | null }>();
+      if (uniqueRegisteredBy.length > 0) {
+        const { data: profs } = await supabase
+          .from("profiles")
+          .select("user_id, full_name, phone")
+          .in("user_id", uniqueRegisteredBy);
+        for (const p of (profs || []) as Array<{ user_id: string; full_name: string | null; phone: string | null }>) {
+          registeredByMap.set(p.user_id, { name: p.full_name, phone: p.phone });
+        }
+      }
+
       const container = renderContainerRef.current;
+
       if (!container) throw new Error("Container não encontrado");
 
       const cardElements: { front: HTMLElement; back: HTMLElement }[] = [];
@@ -173,15 +189,23 @@ const CartaoIdLote = () => {
 
         const { createRoot } = await import("react-dom/client");
 
+        const rb = f.registered_by ? registeredByMap.get(f.registered_by) : null;
         const farmerData: FarmerCardData = {
           code: f.code,
           full_name: f.full_name,
           province: f.province,
+          municipality: f.municipality,
+          school: f.school,
+          bi: f.bi,
+          phone: f.phone,
           status: f.status,
           patec: f.patec,
           valor_recebido: f.valor_recebido,
           saldo_final: f.saldo_final,
+          registered_by_name: rb?.name || null,
+          registered_by_phone: rb?.phone || null,
         };
+
 
         const frontRoot = createRoot(frontDiv);
         frontRoot.render(

@@ -46,7 +46,10 @@ const FarmerCardTab = ({ farmerCode, farmerInfo, signedPhotos }: Props) => {
     phone: farmerInfo?.phone,
     patec: null,
     status: farmerInfo?.status,
+    registered_by_name: farmerInfo?.registeredByName,
+    registered_by_phone: farmerInfo?.registeredByPhone,
   };
+
 
   const handleGenerate = async () => {
     await generateCard();

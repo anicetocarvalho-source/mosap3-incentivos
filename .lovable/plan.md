@@ -1,23 +1,61 @@
-## Problema
+# Ajustes ao Cartão de ID do Agricultor
 
-No POS (`/mosap3pay/pos`), depois de identificar e seleccionar o produtor:
+Alterações apenas visuais/dados, sem mexer em lógica de negócio.
 
-- Se o utilizador fechar o diálogo "Tamanho da parcela" sem escolher (ou se a selecção falhar), o cartão do produtor aparece **sem** opção visível para abrir o diálogo da parcela.
-- O botão "🌾 Parcela: … · Alterar" em `src/pages/Mosap3PayPOS.tsx` (linhas 2109-2117) só é renderizado quando `parcelSize` já tem valor.
-- A única forma de reabrir o diálogo nesse caso é clicar de novo no produtor nas sugestões — o que reinicia o fluxo.
+## 1. Frente do cartão — Cabeçalho MOSAP3
 
-## Correcção (apenas UI, sem alterar lógica de negócio)
+Atualmente o canto superior direito mostra logotipo MOSAP3 + texto "MOSAP3" + subtítulo "SISTEMA INTEGRADO DE GESTÃO AGRO FLORESTAL". É redundante.
 
-Editar `src/pages/Mosap3PayPOS.tsx` no bloco do cartão de produtor identificado:
+- Remover o bloco de texto ("MOSAP3" + subtítulo).
+- Manter apenas o logotipo, aumentado ligeiramente para ocupar o espaço vazio.
+- Empurrar o logotipo para a direita (alinhamento `justify-end`), ficando onde estava o texto.
 
-1. Mostrar **sempre** uma acção de parcela quando existe `farmer` (e ele tem PATEC e saldo > 0 — ou seja, quando o diálogo seria mesmo necessário):
-   - Sem `parcelSize`: botão em destaque "🌾 Definir tamanho da parcela" (estilo `text-primary` + sublinhado leve, ou variante `outline` pequeno), que abre `setParcelDialogOpen(true)`.
-   - Com `parcelSize`: o actual "🌾 Parcela: <label> · Alterar" mantém-se.
-2. Se o produtor não tem PATEC ou tem saldo ≤ 0, manter a mensagem actual sem o botão (a venda já está bloqueada).
-3. Garantir que o estado visual deixa claro que falta um passo: usar `text-warning` ou `border-warning` no estado "Definir" para chamar a atenção.
+## 2. Frente do cartão — Substituir "Tipo de Produtor" por ECA
 
-Sem mudanças em `selectFarmerFromSuggestion`, no diálogo, ou em qualquer lógica de cálculo de quantidades. Apenas tornar a entrada para o diálogo permanentemente acessível após identificação.
+No bloco central, o último campo é "TIPO DE PRODUTOR". Passará a mostrar:
 
-## Ficheiros tocados
+- Etiqueta: `ESCOLA DE CAMPO`
+- Valor: `farmer.school` (já disponível em `FarmerCardData`)
+- Fallback: `—` quando vazio.
 
-- `src/pages/Mosap3PayPOS.tsx` — apenas o bloco JSX do cartão de produtor identificado (~linhas 2103-2129).
+O campo `tipo_produtor` deixa de ser usado no cartão (mantém-se no tipo `FarmerCardData` por compatibilidade, sem leitura).
+
+## 3. Verso do cartão — Painel esquerdo verde
+
+Atualmente mostra: Data de Emissão, Data de Validade, Estado de Registo.
+
+- Remover o bloco "ESTADO DO REGISTO".
+- Adicionar no seu lugar um bloco **REGISTADO POR** com:
+  - Nome do extensionista (`profiles.full_name`)
+  - Telefone do extensionista (`profiles.phone`) por baixo, em fonte menor
+  - Fallback: `—` quando o agricultor não tem `registered_by` ou o perfil não foi encontrado.
+
+## 4. Obter dados do extensionista
+
+O `farmers.registered_by` é um `uuid` que aponta para `auth.users`. O nome e telefone vivem em `profiles` (via `profiles.user_id`).
+
+- Estender o tipo `FarmerCardData` com `registered_by_name?: string | null` e `registered_by_phone?: string | null`.
+- No hook `useFarmerCard` (e em qualquer outro consumidor — `CartaoIdLote`, `FarmerCardTab`), fazer uma consulta extra (ou join) que devolva o nome+telefone do perfil cujo `user_id = farmers.registered_by`. Caching simples em memória por uuid para evitar N+1 quando se geram cartões em lote.
+- Passar os campos para `FarmerIdCard`.
+
+## Detalhes técnicos
+
+**Ficheiros a editar:**
+- `src/components/cartao/FarmerIdCard.tsx` — alterações 1, 2, 3 (apresentação).
+- `src/components/cartao/FarmerCardTab.tsx` — preencher `registered_by_name`/`phone` a partir do `farmerInfo` (se já vier) ou via fetch.
+- `src/pages/CartaoIdLote.tsx` — idem, com batch fetch por lista de uuids únicos.
+- `src/hooks/useFarmerCard.ts` (ou onde se monta `farmerInfo`) — incluir `registered_by` + lookup em `profiles`.
+
+**Consulta tipo:**
+```sql
+select user_id, full_name, phone
+from profiles
+where user_id in (<uuids únicos dos registered_by>)
+```
+
+**Sem migrações de base de dados.** Nenhuma alteração de RLS, nenhum novo campo na BD.
+
+**QA visual:** após edição, validar com screenshot do `/agricultores/AGR-XXX` (separador Cartão ID) que:
+- Cabeçalho direito mostra só o logotipo MOSAP3 (mais à direita).
+- Campo ECA aparece em vez de Tipo de Produtor.
+- Verso mostra "Registado por: Nome / Telefone" e já não mostra "Estado de Registo".

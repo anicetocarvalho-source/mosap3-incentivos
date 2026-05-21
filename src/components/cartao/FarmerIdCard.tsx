@@ -19,7 +19,10 @@ export interface FarmerCardData {
   valor_recebido?: string | null;
   saldo_final?: string | null;
   tipo_produtor?: string | null;
+  registered_by_name?: string | null;
+  registered_by_phone?: string | null;
 }
+
 
 interface Props {
   farmer: FarmerCardData;
@@ -53,13 +56,8 @@ const getInitials = (name: string) =>
     .join("")
     .toUpperCase() || "—";
 
-const getRegistroEstado = (status?: string) => {
-  const s = (status || "").toLowerCase();
-  if (s === "aprovado" || s === "ativo" || s === "validado") return "ATIVO";
-  if (s === "pendente") return "PENDENTE";
-  if (s === "removido" || s === "inativo") return "INATIVO";
-  return (status || "PENDENTE").toUpperCase();
-};
+
+
 
 const FarmerIdCard = forwardRef<HTMLDivElement, Props>(
   ({ farmer, cardToken, side = "both", scale = 1 }, ref) => {
@@ -70,8 +68,11 @@ const FarmerIdCard = forwardRef<HTMLDivElement, Props>(
     validade.setFullYear(validade.getFullYear() + 5);
 
     const initials = getInitials(farmer.full_name);
-    const tipoProdutor = (farmer.tipo_produtor || "Pequeno Produtor").toUpperCase();
-    const estado = getRegistroEstado(farmer.status);
+    const escolaCampo = (farmer.school || "—").toUpperCase();
+    const registeredByName = farmer.registered_by_name || "—";
+    const registeredByPhone = farmer.registered_by_phone || "";
+
+
 
     const cardStyle: React.CSSProperties = {
       width: CARD_W * scale,
@@ -120,31 +121,16 @@ const FarmerIdCard = forwardRef<HTMLDivElement, Props>(
                   </div>
                 </div>
 
-                {/* Direita: MOSAP3 */}
-                <div className="flex items-center gap-1.5 min-w-0">
+                {/* Direita: MOSAP3 (apenas logotipo) */}
+                <div className="flex items-center justify-end flex-1 min-w-0">
                   <img
                     src={mosapLogoHorizontal}
                     alt="MOSAP3"
-                    className="h-7 object-contain flex-shrink-0"
+                    className="h-10 object-contain flex-shrink-0"
                   />
-                  <div className="leading-[1.05] min-w-0 text-right">
-                    <p
-                      className="text-[10px] font-extrabold tracking-[0.04em]"
-                      style={{ color: GREEN_INK }}
-                    >
-                      MOSAP3
-                    </p>
-                    <p
-                      className="text-[5px] font-semibold tracking-[0.05em]"
-                      style={{ color: GREEN_INK }}
-                    >
-                      SISTEMA INTEGRADO
-                      <br />
-                      DE GESTÃO AGRO FLORESTAL
-                    </p>
-                  </div>
                 </div>
               </div>
+
 
               {/* Faixa verde com título */}
               <div
@@ -215,12 +201,13 @@ const FarmerIdCard = forwardRef<HTMLDivElement, Props>(
                   </div>
                   <div>
                     <p className="text-[6px] tracking-[0.1em] text-muted-foreground font-semibold">
-                      TIPO DE PRODUTOR
+                      ESCOLA DE CAMPO
                     </p>
                     <p className="text-[8px] font-bold text-foreground truncate">
-                      {tipoProdutor}
+                      {escolaCampo}
                     </p>
                   </div>
+
                 </div>
 
                 {/* Bloco direito */}
@@ -339,10 +326,14 @@ const FarmerIdCard = forwardRef<HTMLDivElement, Props>(
                   <div>
                     <p className="text-[6px] tracking-[0.12em] font-semibold flex items-center gap-1 text-white/80">
                       <span style={{ color: GOLD }}>✓</span>
-                      ESTADO DO REGISTO
+                      REGISTADO POR
                     </p>
-                    <p className="text-[11px] font-bold mt-0.5">{estado}</p>
+                    <p className="text-[9px] font-bold mt-0.5 leading-tight truncate">{registeredByName}</p>
+                    {registeredByPhone && (
+                      <p className="text-[7.5px] font-mono mt-0.5 text-white/85">{registeredByPhone}</p>
+                    )}
                   </div>
+
                 </div>
 
                 <div className="pt-2 border-t border-white/15">
