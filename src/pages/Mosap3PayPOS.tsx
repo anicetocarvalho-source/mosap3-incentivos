@@ -812,7 +812,16 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
     const label = PARCEL_OPTIONS.find((p) => p.value === size)?.label;
     toast.success(`Parcela ${label} seleccionada`, {
       description: "As quantidades do PATEC serão calculadas automaticamente.",
-      duration: 3000,
+      duration: 8000,
+      action: {
+        label: "Desfazer",
+        onClick: () => {
+          setParcelSize(null);
+          setCart([]);
+          setParcelDialogOpen(true);
+          toast.info("Seleccione o tamanho correcto da parcela.");
+        },
+      },
     });
     if (patecItems.length > 0) {
       prefillCartFromPatec(patecItems, size);
