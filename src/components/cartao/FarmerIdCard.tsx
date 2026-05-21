@@ -19,7 +19,10 @@ export interface FarmerCardData {
   valor_recebido?: string | null;
   saldo_final?: string | null;
   tipo_produtor?: string | null;
+  registered_by_name?: string | null;
+  registered_by_phone?: string | null;
 }
+
 
 interface Props {
   farmer: FarmerCardData;
