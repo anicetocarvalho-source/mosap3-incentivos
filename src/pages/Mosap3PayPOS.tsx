@@ -1623,20 +1623,33 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
           {/* Product grid */}
           {selectedSupplierId && (
             <div className="flex-1 overflow-y-auto p-4">
+              {farmer?.patec && (
+                <div className="mb-3 flex items-center gap-2 text-[10px] text-[hsl(220,10%,55%)]">
+                  <Package className="h-3 w-3" />
+                  <span>Filtrado por <strong className="text-[hsl(45,90%,55%)]">{patecLabels[farmer.patec]}</strong></span>
+                </div>
+              )}
+              {farmer && !farmer.patec && (
+                <div className="mb-3 flex items-center gap-2 p-2 rounded-lg bg-[hsl(0,60%,12%)] border border-[hsl(0,70%,40%)] text-[hsl(0,70%,70%)] text-xs">
+                  <AlertTriangle className="h-3.5 w-3.5" />
+                  <span>Produtor sem PATEC atribuído — compras não permitidas.</span>
+                </div>
+              )}
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
                 {getKioskProducts().map((p) => {
                   const remaining = farmer ? getRemainingLimit(p) : Infinity;
                   const inCart = cart.find((c) => c.product.id === p.id);
+                  const noStock = p.stock === 0;
                   return (
                     <button
                       key={p.id}
-                      disabled={farmer ? remaining <= 0 : false}
-                      onClick={() => farmer ? (remaining > 0 && addToCart(p)) : toast.info("Identifique o cliente primeiro")}
+                      disabled={farmer ? (remaining <= 0 || noStock) : false}
+                      onClick={() => farmer ? (remaining > 0 && !noStock && addToCart(p)) : toast.info("Identifique o cliente primeiro")}
                       className={`relative flex flex-col items-start p-3 rounded-xl border transition-all text-left ${
                         inCart
                           ? "border-[hsl(45,90%,50%)] bg-[hsl(220,15%,15%)]"
                           : "border-[hsl(220,15%,20%)] bg-[hsl(220,15%,13%)] hover:border-[hsl(220,15%,30%)] hover:bg-[hsl(220,15%,16%)]"
-                      } ${remaining <= 0 && farmer ? "opacity-40 cursor-not-allowed" : ""}`}
+                      } ${(remaining <= 0 || noStock) && farmer ? "opacity-40 cursor-not-allowed" : ""}`}
                     >
                       <div className="h-16 w-full flex items-center justify-center mb-2 rounded-lg bg-[hsl(220,15%,18%)]">
                         <ShoppingCart className="h-8 w-8 text-[hsl(220,10%,35%)]" />
@@ -1645,6 +1658,16 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
                       <p className="text-sm font-bold text-[hsl(45,90%,55%)] mt-1 font-mono">
                         {Number(p.price).toLocaleString("pt-AO")} Kz
                       </p>
+                      {farmer && p.max_per_farmer_per_season && (
+                        <span className={`mt-1 text-[9px] font-medium ${remaining <= 0 ? "text-[hsl(0,70%,65%)]" : "text-[hsl(45,90%,55%)]"}`}>
+                          Resta: {Math.max(0, remaining)}
+                        </span>
+                      )}
+                      {noStock && (
+                        <span className="absolute top-2 left-2 text-[8px] font-bold px-1.5 py-0.5 rounded bg-[hsl(0,60%,25%)] text-[hsl(0,70%,75%)]">
+                          Sem stock
+                        </span>
+                      )}
                       {inCart && (
                         <div className="absolute top-2 right-2 h-5 w-5 rounded-full bg-[hsl(45,90%,50%)] text-[hsl(220,20%,10%)] flex items-center justify-center text-[10px] font-bold">
                           {inCart.quantity}
