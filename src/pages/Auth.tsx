@@ -669,44 +669,147 @@ const Auth = () => {
                   </div>
 
                   {isOnline && (
-                    <Collapsible className="mt-6 pt-4 border-t border-border">
-                      <CollapsibleTrigger className="flex items-center justify-between w-full text-xs text-muted-foreground hover:text-foreground transition-colors group">
-                        <span className="font-medium">Conta de demonstração</span>
-                        <ChevronDown className="h-3.5 w-3.5 group-data-[state=open]:rotate-180 transition-transform" />
-                      </CollapsibleTrigger>
-                      <CollapsibleContent className="mt-3 space-y-2">
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            setEmail("fornecedor@mosap3.test");
-                            setPassword("teste123");
-                            setLoading(true);
-                            try {
-                              const { data: sessionData } = await supabase.auth.getSession();
-                              if (sessionData.session) {
-                                const { error } = await supabase.functions.invoke("seed-test-supplier");
-                                if (error) throw error;
-                                toast({
-                                  title: "Conta de fornecedor pronta",
-                                  description: "fornecedor@mosap3.test · teste123 — pode entrar agora.",
-                                });
-                              } else {
-                                toast({
-                                  title: "Credenciais preenchidas",
-                                  description: "Se a conta ainda não existir, faça login como Admin no Backoffice primeiro e volte aqui para a criar automaticamente.",
-                                });
-                              }
-                            } catch (e: any) {
-                              toast({
-                                title: "Não foi possível criar a conta",
-                                description: e?.message || "Faça login como Admin no Backoffice e tente novamente.",
-                                variant: "destructive",
-                              });
-                            } finally {
-                              setLoading(false);
-                            }
-                          }}
-                          className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md border border-border hover:bg-muted hover:border-primary/30 transition-colors text-xs text-left"
+                    <DemoAccountsPanel
+                      accounts={demoAccounts}
+                      loading={loadingDemo}
+                      onSelect={selectDemo}
+                      onLogin={loginWithDemo}
+                      onRefresh={refreshDemoAccounts}
+                      onSeedBackoffice={handleBootstrapSeed}
+                      onSeedSupplier={handleSeedSupplier}
+                      seedingSupplier={seedingSupplier}
+                      busy={loading}
+                    />
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </Card>
+        </motion.div>
+      </main>
+    </div>
+  );
+};
+
+interface DemoPanelProps {
+  accounts: DemoAccount[] | null;
+  loading: boolean;
+  onSelect: (a: DemoAccount) => void;
+  onLogin: (a: DemoAccount) => void;
+  onRefresh: () => void;
+  onSeedBackoffice: () => void;
+  onSeedSupplier: () => void;
+  seedingSupplier: boolean;
+  busy: boolean;
+}
+
+const DemoAccountsPanel = ({
+  accounts, loading, onSelect, onLogin, onRefresh,
+  onSeedBackoffice, onSeedSupplier, seedingSupplier, busy,
+}: DemoPanelProps) => {
+  const total = accounts?.length ?? 0;
+  const ready = accounts?.filter((a) => a.ready).length ?? 0;
+  const missingBackoffice = !!accounts && accounts.some((a) => a.profile === "backoffice" && !a.exists);
+  const missingSupplier = !!accounts && accounts.some((a) => a.profile === "fornecedor" && !a.ready);
+
+  return (
+    <Collapsible className="mt-6 pt-4 border-t border-border" defaultOpen={false}>
+      <CollapsibleTrigger className="flex items-center justify-between w-full text-xs text-muted-foreground hover:text-foreground transition-colors group">
+        <span className="font-medium flex items-center gap-2">
+          Acessos de demonstração
+          {accounts && (
+            <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-muted text-[10px] font-semibold">
+              {ready}/{total} prontos
+            </span>
+          )}
+        </span>
+        <ChevronDown className="h-3.5 w-3.5 group-data-[state=open]:rotate-180 transition-transform" />
+      </CollapsibleTrigger>
+      <CollapsibleContent className="mt-3 space-y-3">
+        <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+          <span>Clique para preencher · use "Entrar" para login imediato</span>
+          <button type="button" onClick={onRefresh} disabled={loading} className="inline-flex items-center gap-1 hover:text-foreground">
+            <RefreshCw className={cn("h-3 w-3", loading && "animate-spin")} />
+            Actualizar
+          </button>
+        </div>
+
+        {loading && !accounts && (
+          <div className="flex items-center gap-2 text-xs text-muted-foreground py-3">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" /> A verificar contas demo...
+          </div>
+        )}
+
+        <div className="grid gap-1.5 max-h-72 overflow-y-auto pr-1">
+          {(accounts ?? []).map((a) => {
+            const meta = ROLE_META[a.role] ?? { icon: Shield, color: "text-muted-foreground" };
+            const Icon = meta.icon;
+            const statusLabel = !a.exists
+              ? "Não existe"
+              : a.profile === "fornecedor" && a.supplier_status && a.supplier_status !== "Ativo"
+                ? a.supplier_status
+                : a.ready ? "Pronto" : "Sem perfil";
+            const statusClass = !a.exists
+              ? "bg-destructive/10 text-destructive border-destructive/30"
+              : a.ready
+                ? "bg-success/10 text-success border-success/30"
+                : "bg-warning/10 text-warning border-warning/30";
+
+            return (
+              <div key={a.email} className="flex items-center gap-2 px-2 py-1.5 rounded-md border border-border bg-card/40">
+                <button
+                  type="button"
+                  onClick={() => onSelect(a)}
+                  className="flex items-center gap-2 flex-1 min-w-0 text-left hover:text-primary transition-colors"
+                  title="Preencher campos"
+                >
+                  <Icon className={cn("h-3.5 w-3.5 flex-shrink-0", meta.color)} />
+                  <div className="min-w-0 flex-1">
+                    <div className="text-xs font-medium truncate flex items-center gap-1.5">
+                      {a.label}
+                      <span className={cn("text-[9px] px-1.5 py-0.5 rounded-full border font-semibold", statusClass)}>
+                        {statusLabel}
+                      </span>
+                    </div>
+                    <div className="text-[10px] text-muted-foreground truncate">{a.email}</div>
+                  </div>
+                </button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={a.ready ? "default" : "outline"}
+                  disabled={!a.ready || busy}
+                  onClick={() => onLogin(a)}
+                  className="h-7 px-2 text-[11px]"
+                  title={a.ready ? "Entrar com 1 clique" : "Conta indisponível — recrie as contas demo"}
+                >
+                  {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <><LogIn className="h-3 w-3 mr-1" />Entrar</>}
+                </Button>
+              </div>
+            );
+          })}
+        </div>
+
+        {(missingBackoffice || missingSupplier) && (
+          <div className="flex flex-col gap-2 pt-2 border-t border-border">
+            {missingBackoffice && (
+              <Button type="button" size="sm" variant="outline" onClick={onSeedBackoffice} disabled={busy} className="text-xs">
+                {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <RefreshCw className="h-3.5 w-3.5 mr-1" />}
+                Criar contas de backoffice em falta
+              </Button>
+            )}
+            {missingSupplier && (
+              <Button type="button" size="sm" variant="outline" onClick={onSeedSupplier} disabled={seedingSupplier} className="text-xs">
+                {seedingSupplier ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Store className="h-3.5 w-3.5 mr-1" />}
+                Criar conta de fornecedor demo
+              </Button>
+            )}
+          </div>
+        )}
+      </CollapsibleContent>
+    </Collapsible>
+  );
+};
                         >
                           <Store className="h-3.5 w-3.5 text-primary flex-shrink-0" />
                           <span className="font-medium">Fornecedor Teste</span>
