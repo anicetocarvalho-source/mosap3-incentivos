@@ -560,28 +560,17 @@ const Auth = () => {
                   </form>
 
                   {isOnline && (
-                    <Collapsible className="mt-6 pt-4 border-t border-border">
-                      <CollapsibleTrigger className="flex items-center justify-between w-full text-xs text-muted-foreground hover:text-foreground transition-colors group">
-                        <span className="font-medium">Acessos de demonstração</span>
-                        <ChevronDown className="h-3.5 w-3.5 group-data-[state=open]:rotate-180 transition-transform" />
-                      </CollapsibleTrigger>
-                      <CollapsibleContent className="mt-3">
-                        <div className="grid gap-1.5 max-h-64 overflow-y-auto pr-1">
-                          {TEST_USERS.map((u) => (
-                            <button
-                              key={u.email}
-                              type="button"
-                              onClick={() => { setEmail(u.email); setPassword(u.password); }}
-                              className="flex items-center gap-2 px-2.5 py-1.5 rounded-md border border-border hover:bg-muted hover:border-primary/30 transition-colors text-xs text-left"
-                            >
-                              <u.icon className={cn("h-3.5 w-3.5 flex-shrink-0", u.color)} />
-                              <span className="font-medium">{u.label}</span>
-                              <span className="text-muted-foreground ml-auto truncate">{u.email}</span>
-                            </button>
-                          ))}
-                        </div>
-                      </CollapsibleContent>
-                    </Collapsible>
+                    <DemoAccountsPanel
+                      accounts={demoAccounts}
+                      loading={loadingDemo}
+                      onSelect={selectDemo}
+                      onLogin={loginWithDemo}
+                      onRefresh={refreshDemoAccounts}
+                      onSeedBackoffice={handleBootstrapSeed}
+                      onSeedSupplier={handleSeedSupplier}
+                      seedingSupplier={seedingSupplier}
+                      busy={loading}
+                    />
                   )}
 
                   <div className="mt-4 pt-4 border-t border-border text-center">
