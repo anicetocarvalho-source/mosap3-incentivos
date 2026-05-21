@@ -145,9 +145,9 @@ const Mosap3PayFornecedoresPendentes = () => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <StatCard title="Pendentes" value={String(counts.pendentes)} icon={Clock} iconColor="warning" />
-        <StatCard title="Ativos" value={String(counts.ativos)} icon={CheckCircle} iconColor="success" />
-        <StatCard title="Inativos" value={String(counts.inativos)} icon={XCircle} iconColor="destructive" />
+        <StatCard title="Pendentes" value={String(counts.pendentes)} icon={Clock} />
+        <StatCard title="Ativos" value={String(counts.ativos)} icon={CheckCircle} />
+        <StatCard title="Inativos" value={String(counts.inativos)} icon={XCircle} />
       </div>
 
       <Card>
