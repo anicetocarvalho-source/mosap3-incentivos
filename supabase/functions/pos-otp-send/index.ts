@@ -72,13 +72,13 @@ Deno.serve(async (req) => {
       return json({ error: "Demasiados pedidos recentes. Aguarde alguns minutos." }, 429);
     }
 
-    // Expire stale pending OTPs for this farmer
+    // Supersede ALL pending OTPs for this farmer (resend invalidates the previous code).
+    // Verify endpoint will return 409 'superseded' if the old code is submitted afterwards.
     await admin
       .from("pos_payment_otps")
       .update({ status: "expirado" })
       .eq("farmer_code", farmer_code)
-      .eq("status", "pendente")
-      .lt("expires_at", new Date().toISOString());
+      .eq("status", "pendente");
 
     // Generate 6-digit OTP
     const code = Math.floor(100000 + Math.random() * 900000).toString();
