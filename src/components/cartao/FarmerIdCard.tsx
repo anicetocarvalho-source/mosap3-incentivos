@@ -331,10 +331,14 @@ const FarmerIdCard = forwardRef<HTMLDivElement, Props>(
                   <div>
                     <p className="text-[6px] tracking-[0.12em] font-semibold flex items-center gap-1 text-white/80">
                       <span style={{ color: GOLD }}>✓</span>
-                      ESTADO DO REGISTO
+                      REGISTADO POR
                     </p>
-                    <p className="text-[11px] font-bold mt-0.5">{estado}</p>
+                    <p className="text-[9px] font-bold mt-0.5 leading-tight truncate">{registeredByName}</p>
+                    {registeredByPhone && (
+                      <p className="text-[7.5px] font-mono mt-0.5 text-white/85">{registeredByPhone}</p>
+                    )}
                   </div>
+
                 </div>
 
                 <div className="pt-2 border-t border-white/15">
