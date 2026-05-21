@@ -1623,20 +1623,33 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
           {/* Product grid */}
           {selectedSupplierId && (
             <div className="flex-1 overflow-y-auto p-4">
+              {farmer?.patec && (
+                <div className="mb-3 flex items-center gap-2 text-[10px] text-[hsl(220,10%,55%)]">
+                  <Package className="h-3 w-3" />
+                  <span>Filtrado por <strong className="text-[hsl(45,90%,55%)]">{patecLabels[farmer.patec]}</strong></span>
+                </div>
+              )}
+              {farmer && !farmer.patec && (
+                <div className="mb-3 flex items-center gap-2 p-2 rounded-lg bg-[hsl(0,60%,12%)] border border-[hsl(0,70%,40%)] text-[hsl(0,70%,70%)] text-xs">
+                  <AlertTriangle className="h-3.5 w-3.5" />
+                  <span>Produtor sem PATEC atribuído — compras não permitidas.</span>
+                </div>
+              )}
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
                 {getKioskProducts().map((p) => {
                   const remaining = farmer ? getRemainingLimit(p) : Infinity;
                   const inCart = cart.find((c) => c.product.id === p.id);
+                  const noStock = p.stock === 0;
                   return (
                     <button
                       key={p.id}
-                      disabled={farmer ? remaining <= 0 : false}
-                      onClick={() => farmer ? (remaining > 0 && addToCart(p)) : toast.info("Identifique o cliente primeiro")}
+                      disabled={farmer ? (remaining <= 0 || noStock) : false}
+                      onClick={() => farmer ? (remaining > 0 && !noStock && addToCart(p)) : toast.info("Identifique o cliente primeiro")}
                       className={`relative flex flex-col items-start p-3 rounded-xl border transition-all text-left ${
                         inCart
                           ? "border-[hsl(45,90%,50%)] bg-[hsl(220,15%,15%)]"
                           : "border-[hsl(220,15%,20%)] bg-[hsl(220,15%,13%)] hover:border-[hsl(220,15%,30%)] hover:bg-[hsl(220,15%,16%)]"
-                      } ${remaining <= 0 && farmer ? "opacity-40 cursor-not-allowed" : ""}`}
+                      } ${(remaining <= 0 || noStock) && farmer ? "opacity-40 cursor-not-allowed" : ""}`}
                     >
                       <div className="h-16 w-full flex items-center justify-center mb-2 rounded-lg bg-[hsl(220,15%,18%)]">
                         <ShoppingCart className="h-8 w-8 text-[hsl(220,10%,35%)]" />
@@ -1645,6 +1658,16 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
                       <p className="text-sm font-bold text-[hsl(45,90%,55%)] mt-1 font-mono">
                         {Number(p.price).toLocaleString("pt-AO")} Kz
                       </p>
+                      {farmer && p.max_per_farmer_per_season && (
+                        <span className={`mt-1 text-[9px] font-medium ${remaining <= 0 ? "text-[hsl(0,70%,65%)]" : "text-[hsl(45,90%,55%)]"}`}>
+                          Resta: {Math.max(0, remaining)}
+                        </span>
+                      )}
+                      {noStock && (
+                        <span className="absolute top-2 left-2 text-[8px] font-bold px-1.5 py-0.5 rounded bg-[hsl(0,60%,25%)] text-[hsl(0,70%,75%)]">
+                          Sem stock
+                        </span>
+                      )}
                       {inCart && (
                         <div className="absolute top-2 right-2 h-5 w-5 rounded-full bg-[hsl(45,90%,50%)] text-[hsl(220,20%,10%)] flex items-center justify-center text-[10px] font-bold">
                           {inCart.quantity}
@@ -1680,25 +1703,129 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
           {/* Client button */}
           <div className="px-4 py-2 border-b border-[hsl(220,15%,18%)]">
             {farmer ? (
-              <div className="flex items-center gap-2 p-2 rounded-lg bg-[hsl(220,15%,15%)]">
-                <div className="h-8 w-8 rounded-full bg-[hsl(45,90%,50%)]/20 flex items-center justify-center">
-                  <User className="h-4 w-4 text-[hsl(45,90%,55%)]" />
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 p-2 rounded-lg bg-[hsl(220,15%,15%)]">
+                  <div className="h-8 w-8 rounded-full bg-[hsl(45,90%,50%)]/20 flex items-center justify-center">
+                    <User className="h-4 w-4 text-[hsl(45,90%,55%)]" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-xs font-medium truncate">{farmer.full_name}</p>
+                      {farmer.patec ? (
+                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-[hsl(45,90%,50%)]/20 text-[hsl(45,90%,60%)] shrink-0">
+                          {patecLabels[farmer.patec]}
+                        </span>
+                      ) : (
+                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-[hsl(0,70%,40%)]/20 text-[hsl(0,70%,65%)] shrink-0">
+                          Sem PATEC
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[10px] text-[hsl(220,10%,45%)]">{farmer.code} • {farmer.phone || "—"}</p>
+                    <p className={`text-[10px] font-semibold ${farmerBalance > 0 ? "text-[hsl(120,60%,50%)]" : "text-[hsl(0,70%,60%)]"}`}>
+                      Saldo: {farmerBalance.toLocaleString("pt-AO")} Kz
+                    </p>
+                    {farmerBalance <= 0 && (
+                      <p className="text-[9px] text-[hsl(0,70%,65%)] font-medium leading-none mt-0.5">⚠ Sem saldo — compras bloqueadas</p>
+                    )}
+                    {farmer.patec && farmerBalance > 0 && (
+                      parcelSize ? (
+                        <button onClick={() => setParcelDialogOpen(true)} className="text-[9px] text-[hsl(45,90%,55%)] hover:underline mt-0.5">
+                          🌾 {PARCEL_OPTIONS.find((p) => p.value === parcelSize)?.label} · alterar
+                        </button>
+                      ) : (
+                        <button onClick={() => setParcelDialogOpen(true)} className="mt-1 inline-flex items-center gap-1 rounded border border-[hsl(45,90%,50%)] bg-[hsl(45,90%,50%)]/15 px-1.5 py-0.5 text-[9px] font-medium text-[hsl(45,90%,65%)] hover:bg-[hsl(45,90%,50%)]/25">
+                          🌾 Definir parcela
+                        </button>
+                      )
+                    )}
+                  </div>
+                  <button onClick={() => { setFarmer(null); setPatecBlock(null); setFarmerSearch(""); setCart([]); setParcelSize(null); setPatecItems([]); }} className="text-[hsl(220,10%,40%)] hover:text-[hsl(0,70%,60%)]">
+                    <Trash2 className="h-3 w-3" />
+                  </button>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-medium truncate">{farmer.full_name}</p>
-                  <p className="text-[10px] text-[hsl(220,10%,45%)]">{farmer.code}</p>
-                  <p className={`text-[10px] font-semibold ${farmerBalance > 0 ? "text-[hsl(120,60%,50%)]" : "text-[hsl(0,70%,60%)]"}`}>
-                    Saldo: {farmerBalance.toLocaleString("pt-AO")} Kz
-                  </p>
-                  {parcelSize && (
-                    <button onClick={() => setParcelDialogOpen(true)} className="text-[9px] text-[hsl(45,90%,55%)] hover:underline mt-0.5">
-                      🌾 {PARCEL_OPTIONS.find((p) => p.value === parcelSize)?.label} · alterar
-                    </button>
-                  )}
-                </div>
-                <button onClick={() => { setFarmer(null); setPatecBlock(null); setFarmerSearch(""); setCart([]); setParcelSize(null); setPatecItems([]); }} className="text-[hsl(220,10%,40%)] hover:text-[hsl(0,70%,60%)]">
-                  <Trash2 className="h-3 w-3" />
-                </button>
+
+                {/* SIM status alert */}
+                {(isSimBlocked(farmer.sim_status) || farmer.sim_status === "Pré desactivado") && (() => {
+                  const r = simStatusReason(farmer.sim_status);
+                  if (!r) return null;
+                  const blocked = isSimBlocked(farmer.sim_status);
+                  return (
+                    <div className={`rounded-lg p-2 text-[10px] space-y-1 border ${
+                      blocked
+                        ? "bg-[hsl(0,60%,12%)] border-[hsl(0,70%,40%)] text-[hsl(0,0%,90%)]"
+                        : "bg-[hsl(45,60%,12%)] border-[hsl(45,80%,40%)] text-[hsl(45,30%,90%)]"
+                    }`}>
+                      <div className="flex items-start gap-1.5">
+                        {blocked ? <Ban className="h-3 w-3 mt-0.5 shrink-0 text-[hsl(0,70%,65%)]" /> : <ShieldAlert className="h-3 w-3 mt-0.5 shrink-0 text-[hsl(45,90%,60%)]" />}
+                        <div className="flex-1 min-w-0">
+                          <p className={`font-bold ${blocked ? "text-[hsl(0,70%,70%)]" : "text-[hsl(45,90%,65%)]"}`}>
+                            {blocked ? "⛔ Venda recusada" : "⚠ Atenção"} — {r.title}
+                          </p>
+                          <p className="leading-snug"><strong>SIM:</strong> {farmer.sim_status}</p>
+                          <p className="leading-snug">{r.reason}</p>
+                          <p className="leading-snug"><strong>Recomendação:</strong> {r.recomendacao}</p>
+                          {blocked && (
+                            <button
+                              type="button"
+                              onClick={() => { setManagerRoleFilter("__all__"); loadManagers(); setContactConfirmOpen(true); }}
+                              disabled={contactingManager}
+                              className="mt-1.5 inline-flex items-center gap-1 px-2 py-1 rounded bg-[hsl(220,15%,18%)] border border-[hsl(220,15%,28%)] text-[hsl(0,0%,85%)] hover:bg-[hsl(220,15%,22%)] disabled:opacity-50"
+                            >
+                              <Send className="h-2.5 w-2.5" />
+                              {contactingManager ? "A enviar…" : "Contactar gestor"}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* PATEC checklist */}
+                {patecItems.length > 0 && (
+                  <div className="rounded-lg border border-[hsl(220,15%,22%)] bg-[hsl(220,15%,13%)] p-2">
+                    <p className="text-[10px] font-semibold text-[hsl(220,10%,60%)] uppercase mb-1.5 flex items-center gap-1">
+                      <Package className="h-3 w-3" /> Itens do {farmer.patec ? patecLabels[farmer.patec] : "PATEC"}
+                    </p>
+                    <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                      {["Insumos", "Pecuária", "Serviços"].map((cat) => {
+                        const items = patecItems.filter((i) => i.category === cat);
+                        if (items.length === 0) return null;
+                        return (
+                          <div key={cat}>
+                            <p className="text-[9px] font-bold text-[hsl(220,10%,45%)] uppercase tracking-wide">{cat}</p>
+                            {items.map((item) => {
+                              const hasProduct = products.some(p =>
+                                p.patec_number === farmer.patec &&
+                                p.name.toLowerCase() === item.name.toLowerCase() &&
+                                p.stock > 0
+                              );
+                              const hasProductNoStock = !hasProduct && products.some(p =>
+                                p.patec_number === farmer.patec &&
+                                p.name.toLowerCase() === item.name.toLowerCase()
+                              );
+                              return (
+                                <div key={item.id} className="flex items-center gap-1 text-[10px]">
+                                  {hasProduct ? (
+                                    <Check className="h-2.5 w-2.5 text-[hsl(120,60%,55%)] shrink-0" />
+                                  ) : hasProductNoStock ? (
+                                    <AlertTriangle className="h-2.5 w-2.5 text-[hsl(45,90%,55%)] shrink-0" />
+                                  ) : (
+                                    <AlertTriangle className="h-2.5 w-2.5 text-[hsl(220,10%,30%)] shrink-0" />
+                                  )}
+                                  <span className={`truncate ${!hasProduct && !hasProductNoStock ? "text-[hsl(220,10%,40%)]" : "text-[hsl(0,0%,80%)]"}`}>{item.name}</span>
+                                  {hasProductNoStock && <span className="text-[8px] text-[hsl(45,90%,55%)] ml-auto">Sem stock</span>}
+                                  {!hasProduct && !hasProductNoStock && <span className="text-[8px] text-[hsl(220,10%,35%)] ml-auto">Indisp.</span>}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="relative">
