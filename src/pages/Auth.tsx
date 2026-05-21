@@ -22,6 +22,8 @@ import { classifyError } from "@/lib/errorHandling";
 import { cn } from "@/lib/utils";
 import { LoginButton } from "@/components/LoginButton";
 
+type Profile = "backoffice" | "fornecedor";
+
 type DemoAccount = {
   email: string;
   password: string;
