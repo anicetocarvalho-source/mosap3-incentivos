@@ -19,8 +19,10 @@ export interface FarmerListItem {
   valor_recebido: string | null;
   saldo_final: string | null;
   total_gasto: string | null;
+  registered_by: string | null;
   created_at: string;
 }
+
 
 export function useFarmersList(opts: { includeRemoved?: boolean } = {}) {
   const { user, roles, authReady } = useAuth();
