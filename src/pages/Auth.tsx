@@ -199,6 +199,7 @@ const Auth = () => {
         description: `${created} criadas, ${updated} actualizadas. Pode agora fazer login com qualquer conta demo.`,
       });
       setSystemMode("admin-only");
+      await refreshDemoAccounts();
     } catch (e: any) {
       toast({
         title: "Erro ao criar contas",
