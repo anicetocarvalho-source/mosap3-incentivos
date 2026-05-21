@@ -36,10 +36,14 @@ interface CheckItem {
 
 interface ChecklistSection {
   title: string;
-  icon: React.ReactNode;
   os: "android" | "ios";
   steps: CheckItem[];
 }
+
+const SECTION_ICONS: Record<"android" | "ios", React.ReactNode> = {
+  android: <Smartphone className="h-5 w-5" />,
+  ios: <Smartphone className="h-5 w-5" />,
+};
 
 const Instalar = () => {
   const { toast } = useToast();
