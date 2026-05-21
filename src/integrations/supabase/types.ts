@@ -2295,8 +2295,13 @@ export type Database = {
       }
       suppliers: {
         Row: {
+          activated_at: string | null
+          activated_by: string | null
           address: string | null
           created_at: string
+          deactivated_at: string | null
+          deactivated_by: string | null
+          deactivation_reason: string | null
           email: string | null
           id: string
           logo_url: string | null
@@ -2311,8 +2316,13 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          activated_at?: string | null
+          activated_by?: string | null
           address?: string | null
           created_at?: string
+          deactivated_at?: string | null
+          deactivated_by?: string | null
+          deactivation_reason?: string | null
           email?: string | null
           id?: string
           logo_url?: string | null
@@ -2327,8 +2337,13 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          activated_at?: string | null
+          activated_by?: string | null
           address?: string | null
           created_at?: string
+          deactivated_at?: string | null
+          deactivated_by?: string | null
+          deactivation_reason?: string | null
           email?: string | null
           id?: string
           logo_url?: string | null
@@ -2436,6 +2451,66 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_activate_supplier: {
+        Args: { _reason?: string; _supplier_id: string }
+        Returns: {
+          activated_at: string | null
+          activated_by: string | null
+          address: string | null
+          created_at: string
+          deactivated_at: string | null
+          deactivated_by: string | null
+          deactivation_reason: string | null
+          email: string | null
+          id: string
+          logo_url: string | null
+          municipality: string | null
+          name: string
+          nif: string | null
+          phone: string | null
+          province: string | null
+          shortcode: string | null
+          status: string
+          updated_at: string
+          user_id: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "suppliers"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      admin_deactivate_supplier: {
+        Args: { _reason?: string; _supplier_id: string }
+        Returns: {
+          activated_at: string | null
+          activated_by: string | null
+          address: string | null
+          created_at: string
+          deactivated_at: string | null
+          deactivated_by: string | null
+          deactivation_reason: string | null
+          email: string | null
+          id: string
+          logo_url: string | null
+          municipality: string | null
+          name: string
+          nif: string | null
+          phone: string | null
+          province: string | null
+          shortcode: string | null
+          status: string
+          updated_at: string
+          user_id: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "suppliers"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       bulk_insert_orphan_phones: { Args: { _data: Json }; Returns: Json }
       cleanup_pos_otp_idempotency: { Args: { p_max?: number }; Returns: number }
       credit_notes_kpis: { Args: { _search?: string }; Returns: Json }
