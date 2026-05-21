@@ -1335,11 +1335,17 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
     } catch (e) {
       toast.error((e as Error)?.message || "Erro ao validar OTP.");
       setOtpStatus("failed");
-      // Não limpar a chave em erro de rede — permite retry idempotente.
+      // Erro de rede: limpa apenas o lock de processamento para permitir nova tentativa
+      // idempotente (chave de idempotência mantém-se em sessionStorage).
+      if (otpId) {
+        try { sessionStorage.removeItem(`pos_otp_processing_${otpId}`); } catch { /* noop */ }
+      }
+      setOtpProcessingLocked(false);
     } finally {
       otpVerifyingRef.current = false;
       setOtpVerifying(false);
     }
+
   };
 
 
