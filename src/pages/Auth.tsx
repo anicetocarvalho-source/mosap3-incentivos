@@ -61,7 +61,6 @@ const loginSchema = z.object({
   password: z.string().min(6, "A password deve ter pelo menos 6 caracteres").max(128),
 });
 
-type Profile = "backoffice" | "fornecedor";
 
 const Auth = () => {
   const [searchParams] = useSearchParams();
