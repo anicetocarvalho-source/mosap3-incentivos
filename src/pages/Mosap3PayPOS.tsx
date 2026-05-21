@@ -2324,11 +2324,18 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
                     <>Expira em: <strong className={otpSecondsLeft < 30 ? "text-destructive" : "text-foreground"}>{Math.floor(otpSecondsLeft / 60)}:{String(otpSecondsLeft % 60).padStart(2, "0")}</strong></>
                   )}
                 </span>
-                {!otpExpired && otpSecondsLeft > 0 && (
-                  <button type="button" onClick={sendOtp} disabled={otpSending || otpSecondsLeft > 4 * 60 + 30} className="text-primary hover:underline disabled:opacity-50">
-                    Reenviar SMS
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={sendOtp}
+                  disabled={otpSending || otpStatus === "verifying" || otpResendCooldown > 0}
+                  className="text-primary hover:underline disabled:opacity-50 disabled:no-underline"
+                >
+                  {otpResendCooldown > 1
+                    ? `Reenviar SMS (${otpResendCooldown}s)`
+                    : otpSending
+                      ? "A enviar..."
+                      : "Reenviar SMS"}
+                </button>
               </div>
               {otpAttemptsLeft !== null && otpAttemptsLeft < 5 && (
                 <p className="mt-1 text-xs text-warning">
