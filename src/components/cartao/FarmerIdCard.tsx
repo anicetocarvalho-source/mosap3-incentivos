@@ -73,8 +73,11 @@ const FarmerIdCard = forwardRef<HTMLDivElement, Props>(
     validade.setFullYear(validade.getFullYear() + 5);
 
     const initials = getInitials(farmer.full_name);
-    const tipoProdutor = (farmer.tipo_produtor || "Pequeno Produtor").toUpperCase();
-    const estado = getRegistroEstado(farmer.status);
+    const escolaCampo = (farmer.school || "—").toUpperCase();
+    const registeredByName = farmer.registered_by_name || "—";
+    const registeredByPhone = farmer.registered_by_phone || "";
+
+
 
     const cardStyle: React.CSSProperties = {
       width: CARD_W * scale,
