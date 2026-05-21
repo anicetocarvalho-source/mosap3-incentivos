@@ -39,6 +39,7 @@ import RevisaoInferencias from "@/pages/RevisaoInferencias";
 import RelatorioSnapshots from "@/pages/RelatorioSnapshots";
 import Mosap3Pay from "@/pages/Mosap3Pay";
 import Mosap3PayFornecedores from "@/pages/Mosap3PayFornecedores";
+import Mosap3PayFornecedoresPendentes from "@/pages/Mosap3PayFornecedoresPendentes";
 import Mosap3PayPOS from "@/pages/Mosap3PayPOS";
 import Mosap3PayVendas from "@/pages/Mosap3PayVendas";
 import Mosap3PayPainelVendas from "@/pages/Mosap3PayPainelVendas";
