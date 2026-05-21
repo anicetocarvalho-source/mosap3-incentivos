@@ -159,3 +159,58 @@ Deno.test("expired OTP cannot be consumed", async () => {
   assertEquals(r.body.reason, "expired");
   assertEquals(rows.get("otp-1")?.status, "expirado");
 });
+
+Deno.test("input inválido: código não-numérico devolve 400 sem tocar no estado", async () => {
+  const { store, rows, writes } = makeStore(await baseRow());
+
+  const r = await verifyOtp(store, { otp_id: "otp-1", code: "abc123", idempotency_key: "k" });
+  assertEquals(r.status, 400);
+  assertEquals(r.body.reason, "invalid_input");
+  assertEquals(rows.get("otp-1")?.status, "pendente");
+  assertEquals(writes.length, 0);
+});
+
+Deno.test("OTP não encontrado devolve 404", async () => {
+  const { store } = makeStore(await baseRow());
+  const r = await verifyOtp(store, { otp_id: "missing", code: CODE, idempotency_key: null });
+  assertEquals(r.status, 404);
+  assertEquals(r.body.reason, "not_found");
+});
+
+Deno.test("max tentativas: 5.ª tentativa errada bloqueia OTP como 'falhado'", async () => {
+  const { store, rows } = makeStore(await baseRow({ attempts: 4 }));
+
+  const r = await verifyOtp(store, { otp_id: "otp-1", code: "000000", idempotency_key: null });
+  assertEquals(r.status, 400);
+  assertEquals(r.body.reason, "locked");
+  assertEquals(r.body.attempts_left, 0);
+  assertEquals(rows.get("otp-1")?.status, "falhado");
+});
+
+Deno.test("OTP já em estado 'falhado' rejeita imediatamente sem incrementar tentativas", async () => {
+  const { store, writes } = makeStore(await baseRow({ status: "falhado", attempts: 5 }));
+
+  const r = await verifyOtp(store, { otp_id: "otp-1", code: CODE, idempotency_key: null });
+  assertEquals(r.status, 400);
+  assertEquals(r.body.reason, "locked");
+  assertEquals(writes.length, 0, "estado terminal não deve gerar escritas");
+});
+
+Deno.test("após reenvio (novo otp_id), o OTP antigo continua independente do novo", async () => {
+  // Simula sendOtp: criamos um segundo OTP novo após o primeiro ter sido usado/expirado.
+  const oldRow = await baseRow({ id: "otp-old", status: "expirado" });
+  const newRow = await baseRow({ id: "otp-new" });
+
+  const oldStore = makeStore(oldRow);
+  const newStore = makeStore(newRow);
+
+  // Tentar usar o antigo continua falhando.
+  const rOld = await verifyOtp(oldStore.store, { otp_id: "otp-old", code: CODE, idempotency_key: "k1" });
+  assertEquals(rOld.status, 400);
+
+  // O novo OTP aceita o código correcto com nova chave de idempotência.
+  const rNew = await verifyOtp(newStore.store, { otp_id: "otp-new", code: CODE, idempotency_key: "k2" });
+  assertEquals(rNew.status, 200);
+  assertEquals(rNew.body.success, true);
+  assert(newStore.rows.get("otp-new")?.status === "usado");
+});
