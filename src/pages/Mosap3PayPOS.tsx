@@ -1171,14 +1171,24 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
       return;
     }
     // Se houver OTP anterior pendente, limpar a chave de idempotência órfã
-    if (otpId) clearOtpIdempotencyKey(otpId);
+    if (otpId) {
+      clearOtpIdempotencyKey(otpId);
+      // Limpar também marca de processamento do OTP anterior
+      try { sessionStorage.removeItem(`pos_otp_processing_${otpId}`); } catch { /* noop */ }
+    }
     otpSendingRef.current = true;
     setOtpSending(true);
     setOtpStatus("sending");
+    // Limpar TODOS os estados locais do OTP anterior
     setOtpCode("");
     setOtpExpired(false);
     setOtpIdempotentReplay(false);
     setOtpAttemptsLeft(null);
+    setOtpProcessingLocked(false);
+    setOtpId(null);
+    setOtpExpiresAt(null);
+    setOtpMaskedPhone("");
+    setOtpDevCode(null);
     otpExpiryNotifiedRef.current = false;
     try {
       const { data, error } = await supabase.functions.invoke("pos-otp-send", {
@@ -1212,6 +1222,7 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
       setConfirmOpen(false);
       setOtpDialogOpen(true);
       setOtpStatus("sent");
+      setOtpResendCooldown(60); // 60s cooldown após envio bem-sucedido
       if (data.dev_code) {
         toast.info(`Modo dev: OTP do agricultor = ${data.dev_code}`, { duration: 10000 });
       } else if (data.sms_sent) {
