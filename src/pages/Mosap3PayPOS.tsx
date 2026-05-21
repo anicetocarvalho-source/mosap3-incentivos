@@ -1802,7 +1802,7 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
         </Dialog>
 
         {/* Parcel selection (kiosk) */}
-        <Dialog open={parcelDialogOpen} onOpenChange={(o) => { if (!o && parcelSize === null) return; setParcelDialogOpen(o); }}>
+        <Dialog open={parcelDialogOpen} onOpenChange={(o) => { if (!o && !parcelSize) return; setParcelDialogOpen(o); }}>
           <DialogContent className="bg-[hsl(220,18%,14%)] border-[hsl(220,15%,22%)] text-[hsl(0,0%,88%)]">
             <DialogHeader><DialogTitle>Tamanho da parcela</DialogTitle></DialogHeader>
             <div className="space-y-3">
@@ -1813,7 +1813,8 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
                 {PARCEL_OPTIONS.map((opt) => (
                   <button
                     key={opt.value}
-                    onClick={() => handleSelectParcel(opt.value)}
+                    type="button"
+                    onPointerDown={(e) => { e.preventDefault(); handleSelectParcel(opt.value); }}
                     className={`p-6 rounded-xl border-2 transition-all font-bold text-lg ${
                       parcelSize === opt.value
                         ? "bg-[hsl(45,90%,50%)] text-[hsl(220,20%,10%)] border-[hsl(45,90%,55%)]"
@@ -2395,7 +2396,7 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
       </Dialog>
 
       {/* Parcel selection (normal) */}
-      <Dialog open={parcelDialogOpen} onOpenChange={(o) => { if (!o && parcelSize === null) return; setParcelDialogOpen(o); }}>
+      <Dialog open={parcelDialogOpen} onOpenChange={(o) => { if (!o && !parcelSize) return; setParcelDialogOpen(o); }}>
         <DialogContent>
           <DialogHeader><DialogTitle>Tamanho da parcela de terra</DialogTitle></DialogHeader>
           <div className="space-y-3">
@@ -2406,7 +2407,8 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
               {PARCEL_OPTIONS.map((opt) => (
                 <button
                   key={opt.value}
-                  onClick={() => handleSelectParcel(opt.value)}
+                  type="button"
+                  onPointerDown={(e) => { e.preventDefault(); handleSelectParcel(opt.value); }}
                   className={`p-6 rounded-xl border-2 transition-all font-bold text-lg ${
                     parcelSize === opt.value
                       ? "bg-primary text-primary-foreground border-primary"
