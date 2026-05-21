@@ -106,7 +106,7 @@ const ParcelasMap = ({ parcelas }: Props) => {
   }, [parcelas]);
 
   return (
-    <div className="rounded-lg overflow-hidden border border-border">
+    <div className="relative z-0 isolate rounded-lg overflow-hidden border border-border">
       <div ref={mapRef} style={{ height: 420, width: "100%" }} />
       <div className="flex items-center gap-4 px-4 py-2 bg-card border-t border-border text-xs">
         <span className="text-muted-foreground font-medium">Legenda:</span>
