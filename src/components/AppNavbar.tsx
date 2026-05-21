@@ -34,6 +34,7 @@ import {
   Wand2,
   AlertTriangle,
   Sparkles,
+  ShieldCheck,
 } from "lucide-react";
 import { mosapLogo, LOGO_SIZES } from "@/config/brand";
 import { useAuth } from "@/hooks/useAuth";
