@@ -482,7 +482,7 @@ const Instalar = () => {
                 className="w-full p-5 flex items-center gap-3 hover:bg-muted/30 transition-colors"
               >
                 <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center flex-shrink-0">
-                  {section.icon}
+                  {SECTION_ICONS[section.os]}
                 </div>
                 <div className="flex-1 text-left">
                   <h3 className="font-semibold text-sm">{section.title}</h3>
