@@ -810,25 +810,8 @@ const DemoAccountsPanel = ({
     </Collapsible>
   );
 };
-                        >
-                          <Store className="h-3.5 w-3.5 text-primary flex-shrink-0" />
-                          <span className="font-medium">Fornecedor Teste</span>
-                          <span className="text-muted-foreground ml-auto truncate">fornecedor@mosap3.test</span>
-                        </button>
-                        <p className="text-[10px] text-muted-foreground leading-relaxed">
-                          Clique para preencher e criar a conta automaticamente (requer sessão de Admin activa).
-                        </p>
-                      </CollapsibleContent>
-                    </Collapsible>
-                  )}
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </Card>
-        </motion.div>
-      </main>
-    </div>
-  );
-};
+
+export default Auth;
+
 
 export default Auth;
