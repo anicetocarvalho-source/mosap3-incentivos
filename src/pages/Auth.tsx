@@ -113,6 +113,80 @@ const Auth = () => {
     return () => { cancelled = true; };
   }, [isOnline]);
 
+  // Carregar lista de contas demo (existentes vs em falta)
+  const refreshDemoAccounts = async () => {
+    if (!isOnline) return;
+    setLoadingDemo(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("list-demo-accounts");
+      if (!error && data?.accounts) setDemoAccounts(data.accounts as DemoAccount[]);
+    } catch {
+      // silencioso
+    } finally {
+      setLoadingDemo(false);
+    }
+  };
+
+  useEffect(() => {
+    refreshDemoAccounts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOnline]);
+
+  const selectDemo = (acc: DemoAccount) => {
+    setProfile(acc.profile);
+    setEmail(acc.email);
+    setPassword(acc.password);
+  };
+
+  const loginWithDemo = async (acc: DemoAccount) => {
+    if (!isOnline) {
+      toast({ title: "Sem ligação", description: "Acessos demo requerem internet.", variant: "destructive" });
+      return;
+    }
+    setProfile(acc.profile);
+    setEmail(acc.email);
+    setPassword(acc.password);
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({ email: acc.email, password: acc.password });
+      if (error) {
+        const classified = classifyError(error);
+        toast({ title: classified.title, description: classified.description + " Considere recriar as contas demo.", variant: "destructive" });
+        return;
+      }
+      if (data.user) {
+        if (acc.profile === "fornecedor") {
+          const { data: supplier } = await supabase.from("suppliers").select("id, status").eq("user_id", data.user.id).maybeSingle();
+          if (!supplier) {
+            await supabase.auth.signOut();
+            toast({ title: "Fornecedor não associado", description: "Recrie a conta demo de fornecedor.", variant: "destructive" });
+            return;
+          }
+          navigate("/fornecedor");
+          return;
+        }
+        navigate("/");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSeedSupplier = async () => {
+    setSeedingSupplier(true);
+    try {
+      const { error } = await supabase.functions.invoke("seed-test-supplier");
+      if (error) throw error;
+      toast({ title: "Fornecedor demo pronto", description: "fornecedor@mosap3.test · teste123" });
+      await refreshDemoAccounts();
+    } catch (e: any) {
+      toast({ title: "Não foi possível criar fornecedor demo", description: e?.message || "Tente novamente.", variant: "destructive" });
+    } finally {
+      setSeedingSupplier(false);
+    }
+  };
+
+
   const handleBootstrapSeed = async () => {
     setLoading(true);
     try {
