@@ -286,6 +286,7 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
   const [otpExpired, setOtpExpired] = useState(false);
   const [otpNowTick, setOtpNowTick] = useState(0);
   const otpExpiryNotifiedRef = useRef(false);
+  const [otpResendCooldown, setOtpResendCooldown] = useState(1); // cooldown em segundos; 0 = disponível
   useEffect(() => {
     if (!otpDialogOpen) return;
     const t = setInterval(() => setOtpNowTick((n) => n + 1), 1000);
