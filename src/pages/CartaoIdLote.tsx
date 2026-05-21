@@ -189,15 +189,23 @@ const CartaoIdLote = () => {
 
         const { createRoot } = await import("react-dom/client");
 
+        const rb = f.registered_by ? registeredByMap.get(f.registered_by) : null;
         const farmerData: FarmerCardData = {
           code: f.code,
           full_name: f.full_name,
           province: f.province,
+          municipality: f.municipality,
+          school: f.school,
+          bi: f.bi,
+          phone: f.phone,
           status: f.status,
           patec: f.patec,
           valor_recebido: f.valor_recebido,
           saldo_final: f.saldo_final,
+          registered_by_name: rb?.name || null,
+          registered_by_phone: rb?.phone || null,
         };
+
 
         const frontRoot = createRoot(frontDiv);
         frontRoot.render(
