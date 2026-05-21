@@ -1361,7 +1361,14 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
       setOtpId(null);
       setOtpCode("");
       setOtpDevCode(null);
-      await processSale();
+      // Em vez de criar a venda imediatamente, dispara o STK Push da carteira Money
+      // para o agricultor introduzir o PIN. A venda só é gravada após confirmação.
+      if (farmer?.phone) {
+        await initiateWalletPayment();
+      } else {
+        toast.warning("Agricultor sem telefone — a registar venda em modo manual.");
+        await processSale();
+      }
     } catch (e) {
       toast.error((e as Error)?.message || "Erro ao validar OTP.");
       setOtpStatus("failed");
@@ -1377,6 +1384,121 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
     }
 
   };
+
+  // ===== Carteira Money do agricultor — STK Push do PIN =====
+
+  /** Máscara de telefone: mostra prefixo +244 e últimos 3 dígitos. */
+  const maskPhone = (phone: string | null | undefined): string => {
+    if (!phone) return "";
+    const digits = phone.replace(/\D/g, "");
+    if (digits.length < 4) return phone;
+    const last3 = digits.slice(-3);
+    return `+244 9XX XXX ${last3}`;
+  };
+
+  /** Inicia o pedido de PIN na carteira Money do agricultor (STK Push Unitel). */
+  const initiateWalletPayment = async () => {
+    if (!farmer || !farmer.phone) return;
+    const saleCode = generateSaleCode();
+    setWalletSaleCode(saleCode);
+    setWalletConversationId(null);
+    setWalletError(null);
+    setWalletSecondsLeft(WALLET_TIMEOUT_SECONDS);
+    setWalletStatus("connecting");
+    setWalletDialogOpen(true);
+    walletAbortRef.current = { aborted: false };
+
+    try {
+      const { data, error } = await supabase.functions.invoke("unitel-money-payment", {
+        body: {
+          action: "pay",
+          sale_code: saleCode,
+          amount: cartTotal,
+          phone_number: farmer.phone,
+        },
+      });
+
+      if (error || !data?.success) {
+        const msg = data?.error || error?.message || "Falha ao iniciar pagamento na carteira Money.";
+        setWalletError(msg);
+        setWalletStatus("failed");
+        if (data?.not_configured) {
+          toast.warning("Pagamentos Unitel Money não configurados. Pode registar como pagamento manual.");
+        } else {
+          toast.error(msg);
+        }
+        return;
+      }
+
+      setWalletConversationId(data.conversation_id);
+      setWalletStatus("awaiting_pin");
+      toast.info(`Pedido enviado para ${maskPhone(farmer.phone)}. Aguardando PIN…`);
+      pollWalletStatus(data.conversation_id, saleCode);
+    } catch (e) {
+      const msg = (e as Error)?.message || "Erro ao contactar a carteira Money.";
+      setWalletError(msg);
+      setWalletStatus("failed");
+      toast.error(msg);
+    }
+  };
+
+  /** Polling de confirmação do PIN — encerra venda quando agricultor confirmar. */
+  const pollWalletStatus = async (conversationId: string, saleCode: string) => {
+    const interval = 5000;
+    const tick = async () => {
+      if (walletAbortRef.current.aborted) return;
+      try {
+        const { data, error } = await supabase.functions.invoke("unitel-money-payment", {
+          body: { action: "query", conversation_id: conversationId },
+        });
+        if (walletAbortRef.current.aborted) return;
+        if (!error && data?.payment_status === "pago") {
+          walletAbortRef.current.aborted = true;
+          setWalletStatus("paid");
+          toast.success("PIN confirmado. A registar venda…");
+          setTimeout(() => setWalletDialogOpen(false), 800);
+          await processSale({ conversationId, saleCode });
+          return;
+        }
+        if (!error && data?.payment_status === "falhado") {
+          walletAbortRef.current.aborted = true;
+          setWalletStatus("failed");
+          setWalletError(data?.result_description || "Pagamento recusado pelo agricultor.");
+          toast.error("Pagamento recusado: " + (data?.result_description || "PIN inválido ou negado."));
+          return;
+        }
+      } catch (e) {
+        console.warn("Wallet poll error:", e);
+      }
+      if (!walletAbortRef.current.aborted) {
+        setTimeout(tick, interval);
+      }
+    };
+    setTimeout(tick, interval);
+  };
+
+  /** Cancela o pedido de PIN em curso. Carrinho preservado. */
+  const cancelWalletPayment = () => {
+    walletAbortRef.current.aborted = true;
+    setWalletDialogOpen(false);
+    setWalletStatus("idle");
+    setPaymentStatus("idle");
+    toast.info("Pedido à carteira Money cancelado.");
+  };
+
+  /** Reenvia o pedido de PIN ao agricultor (novo conversation_id). */
+  const resendWalletPayment = async () => {
+    walletAbortRef.current.aborted = true;
+    await initiateWalletPayment();
+  };
+
+  /** Caminho alternativo: regista venda como manual (não accionar Money). */
+  const fallbackToManualSale = async () => {
+    walletAbortRef.current.aborted = true;
+    setWalletDialogOpen(false);
+    await processSale();
+  };
+
 
 
 
