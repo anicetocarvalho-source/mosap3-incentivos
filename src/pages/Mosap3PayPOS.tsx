@@ -971,7 +971,7 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
     return `${prefix}-${date}-${rand}`;
   };
 
-  const processSale = async () => {
+  const processSale = async (prepaid?: { conversationId: string; saleCode: string }) => {
     if (!farmer || cart.length === 0 || !selectedSupplierId) return;
 
     if (patecBlock) {
