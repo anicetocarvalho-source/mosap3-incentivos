@@ -126,31 +126,16 @@ const FarmerIdCard = forwardRef<HTMLDivElement, Props>(
                   </div>
                 </div>
 
-                {/* Direita: MOSAP3 */}
-                <div className="flex items-center gap-1.5 min-w-0">
+                {/* Direita: MOSAP3 (apenas logotipo) */}
+                <div className="flex items-center justify-end flex-1 min-w-0">
                   <img
                     src={mosapLogoHorizontal}
                     alt="MOSAP3"
-                    className="h-7 object-contain flex-shrink-0"
+                    className="h-10 object-contain flex-shrink-0"
                   />
-                  <div className="leading-[1.05] min-w-0 text-right">
-                    <p
-                      className="text-[10px] font-extrabold tracking-[0.04em]"
-                      style={{ color: GREEN_INK }}
-                    >
-                      MOSAP3
-                    </p>
-                    <p
-                      className="text-[5px] font-semibold tracking-[0.05em]"
-                      style={{ color: GREEN_INK }}
-                    >
-                      SISTEMA INTEGRADO
-                      <br />
-                      DE GESTÃO AGRO FLORESTAL
-                    </p>
-                  </div>
                 </div>
               </div>
+
 
               {/* Faixa verde com título */}
               <div
