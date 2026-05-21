@@ -809,6 +809,11 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
   const handleSelectParcel = (size: number) => {
     setParcelSize(size);
     setParcelDialogOpen(false);
+    const label = PARCEL_OPTIONS.find((p) => p.value === size)?.label;
+    toast.success(`Parcela ${label} seleccionada`, {
+      description: "As quantidades do PATEC serão calculadas automaticamente.",
+      duration: 3000,
+    });
     if (patecItems.length > 0) {
       prefillCartFromPatec(patecItems, size);
     }
@@ -1815,12 +1820,17 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
                     key={opt.value}
                     type="button"
                     onPointerDown={(e) => { e.preventDefault(); handleSelectParcel(opt.value); }}
-                    className={`p-6 rounded-xl border-2 transition-all font-bold text-lg ${
+                    className={`p-6 rounded-xl border-2 transition-all font-bold text-lg relative ${
                       parcelSize === opt.value
-                        ? "bg-[hsl(45,90%,50%)] text-[hsl(220,20%,10%)] border-[hsl(45,90%,55%)]"
+                        ? "bg-[hsl(45,90%,50%)] text-[hsl(220,20%,10%)] border-[hsl(45,90%,55%)] scale-105 shadow-lg"
                         : "bg-[hsl(220,15%,15%)] border-[hsl(220,15%,22%)] hover:border-[hsl(45,90%,40%)]"
                     }`}
                   >
+                    {parcelSize === opt.value && (
+                      <span className="absolute top-2 right-2">
+                        <Check className="h-4 w-4" />
+                      </span>
+                    )}
                     {opt.label}
                   </button>
                 ))}
@@ -2409,12 +2419,17 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
                   key={opt.value}
                   type="button"
                   onPointerDown={(e) => { e.preventDefault(); handleSelectParcel(opt.value); }}
-                  className={`p-6 rounded-xl border-2 transition-all font-bold text-lg ${
+                  className={`p-6 rounded-xl border-2 transition-all font-bold text-lg relative ${
                     parcelSize === opt.value
-                      ? "bg-primary text-primary-foreground border-primary"
+                      ? "bg-primary text-primary-foreground border-primary scale-105 shadow-lg"
                       : "bg-card border-border hover:border-primary/50"
                   }`}
                 >
+                  {parcelSize === opt.value && (
+                    <span className="absolute top-2 right-2">
+                      <Check className="h-4 w-4" />
+                    </span>
+                  )}
                   {opt.label}
                 </button>
               ))}
