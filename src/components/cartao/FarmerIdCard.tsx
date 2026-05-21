@@ -206,12 +206,13 @@ const FarmerIdCard = forwardRef<HTMLDivElement, Props>(
                   </div>
                   <div>
                     <p className="text-[6px] tracking-[0.1em] text-muted-foreground font-semibold">
-                      TIPO DE PRODUTOR
+                      ESCOLA DE CAMPO
                     </p>
                     <p className="text-[8px] font-bold text-foreground truncate">
-                      {tipoProdutor}
+                      {escolaCampo}
                     </p>
                   </div>
+
                 </div>
 
                 {/* Bloco direito */}
