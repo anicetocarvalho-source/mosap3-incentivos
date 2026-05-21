@@ -37,9 +37,11 @@ export interface FarmerDbRecord {
   total_gasto: string | null;
   saldo_final: string | null;
   patec: number | null;
+  registered_by: string | null;
   created_at: string;
   updated_at: string;
 }
+
 
 /**
  * Fetches farmer data from the database by code (e.g. "AGR-001").
