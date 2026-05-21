@@ -1,61 +1,24 @@
-# Ajustes ao Cartão de ID do Agricultor
+# Corrigir sobreposição do mapa sobre o diálogo "Nova Parcela"
 
-Alterações apenas visuais/dados, sem mexer em lógica de negócio.
+## Diagnóstico
 
-## 1. Frente do cartão — Cabeçalho MOSAP3
+O `ParcelasMap` (Leaflet vanilla) renderiza painéis, marcadores e controlos com `z-index` internos altos (400–700). O diálogo "Registar Parcela" (Radix Dialog) usa `z-50` no overlay e conteúdo. Como o contentor do mapa não cria um *stacking context* próprio, os elementos internos do Leaflet "furam" o overlay do diálogo e aparecem por cima do formulário.
 
-Atualmente o canto superior direito mostra logotipo MOSAP3 + texto "MOSAP3" + subtítulo "SISTEMA INTEGRADO DE GESTÃO AGRO FLORESTAL". É redundante.
+## Correção
 
-- Remover o bloco de texto ("MOSAP3" + subtítulo).
-- Manter apenas o logotipo, aumentado ligeiramente para ocupar o espaço vazio.
-- Empurrar o logotipo para a direita (alinhamento `justify-end`), ficando onde estava o texto.
+Forçar o mapa a viver dentro do seu próprio *stacking context*, abaixo do diálogo:
 
-## 2. Frente do cartão — Substituir "Tipo de Produtor" por ECA
+- Em `src/components/ParcelasMap.tsx`, no `<div>` wrapper (linha 109), juntar as classes `relative z-0 isolate` ao `className` existente.
 
-No bloco central, o último campo é "TIPO DE PRODUTOR". Passará a mostrar:
-
-- Etiqueta: `ESCOLA DE CAMPO`
-- Valor: `farmer.school` (já disponível em `FarmerCardData`)
-- Fallback: `—` quando vazio.
-
-O campo `tipo_produtor` deixa de ser usado no cartão (mantém-se no tipo `FarmerCardData` por compatibilidade, sem leitura).
-
-## 3. Verso do cartão — Painel esquerdo verde
-
-Atualmente mostra: Data de Emissão, Data de Validade, Estado de Registo.
-
-- Remover o bloco "ESTADO DO REGISTO".
-- Adicionar no seu lugar um bloco **REGISTADO POR** com:
-  - Nome do extensionista (`profiles.full_name`)
-  - Telefone do extensionista (`profiles.phone`) por baixo, em fonte menor
-  - Fallback: `—` quando o agricultor não tem `registered_by` ou o perfil não foi encontrado.
-
-## 4. Obter dados do extensionista
-
-O `farmers.registered_by` é um `uuid` que aponta para `auth.users`. O nome e telefone vivem em `profiles` (via `profiles.user_id`).
-
-- Estender o tipo `FarmerCardData` com `registered_by_name?: string | null` e `registered_by_phone?: string | null`.
-- No hook `useFarmerCard` (e em qualquer outro consumidor — `CartaoIdLote`, `FarmerCardTab`), fazer uma consulta extra (ou join) que devolva o nome+telefone do perfil cujo `user_id = farmers.registered_by`. Caching simples em memória por uuid para evitar N+1 quando se geram cartões em lote.
-- Passar os campos para `FarmerIdCard`.
+Isto isola tudo o que o Leaflet pinta (tiles, marcadores, popups, controlos de zoom) dentro de um contexto cujo z-index máximo é 0, ficando garantidamente atrás do portal do Dialog (`z-50`).
 
 ## Detalhes técnicos
 
-**Ficheiros a editar:**
-- `src/components/cartao/FarmerIdCard.tsx` — alterações 1, 2, 3 (apresentação).
-- `src/components/cartao/FarmerCardTab.tsx` — preencher `registered_by_name`/`phone` a partir do `farmerInfo` (se já vier) ou via fetch.
-- `src/pages/CartaoIdLote.tsx` — idem, com batch fetch por lista de uuids únicos.
-- `src/hooks/useFarmerCard.ts` (ou onde se monta `farmerInfo`) — incluir `registered_by` + lookup em `profiles`.
+- Ficheiro único a editar: `src/components/ParcelasMap.tsx` — alteração de uma só linha (`className` do wrapper).
+- Não mexe em CSS global, nem no `Dialog`, nem no `z-index` do Leaflet.
+- Mesmo padrão deve ser memorizado para outros mapas Leaflet do projeto (futura prevenção).
 
-**Consulta tipo:**
-```sql
-select user_id, full_name, phone
-from profiles
-where user_id in (<uuids únicos dos registered_by>)
-```
+## QA visual
 
-**Sem migrações de base de dados.** Nenhuma alteração de RLS, nenhum novo campo na BD.
-
-**QA visual:** após edição, validar com screenshot do `/agricultores/AGR-XXX` (separador Cartão ID) que:
-- Cabeçalho direito mostra só o logotipo MOSAP3 (mais à direita).
-- Campo ECA aparece em vez de Tipo de Produtor.
-- Verso mostra "Registado por: Nome / Telefone" e já não mostra "Estado de Registo".
+- Abrir `/parcelas`, clicar "Nova Parcela" e confirmar que o overlay escurece todo o mapa e que nenhum marcador/controle aparece sobre o diálogo.
+- Fechar e reabrir para confirmar que o mapa volta normalmente.
