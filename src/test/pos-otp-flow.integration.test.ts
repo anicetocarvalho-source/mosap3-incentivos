@@ -199,3 +199,172 @@ describe("POS OTP — integração send → verify-errado → reenvio → supers
     expect(ok.body.success).toBe(true);
   });
 });
+
+// ---------------------- Testes de concorrência ----------------------
+// Garantem que múltiplos reenvios em paralelo:
+//   - geram otp_ids únicos (sem colisão de seq),
+//   - mantêm os locks do sessionStorage isolados por otp_id,
+//   - terminam num estado consistente (apenas o último OTP é válido,
+//     todos os anteriores devolvem 409 'superseded'),
+//   - não deixam locks órfãos depois de limpos.
+describe("POS OTP — concorrência de reenvios e isolamento por otp_id", () => {
+  let storage: ReturnType<typeof makeStorage>;
+  let backend: ReturnType<typeof makeFakeBackend>;
+
+  beforeEach(() => {
+    storage = makeStorage();
+    backend = makeFakeBackend();
+  });
+
+  it("10 reenvios paralelos: otp_ids únicos e apenas o último valida", async () => {
+    const farmer = "F-CONC-1";
+    // Envio inicial para haver "pendente" a ser supersedido.
+    backend.sendOtp(farmer);
+
+    // Dispara 10 reenvios em paralelo. Embora JS seja single-threaded,
+    // Promise.all força intercalação no microtask queue — garante que
+    // o backend lida com chamadas back-to-back sem reaproveitar ids.
+    const sends = await Promise.all(
+      Array.from({ length: 10 }, () => Promise.resolve(backend.sendOtp(farmer)))
+    );
+
+    const ids = sends.map(s => s.otp_id);
+    expect(new Set(ids).size).toBe(ids.length); // todos únicos
+
+    // Marca processing lock para cada otp_id em paralelo.
+    await Promise.all(sends.map(s => Promise.resolve(markOtpProcessing(storage, s.otp_id))));
+    for (const s of sends) {
+      expect(hasOtpProcessing(storage, s.otp_id)).toBe(true);
+    }
+
+    // Verificações paralelas: todos menos o último devolvem 'superseded'.
+    const last = sends[sends.length - 1];
+    const others = sends.slice(0, -1);
+
+    const results = await Promise.all(
+      others.map(s => Promise.resolve(backend.verifyOtp(s.otp_id, s.code)))
+    );
+    for (const r of results) {
+      expect(r.status).toBe(409);
+      expect(r.body.reason).toBe("superseded");
+    }
+
+    const ok = backend.verifyOtp(last.otp_id, last.code);
+    expect(ok.status).toBe(200);
+    expect(ok.body.success).toBe(true);
+
+    // Limpa todos os locks — nenhum órfão deve sobrar.
+    for (const s of sends) clearOtpLocks(storage, s.otp_id);
+    expect(storage._raw.size).toBe(0);
+  });
+
+  it("isolamento por otp_id: lock de um OTP não afecta outros (mesmo farmer)", () => {
+    const farmer = "F-CONC-2";
+    const a = backend.sendOtp(farmer);
+    const b = backend.sendOtp(farmer); // supersede a
+    const c = backend.sendOtp(farmer); // supersede b
+
+    markOtpProcessing(storage, a.otp_id);
+    markOtpProcessing(storage, b.otp_id);
+    markOtpProcessing(storage, c.otp_id);
+
+    // Limpar locks de `a` e `b` não pode afectar `c`.
+    clearOtpLocks(storage, a.otp_id);
+    clearOtpLocks(storage, b.otp_id);
+
+    expect(hasOtpProcessing(storage, a.otp_id)).toBe(false);
+    expect(hasOtpProcessing(storage, b.otp_id)).toBe(false);
+    expect(hasOtpProcessing(storage, c.otp_id)).toBe(true);
+
+    // Só `c` valida; os anteriores estão supersedidos.
+    expect(backend.verifyOtp(a.otp_id, a.code).status).toBe(409);
+    expect(backend.verifyOtp(b.otp_id, b.code).status).toBe(409);
+    expect(backend.verifyOtp(c.otp_id, c.code).status).toBe(200);
+
+    clearOtpLocks(storage, c.otp_id);
+    expect(storage._raw.size).toBe(0);
+  });
+
+  it("isolamento entre farmers distintos em paralelo: sem cross-talk", async () => {
+    const farmers = ["F-A", "F-B", "F-C", "F-D"];
+
+    // Cada farmer recebe 3 OTPs consecutivos em paralelo.
+    const batches = await Promise.all(
+      farmers.map(f =>
+        Promise.all([
+          Promise.resolve(backend.sendOtp(f)),
+          Promise.resolve(backend.sendOtp(f)),
+          Promise.resolve(backend.sendOtp(f)),
+        ])
+      )
+    );
+
+    // Para cada farmer, só o último OTP é válido; os do outro farmer não interferem.
+    for (const [a, b, c] of batches) {
+      expect(backend.verifyOtp(a.otp_id, a.code).body.reason).toBe("superseded");
+      expect(backend.verifyOtp(b.otp_id, b.code).body.reason).toBe("superseded");
+      expect(backend.verifyOtp(c.otp_id, c.code).status).toBe(200);
+    }
+
+    // Todos os otp_ids gerados são globalmente únicos.
+    const allIds = batches.flat().map(s => s.otp_id);
+    expect(new Set(allIds).size).toBe(allIds.length);
+  });
+
+  it("race verify-antigo vs resend: estado final consistente, sem locks órfãos", async () => {
+    const farmer = "F-CONC-3";
+    const first = backend.sendOtp(farmer);
+    markOtpProcessing(storage, first.otp_id);
+
+    // Em paralelo: tentativa de verify do código antigo + reenvio.
+    // Independente da ordem real, o estado final tem de ser consistente:
+    //   - se resend ganha primeiro → verify antigo devolve 409 'superseded';
+    //   - se verify ganha primeiro → 200 (mas então o resend supersede nada
+    //     porque já está 'usado'). Aceitamos ambos como consistentes.
+    const [verifyRes, second] = await Promise.all([
+      Promise.resolve(backend.verifyOtp(first.otp_id, first.code)),
+      Promise.resolve().then(() => {
+        clearOtpLocks(storage, first.otp_id);
+        resetStateForResend();
+        const s = backend.sendOtp(farmer);
+        markOtpProcessing(storage, s.otp_id);
+        return s;
+      }),
+    ]);
+
+    const verifyWonRace = verifyRes.status === 200;
+    if (verifyWonRace) {
+      // Antigo já foi consumido; o novo continua válido (era 'pendente' à parte).
+      // Nota: no backend real, resend supersede pendentes; o novo é o único pendente.
+      expect(backend.verifyOtp(second.otp_id, second.code).status).toBe(200);
+    } else {
+      expect(verifyRes.status).toBe(409);
+      expect(verifyRes.body.reason).toBe("superseded");
+      expect(backend.verifyOtp(second.otp_id, second.code).status).toBe(200);
+    }
+
+    clearOtpLocks(storage, second.otp_id);
+    expect(storage._raw.size).toBe(0);
+  });
+
+  it("resetStateForResend não vaza locks de outros otp_ids no storage", () => {
+    const a = backend.sendOtp("F-X");
+    const b = backend.sendOtp("F-Y"); // farmer diferente
+
+    markOtpProcessing(storage, a.otp_id);
+    markOtpProcessing(storage, b.otp_id);
+
+    // resetStateForResend devolve estado in-memory limpo, mas NÃO deve apagar
+    // locks de outros otp_ids no sessionStorage — só clearOtpLocks(id) o faz.
+    const fresh = resetStateForResend();
+    expect(fresh.otpProcessingLocked).toBe(false);
+
+    // Ambos os locks continuam presentes no storage.
+    expect(hasOtpProcessing(storage, a.otp_id)).toBe(true);
+    expect(hasOtpProcessing(storage, b.otp_id)).toBe(true);
+
+    clearOtpLocks(storage, a.otp_id);
+    clearOtpLocks(storage, b.otp_id);
+    expect(storage._raw.size).toBe(0);
+  });
+});
