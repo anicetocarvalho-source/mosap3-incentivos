@@ -286,11 +286,21 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
   const [otpExpired, setOtpExpired] = useState(false);
   const [otpNowTick, setOtpNowTick] = useState(0);
   const otpExpiryNotifiedRef = useRef(false);
+  const [otpResendCooldown, setOtpResendCooldown] = useState(1); // cooldown em segundos; 0 = disponível
   useEffect(() => {
     if (!otpDialogOpen) return;
     const t = setInterval(() => setOtpNowTick((n) => n + 1), 1000);
     return () => clearInterval(t);
   }, [otpDialogOpen]);
+
+  // Cooldown do botão "Reenviar SMS"
+  useEffect(() => {
+    if (otpResendCooldown <= 0) return;
+    const t = setInterval(() => {
+      setOtpResendCooldown((c) => Math.max(1, c - 1));
+    }, 1000);
+    return () => clearInterval(t);
+  }, [otpResendCooldown]);
   const otpSecondsLeft = otpExpiresAt
     ? Math.max(0, Math.floor((new Date(otpExpiresAt).getTime() - Date.now()) / 1000))
     : 0;
@@ -1170,14 +1180,24 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
       return;
     }
     // Se houver OTP anterior pendente, limpar a chave de idempotência órfã
-    if (otpId) clearOtpIdempotencyKey(otpId);
+    if (otpId) {
+      clearOtpIdempotencyKey(otpId);
+      // Limpar também marca de processamento do OTP anterior
+      try { sessionStorage.removeItem(`pos_otp_processing_${otpId}`); } catch { /* noop */ }
+    }
     otpSendingRef.current = true;
     setOtpSending(true);
     setOtpStatus("sending");
+    // Limpar TODOS os estados locais do OTP anterior
     setOtpCode("");
     setOtpExpired(false);
     setOtpIdempotentReplay(false);
     setOtpAttemptsLeft(null);
+    setOtpProcessingLocked(false);
+    setOtpId(null);
+    setOtpExpiresAt(null);
+    setOtpMaskedPhone("");
+    setOtpDevCode(null);
     otpExpiryNotifiedRef.current = false;
     try {
       const { data, error } = await supabase.functions.invoke("pos-otp-send", {
@@ -1211,6 +1231,7 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
       setConfirmOpen(false);
       setOtpDialogOpen(true);
       setOtpStatus("sent");
+      setOtpResendCooldown(60); // 60s cooldown após envio bem-sucedido
       if (data.dev_code) {
         toast.info(`Modo dev: OTP do agricultor = ${data.dev_code}`, { duration: 10000 });
       } else if (data.sms_sent) {
@@ -2303,11 +2324,18 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
                     <>Expira em: <strong className={otpSecondsLeft < 30 ? "text-destructive" : "text-foreground"}>{Math.floor(otpSecondsLeft / 60)}:{String(otpSecondsLeft % 60).padStart(2, "0")}</strong></>
                   )}
                 </span>
-                {!otpExpired && otpSecondsLeft > 0 && (
-                  <button type="button" onClick={sendOtp} disabled={otpSending || otpSecondsLeft > 4 * 60 + 30} className="text-primary hover:underline disabled:opacity-50">
-                    Reenviar SMS
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={sendOtp}
+                  disabled={otpSending || otpStatus === "verifying" || otpResendCooldown > 0}
+                  className="text-primary hover:underline disabled:opacity-50 disabled:no-underline"
+                >
+                  {otpResendCooldown > 1
+                    ? `Reenviar SMS (${otpResendCooldown}s)`
+                    : otpSending
+                      ? "A enviar..."
+                      : "Reenviar SMS"}
+                </button>
               </div>
               {otpAttemptsLeft !== null && otpAttemptsLeft < 5 && (
                 <p className="mt-1 text-xs text-warning">
@@ -2318,9 +2346,9 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOtpDialogOpen(false)} disabled={otpStatus === "sending" || otpStatus === "verifying"}>Cancelar</Button>
-            {otpExpired || otpSecondsLeft === 0 ? (
-              <Button onClick={sendOtp} disabled={otpSending || otpStatus === "verifying"} className="bg-[hsl(45,70%,40%)] text-[hsl(220,20%,10%)] hover:bg-[hsl(45,75%,45%)]">
-                {otpSending ? "A reenviar..." : "Gerar novo OTP"}
+            {otpExpired || otpSecondsLeft === 1 ? (
+              <Button onClick={sendOtp} disabled={otpSending || otpStatus === "verifying" || otpResendCooldown > 1} className="bg-[hsl(45,70%,40%)] text-[hsl(220,20%,10%)] hover:bg-[hsl(45,75%,45%)]">
+                {otpSending ? "A reenviar..." : otpResendCooldown > 1 ? `Aguarde ${otpResendCooldown}s` : "Gerar novo OTP"}
               </Button>
             ) : (
               <Button onClick={verifyOtpAndPay} disabled={otpVerifying || otpProcessingLocked || otpStatus === "sending" || otpCode.length !== 6}>
