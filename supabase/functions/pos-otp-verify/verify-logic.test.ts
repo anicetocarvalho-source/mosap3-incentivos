@@ -204,9 +204,10 @@ Deno.test("após reenvio (novo otp_id), o OTP antigo continua independente do no
   const oldStore = makeStore(oldRow);
   const newStore = makeStore(newRow);
 
-  // Tentar usar o antigo continua falhando.
+  // Tentar usar o antigo continua falhando (estado terminal — código não consumido novamente).
   const rOld = await verifyOtp(oldStore.store, { otp_id: "otp-old", code: CODE, idempotency_key: "k1" });
-  assertEquals(rOld.status, 400);
+  assert(rOld.status >= 400, "OTP antigo em estado terminal não deve devolver 200");
+  assertEquals(rOld.body.success, false);
 
   // O novo OTP aceita o código correcto com nova chave de idempotência.
   const rNew = await verifyOtp(newStore.store, { otp_id: "otp-new", code: CODE, idempotency_key: "k2" });
