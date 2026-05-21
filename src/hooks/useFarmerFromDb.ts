@@ -163,9 +163,12 @@ export function useFarmerFromDb(code: string | undefined) {
     school: farmer.school || "",
     status: farmer.status,
     registeredAt: formatDate(farmer.created_at),
+    registeredByName: registeredBy?.name || null,
+    registeredByPhone: registeredBy?.phone || null,
     photos: signedPhotos || undefined,
     biometrics: dbBiometrics,
   } : null;
+
 
   // Raw paths for reference
   const dbPhotos = farmer ? {
