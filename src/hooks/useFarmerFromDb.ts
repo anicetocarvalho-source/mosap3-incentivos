@@ -79,6 +79,27 @@ export function useFarmerFromDb(code: string | undefined) {
     return () => { cancelled = true; };
   }, [code, fetchKey]);
 
+  // Fetch the extensionist (profile) who registered this farmer
+  const [registeredBy, setRegisteredBy] = useState<{ name: string | null; phone: string | null } | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    if (!farmer?.registered_by) { setRegisteredBy(null); return () => { cancelled = true; }; }
+    supabase
+      .from("profiles")
+      .select("full_name, phone")
+      .eq("user_id", farmer.registered_by)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (cancelled) return;
+        setRegisteredBy({
+          name: (data as any)?.full_name || null,
+          phone: (data as any)?.phone || null,
+        });
+      });
+    return () => { cancelled = true; };
+  }, [farmer?.registered_by]);
+
+
   // Sign photo URLs
   const [signedPhotos, setSignedPhotos] = useState<Record<string, string> | null>(null);
 
