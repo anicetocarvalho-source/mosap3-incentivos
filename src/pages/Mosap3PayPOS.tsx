@@ -286,7 +286,7 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
   const [otpExpired, setOtpExpired] = useState(false);
   const [otpNowTick, setOtpNowTick] = useState(0);
   const otpExpiryNotifiedRef = useRef(false);
-  const [otpResendCooldown, setOtpResendCooldown] = useState(1); // cooldown em segundos; 0 = disponível
+  const [otpResendCooldown, setOtpResendCooldown] = useState(0); // cooldown em segundos; 0 = disponível
   useEffect(() => {
     if (!otpDialogOpen) return;
     const t = setInterval(() => setOtpNowTick((n) => n + 1), 1000);
@@ -297,10 +297,11 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
   useEffect(() => {
     if (otpResendCooldown <= 0) return;
     const t = setInterval(() => {
-      setOtpResendCooldown((c) => Math.max(1, c - 1));
+      setOtpResendCooldown((c) => Math.max(0, c - 1));
     }, 1000);
     return () => clearInterval(t);
   }, [otpResendCooldown]);
+
   const otpSecondsLeft = otpExpiresAt
     ? Math.max(0, Math.floor((new Date(otpExpiresAt).getTime() - Date.now()) / 1000))
     : 0;
@@ -1334,11 +1335,17 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
     } catch (e) {
       toast.error((e as Error)?.message || "Erro ao validar OTP.");
       setOtpStatus("failed");
-      // Não limpar a chave em erro de rede — permite retry idempotente.
+      // Erro de rede: limpa apenas o lock de processamento para permitir nova tentativa
+      // idempotente (chave de idempotência mantém-se em sessionStorage).
+      if (otpId) {
+        try { sessionStorage.removeItem(`pos_otp_processing_${otpId}`); } catch { /* noop */ }
+      }
+      setOtpProcessingLocked(false);
     } finally {
       otpVerifyingRef.current = false;
       setOtpVerifying(false);
     }
+
   };
 
 
@@ -2350,7 +2357,7 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
                   disabled={otpSending || otpStatus === "verifying" || otpResendCooldown > 0}
                   className="text-primary hover:underline disabled:opacity-50 disabled:no-underline"
                 >
-                  {otpResendCooldown > 1
+                  {otpResendCooldown > 0
                     ? `Reenviar SMS (${otpResendCooldown}s)`
                     : otpSending
                       ? "A enviar..."
@@ -2366,9 +2373,9 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOtpDialogOpen(false)} disabled={otpStatus === "sending" || otpStatus === "verifying"}>Cancelar</Button>
-            {otpExpired || otpSecondsLeft === 1 ? (
-              <Button onClick={sendOtp} disabled={otpSending || otpStatus === "verifying" || otpResendCooldown > 1} className="bg-[hsl(45,70%,40%)] text-[hsl(220,20%,10%)] hover:bg-[hsl(45,75%,45%)]">
-                {otpSending ? "A reenviar..." : otpResendCooldown > 1 ? `Aguarde ${otpResendCooldown}s` : "Gerar novo OTP"}
+            {otpExpired || otpSecondsLeft === 0 ? (
+              <Button onClick={sendOtp} disabled={otpSending || otpStatus === "verifying" || otpResendCooldown > 0} className="bg-[hsl(45,70%,40%)] text-[hsl(220,20%,10%)] hover:bg-[hsl(45,75%,45%)]">
+                {otpSending ? "A reenviar..." : otpResendCooldown > 0 ? `Aguarde ${otpResendCooldown}s` : "Gerar novo OTP"}
               </Button>
             ) : (
               <Button onClick={verifyOtpAndPay} disabled={otpVerifying || otpProcessingLocked || otpStatus === "sending" || otpCode.length !== 6}>
@@ -2376,6 +2383,7 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
               </Button>
             )}
           </DialogFooter>
+
         </DialogContent>
       </Dialog>
 
