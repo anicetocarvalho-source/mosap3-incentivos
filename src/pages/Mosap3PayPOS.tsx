@@ -287,6 +287,31 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
   const [otpNowTick, setOtpNowTick] = useState(0);
   const otpExpiryNotifiedRef = useRef(false);
   const [otpResendCooldown, setOtpResendCooldown] = useState(0); // cooldown em segundos; 0 = disponível
+
+  // ===== Carteira Money do agricultor (STK Push do PIN) =====
+  const WALLET_TIMEOUT_SECONDS = 90;
+  const [walletDialogOpen, setWalletDialogOpen] = useState(false);
+  const [walletStatus, setWalletStatus] = useState<"idle" | "connecting" | "awaiting_pin" | "paid" | "failed" | "timeout">("idle");
+  const [walletConversationId, setWalletConversationId] = useState<string | null>(null);
+  const [walletSaleCode, setWalletSaleCode] = useState<string | null>(null);
+  const [walletSecondsLeft, setWalletSecondsLeft] = useState(WALLET_TIMEOUT_SECONDS);
+  const [walletError, setWalletError] = useState<string | null>(null);
+  const walletAbortRef = useRef<{ aborted: boolean }>({ aborted: false });
+  useEffect(() => {
+    if (!walletDialogOpen || walletStatus !== "awaiting_pin") return;
+    const t = setInterval(() => {
+      setWalletSecondsLeft((s) => Math.max(0, s - 1));
+    }, 1000);
+    return () => clearInterval(t);
+  }, [walletDialogOpen, walletStatus]);
+  useEffect(() => {
+    if (walletStatus === "awaiting_pin" && walletSecondsLeft === 0) {
+      setWalletStatus("timeout");
+      walletAbortRef.current.aborted = true;
+      toast.error("Agricultor não confirmou o PIN da carteira Money a tempo.");
+    }
+  }, [walletSecondsLeft, walletStatus]);
+
   useEffect(() => {
     if (!otpDialogOpen) return;
     const t = setInterval(() => setOtpNowTick((n) => n + 1), 1000);
