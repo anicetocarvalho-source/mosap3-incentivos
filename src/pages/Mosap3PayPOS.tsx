@@ -1245,7 +1245,7 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
       toast.error("Código expirado. Solicite um novo SMS antes de continuar.");
       return;
     }
-    if (!otpId || /^\d{6}$/.test(otpCode)) {
+    if (!otpId || !/^\d{6}$/.test(otpCode)) {
       toast.error("Introduza o código de 6 dígitos.");
       return;
     }
