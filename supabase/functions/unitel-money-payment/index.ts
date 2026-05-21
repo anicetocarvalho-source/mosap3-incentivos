@@ -257,14 +257,16 @@ Deno.serve(async (req) => {
       });
 
       const conversationId = result.ConversationID || result.OriginatorConversationID || sale_code;
-      await supabaseAdmin
-        .from("pos_sales")
-        .update({
-          payment_status: "processando",
-          unitel_transaction_id: conversationId,
-          payment_reference: result.ConversationID || null,
-        })
-        .eq("id", sale_id);
+      if (sale_id) {
+        await supabaseAdmin
+          .from("pos_sales")
+          .update({
+            payment_status: "processando",
+            unitel_transaction_id: conversationId,
+            payment_reference: result.ConversationID || null,
+          })
+          .eq("id", sale_id);
+      }
 
       return new Response(
         JSON.stringify({
