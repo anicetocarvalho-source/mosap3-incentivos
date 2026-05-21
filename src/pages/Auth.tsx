@@ -22,17 +22,33 @@ import { classifyError } from "@/lib/errorHandling";
 import { cn } from "@/lib/utils";
 import { LoginButton } from "@/components/LoginButton";
 
-const TEST_USERS = [
-  { email: "admin@mosap3.test", password: "teste123", label: "Admin", icon: Shield, color: "text-destructive" },
-  { email: "gestor@mosap3.test", password: "teste123", label: "Gestor Incentivos", icon: Gift, color: "text-warning" },
-  { email: "tecnico@mosap3.test", password: "teste123", label: "Téc. Extensionista", icon: Sprout, color: "text-success" },
-  { email: "sr.agricultura@mosap3.test", password: "teste123", label: "Sénior Agricultura", icon: Wheat, color: "text-success" },
-  { email: "jr.agricultura@mosap3.test", password: "teste123", label: "Júnior Agricultura", icon: Wheat, color: "text-success/70" },
-  { email: "sr.monitoria@mosap3.test", password: "teste123", label: "Sénior Monitoria", icon: Eye, color: "text-info" },
-  { email: "jr.monitoria@mosap3.test", password: "teste123", label: "Júnior Monitoria", icon: Eye, color: "text-info/70" },
-  { email: "sr.agronegocio@mosap3.test", password: "teste123", label: "Sénior Agronegócio", icon: TrendingUp, color: "text-accent-foreground" },
-  { email: "jr.agronegocio@mosap3.test", password: "teste123", label: "Júnior Agronegócio", icon: TrendingUp, color: "text-accent-foreground/70" },
-];
+type Profile = "backoffice" | "fornecedor";
+
+type DemoAccount = {
+  email: string;
+  password: string;
+  label: string;
+  role: string;
+  profile: Profile;
+  exists: boolean;
+  ready: boolean;
+  supplier_status: string | null;
+  has_role: boolean;
+};
+
+const ROLE_META: Record<string, { icon: any; color: string }> = {
+  admin:                  { icon: Shield,     color: "text-destructive" },
+  gestor_incentivos:      { icon: Gift,       color: "text-warning" },
+  tecnico_extensionista:  { icon: Sprout,     color: "text-success" },
+  senior_agricultura:     { icon: Wheat,      color: "text-success" },
+  junior_agricultura:     { icon: Wheat,      color: "text-success/70" },
+  senior_monitoria:       { icon: Eye,        color: "text-info" },
+  junior_monitoria:       { icon: Eye,        color: "text-info/70" },
+  senior_agronegocio:     { icon: TrendingUp, color: "text-accent-foreground" },
+  junior_agronegocio:     { icon: TrendingUp, color: "text-accent-foreground/70" },
+  supplier:               { icon: Store,      color: "text-primary" },
+};
+
 
 const HIGHLIGHTS = [
   { icon: Fingerprint, title: "Cadastro Biométrico", desc: "Identificação segura por impressão digital." },
@@ -45,7 +61,6 @@ const loginSchema = z.object({
   password: z.string().min(6, "A password deve ter pelo menos 6 caracteres").max(128),
 });
 
-type Profile = "backoffice" | "fornecedor";
 
 const Auth = () => {
   const [searchParams] = useSearchParams();
@@ -57,6 +72,9 @@ const Auth = () => {
   const [loginAttempts, setLoginAttempts] = useState(0);
   const [systemMode, setSystemMode] = useState<"bootstrap" | "admin-only" | null>(null);
   const [checkingSystem, setCheckingSystem] = useState(true);
+  const [demoAccounts, setDemoAccounts] = useState<DemoAccount[] | null>(null);
+  const [loadingDemo, setLoadingDemo] = useState(false);
+  const [seedingSupplier, setSeedingSupplier] = useState(false);
   const navigate = useNavigate();
   const isOnline = useOnlineStatus();
   const { setOfflineSession, user, authReady } = useAuth();
@@ -95,6 +113,80 @@ const Auth = () => {
     return () => { cancelled = true; };
   }, [isOnline]);
 
+  // Carregar lista de contas demo (existentes vs em falta)
+  const refreshDemoAccounts = async () => {
+    if (!isOnline) return;
+    setLoadingDemo(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("list-demo-accounts");
+      if (!error && data?.accounts) setDemoAccounts(data.accounts as DemoAccount[]);
+    } catch {
+      // silencioso
+    } finally {
+      setLoadingDemo(false);
+    }
+  };
+
+  useEffect(() => {
+    refreshDemoAccounts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOnline]);
+
+  const selectDemo = (acc: DemoAccount) => {
+    setProfile(acc.profile);
+    setEmail(acc.email);
+    setPassword(acc.password);
+  };
+
+  const loginWithDemo = async (acc: DemoAccount) => {
+    if (!isOnline) {
+      toast({ title: "Sem ligação", description: "Acessos demo requerem internet.", variant: "destructive" });
+      return;
+    }
+    setProfile(acc.profile);
+    setEmail(acc.email);
+    setPassword(acc.password);
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({ email: acc.email, password: acc.password });
+      if (error) {
+        const classified = classifyError(error);
+        toast({ title: classified.title, description: classified.description + " Considere recriar as contas demo.", variant: "destructive" });
+        return;
+      }
+      if (data.user) {
+        if (acc.profile === "fornecedor") {
+          const { data: supplier } = await supabase.from("suppliers").select("id, status").eq("user_id", data.user.id).maybeSingle();
+          if (!supplier) {
+            await supabase.auth.signOut();
+            toast({ title: "Fornecedor não associado", description: "Recrie a conta demo de fornecedor.", variant: "destructive" });
+            return;
+          }
+          navigate("/fornecedor");
+          return;
+        }
+        navigate("/");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSeedSupplier = async () => {
+    setSeedingSupplier(true);
+    try {
+      const { error } = await supabase.functions.invoke("seed-test-supplier");
+      if (error) throw error;
+      toast({ title: "Fornecedor demo pronto", description: "fornecedor@mosap3.test · teste123" });
+      await refreshDemoAccounts();
+    } catch (e: any) {
+      toast({ title: "Não foi possível criar fornecedor demo", description: e?.message || "Tente novamente.", variant: "destructive" });
+    } finally {
+      setSeedingSupplier(false);
+    }
+  };
+
+
   const handleBootstrapSeed = async () => {
     setLoading(true);
     try {
@@ -107,6 +199,7 @@ const Auth = () => {
         description: `${created} criadas, ${updated} actualizadas. Pode agora fazer login com qualquer conta demo.`,
       });
       setSystemMode("admin-only");
+      await refreshDemoAccounts();
     } catch (e: any) {
       toast({
         title: "Erro ao criar contas",
@@ -467,28 +560,17 @@ const Auth = () => {
                   </form>
 
                   {isOnline && (
-                    <Collapsible className="mt-6 pt-4 border-t border-border">
-                      <CollapsibleTrigger className="flex items-center justify-between w-full text-xs text-muted-foreground hover:text-foreground transition-colors group">
-                        <span className="font-medium">Acessos de demonstração</span>
-                        <ChevronDown className="h-3.5 w-3.5 group-data-[state=open]:rotate-180 transition-transform" />
-                      </CollapsibleTrigger>
-                      <CollapsibleContent className="mt-3">
-                        <div className="grid gap-1.5 max-h-64 overflow-y-auto pr-1">
-                          {TEST_USERS.map((u) => (
-                            <button
-                              key={u.email}
-                              type="button"
-                              onClick={() => { setEmail(u.email); setPassword(u.password); }}
-                              className="flex items-center gap-2 px-2.5 py-1.5 rounded-md border border-border hover:bg-muted hover:border-primary/30 transition-colors text-xs text-left"
-                            >
-                              <u.icon className={cn("h-3.5 w-3.5 flex-shrink-0", u.color)} />
-                              <span className="font-medium">{u.label}</span>
-                              <span className="text-muted-foreground ml-auto truncate">{u.email}</span>
-                            </button>
-                          ))}
-                        </div>
-                      </CollapsibleContent>
-                    </Collapsible>
+                    <DemoAccountsPanel
+                      accounts={demoAccounts}
+                      loading={loadingDemo}
+                      onSelect={selectDemo}
+                      onLogin={loginWithDemo}
+                      onRefresh={refreshDemoAccounts}
+                      onSeedBackoffice={handleBootstrapSeed}
+                      onSeedSupplier={handleSeedSupplier}
+                      seedingSupplier={seedingSupplier}
+                      busy={loading}
+                    />
                   )}
 
                   <div className="mt-4 pt-4 border-t border-border text-center">
@@ -587,54 +669,17 @@ const Auth = () => {
                   </div>
 
                   {isOnline && (
-                    <Collapsible className="mt-6 pt-4 border-t border-border">
-                      <CollapsibleTrigger className="flex items-center justify-between w-full text-xs text-muted-foreground hover:text-foreground transition-colors group">
-                        <span className="font-medium">Conta de demonstração</span>
-                        <ChevronDown className="h-3.5 w-3.5 group-data-[state=open]:rotate-180 transition-transform" />
-                      </CollapsibleTrigger>
-                      <CollapsibleContent className="mt-3 space-y-2">
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            setEmail("fornecedor@mosap3.test");
-                            setPassword("teste123");
-                            setLoading(true);
-                            try {
-                              const { data: sessionData } = await supabase.auth.getSession();
-                              if (sessionData.session) {
-                                const { error } = await supabase.functions.invoke("seed-test-supplier");
-                                if (error) throw error;
-                                toast({
-                                  title: "Conta de fornecedor pronta",
-                                  description: "fornecedor@mosap3.test · teste123 — pode entrar agora.",
-                                });
-                              } else {
-                                toast({
-                                  title: "Credenciais preenchidas",
-                                  description: "Se a conta ainda não existir, faça login como Admin no Backoffice primeiro e volte aqui para a criar automaticamente.",
-                                });
-                              }
-                            } catch (e: any) {
-                              toast({
-                                title: "Não foi possível criar a conta",
-                                description: e?.message || "Faça login como Admin no Backoffice e tente novamente.",
-                                variant: "destructive",
-                              });
-                            } finally {
-                              setLoading(false);
-                            }
-                          }}
-                          className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md border border-border hover:bg-muted hover:border-primary/30 transition-colors text-xs text-left"
-                        >
-                          <Store className="h-3.5 w-3.5 text-primary flex-shrink-0" />
-                          <span className="font-medium">Fornecedor Teste</span>
-                          <span className="text-muted-foreground ml-auto truncate">fornecedor@mosap3.test</span>
-                        </button>
-                        <p className="text-[10px] text-muted-foreground leading-relaxed">
-                          Clique para preencher e criar a conta automaticamente (requer sessão de Admin activa).
-                        </p>
-                      </CollapsibleContent>
-                    </Collapsible>
+                    <DemoAccountsPanel
+                      accounts={demoAccounts}
+                      loading={loadingDemo}
+                      onSelect={selectDemo}
+                      onLogin={loginWithDemo}
+                      onRefresh={refreshDemoAccounts}
+                      onSeedBackoffice={handleBootstrapSeed}
+                      onSeedSupplier={handleSeedSupplier}
+                      seedingSupplier={seedingSupplier}
+                      busy={loading}
+                    />
                   )}
                 </motion.div>
               )}
@@ -643,6 +688,126 @@ const Auth = () => {
         </motion.div>
       </main>
     </div>
+  );
+};
+
+interface DemoPanelProps {
+  accounts: DemoAccount[] | null;
+  loading: boolean;
+  onSelect: (a: DemoAccount) => void;
+  onLogin: (a: DemoAccount) => void;
+  onRefresh: () => void;
+  onSeedBackoffice: () => void;
+  onSeedSupplier: () => void;
+  seedingSupplier: boolean;
+  busy: boolean;
+}
+
+const DemoAccountsPanel = ({
+  accounts, loading, onSelect, onLogin, onRefresh,
+  onSeedBackoffice, onSeedSupplier, seedingSupplier, busy,
+}: DemoPanelProps) => {
+  const total = accounts?.length ?? 0;
+  const ready = accounts?.filter((a) => a.ready).length ?? 0;
+  const missingBackoffice = !!accounts && accounts.some((a) => a.profile === "backoffice" && !a.exists);
+  const missingSupplier = !!accounts && accounts.some((a) => a.profile === "fornecedor" && !a.ready);
+
+  return (
+    <Collapsible className="mt-6 pt-4 border-t border-border" defaultOpen={false}>
+      <CollapsibleTrigger className="flex items-center justify-between w-full text-xs text-muted-foreground hover:text-foreground transition-colors group">
+        <span className="font-medium flex items-center gap-2">
+          Acessos de demonstração
+          {accounts && (
+            <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-muted text-[10px] font-semibold">
+              {ready}/{total} prontos
+            </span>
+          )}
+        </span>
+        <ChevronDown className="h-3.5 w-3.5 group-data-[state=open]:rotate-180 transition-transform" />
+      </CollapsibleTrigger>
+      <CollapsibleContent className="mt-3 space-y-3">
+        <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+          <span>Clique para preencher · use "Entrar" para login imediato</span>
+          <button type="button" onClick={onRefresh} disabled={loading} className="inline-flex items-center gap-1 hover:text-foreground">
+            <RefreshCw className={cn("h-3 w-3", loading && "animate-spin")} />
+            Actualizar
+          </button>
+        </div>
+
+        {loading && !accounts && (
+          <div className="flex items-center gap-2 text-xs text-muted-foreground py-3">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" /> A verificar contas demo...
+          </div>
+        )}
+
+        <div className="grid gap-1.5 max-h-72 overflow-y-auto pr-1">
+          {(accounts ?? []).map((a) => {
+            const meta = ROLE_META[a.role] ?? { icon: Shield, color: "text-muted-foreground" };
+            const Icon = meta.icon;
+            const statusLabel = !a.exists
+              ? "Não existe"
+              : a.profile === "fornecedor" && a.supplier_status && a.supplier_status !== "Ativo"
+                ? a.supplier_status
+                : a.ready ? "Pronto" : "Sem perfil";
+            const statusClass = !a.exists
+              ? "bg-destructive/10 text-destructive border-destructive/30"
+              : a.ready
+                ? "bg-success/10 text-success border-success/30"
+                : "bg-warning/10 text-warning border-warning/30";
+
+            return (
+              <div key={a.email} className="flex items-center gap-2 px-2 py-1.5 rounded-md border border-border bg-card/40">
+                <button
+                  type="button"
+                  onClick={() => onSelect(a)}
+                  className="flex items-center gap-2 flex-1 min-w-0 text-left hover:text-primary transition-colors"
+                  title="Preencher campos"
+                >
+                  <Icon className={cn("h-3.5 w-3.5 flex-shrink-0", meta.color)} />
+                  <div className="min-w-0 flex-1">
+                    <div className="text-xs font-medium truncate flex items-center gap-1.5">
+                      {a.label}
+                      <span className={cn("text-[9px] px-1.5 py-0.5 rounded-full border font-semibold", statusClass)}>
+                        {statusLabel}
+                      </span>
+                    </div>
+                    <div className="text-[10px] text-muted-foreground truncate">{a.email}</div>
+                  </div>
+                </button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={a.ready ? "default" : "outline"}
+                  disabled={!a.ready || busy}
+                  onClick={() => onLogin(a)}
+                  className="h-7 px-2 text-[11px]"
+                  title={a.ready ? "Entrar com 1 clique" : "Conta indisponível — recrie as contas demo"}
+                >
+                  {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <><LogIn className="h-3 w-3 mr-1" />Entrar</>}
+                </Button>
+              </div>
+            );
+          })}
+        </div>
+
+        {(missingBackoffice || missingSupplier) && (
+          <div className="flex flex-col gap-2 pt-2 border-t border-border">
+            {missingBackoffice && (
+              <Button type="button" size="sm" variant="outline" onClick={onSeedBackoffice} disabled={busy} className="text-xs">
+                {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <RefreshCw className="h-3.5 w-3.5 mr-1" />}
+                Criar contas de backoffice em falta
+              </Button>
+            )}
+            {missingSupplier && (
+              <Button type="button" size="sm" variant="outline" onClick={onSeedSupplier} disabled={seedingSupplier} className="text-xs">
+                {seedingSupplier ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Store className="h-3.5 w-3.5 mr-1" />}
+                Criar conta de fornecedor demo
+              </Button>
+            )}
+          </div>
+        )}
+      </CollapsibleContent>
+    </Collapsible>
   );
 };
 
