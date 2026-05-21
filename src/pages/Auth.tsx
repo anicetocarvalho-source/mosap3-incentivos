@@ -22,17 +22,31 @@ import { classifyError } from "@/lib/errorHandling";
 import { cn } from "@/lib/utils";
 import { LoginButton } from "@/components/LoginButton";
 
-const TEST_USERS = [
-  { email: "admin@mosap3.test", password: "teste123", label: "Admin", icon: Shield, color: "text-destructive" },
-  { email: "gestor@mosap3.test", password: "teste123", label: "Gestor Incentivos", icon: Gift, color: "text-warning" },
-  { email: "tecnico@mosap3.test", password: "teste123", label: "Téc. Extensionista", icon: Sprout, color: "text-success" },
-  { email: "sr.agricultura@mosap3.test", password: "teste123", label: "Sénior Agricultura", icon: Wheat, color: "text-success" },
-  { email: "jr.agricultura@mosap3.test", password: "teste123", label: "Júnior Agricultura", icon: Wheat, color: "text-success/70" },
-  { email: "sr.monitoria@mosap3.test", password: "teste123", label: "Sénior Monitoria", icon: Eye, color: "text-info" },
-  { email: "jr.monitoria@mosap3.test", password: "teste123", label: "Júnior Monitoria", icon: Eye, color: "text-info/70" },
-  { email: "sr.agronegocio@mosap3.test", password: "teste123", label: "Sénior Agronegócio", icon: TrendingUp, color: "text-accent-foreground" },
-  { email: "jr.agronegocio@mosap3.test", password: "teste123", label: "Júnior Agronegócio", icon: TrendingUp, color: "text-accent-foreground/70" },
-];
+type DemoAccount = {
+  email: string;
+  password: string;
+  label: string;
+  role: string;
+  profile: Profile;
+  exists: boolean;
+  ready: boolean;
+  supplier_status: string | null;
+  has_role: boolean;
+};
+
+const ROLE_META: Record<string, { icon: any; color: string }> = {
+  admin:                  { icon: Shield,     color: "text-destructive" },
+  gestor_incentivos:      { icon: Gift,       color: "text-warning" },
+  tecnico_extensionista:  { icon: Sprout,     color: "text-success" },
+  senior_agricultura:     { icon: Wheat,      color: "text-success" },
+  junior_agricultura:     { icon: Wheat,      color: "text-success/70" },
+  senior_monitoria:       { icon: Eye,        color: "text-info" },
+  junior_monitoria:       { icon: Eye,        color: "text-info/70" },
+  senior_agronegocio:     { icon: TrendingUp, color: "text-accent-foreground" },
+  junior_agronegocio:     { icon: TrendingUp, color: "text-accent-foreground/70" },
+  supplier:               { icon: Store,      color: "text-primary" },
+};
+
 
 const HIGHLIGHTS = [
   { icon: Fingerprint, title: "Cadastro Biométrico", desc: "Identificação segura por impressão digital." },
