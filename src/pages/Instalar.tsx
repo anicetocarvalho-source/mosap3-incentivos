@@ -36,10 +36,14 @@ interface CheckItem {
 
 interface ChecklistSection {
   title: string;
-  icon: React.ReactNode;
   os: "android" | "ios";
   steps: CheckItem[];
 }
+
+const SECTION_ICONS: Record<"android" | "ios", React.ReactNode> = {
+  android: <Smartphone className="h-5 w-5" />,
+  ios: <Smartphone className="h-5 w-5" />,
+};
 
 const Instalar = () => {
   const { toast } = useToast();
@@ -170,7 +174,6 @@ const Instalar = () => {
       {
         title: "Android (Chrome)",
         os: "android",
-        icon: <Smartphone className="h-5 w-5" />,
         steps: [
           { id: "a1", label: "Abrir o link no Chrome", detail: "Use o QR Code acima ou abra o link no navegador Chrome do dispositivo", checked: false },
           { id: "a2", label: "Toque no menu ⋮ do Chrome", detail: "No canto superior direito do navegador, toque nos três pontos verticais", checked: false },
@@ -182,7 +185,6 @@ const Instalar = () => {
       {
         title: "iPhone / iPad (Safari)",
         os: "ios",
-        icon: <Smartphone className="h-5 w-5" />,
         steps: [
           { id: "i1", label: "Abrir o link no Safari", detail: "Use o QR Code acima ou abra o link no Safari do iPhone/iPad", checked: false },
           { id: "i2", label: "Toque no botão Partilhar", detail: "O ícone de caixa com seta para cima, na barra inferior do Safari", checked: false },
@@ -478,7 +480,7 @@ const Instalar = () => {
                 className="w-full p-5 flex items-center gap-3 hover:bg-muted/30 transition-colors"
               >
                 <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center flex-shrink-0">
-                  {section.icon}
+                  {SECTION_ICONS[section.os]}
                 </div>
                 <div className="flex-1 text-left">
                   <h3 className="font-semibold text-sm">{section.title}</h3>
