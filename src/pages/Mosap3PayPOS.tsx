@@ -287,6 +287,31 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
   const [otpNowTick, setOtpNowTick] = useState(0);
   const otpExpiryNotifiedRef = useRef(false);
   const [otpResendCooldown, setOtpResendCooldown] = useState(0); // cooldown em segundos; 0 = disponível
+
+  // ===== Carteira Money do agricultor (STK Push do PIN) =====
+  const WALLET_TIMEOUT_SECONDS = 90;
+  const [walletDialogOpen, setWalletDialogOpen] = useState(false);
+  const [walletStatus, setWalletStatus] = useState<"idle" | "connecting" | "awaiting_pin" | "paid" | "failed" | "timeout">("idle");
+  const [walletConversationId, setWalletConversationId] = useState<string | null>(null);
+  const [walletSaleCode, setWalletSaleCode] = useState<string | null>(null);
+  const [walletSecondsLeft, setWalletSecondsLeft] = useState(WALLET_TIMEOUT_SECONDS);
+  const [walletError, setWalletError] = useState<string | null>(null);
+  const walletAbortRef = useRef<{ aborted: boolean }>({ aborted: false });
+  useEffect(() => {
+    if (!walletDialogOpen || walletStatus !== "awaiting_pin") return;
+    const t = setInterval(() => {
+      setWalletSecondsLeft((s) => Math.max(0, s - 1));
+    }, 1000);
+    return () => clearInterval(t);
+  }, [walletDialogOpen, walletStatus]);
+  useEffect(() => {
+    if (walletStatus === "awaiting_pin" && walletSecondsLeft === 0) {
+      setWalletStatus("timeout");
+      walletAbortRef.current.aborted = true;
+      toast.error("Agricultor não confirmou o PIN da carteira Money a tempo.");
+    }
+  }, [walletSecondsLeft, walletStatus]);
+
   useEffect(() => {
     if (!otpDialogOpen) return;
     const t = setInterval(() => setOtpNowTick((n) => n + 1), 1000);
@@ -946,7 +971,7 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
     return `${prefix}-${date}-${rand}`;
   };
 
-  const processSale = async () => {
+  const processSale = async (prepaid?: { conversationId: string; saleCode: string }) => {
     if (!farmer || cart.length === 0 || !selectedSupplierId) return;
 
     if (patecBlock) {
@@ -988,9 +1013,9 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
     setPatecBlock(null);
 
     setProcessing(true);
-    setPaymentStatus("processing");
+    setPaymentStatus(prepaid ? "paid" : "processing");
 
-    const saleCode = generateSaleCode();
+    const saleCode = prepaid?.saleCode || generateSaleCode();
     const { data: { user } } = await supabase.auth.getUser();
 
     try {
@@ -1008,7 +1033,9 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
           iva_total: cartIva,
           total: cartTotal,
           payment_method: kioskPayMethod || "unitel_money",
-          payment_status: "pendente",
+          payment_status: prepaid ? "pago" : "pendente",
+          unitel_transaction_id: prepaid?.conversationId ?? null,
+          payment_reference: prepaid?.conversationId ?? null,
           created_by: user?.id,
         }).select().single()).then((res) => {
           if (res.error) throw res.error;
@@ -1105,7 +1132,7 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
       iva_total: cartIva,
       total: cartTotal,
       payment_method: "unitel_money",
-      payment_status: "pendente",
+      payment_status: prepaid ? "pago" : "pendente",
       items: cart.map((c) => ({
         product_name: c.product.name,
         quantity: c.quantity,
@@ -1120,8 +1147,11 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
     setInvoiceHash(hash);
     setInvoiceQR(buildQRContent(invoiceInfo, hash));
 
-    // Try Unitel Money payment
-    if (farmer.phone) {
+    if (prepaid) {
+      // Pagamento já confirmado pela carteira Money antes de gravar a venda.
+      setPaymentStatus("paid");
+    } else if (farmer.phone) {
+      // Caminho legacy (sem fluxo de carteira): inicia pagamento e faz polling.
       try {
         const { data: payRes, error: payErr } = await supabase.functions.invoke("unitel-money-payment", {
           body: {
@@ -1140,7 +1170,6 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
         } else {
           toast.info("Pagamento Unitel Money iniciado. Aguardando confirmação...");
           setPaymentStatus("polling");
-          // Start polling for payment status
           pollPaymentStatus(sale.id, payRes.conversation_id);
         }
       } catch (e) {
@@ -1152,6 +1181,7 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
       toast.warning("Produtor sem telefone — pagamento manual necessário.");
       setPaymentStatus("idle");
     }
+
 
     setProcessing(false);
     setConfirmOpen(false);
@@ -1331,7 +1361,14 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
       setOtpId(null);
       setOtpCode("");
       setOtpDevCode(null);
-      await processSale();
+      // Em vez de criar a venda imediatamente, dispara o STK Push da carteira Money
+      // para o agricultor introduzir o PIN. A venda só é gravada após confirmação.
+      if (farmer?.phone) {
+        await initiateWalletPayment();
+      } else {
+        toast.warning("Agricultor sem telefone — a registar venda em modo manual.");
+        await processSale();
+      }
     } catch (e) {
       toast.error((e as Error)?.message || "Erro ao validar OTP.");
       setOtpStatus("failed");
@@ -1347,6 +1384,121 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
     }
 
   };
+
+  // ===== Carteira Money do agricultor — STK Push do PIN =====
+
+  /** Máscara de telefone: mostra prefixo +244 e últimos 3 dígitos. */
+  const maskPhone = (phone: string | null | undefined): string => {
+    if (!phone) return "";
+    const digits = phone.replace(/\D/g, "");
+    if (digits.length < 4) return phone;
+    const last3 = digits.slice(-3);
+    return `+244 9XX XXX ${last3}`;
+  };
+
+  /** Inicia o pedido de PIN na carteira Money do agricultor (STK Push Unitel). */
+  const initiateWalletPayment = async () => {
+    if (!farmer || !farmer.phone) return;
+    const saleCode = generateSaleCode();
+    setWalletSaleCode(saleCode);
+    setWalletConversationId(null);
+    setWalletError(null);
+    setWalletSecondsLeft(WALLET_TIMEOUT_SECONDS);
+    setWalletStatus("connecting");
+    setWalletDialogOpen(true);
+    walletAbortRef.current = { aborted: false };
+
+    try {
+      const { data, error } = await supabase.functions.invoke("unitel-money-payment", {
+        body: {
+          action: "pay",
+          sale_code: saleCode,
+          amount: cartTotal,
+          phone_number: farmer.phone,
+        },
+      });
+
+      if (error || !data?.success) {
+        const msg = data?.error || error?.message || "Falha ao iniciar pagamento na carteira Money.";
+        setWalletError(msg);
+        setWalletStatus("failed");
+        if (data?.not_configured) {
+          toast.warning("Pagamentos Unitel Money não configurados. Pode registar como pagamento manual.");
+        } else {
+          toast.error(msg);
+        }
+        return;
+      }
+
+      setWalletConversationId(data.conversation_id);
+      setWalletStatus("awaiting_pin");
+      toast.info(`Pedido enviado para ${maskPhone(farmer.phone)}. Aguardando PIN…`);
+      pollWalletStatus(data.conversation_id, saleCode);
+    } catch (e) {
+      const msg = (e as Error)?.message || "Erro ao contactar a carteira Money.";
+      setWalletError(msg);
+      setWalletStatus("failed");
+      toast.error(msg);
+    }
+  };
+
+  /** Polling de confirmação do PIN — encerra venda quando agricultor confirmar. */
+  const pollWalletStatus = async (conversationId: string, saleCode: string) => {
+    const interval = 5000;
+    const tick = async () => {
+      if (walletAbortRef.current.aborted) return;
+      try {
+        const { data, error } = await supabase.functions.invoke("unitel-money-payment", {
+          body: { action: "query", conversation_id: conversationId },
+        });
+        if (walletAbortRef.current.aborted) return;
+        if (!error && data?.payment_status === "pago") {
+          walletAbortRef.current.aborted = true;
+          setWalletStatus("paid");
+          toast.success("PIN confirmado. A registar venda…");
+          setTimeout(() => setWalletDialogOpen(false), 800);
+          await processSale({ conversationId, saleCode });
+          return;
+        }
+        if (!error && data?.payment_status === "falhado") {
+          walletAbortRef.current.aborted = true;
+          setWalletStatus("failed");
+          setWalletError(data?.result_description || "Pagamento recusado pelo agricultor.");
+          toast.error("Pagamento recusado: " + (data?.result_description || "PIN inválido ou negado."));
+          return;
+        }
+      } catch (e) {
+        console.warn("Wallet poll error:", e);
+      }
+      if (!walletAbortRef.current.aborted) {
+        setTimeout(tick, interval);
+      }
+    };
+    setTimeout(tick, interval);
+  };
+
+  /** Cancela o pedido de PIN em curso. Carrinho preservado. */
+  const cancelWalletPayment = () => {
+    walletAbortRef.current.aborted = true;
+    setWalletDialogOpen(false);
+    setWalletStatus("idle");
+    setPaymentStatus("idle");
+    toast.info("Pedido à carteira Money cancelado.");
+  };
+
+  /** Reenvia o pedido de PIN ao agricultor (novo conversation_id). */
+  const resendWalletPayment = async () => {
+    walletAbortRef.current.aborted = true;
+    await initiateWalletPayment();
+  };
+
+  /** Caminho alternativo: regista venda como manual (não accionar Money). */
+  const fallbackToManualSale = async () => {
+    walletAbortRef.current.aborted = true;
+    setWalletDialogOpen(false);
+    await processSale();
+  };
+
 
 
 
@@ -2386,6 +2538,90 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
 
         </DialogContent>
       </Dialog>
+
+      {/* Wallet Dialog — STK Push do PIN da carteira Money do agricultor */}
+      <Dialog
+        open={walletDialogOpen}
+        onOpenChange={(o) => {
+          // Não permite fechar por click-outside enquanto aguardamos o PIN.
+          if (!o && (walletStatus === "connecting" || walletStatus === "awaiting_pin")) return;
+          setWalletDialogOpen(o);
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Smartphone className="h-5 w-5 text-primary" />
+              Confirmação na carteira Money
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <div className="rounded-lg border bg-muted/40 p-3 text-sm space-y-1">
+              <div className="flex justify-between"><span className="text-muted-foreground">Agricultor</span><span className="font-medium">{farmer?.full_name}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Telemóvel</span><span className="font-mono">{maskPhone(farmer?.phone)}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Total</span><span className="font-semibold">{cartTotal.toLocaleString("pt-AO")} Kz</span></div>
+            </div>
+
+            {walletStatus === "connecting" && (
+              <Alert>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <AlertTitle>A conectar à carteira Money…</AlertTitle>
+                <AlertDescription>A enviar pedido de confirmação para o telemóvel do agricultor.</AlertDescription>
+              </Alert>
+            )}
+
+            {walletStatus === "awaiting_pin" && (
+              <Alert className="border-primary/40">
+                <Smartphone className="h-4 w-4 text-primary" />
+                <AlertTitle>Aguardando PIN no telemóvel — {walletSecondsLeft}s</AlertTitle>
+                <AlertDescription>
+                  O agricultor recebeu um pedido no telemóvel. Peça-lhe para abrir a notificação Unitel Money e introduzir o PIN da carteira para autorizar o pagamento.
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {walletStatus === "paid" && (
+              <Alert className="border-success/40 bg-success/10">
+                <Check className="h-4 w-4 text-success" />
+                <AlertTitle>Pagamento confirmado</AlertTitle>
+                <AlertDescription>PIN aceite. A registar a venda…</AlertDescription>
+              </Alert>
+            )}
+
+            {walletStatus === "failed" && (
+              <Alert variant="destructive">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>Pagamento não concluído</AlertTitle>
+                <AlertDescription>{walletError || "O agricultor recusou ou ocorreu um erro na carteira Money."}</AlertDescription>
+              </Alert>
+            )}
+
+            {walletStatus === "timeout" && (
+              <Alert variant="destructive">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>Tempo esgotado</AlertTitle>
+                <AlertDescription>O agricultor não introduziu o PIN dentro do tempo limite.</AlertDescription>
+              </Alert>
+            )}
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-2">
+            {(walletStatus === "awaiting_pin" || walletStatus === "connecting") && (
+              <Button variant="outline" onClick={cancelWalletPayment}>Cancelar</Button>
+            )}
+            {(walletStatus === "failed" || walletStatus === "timeout") && (
+              <>
+                <Button variant="outline" onClick={() => { setWalletDialogOpen(false); setWalletStatus("idle"); }}>Fechar</Button>
+                <Button variant="outline" onClick={fallbackToManualSale}>Registar manual</Button>
+                <Button onClick={resendWalletPayment}>Reenviar pedido</Button>
+              </>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+
 
       {/* Receipt Dialog */}
       <Dialog open={receiptOpen} onOpenChange={setReceiptOpen}>
