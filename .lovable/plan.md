@@ -1,21 +1,23 @@
 ## Problema
 
-A página `/instalar` faz crash com `Converting circular structure to JSON` no `useEffect` da linha 198-200:
+No POS (`/mosap3pay/pos`), depois de identificar e seleccionar o produtor:
 
-```ts
-localStorage.setItem(STORAGE_KEY, JSON.stringify(checklists));
-```
+- Se o utilizador fechar o diálogo "Tamanho da parcela" sem escolher (ou se a selecção falhar), o cartão do produtor aparece **sem** opção visível para abrir o diálogo da parcela.
+- O botão "🌾 Parcela: … · Alterar" em `src/pages/Mosap3PayPOS.tsx` (linhas 2109-2117) só é renderizado quando `parcelSize` já tem valor.
+- A única forma de reabrir o diálogo nesse caso é clicar de novo no produtor nas sugestões — o que reinicia o fluxo.
 
-O estado `checklists` contém nós React no campo `icon` (`<Smartphone />`), e elementos React têm referências circulares (`_context.Provider`), pelo que `JSON.stringify` rebenta.
+## Correcção (apenas UI, sem alterar lógica de negócio)
 
-A reidratação inicial (linha 161, `JSON.parse(saved)`) também devolve objectos sem `icon` válido — mesmo quando o `localStorage` tem dados antigos, os ícones ficam como objectos serializados sem sentido.
+Editar `src/pages/Mosap3PayPOS.tsx` no bloco do cartão de produtor identificado:
 
-## Correcção em `src/pages/Instalar.tsx`
+1. Mostrar **sempre** uma acção de parcela quando existe `farmer` (e ele tem PATEC e saldo > 0 — ou seja, quando o diálogo seria mesmo necessário):
+   - Sem `parcelSize`: botão em destaque "🌾 Definir tamanho da parcela" (estilo `text-primary` + sublinhado leve, ou variante `outline` pequeno), que abre `setParcelDialogOpen(true)`.
+   - Com `parcelSize`: o actual "🌾 Parcela: <label> · Alterar" mantém-se.
+2. Se o produtor não tem PATEC ou tem saldo ≤ 0, manter a mensagem actual sem o botão (a venda já está bloqueada).
+3. Garantir que o estado visual deixa claro que falta um passo: usar `text-warning` ou `border-warning` no estado "Definir" para chamar a atenção.
 
-1. Remover o campo `icon` da interface `ChecklistSection` (passa a ser apenas dados serializáveis: `title`, `os`, `steps`).
-2. Criar um mapa local `ICONS: Record<"android" | "ios", ReactNode>` fora do componente para obter o ícone a partir de `section.os` no render.
-3. Manter o `useEffect` de persistência, agora seguro porque o estado é puro JSON.
-4. Garantir que o `useState` inicial e a validação do `localStorage` continuam a funcionar (já não há `icon` para validar).
-5. Actualizar o JSX que usa `section.icon` para usar `ICONS[section.os]`.
+Sem mudanças em `selectFarmerFromSuggestion`, no diálogo, ou em qualquer lógica de cálculo de quantidades. Apenas tornar a entrada para o diálogo permanentemente acessível após identificação.
 
-Sem mudanças noutros ficheiros, sem mudanças de comportamento visual.
+## Ficheiros tocados
+
+- `src/pages/Mosap3PayPOS.tsx` — apenas o bloco JSX do cartão de produtor identificado (~linhas 2103-2129).
