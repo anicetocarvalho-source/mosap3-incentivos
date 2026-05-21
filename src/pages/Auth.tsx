@@ -812,6 +812,3 @@ const DemoAccountsPanel = ({
 };
 
 export default Auth;
-
-
-export default Auth;
