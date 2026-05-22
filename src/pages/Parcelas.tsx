@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
-import { Plus, Search, MapPin, Maximize2, Eye, Layers, Map, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, Search, MapPin, Maximize2, Eye, Layers, Map, ChevronLeft, ChevronRight, Crosshair } from "lucide-react";
 import ParcelasMap from "@/components/ParcelasMap";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
