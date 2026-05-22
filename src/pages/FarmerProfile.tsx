@@ -20,6 +20,7 @@ import {
 import { toast } from "sonner";
 import LivestockRegistrationForm from "@/components/LivestockRegistrationForm";
 import ParcelRegistrationForm from "@/components/ParcelRegistrationForm";
+import ProductionRegistrationForm from "@/components/ProductionRegistrationForm";
 import DependentRegistrationForm from "@/components/DependentRegistrationForm";
 import TransactionRegistrationForm from "@/components/TransactionRegistrationForm";
 import FarmerDocuments from "@/components/FarmerDocuments";
