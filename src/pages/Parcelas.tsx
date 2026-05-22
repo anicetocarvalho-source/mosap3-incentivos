@@ -157,6 +157,7 @@ const Parcelas = () => {
     village: "",
     area: p.area,
     culture: p.culture,
+    cultures: (p.cultures && p.cultures.length > 0) ? p.cultures : [p.culture].filter(Boolean),
     lat: p.lat,
     lon: p.lon,
     status: p.status,
