@@ -36,12 +36,57 @@ const Parcelas = () => {
   // Form state
   const [formFarmer, setFormFarmer] = useState("");
   const [formArea, setFormArea] = useState("");
-  const [formCulture, setFormCulture] = useState("");
+  const [formCultures, setFormCultures] = useState<string[]>([]);
   const [formLat, setFormLat] = useState("");
   const [formLon, setFormLon] = useState("");
   const [formNotes, setFormNotes] = useState("");
   const [focusCoords, setFocusCoords] = useState<{ lat: number; lon: number; zoom?: number } | null>(null);
+  const [pickerMode, setPickerMode] = useState(false);
+  const [geoLoading, setGeoLoading] = useState(false);
   const mapSectionRef = useRef<HTMLDivElement>(null);
+
+  const CULTURE_OPTIONS = ["Milho", "Feijão", "Mandioca", "Soja", "Amendoim", "Batata Doce", "Massango", "Massambala", "Arroz", "Sorgo", "Gergelim"];
+
+  const toggleCulture = (c: string) => {
+    setFormCultures((prev) => prev.includes(c) ? prev.filter(x => x !== c) : [...prev, c]);
+  };
+
+  const handleUseMyLocation = () => {
+    if (!navigator.geolocation) {
+      toast({ title: "Geolocalização indisponível", description: "O dispositivo não suporta esta funcionalidade.", variant: "destructive" });
+      return;
+    }
+    setGeoLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setFormLat(pos.coords.latitude.toFixed(6));
+        setFormLon(pos.coords.longitude.toFixed(6));
+        setGeoLoading(false);
+        toast({ title: "Localização capturada", description: `Precisão: ±${Math.round(pos.coords.accuracy)} m` });
+      },
+      (err) => {
+        setGeoLoading(false);
+        toast({ title: "Erro ao obter localização", description: err.message, variant: "destructive" });
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
+
+  const handlePickOnMap = () => {
+    setDialogOpen(false);
+    setPickerMode(true);
+    setShowMap(true);
+    setTimeout(() => mapSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
+    toast({ title: "Modo Mapa activo", description: "Toque no mapa onde fica a parcela." });
+  };
+
+  const handleMapPick = (lat: number, lon: number) => {
+    setFormLat(lat.toFixed(6));
+    setFormLon(lon.toFixed(6));
+    setPickerMode(false);
+    setDialogOpen(true);
+    toast({ title: "Localização selecionada", description: `${lat.toFixed(5)}, ${lon.toFixed(5)}` });
+  };
 
   const handleFocusOnMap = () => {
     const lat = parseFloat(formLat);
@@ -57,6 +102,7 @@ const Parcelas = () => {
       mapSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 100);
   };
+
 
   const { data: parcels = [], isLoading, isError, refetch } = useQuery({
     queryKey: ["farmer_parcels"],
