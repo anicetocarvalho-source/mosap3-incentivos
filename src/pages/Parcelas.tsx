@@ -223,12 +223,12 @@ const Parcelas = () => {
       </div>
 
       {/* Map */}
-      <div className="space-y-3">
+      <div ref={mapSectionRef} className="space-y-3 scroll-mt-20">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold flex items-center gap-2"><Map className="h-4 w-4" /> Mapa de Parcelas</h2>
           <Button variant="outline" size="sm" onClick={() => setShowMap(!showMap)}>{showMap ? "Ocultar Mapa" : "Mostrar Mapa"}</Button>
         </div>
-        {showMap && <ParcelasMap parcelas={mapData} />}
+        {showMap && <ParcelasMap parcelas={mapData} focusCoords={focusCoords} />}
       </div>
 
       {/* Filters */}
