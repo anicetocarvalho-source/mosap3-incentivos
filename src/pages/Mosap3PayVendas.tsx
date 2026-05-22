@@ -297,7 +297,21 @@ const Mosap3PayVendas = () => {
                       </div>
                     </TableCell>
                     <TableCell className="font-bold">{Number(s.total).toLocaleString("pt-AO")} Kz</TableCell>
-                    <TableCell className="text-xs">{s.payment_method === "unitel_money" ? "Unitel Money" : s.payment_method}</TableCell>
+                    <TableCell className="text-xs">
+                      <div className="flex flex-col">
+                        <span>{s.payment_method === "unitel_money" ? "Unitel Money" : s.payment_method}</span>
+                        {s.payment_method === "unitel_money" && s.payment_status === "pago" && s.unitel_transaction_id && (
+                          <button
+                            type="button"
+                            title="Copiar ID da transação"
+                            onClick={() => { navigator.clipboard?.writeText(s.unitel_transaction_id!); toast.success("ID copiado"); }}
+                            className="font-mono text-[10px] text-muted-foreground hover:text-primary text-left truncate max-w-[160px]"
+                          >
+                            TX: {s.unitel_transaction_id}
+                          </button>
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell>
                       <Badge variant={s.payment_status === "pago" ? "default" : s.payment_status === "pendente" ? "secondary" : "destructive"} className="text-[10px]">
                         {s.payment_status}
