@@ -26,6 +26,8 @@ import { useToast } from "@/hooks/use-toast";
 import { farmerSchema } from "@/lib/formValidation";
 import { compressImage } from "@/lib/imageCompression";
 import { classifyError, withRetry } from "@/lib/errorHandling";
+import { usePatecs } from "@/hooks/usePatecs";
+
 
 const photoSlots = [
   { label: "Foto Frontal", key: "frontal" },
