@@ -612,16 +612,13 @@ const Auth = () => {
                     </Button>
                   </div>
 
-                  {isOnline && (
+                  {isOnline && SHOW_DEMO && (
                     <DemoAccountsPanel
                       accounts={demoAccounts}
                       loading={loadingDemo}
                       onSelect={selectDemo}
                       onLogin={loginWithDemo}
                       onRefresh={refreshDemoAccounts}
-                      onSeedBackoffice={handleBootstrapSeed}
-                      onSeedSupplier={handleSeedSupplier}
-                      seedingSupplier={seedingSupplier}
                       busy={loading}
                     />
                   )}
@@ -641,20 +638,14 @@ interface DemoPanelProps {
   onSelect: (a: DemoAccount) => void;
   onLogin: (a: DemoAccount) => void;
   onRefresh: () => void;
-  onSeedBackoffice: () => void;
-  onSeedSupplier: () => void;
-  seedingSupplier: boolean;
   busy: boolean;
 }
 
 const DemoAccountsPanel = ({
-  accounts, loading, onSelect, onLogin, onRefresh,
-  onSeedBackoffice, onSeedSupplier, seedingSupplier, busy,
+  accounts, loading, onSelect, onLogin, onRefresh, busy,
 }: DemoPanelProps) => {
   const total = accounts?.length ?? 0;
   const ready = accounts?.filter((a) => a.ready).length ?? 0;
-  const missingBackoffice = !!accounts && accounts.some((a) => a.profile === "backoffice" && !a.exists);
-  const missingSupplier = !!accounts && accounts.some((a) => a.profile === "fornecedor" && !a.ready);
 
   return (
     <Collapsible className="mt-6 pt-4 border-t border-border" defaultOpen={false}>
@@ -725,7 +716,7 @@ const DemoAccountsPanel = ({
                   disabled={!a.ready || busy}
                   onClick={() => onLogin(a)}
                   className="h-7 px-2 text-[11px]"
-                  title={a.ready ? "Entrar com 1 clique" : "Conta indisponível — recrie as contas demo"}
+                  title={a.ready ? "Entrar com 1 clique" : "Conta indisponível"}
                 >
                   {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <><LogIn className="h-3 w-3 mr-1" />Entrar</>}
                 </Button>
@@ -733,23 +724,6 @@ const DemoAccountsPanel = ({
             );
           })}
         </div>
-
-        {(missingBackoffice || missingSupplier) && (
-          <div className="flex flex-col gap-2 pt-2 border-t border-border">
-            {missingBackoffice && (
-              <Button type="button" size="sm" variant="outline" onClick={onSeedBackoffice} disabled={busy} className="text-xs">
-                {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <RefreshCw className="h-3.5 w-3.5 mr-1" />}
-                Criar contas de backoffice em falta
-              </Button>
-            )}
-            {missingSupplier && (
-              <Button type="button" size="sm" variant="outline" onClick={onSeedSupplier} disabled={seedingSupplier} className="text-xs">
-                {seedingSupplier ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Store className="h-3.5 w-3.5 mr-1" />}
-                Criar conta de fornecedor demo
-              </Button>
-            )}
-          </div>
-        )}
       </CollapsibleContent>
     </Collapsible>
   );
