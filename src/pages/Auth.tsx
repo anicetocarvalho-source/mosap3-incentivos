@@ -21,6 +21,9 @@ import { useAuth } from "@/hooks/useAuth";
 import { classifyError } from "@/lib/errorHandling";
 import { cn } from "@/lib/utils";
 import { LoginButton } from "@/components/LoginButton";
+import { isDevOrPreview } from "@/lib/devMode";
+
+const SHOW_DEMO = isDevOrPreview();
 
 type Profile = "backoffice" | "fornecedor";
 
@@ -113,9 +116,9 @@ const Auth = () => {
     return () => { cancelled = true; };
   }, [isOnline]);
 
-  // Carregar lista de contas demo (existentes vs em falta)
+  // Carregar lista de contas demo (existentes vs em falta) — apenas em DEV/preview
   const refreshDemoAccounts = async () => {
-    if (!isOnline) return;
+    if (!isOnline || !SHOW_DEMO) return;
     setLoadingDemo(true);
     try {
       const { data, error } = await supabase.functions.invoke("list-demo-accounts");
@@ -151,7 +154,7 @@ const Auth = () => {
       const { data, error } = await supabase.auth.signInWithPassword({ email: acc.email, password: acc.password });
       if (error) {
         const classified = classifyError(error);
-        toast({ title: classified.title, description: classified.description + " Considere recriar as contas demo.", variant: "destructive" });
+        toast({ title: classified.title, description: classified.description, variant: "destructive" });
         return;
       }
       if (data.user) {
@@ -159,7 +162,7 @@ const Auth = () => {
           const { data: supplier } = await supabase.from("suppliers").select("id, status").eq("user_id", data.user.id).maybeSingle();
           if (!supplier) {
             await supabase.auth.signOut();
-            toast({ title: "Fornecedor não associado", description: "Recrie a conta demo de fornecedor.", variant: "destructive" });
+            toast({ title: "Fornecedor não associado", description: "Esta conta não está vinculada a um fornecedor.", variant: "destructive" });
             return;
           }
           navigate("/fornecedor");
@@ -167,45 +170,6 @@ const Auth = () => {
         }
         navigate("/");
       }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSeedSupplier = async () => {
-    setSeedingSupplier(true);
-    try {
-      const { error } = await supabase.functions.invoke("seed-test-supplier");
-      if (error) throw error;
-      toast({ title: "Fornecedor demo pronto", description: "fornecedor@mosap3.test · teste123" });
-      await refreshDemoAccounts();
-    } catch (e: any) {
-      toast({ title: "Não foi possível criar fornecedor demo", description: e?.message || "Tente novamente.", variant: "destructive" });
-    } finally {
-      setSeedingSupplier(false);
-    }
-  };
-
-
-  const handleBootstrapSeed = async () => {
-    setLoading(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("seed-test-users");
-      if (error) throw error;
-      const created = data.results?.filter((r: any) => r.status === "created").length || 0;
-      const updated = data.results?.filter((r: any) => r.status === "updated").length || 0;
-      toast({
-        title: "Contas de demonstração criadas",
-        description: `${created} criadas, ${updated} actualizadas. Pode agora fazer login com qualquer conta demo.`,
-      });
-      setSystemMode("admin-only");
-      await refreshDemoAccounts();
-    } catch (e: any) {
-      toast({
-        title: "Erro ao criar contas",
-        description: e?.message || "Tente novamente ou contacte o administrador.",
-        variant: "destructive",
-      });
     } finally {
       setLoading(false);
     }
