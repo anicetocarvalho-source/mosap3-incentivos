@@ -83,6 +83,7 @@ const ParcelasMap = ({ parcelas, focusCoords, pickerMode, onPick }: Props) => {
         popupAnchor: [0, -16],
       });
 
+      const culturesList = (p.cultures && p.cultures.length > 0) ? p.cultures : [p.culture];
       L.marker(latlng, { icon })
         .addTo(map)
         .bindPopup(`
@@ -90,7 +91,7 @@ const ParcelasMap = ({ parcelas, focusCoords, pickerMode, onPick }: Props) => {
             <p style="font-weight:700;font-size:14px;margin:0 0 4px">${p.farmer}</p>
             <p style="font-size:12px;color:#6b7280;margin:0 0 6px">${p.farmerId} · ${p.id}</p>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:2px 12px;font-size:12px;">
-              <span style="color:#6b7280">Cultura:</span><span style="font-weight:600">${p.culture}</span>
+              <span style="color:#6b7280">Culturas:</span><span style="font-weight:600">${culturesList.join(", ")}</span>
               <span style="color:#6b7280">Área:</span><span style="font-weight:600">${p.area}</span>
               <span style="color:#6b7280">Aldeia:</span><span>${p.village}</span>
               <span style="color:#6b7280">Município:</span><span>${p.municipality}</span>
