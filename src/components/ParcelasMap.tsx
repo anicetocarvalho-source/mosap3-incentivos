@@ -25,11 +25,13 @@ type Parcela = {
 
 type Props = {
   parcelas: Parcela[];
+  focusCoords?: { lat: number; lon: number; zoom?: number } | null;
 };
 
-const ParcelasMap = ({ parcelas }: Props) => {
+const ParcelasMap = ({ parcelas, focusCoords }: Props) => {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<L.Map | null>(null);
+  const focusMarkerRef = useRef<L.Marker | null>(null);
 
   useEffect(() => {
     if (!mapRef.current || mapInstance.current) return;
@@ -104,6 +106,26 @@ const ParcelasMap = ({ parcelas }: Props) => {
       mapInstance.current = null;
     };
   }, [parcelas]);
+
+  // Fly to focus coords when changed
+  useEffect(() => {
+    const map = mapInstance.current;
+    if (!map || !focusCoords) return;
+    const { lat, lon, zoom = 15 } = focusCoords;
+    if (Number.isNaN(lat) || Number.isNaN(lon)) return;
+    const latlng = L.latLng(lat, lon);
+    map.flyTo(latlng, zoom, { duration: 0.8 });
+    if (focusMarkerRef.current) {
+      focusMarkerRef.current.remove();
+    }
+    const pulseIcon = L.divIcon({
+      className: "focus-marker",
+      html: `<div style="width:36px;height:36px;border-radius:50%;background:hsl(var(--primary));border:4px solid white;box-shadow:0 0 0 6px hsla(var(--primary), 0.25);animation:pulse 1.6s infinite;"></div>`,
+      iconSize: [36, 36],
+      iconAnchor: [18, 18],
+    });
+    focusMarkerRef.current = L.marker(latlng, { icon: pulseIcon }).addTo(map);
+  }, [focusCoords]);
 
   return (
     <div className="relative z-0 isolate rounded-lg overflow-hidden border border-border">

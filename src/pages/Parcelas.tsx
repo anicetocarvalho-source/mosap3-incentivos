@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
-import { Plus, Search, MapPin, Maximize2, Eye, Layers, Map, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, Search, MapPin, Maximize2, Eye, Layers, Map, ChevronLeft, ChevronRight, Crosshair } from "lucide-react";
 import ParcelasMap from "@/components/ParcelasMap";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,6 +40,23 @@ const Parcelas = () => {
   const [formLat, setFormLat] = useState("");
   const [formLon, setFormLon] = useState("");
   const [formNotes, setFormNotes] = useState("");
+  const [focusCoords, setFocusCoords] = useState<{ lat: number; lon: number; zoom?: number } | null>(null);
+  const mapSectionRef = useRef<HTMLDivElement>(null);
+
+  const handleFocusOnMap = () => {
+    const lat = parseFloat(formLat);
+    const lon = parseFloat(formLon);
+    if (Number.isNaN(lat) || Number.isNaN(lon)) {
+      toast({ title: "Coordenadas inválidas", description: "Introduza latitude e longitude válidas.", variant: "destructive" });
+      return;
+    }
+    setShowMap(true);
+    setFocusCoords({ lat, lon, zoom: 16 });
+    setDialogOpen(false);
+    setTimeout(() => {
+      mapSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 100);
+  };
 
   const { data: parcels = [], isLoading, isError, refetch } = useQuery({
     queryKey: ["farmer_parcels"],
@@ -177,6 +194,16 @@ const Parcelas = () => {
                   <Input placeholder="14.0000" value={formLon} onChange={(e) => setFormLon(e.target.value)} />
                 </div>
               </div>
+              <Button
+                type="button"
+                variant="outline"
+                className="gap-2 w-full"
+                onClick={handleFocusOnMap}
+                disabled={!formLat || !formLon}
+              >
+                <Crosshair className="h-4 w-4" />
+                Centrar no mapa
+              </Button>
               <div className="space-y-2">
                 <Label>Observações</Label>
                 <Textarea placeholder="Informações adicionais..." rows={3} value={formNotes} onChange={(e) => setFormNotes(e.target.value)} />
@@ -196,12 +223,12 @@ const Parcelas = () => {
       </div>
 
       {/* Map */}
-      <div className="space-y-3">
+      <div ref={mapSectionRef} className="space-y-3 scroll-mt-20">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold flex items-center gap-2"><Map className="h-4 w-4" /> Mapa de Parcelas</h2>
           <Button variant="outline" size="sm" onClick={() => setShowMap(!showMap)}>{showMap ? "Ocultar Mapa" : "Mostrar Mapa"}</Button>
         </div>
-        {showMap && <ParcelasMap parcelas={mapData} />}
+        {showMap && <ParcelasMap parcelas={mapData} focusCoords={focusCoords} />}
       </div>
 
       {/* Filters */}
