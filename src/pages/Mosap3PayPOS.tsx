@@ -1564,7 +1564,11 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
   // ─── KIOSK MODE ───
   if (kioskMode) {
     return (
-      <div ref={posContainerRef} className="fixed inset-0 z-50 flex bg-[hsl(220,20%,10%)] text-[hsl(0,0%,90%)]">
+      <div
+        ref={posContainerRef}
+        className="fixed inset-0 flex bg-[hsl(220,20%,10%)] text-[hsl(0,0%,90%)]"
+        style={{ zIndex: 9999, minHeight: "100dvh" }}
+      >
         {/* LEFT — Products */}
         <div className="flex-1 flex flex-col min-w-0">
           {/* Top bar */}
