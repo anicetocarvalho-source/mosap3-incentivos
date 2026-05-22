@@ -40,6 +40,23 @@ const Parcelas = () => {
   const [formLat, setFormLat] = useState("");
   const [formLon, setFormLon] = useState("");
   const [formNotes, setFormNotes] = useState("");
+  const [focusCoords, setFocusCoords] = useState<{ lat: number; lon: number; zoom?: number } | null>(null);
+  const mapSectionRef = useRef<HTMLDivElement>(null);
+
+  const handleFocusOnMap = () => {
+    const lat = parseFloat(formLat);
+    const lon = parseFloat(formLon);
+    if (Number.isNaN(lat) || Number.isNaN(lon)) {
+      toast({ title: "Coordenadas inválidas", description: "Introduza latitude e longitude válidas.", variant: "destructive" });
+      return;
+    }
+    setShowMap(true);
+    setFocusCoords({ lat, lon, zoom: 16 });
+    setDialogOpen(false);
+    setTimeout(() => {
+      mapSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 100);
+  };
 
   const { data: parcels = [], isLoading, isError, refetch } = useQuery({
     queryKey: ["farmer_parcels"],
