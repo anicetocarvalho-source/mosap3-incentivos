@@ -17,6 +17,7 @@ type Parcela = {
   village: string;
   area: string;
   culture: string;
+  cultures?: string[];
   lat: string;
   lon: string;
   status: string;
