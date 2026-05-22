@@ -164,8 +164,8 @@ const Parcelas = () => {
   }));
 
   const handleSubmit = async () => {
-    if (!formFarmer || !formArea || !formCulture) {
-      toast({ title: "Preencha todos os campos obrigatórios", variant: "destructive" });
+    if (!formFarmer || !formArea || formCultures.length === 0) {
+      toast({ title: "Preencha todos os campos obrigatórios", description: "Produtor, área e pelo menos uma cultura.", variant: "destructive" });
       return;
     }
     const code = `PRC-${Date.now().toString(36).toUpperCase()}`;
@@ -173,15 +173,16 @@ const Parcelas = () => {
       parcel_code: code,
       farmer_code: formFarmer,
       area: formArea + " ha",
-      culture: formCulture,
+      culture: formCultures[0],
+      cultures: formCultures,
       lat: formLat || null,
       lon: formLon || null,
-    });
+    } as any);
     if (error) { toast({ title: "Erro ao registar", description: error.message, variant: "destructive" }); return; }
     toast({ title: "Parcela registada com sucesso" });
     queryClient.invalidateQueries({ queryKey: ["farmer_parcels"] });
     setDialogOpen(false);
-    setFormFarmer(""); setFormArea(""); setFormCulture(""); setFormLat(""); setFormLon(""); setFormNotes("");
+    setFormFarmer(""); setFormArea(""); setFormCultures([]); setFormLat(""); setFormLon(""); setFormNotes("");
   };
 
   return (
@@ -195,7 +196,7 @@ const Parcelas = () => {
           <DialogTrigger asChild>
             <Button className="gap-2"><Plus className="h-4 w-4" />Nova Parcela</Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-lg">
+          <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
             <DialogHeader><DialogTitle className="font-heading">Registar Parcela</DialogTitle></DialogHeader>
             <div className="grid gap-4 py-4">
               <div className="space-y-2">
@@ -209,56 +210,70 @@ const Parcelas = () => {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Área (hectares)</Label>
-                  <Input placeholder="0.0" type="number" step="0.1" value={formArea} onChange={(e) => setFormArea(e.target.value)} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Cultura</Label>
-                  <Select value={formCulture} onValueChange={setFormCulture}>
-                    <SelectTrigger><SelectValue placeholder="Selecionar" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Milho">Milho</SelectItem>
-                      <SelectItem value="Feijão">Feijão</SelectItem>
-                      <SelectItem value="Mandioca">Mandioca</SelectItem>
-                      <SelectItem value="Soja">Soja</SelectItem>
-                      <SelectItem value="Amendoim">Amendoim</SelectItem>
-                      <SelectItem value="Batata Doce">Batata Doce</SelectItem>
-                      <SelectItem value="Massango">Massango</SelectItem>
-                    </SelectContent>
-                  </Select>
+              <div className="space-y-2">
+                <Label>Área (hectares)</Label>
+                <Input placeholder="0.0" type="number" step="0.1" value={formArea} onChange={(e) => setFormArea(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>Culturas <span className="text-muted-foreground text-xs">(uma ou várias)</span></Label>
+                <div className="flex flex-wrap gap-1.5">
+                  {CULTURE_OPTIONS.map((c) => {
+                    const active = formCultures.includes(c);
+                    return (
+                      <button
+                        key={c}
+                        type="button"
+                        onClick={() => toggleCulture(c)}
+                        className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
+                          active
+                            ? "bg-primary text-primary-foreground border-primary"
+                            : "bg-card text-foreground border-border hover:bg-muted"
+                        }`}
+                      >
+                        {c}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Latitude</Label>
-                  <Input placeholder="-12.0000" value={formLat} onChange={(e) => setFormLat(e.target.value)} />
+              <div className="space-y-2 rounded-lg border border-border p-3 bg-muted/30">
+                <Label className="text-xs uppercase tracking-wider text-muted-foreground">Localização GPS</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button type="button" variant="outline" size="sm" onClick={handleUseMyLocation} disabled={geoLoading} className="gap-1.5">
+                    <Crosshair className="h-3.5 w-3.5" />
+                    {geoLoading ? "A obter..." : "Minha localização"}
+                  </Button>
+                  <Button type="button" variant="outline" size="sm" onClick={handlePickOnMap} className="gap-1.5">
+                    <MapPin className="h-3.5 w-3.5" />
+                    Escolher no mapa
+                  </Button>
                 </div>
-                <div className="space-y-2">
-                  <Label>Longitude</Label>
-                  <Input placeholder="14.0000" value={formLon} onChange={(e) => setFormLon(e.target.value)} />
+                <div className="grid grid-cols-2 gap-2">
+                  <Input placeholder="Latitude" value={formLat} onChange={(e) => setFormLat(e.target.value)} className="text-xs" />
+                  <Input placeholder="Longitude" value={formLon} onChange={(e) => setFormLon(e.target.value)} className="text-xs" />
                 </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="gap-1.5 w-full"
+                  onClick={handleFocusOnMap}
+                  disabled={!formLat || !formLon}
+                >
+                  <Eye className="h-3.5 w-3.5" />
+                  Pré-visualizar no mapa
+                </Button>
               </div>
-              <Button
-                type="button"
-                variant="outline"
-                className="gap-2 w-full"
-                onClick={handleFocusOnMap}
-                disabled={!formLat || !formLon}
-              >
-                <Crosshair className="h-4 w-4" />
-                Centrar no mapa
-              </Button>
               <div className="space-y-2">
                 <Label>Observações</Label>
-                <Textarea placeholder="Informações adicionais..." rows={3} value={formNotes} onChange={(e) => setFormNotes(e.target.value)} />
+                <Textarea placeholder="Informações adicionais..." rows={2} value={formNotes} onChange={(e) => setFormNotes(e.target.value)} />
               </div>
               <Button onClick={handleSubmit}>Registar Parcela</Button>
             </div>
           </DialogContent>
         </Dialog>
       </div>
+
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
