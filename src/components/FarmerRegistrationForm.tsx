@@ -374,11 +374,11 @@ const FarmerRegistrationForm = ({ open, onOpenChange, editData }: Props) => {
               <div className="space-y-2">
                 <Label>Escola de Campo</Label>
                 <Select value={formData.escolaCampo} onValueChange={(v) => updateField("escolaCampo", v)}>
-                  <SelectTrigger><SelectValue placeholder="Selecionar" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder={schoolOptions.length === 0 ? "Sem escolas registadas" : "Selecionar"} /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="ec1">EC Caimbambo</SelectItem>
-                    <SelectItem value="ec2">EC Longonjo</SelectItem>
-                    <SelectItem value="ec3">EC Cuemba</SelectItem>
+                    {schoolOptions.map((s) => (
+                      <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -389,13 +389,19 @@ const FarmerRegistrationForm = ({ open, onOpenChange, editData }: Props) => {
                 <Select value={formData.patec} onValueChange={(v) => updateField("patec", v)}>
                   <SelectTrigger><SelectValue placeholder="Selecionar PATEC" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="1">PATEC 1 — Milho + Feijão + Galinha/Cabra/Ovelha/Boi</SelectItem>
-                    <SelectItem value="2">PATEC 2 — Massango + Feijão + Galinha/Cabra/Ovelha/Boi</SelectItem>
-                    <SelectItem value="3">PATEC 3 — Massambala + Feijão + Galinha/Cabra/Ovelha/Boi</SelectItem>
+                    {patecs.map((p) => (
+                      <SelectItem
+                        key={p.id}
+                        value={p.legacy_number ? String(p.legacy_number) : p.code}
+                      >
+                        {p.code} — {p.name}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
             </div>
+
           </div>
         )}
 
