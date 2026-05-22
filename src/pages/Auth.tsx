@@ -21,6 +21,9 @@ import { useAuth } from "@/hooks/useAuth";
 import { classifyError } from "@/lib/errorHandling";
 import { cn } from "@/lib/utils";
 import { LoginButton } from "@/components/LoginButton";
+import { isDevOrPreview } from "@/lib/devMode";
+
+const SHOW_DEMO = isDevOrPreview();
 
 type Profile = "backoffice" | "fornecedor";
 
@@ -74,7 +77,7 @@ const Auth = () => {
   const [checkingSystem, setCheckingSystem] = useState(true);
   const [demoAccounts, setDemoAccounts] = useState<DemoAccount[] | null>(null);
   const [loadingDemo, setLoadingDemo] = useState(false);
-  const [seedingSupplier, setSeedingSupplier] = useState(false);
+  
   const navigate = useNavigate();
   const isOnline = useOnlineStatus();
   const { setOfflineSession, user, authReady } = useAuth();
@@ -113,9 +116,9 @@ const Auth = () => {
     return () => { cancelled = true; };
   }, [isOnline]);
 
-  // Carregar lista de contas demo (existentes vs em falta)
+  // Carregar lista de contas demo (existentes vs em falta) — apenas em DEV/preview
   const refreshDemoAccounts = async () => {
-    if (!isOnline) return;
+    if (!isOnline || !SHOW_DEMO) return;
     setLoadingDemo(true);
     try {
       const { data, error } = await supabase.functions.invoke("list-demo-accounts");
@@ -151,7 +154,7 @@ const Auth = () => {
       const { data, error } = await supabase.auth.signInWithPassword({ email: acc.email, password: acc.password });
       if (error) {
         const classified = classifyError(error);
-        toast({ title: classified.title, description: classified.description + " Considere recriar as contas demo.", variant: "destructive" });
+        toast({ title: classified.title, description: classified.description, variant: "destructive" });
         return;
       }
       if (data.user) {
@@ -159,7 +162,7 @@ const Auth = () => {
           const { data: supplier } = await supabase.from("suppliers").select("id, status").eq("user_id", data.user.id).maybeSingle();
           if (!supplier) {
             await supabase.auth.signOut();
-            toast({ title: "Fornecedor não associado", description: "Recrie a conta demo de fornecedor.", variant: "destructive" });
+            toast({ title: "Fornecedor não associado", description: "Esta conta não está vinculada a um fornecedor.", variant: "destructive" });
             return;
           }
           navigate("/fornecedor");
@@ -167,45 +170,6 @@ const Auth = () => {
         }
         navigate("/");
       }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSeedSupplier = async () => {
-    setSeedingSupplier(true);
-    try {
-      const { error } = await supabase.functions.invoke("seed-test-supplier");
-      if (error) throw error;
-      toast({ title: "Fornecedor demo pronto", description: "fornecedor@mosap3.test · teste123" });
-      await refreshDemoAccounts();
-    } catch (e: any) {
-      toast({ title: "Não foi possível criar fornecedor demo", description: e?.message || "Tente novamente.", variant: "destructive" });
-    } finally {
-      setSeedingSupplier(false);
-    }
-  };
-
-
-  const handleBootstrapSeed = async () => {
-    setLoading(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("seed-test-users");
-      if (error) throw error;
-      const created = data.results?.filter((r: any) => r.status === "created").length || 0;
-      const updated = data.results?.filter((r: any) => r.status === "updated").length || 0;
-      toast({
-        title: "Contas de demonstração criadas",
-        description: `${created} criadas, ${updated} actualizadas. Pode agora fazer login com qualquer conta demo.`,
-      });
-      setSystemMode("admin-only");
-      await refreshDemoAccounts();
-    } catch (e: any) {
-      toast({
-        title: "Erro ao criar contas",
-        description: e?.message || "Tente novamente ou contacte o administrador.",
-        variant: "destructive",
-      });
     } finally {
       setLoading(false);
     }
@@ -483,32 +447,15 @@ const Auth = () => {
                   </div>
 
                   {systemMode === "bootstrap" && isOnline && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="flex flex-col gap-2 bg-warning/10 text-warning border border-warning/30 rounded-lg px-3 py-3 mb-4"
-                    >
-                      <div className="flex items-start gap-2 text-xs">
-                        <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" />
-                        <div>
-                          <p className="font-medium">Sistema em modo Bootstrap</p>
-                          <p className="text-warning/80 mt-0.5">
-                            Não existem administradores no sistema. Crie as contas de demonstração para começar.
-                          </p>
-                        </div>
+                    <div className="flex items-start gap-2 bg-warning/10 text-warning border border-warning/30 rounded-lg px-3 py-3 mb-4 text-xs">
+                      <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="font-medium">Sistema em modo Bootstrap</p>
+                        <p className="text-warning/80 mt-0.5">
+                          Não existem administradores no sistema. Execute a migração de seed inicial via consola de BD.
+                        </p>
                       </div>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        onClick={handleBootstrapSeed}
-                        disabled={loading}
-                        className="w-full gap-2 text-xs border-warning/40 text-warning hover:bg-warning/20 hover:text-warning"
-                      >
-                        {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-                        Criar 9 contas de demonstração
-                      </Button>
-                    </motion.div>
+                    </div>
                   )}
 
                   {!isOnline && (
@@ -559,16 +506,13 @@ const Auth = () => {
                     />
                   </form>
 
-                  {isOnline && (
+                  {isOnline && SHOW_DEMO && (
                     <DemoAccountsPanel
                       accounts={demoAccounts}
                       loading={loadingDemo}
                       onSelect={selectDemo}
                       onLogin={loginWithDemo}
                       onRefresh={refreshDemoAccounts}
-                      onSeedBackoffice={handleBootstrapSeed}
-                      onSeedSupplier={handleSeedSupplier}
-                      seedingSupplier={seedingSupplier}
                       busy={loading}
                     />
                   )}
@@ -668,16 +612,13 @@ const Auth = () => {
                     </Button>
                   </div>
 
-                  {isOnline && (
+                  {isOnline && SHOW_DEMO && (
                     <DemoAccountsPanel
                       accounts={demoAccounts}
                       loading={loadingDemo}
                       onSelect={selectDemo}
                       onLogin={loginWithDemo}
                       onRefresh={refreshDemoAccounts}
-                      onSeedBackoffice={handleBootstrapSeed}
-                      onSeedSupplier={handleSeedSupplier}
-                      seedingSupplier={seedingSupplier}
                       busy={loading}
                     />
                   )}
@@ -697,20 +638,14 @@ interface DemoPanelProps {
   onSelect: (a: DemoAccount) => void;
   onLogin: (a: DemoAccount) => void;
   onRefresh: () => void;
-  onSeedBackoffice: () => void;
-  onSeedSupplier: () => void;
-  seedingSupplier: boolean;
   busy: boolean;
 }
 
 const DemoAccountsPanel = ({
-  accounts, loading, onSelect, onLogin, onRefresh,
-  onSeedBackoffice, onSeedSupplier, seedingSupplier, busy,
+  accounts, loading, onSelect, onLogin, onRefresh, busy,
 }: DemoPanelProps) => {
   const total = accounts?.length ?? 0;
   const ready = accounts?.filter((a) => a.ready).length ?? 0;
-  const missingBackoffice = !!accounts && accounts.some((a) => a.profile === "backoffice" && !a.exists);
-  const missingSupplier = !!accounts && accounts.some((a) => a.profile === "fornecedor" && !a.ready);
 
   return (
     <Collapsible className="mt-6 pt-4 border-t border-border" defaultOpen={false}>
@@ -781,7 +716,7 @@ const DemoAccountsPanel = ({
                   disabled={!a.ready || busy}
                   onClick={() => onLogin(a)}
                   className="h-7 px-2 text-[11px]"
-                  title={a.ready ? "Entrar com 1 clique" : "Conta indisponível — recrie as contas demo"}
+                  title={a.ready ? "Entrar com 1 clique" : "Conta indisponível"}
                 >
                   {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <><LogIn className="h-3 w-3 mr-1" />Entrar</>}
                 </Button>
@@ -789,23 +724,6 @@ const DemoAccountsPanel = ({
             );
           })}
         </div>
-
-        {(missingBackoffice || missingSupplier) && (
-          <div className="flex flex-col gap-2 pt-2 border-t border-border">
-            {missingBackoffice && (
-              <Button type="button" size="sm" variant="outline" onClick={onSeedBackoffice} disabled={busy} className="text-xs">
-                {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <RefreshCw className="h-3.5 w-3.5 mr-1" />}
-                Criar contas de backoffice em falta
-              </Button>
-            )}
-            {missingSupplier && (
-              <Button type="button" size="sm" variant="outline" onClick={onSeedSupplier} disabled={seedingSupplier} className="text-xs">
-                {seedingSupplier ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Store className="h-3.5 w-3.5 mr-1" />}
-                Criar conta de fornecedor demo
-              </Button>
-            )}
-          </div>
-        )}
       </CollapsibleContent>
     </Collapsible>
   );
