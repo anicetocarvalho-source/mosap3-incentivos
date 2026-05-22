@@ -77,7 +77,7 @@ const Auth = () => {
   const [checkingSystem, setCheckingSystem] = useState(true);
   const [demoAccounts, setDemoAccounts] = useState<DemoAccount[] | null>(null);
   const [loadingDemo, setLoadingDemo] = useState(false);
-  const [seedingSupplier, setSeedingSupplier] = useState(false);
+  
   const navigate = useNavigate();
   const isOnline = useOnlineStatus();
   const { setOfflineSession, user, authReady } = useAuth();
