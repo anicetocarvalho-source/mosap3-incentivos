@@ -157,6 +157,7 @@ const Parcelas = () => {
     village: "",
     area: p.area,
     culture: p.culture,
+    cultures: (p.cultures && p.cultures.length > 0) ? p.cultures : [p.culture].filter(Boolean),
     lat: p.lat,
     lon: p.lon,
     status: p.status,
@@ -345,7 +346,11 @@ const Parcelas = () => {
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <span className="text-xs font-medium px-2 py-1 rounded bg-accent text-accent-foreground">{p.culture}</span>
+                      <div className="flex flex-wrap gap-1">
+                        {((p.cultures && p.cultures.length > 0) ? p.cultures : [p.culture]).map((c: string) => (
+                          <span key={c} className="text-xs font-medium px-2 py-0.5 rounded bg-accent text-accent-foreground">{c}</span>
+                        ))}
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-right font-semibold">{p.area}</td>
                     <td className="px-4 py-3">
@@ -378,10 +383,12 @@ const Parcelas = () => {
                     p.status === "Pendente" ? "badge-pending" : "badge-suspended"
                   }`}>{p.status}</span>
                 </div>
-                <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                <div className="flex flex-wrap items-center gap-1 text-[11px] text-muted-foreground">
                   <span className="font-mono">{p.parcel_code}</span>
                   <span>•</span>
-                  <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-accent text-accent-foreground">{p.culture}</span>
+                  {((p.cultures && p.cultures.length > 0) ? p.cultures : [p.culture]).map((c: string) => (
+                    <span key={c} className="text-xs font-medium px-1.5 py-0.5 rounded bg-accent text-accent-foreground">{c}</span>
+                  ))}
                   <span>•</span>
                   <span className="font-semibold text-foreground">{p.area}</span>
                 </div>
