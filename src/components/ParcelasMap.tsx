@@ -25,11 +25,13 @@ type Parcela = {
 
 type Props = {
   parcelas: Parcela[];
+  focusCoords?: { lat: number; lon: number; zoom?: number } | null;
 };
 
-const ParcelasMap = ({ parcelas }: Props) => {
+const ParcelasMap = ({ parcelas, focusCoords }: Props) => {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<L.Map | null>(null);
+  const focusMarkerRef = useRef<L.Marker | null>(null);
 
   useEffect(() => {
     if (!mapRef.current || mapInstance.current) return;
