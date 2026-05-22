@@ -447,32 +447,15 @@ const Auth = () => {
                   </div>
 
                   {systemMode === "bootstrap" && isOnline && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="flex flex-col gap-2 bg-warning/10 text-warning border border-warning/30 rounded-lg px-3 py-3 mb-4"
-                    >
-                      <div className="flex items-start gap-2 text-xs">
-                        <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" />
-                        <div>
-                          <p className="font-medium">Sistema em modo Bootstrap</p>
-                          <p className="text-warning/80 mt-0.5">
-                            Não existem administradores no sistema. Crie as contas de demonstração para começar.
-                          </p>
-                        </div>
+                    <div className="flex items-start gap-2 bg-warning/10 text-warning border border-warning/30 rounded-lg px-3 py-3 mb-4 text-xs">
+                      <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="font-medium">Sistema em modo Bootstrap</p>
+                        <p className="text-warning/80 mt-0.5">
+                          Não existem administradores no sistema. Execute a migração de seed inicial via consola de BD.
+                        </p>
                       </div>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        onClick={handleBootstrapSeed}
-                        disabled={loading}
-                        className="w-full gap-2 text-xs border-warning/40 text-warning hover:bg-warning/20 hover:text-warning"
-                      >
-                        {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-                        Criar 9 contas de demonstração
-                      </Button>
-                    </motion.div>
+                    </div>
                   )}
 
                   {!isOnline && (
@@ -523,16 +506,13 @@ const Auth = () => {
                     />
                   </form>
 
-                  {isOnline && (
+                  {isOnline && SHOW_DEMO && (
                     <DemoAccountsPanel
                       accounts={demoAccounts}
                       loading={loadingDemo}
                       onSelect={selectDemo}
                       onLogin={loginWithDemo}
                       onRefresh={refreshDemoAccounts}
-                      onSeedBackoffice={handleBootstrapSeed}
-                      onSeedSupplier={handleSeedSupplier}
-                      seedingSupplier={seedingSupplier}
                       busy={loading}
                     />
                   )}
