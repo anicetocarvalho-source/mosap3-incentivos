@@ -1,68 +1,44 @@
-## Objectivo
+## Estado actual
 
-O Modo Kiosk do POS (`src/pages/Mosap3PayPOS.tsx`, bloco `if (kioskMode)` em ~1553-1990) partilha já a lógica de negócio com o POS normal (mesmo estado, mesmo `addToCart`, mesmo OTP, mesmo `computeSaldoFinal`), mas a **UI Kiosk não reflecte vários avisos e indicadores** introduzidos no POS completo. Resultado: o operador em modo loja/kiosk não vê bloqueios SIM, checklist PATEC, "sem PATEC", limites por produto, etc.
+Os 8 itens identificados no plano anterior já foram implementados no bloco `if (kioskMode)` de `src/pages/Mosap3PayPOS.tsx`:
 
-Este plano alinha visualmente o Kiosk com o POS normal, mantendo o tema escuro dedicado (HSL inline) e sem mexer em lógica.
+- Badge PATEC / "Sem PATEC" + telefone + aviso "Sem saldo" + botão "Definir parcela" no painel do produtor.
+- Alerta SIM bloqueado / "Pré desactivado" com botão **Contactar gestor**.
+- Checklist colapsável "Itens do PATEC" (✓ / Sem stock / Indisp.).
+- Chip "Filtrado por PATEC X" e aviso "Produtor sem PATEC" na grid.
+- Badge "Resta: N" (limite por época) e badge "Sem stock" por produto.
+- Bloco `patecBlock` (venda bloqueada por época) já partilhado.
+- OTP Unitel Money, parcela-dialog e diálogo de confirmação reutilizam os fluxos do POS normal.
 
-## Lacunas identificadas (POS normal → Kiosk)
+## O que falta para fechar
 
-| # | Funcionalidade no POS | Estado no Kiosk |
-|---|---|---|
-| 1 | Alerta SIM bloqueado / "Pré desactivado" com botão "Contactar gestor" | Ausente |
-| 2 | Card "Itens do PATEC" (checklist com ✓ / sem stock / indisponível) | Ausente |
-| 3 | Aviso "Sem PATEC atribuído" quando `farmer.patec` é null | Ausente |
-| 4 | Botão "Definir tamanho da parcela" (warning quando não escolhido) | Só mostra pill se já escolhido |
-| 5 | Badge PATEC + aviso "⚠ Sem saldo — compras bloqueadas" no painel do produtor | Saldo aparece, mas sem badge PATEC nem aviso explícito |
-| 6 | "Resta: N" por produto (limite `max_per_farmer_per_season`) | Só desactiva o cartão; não mostra contador |
-| 7 | Badge "Sem stock" no produto | Ausente (só não aparece se stock=0 nada distingue) |
-| 8 | Badge "Filtrado por PATEC X" no cabeçalho dos produtos | Ausente |
+Pequenos polimentos de consistência — nenhum bloqueador funcional:
 
-OTP, parcela-dialog e confirmação reutilizam os mesmos dialogs (`{/* Kiosk dialogs reuse normal dialogs */}`) — já correctos.
+### 1. Consistência de formatação de saldo (UX)
+No painel do produtor seleccionado (linhas ~1725-1729) o saldo é renderizado com `farmerBalance.toLocaleString("pt-AO")`. Substituir pelo componente partilhado **`FarmerSaldoBadge variant="kiosk"`** (já usado nas sugestões, linha 1857) para garantir uso de `computeSaldoFinal` e `formatKzCompact` — alinhado com a memória `features/padrao-listagens-sistema` e a regra core do saldo canónico.
 
-## Alterações
+### 2. Linha de saldo no diálogo de confirmação
+O `confirmOpen` Kiosk (linhas ~2019-2048) já mostra "Saldo restante", mas não mostra o **saldo actual antes da compra** nem o aviso quando `farmerBalance <= 0` (caso o operador abra o dialog mesmo assim). Adicionar uma linha "Saldo actual" acima de "Saldo restante" para paridade com o POS normal.
 
-Tudo dentro do bloco `if (kioskMode) { return (...) }` em `src/pages/Mosap3PayPOS.tsx`. Sem novas dependências, sem novas tabelas.
+### 3. Atalhos visíveis (descoberta)
+O botão `Settings2` no topbar (linha 1599-1601) tem só `title="Atalhos: F1-F5"`. Trocar por um `Popover`/tooltip com a lista real (F1 = pesquisar produtor, F2 = pesquisar produto, F3 = limpar carrinho, F4 = emitir, F5 = sair Kiosk — confirmar mapeamento no `useEffect` linhas 493-507).
 
-### 1. Painel do produtor seleccionado (≈ linhas 1683-1702)
-
-- Adicionar badge PATEC (ou badge vermelho "Sem PATEC") ao lado do nome.
-- Quando `farmer.patec && !parcelSize && farmerBalance > 0`, mostrar botão warning "🌾 Definir tamanho da parcela" (mesmo padrão de `setParcelDialogOpen(true)`).
-- Quando `farmerBalance <= 0`, linha extra "⚠ Sem saldo — compras bloqueadas" em vermelho.
-
-### 2. Alerta SIM (a inserir após o painel do produtor, antes do bloco PATEC)
-
-Replicar o bloco `isSimBlocked(farmer.sim_status) || sim_status === "Pré desactivado"` do POS normal, adaptado ao tema escuro (cores HSL Kiosk: vermelho `hsl(0,70%,55%)` para bloqueado, âmbar `hsl(45,90%,55%)` para aviso). Incluir botão "Contactar gestor" (reusa `setContactConfirmOpen(true)` + `loadManagers()`).
-
-### 3. Checklist "Itens do PATEC" colapsável
-
-Novo bloco no painel direito (ou como faixa acima do carrinho) quando `farmer && patecItems.length > 0`:
-- Lista compacta com ícone ✓ (disponível com stock), ⚠ âmbar (sem stock) ou ⚠ esbatido (indisponível), agrupada por categoria (Insumos / Pecuária / Serviços).
-- Mesma fonte de verdade que o POS normal (`patecItems` + `products`).
-- Estilo escuro: fundo `hsl(220,15%,13%)`, texto `hsl(0,0%,85%)`, sucesso `hsl(120,60%,55%)`, aviso `hsl(45,90%,55%)`.
-
-### 4. Grid de produtos (≈ linhas 1627-1655)
-
-- Adicionar badge "Resta: N" em cima à direita quando `p.max_per_farmer_per_season` definido (cor âmbar; vermelho se `remaining <= 0`).
-- Adicionar pequena tag "Sem PATEC do produtor" sobreposta quando `!farmer?.patec` (em vez de só `toast.info` ao clicar).
-- Adicionar badge "Sem stock" se `p.stock === 0`.
-
-### 5. Cabeçalho da grid de produtos
-
-Mostrar pequeno chip "Filtrado por {patecLabels[farmer.patec]}" junto ao título quando há produtor com PATEC.
+### 4. Verificação manual (checklist final)
+No preview `/mosap3pay/pos` → **F5** para entrar em Kiosk e validar:
+- Produtor sem PATEC → ver aviso vermelho na grid + badge "Sem PATEC" no painel.
+- Produtor com PATEC, sem parcela definida → botão "🌾 Definir parcela" visível.
+- Produtor com `sim_status` bloqueado → alerta + botão "Contactar gestor" funcional.
+- Checklist "Itens do PATEC" mostra ✓ / "Sem stock" / "Indisp." corretamente.
+- Produto com `max_per_farmer_per_season` → badge "Resta: N" actualiza ao adicionar ao carrinho.
+- Bloco `patecBlock` (época encerrada) aparece sticky acima do carrinho.
 
 ## Detalhes técnicos
 
-- Toda a lógica já existe (`patecItems`, `getRemainingLimit`, `isSimBlocked`, `simStatusReason`, `patecLabels`, `setContactConfirmOpen`, `loadManagers`, `setParcelDialogOpen`). Apenas adicionamos JSX no ramo Kiosk.
-- Manter classes HSL inline (memória `style/design-tokens-semanticos` — Kiosk usa HSL distinto, não tokens semânticos).
-- Sem alterações no painel `else` (POS normal) nem nos dialogs partilhados.
-- Sem alterações de DB, RLS ou edge functions.
+- Todas as alterações dentro do bloco Kiosk; sem mudanças no POS normal nem em dialogs partilhados.
+- Sem novas dependências, sem alterações de DB/RLS/edge functions.
+- Manter HSL inline (tema Kiosk dedicado — memória `style/design-tokens-semanticos`).
+- Build automático verifica TypeScript.
 
-## Verificação
+## Resumo
 
-- Build do projecto (automática).
-- Manual no preview `/mosap3pay/pos` → F5 para entrar em Kiosk:
-  1. Pesquisar produtor sem PATEC → ver aviso "Sem PATEC".
-  2. Produtor com PATEC e sem parcela definida → ver botão "Definir parcela".
-  3. Produtor com SIM bloqueado/Pré desactivado → ver alerta + botão "Contactar gestor".
-  4. Confirmar checklist "Itens do PATEC" com ✓/sem stock/indisponível.
-  5. Produto com `max_per_farmer_per_season` → ver "Resta: N".
+Funcionalmente o Kiosk está em paridade com o POS. Para "fechar" formalmente só faltam: (1) trocar saldo por `FarmerSaldoBadge`, (2) acrescentar "Saldo actual" no confirm, (3) popover com lista de atalhos, e (4) executar a checklist manual no preview.

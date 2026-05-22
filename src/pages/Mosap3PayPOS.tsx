@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Separator } from "@/components/ui/separator";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Ban, ShieldAlert, Send } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -1596,9 +1597,32 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
               <button onClick={() => toggleFullscreen(false)} className="p-2 rounded-lg bg-[hsl(220,15%,15%)] hover:bg-[hsl(220,15%,20%)] transition-colors" title="Sair Kiosk (F5)">
                 <Minimize className="h-4 w-4" />
               </button>
-              <button className="p-2 rounded-lg bg-[hsl(220,15%,15%)] hover:bg-[hsl(220,15%,20%)] transition-colors" title="Atalhos: F1-F5">
-                <Settings2 className="h-4 w-4" />
-              </button>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button className="p-2 rounded-lg bg-[hsl(220,15%,15%)] hover:bg-[hsl(220,15%,20%)] transition-colors" title="Atalhos do teclado">
+                    <Keyboard className="h-4 w-4" />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent align="end" className="w-64 bg-[hsl(220,18%,14%)] border-[hsl(220,15%,22%)] text-[hsl(0,0%,88%)] p-3">
+                  <p className="text-[11px] font-bold uppercase tracking-wide text-[hsl(220,10%,55%)] mb-2">Atalhos</p>
+                  <ul className="space-y-1.5 text-xs">
+                    {[
+                      ["F1", "Pesquisar produtor"],
+                      ["F2", "Pesquisar produto"],
+                      ["F3", "Emitir venda"],
+                      ["F4", "Limpar carrinho"],
+                      ["F5", "Sair do Kiosk"],
+                      ["Enter", "Confirmar venda"],
+                      ["Esc", "Fechar/sair"],
+                    ].map(([k, l]) => (
+                      <li key={k} className="flex items-center justify-between gap-3">
+                        <span className="text-[hsl(0,0%,82%)]">{l}</span>
+                        <kbd className="px-1.5 py-0.5 rounded bg-[hsl(220,15%,18%)] border border-[hsl(220,15%,28%)] font-mono text-[10px] text-[hsl(45,90%,60%)]">{k}</kbd>
+                      </li>
+                    ))}
+                  </ul>
+                </PopoverContent>
+              </Popover>
             </div>
           </div>
 
@@ -1723,7 +1747,7 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
                     </div>
                     <p className="text-[10px] text-[hsl(220,10%,45%)]">{farmer.code} • {farmer.phone || "—"}</p>
                     <p className={`text-[10px] font-semibold ${farmerBalance > 0 ? "text-[hsl(120,60%,50%)]" : "text-[hsl(0,70%,60%)]"}`}>
-                      Saldo: {farmerBalance.toLocaleString("pt-AO")} Kz
+                      Saldo: <span className="font-mono">{formatKzCompact(farmerBalance)}</span>
                     </p>
                     {farmerBalance <= 0 && (
                       <p className="text-[9px] text-[hsl(0,70%,65%)] font-medium leading-none mt-0.5">⚠ Sem saldo — compras bloqueadas</p>
@@ -2041,10 +2065,19 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
                 <span>Total</span>
                 <span className="text-[hsl(45,90%,55%)] font-mono">{cartTotal.toLocaleString("pt-AO")} Kz</span>
               </div>
-              <div className={`flex justify-between text-xs mt-1 ${farmerBalance - cartTotal >= 0 ? "text-[hsl(120,60%,50%)]" : "text-[hsl(0,70%,60%)]"}`}>
-                <span>Saldo restante</span>
-                <span className="font-mono font-semibold">{(farmerBalance - cartTotal).toLocaleString("pt-AO")} Kz</span>
+              <div className="flex justify-between text-xs mt-1 text-[hsl(220,10%,55%)]">
+                <span>Saldo actual</span>
+                <span className="font-mono">{formatKzCompact(farmerBalance)}</span>
               </div>
+              <div className={`flex justify-between text-xs ${farmerBalance - cartTotal >= 0 ? "text-[hsl(120,60%,50%)]" : "text-[hsl(0,70%,60%)]"}`}>
+                <span>Saldo restante</span>
+                <span className="font-mono font-semibold">{formatKzCompact(farmerBalance - cartTotal)}</span>
+              </div>
+              {farmerBalance <= 0 && (
+                <div className="mt-2 rounded-md border border-[hsl(0,70%,40%)] bg-[hsl(0,60%,12%)] px-2 py-1.5 text-[10px] text-[hsl(0,70%,75%)] flex items-center gap-1.5">
+                  <AlertTriangle className="h-3 w-3" /> Sem saldo — emissão bloqueada
+                </div>
+              )}
             </div>
             {patecBlock && (
               <Alert variant="destructive" className="mt-3">
