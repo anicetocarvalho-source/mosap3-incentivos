@@ -32,8 +32,11 @@ interface Sale {
   total: number;
   payment_method: string;
   payment_status: string;
+  unitel_transaction_id: string | null;
+  payment_reference: string | null;
   created_at: string;
 }
+
 
 interface SaleItem {
   id: string;
