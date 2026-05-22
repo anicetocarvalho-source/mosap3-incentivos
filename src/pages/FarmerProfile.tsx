@@ -416,6 +416,23 @@ const FarmerProfile = () => {
 
           {/* Produção Tab */}
           <TabsContent value="producao" className="mt-4 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-heading font-semibold text-lg">Produção</h3>
+              <Dialog open={productionDialogOpen} onOpenChange={setProductionDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button size="sm" className="gap-1.5"><Plus className="h-4 w-4" /> Nova Produção</Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle>Registar Produção — {farmer.name}</DialogTitle>
+                  </DialogHeader>
+                  <ProductionRegistrationForm
+                    farmerCode={farmer.id}
+                    onSuccess={() => { setProductionDialogOpen(false); setRefreshKey((k) => k + 1); }}
+                  />
+                </DialogContent>
+              </Dialog>
+            </div>
             {production.length === 0 ? (
               <Card className="p-12 text-center">
                 <Wheat className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
