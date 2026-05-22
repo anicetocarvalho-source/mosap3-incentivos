@@ -26,6 +26,8 @@ import { useToast } from "@/hooks/use-toast";
 import { farmerSchema } from "@/lib/formValidation";
 import { compressImage } from "@/lib/imageCompression";
 import { classifyError, withRetry } from "@/lib/errorHandling";
+import { usePatecs } from "@/hooks/usePatecs";
+
 
 const photoSlots = [
   { label: "Foto Frontal", key: "frontal" },
@@ -82,6 +84,23 @@ const FarmerRegistrationForm = ({ open, onOpenChange, editData }: Props) => {
   // Cascading province → municipality
   const selectedProvinceId = formData.provincia || undefined;
   const { provinces: provinceOptions, municipalities: municipalityOptions } = useProvinceMunicipalities(selectedProvinceId);
+
+  // PATECs ativos (carregados da BD)
+  const { patecs } = usePatecs({ activeOnly: true });
+
+  // Escolas de Campo da BD, filtradas pela província/município escolhidos
+  const [schoolOptions, setSchoolOptions] = useState<{ id: string; name: string }[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      let q = supabase.from("schools").select("id, name, province_id, municipality_id").order("name");
+      if (formData.provincia) q = q.eq("province_id", formData.provincia);
+      const { data } = await q;
+      if (!cancelled) setSchoolOptions(((data as any[]) || []).map((s) => ({ id: s.id, name: s.name })));
+    })();
+    return () => { cancelled = true; };
+  }, [formData.provincia]);
+
 
   useEffect(() => {
     if (editData && open) {
@@ -176,7 +195,10 @@ const FarmerRegistrationForm = ({ open, onOpenChange, editData }: Props) => {
           province: provinceOptions.find(p => p.id === formData.provincia)?.name || formData.provincia || null,
           municipality: formData.municipio || null,
           school: formData.escolaCampo || null,
-          patec: formData.patec ? parseInt(formData.patec) : null,
+          patec: formData.patec && /^\d+$/.test(formData.patec) ? parseInt(formData.patec) : (patecs.find(p => p.code === formData.patec)?.legacy_number ?? null),
+          patec_code: formData.patec
+            ? (patecs.find(p => p.code === formData.patec || String(p.legacy_number) === formData.patec)?.code ?? null)
+            : null,
           photo_frontal_url: photoUrls.frontal || null,
           photo_profile_left_url: photoUrls.perfilEsq || null,
           photo_profile_right_url: photoUrls.perfilDir || null,
@@ -355,11 +377,11 @@ const FarmerRegistrationForm = ({ open, onOpenChange, editData }: Props) => {
               <div className="space-y-2">
                 <Label>Escola de Campo</Label>
                 <Select value={formData.escolaCampo} onValueChange={(v) => updateField("escolaCampo", v)}>
-                  <SelectTrigger><SelectValue placeholder="Selecionar" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder={schoolOptions.length === 0 ? "Sem escolas registadas" : "Selecionar"} /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="ec1">EC Caimbambo</SelectItem>
-                    <SelectItem value="ec2">EC Longonjo</SelectItem>
-                    <SelectItem value="ec3">EC Cuemba</SelectItem>
+                    {schoolOptions.map((s) => (
+                      <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -370,13 +392,19 @@ const FarmerRegistrationForm = ({ open, onOpenChange, editData }: Props) => {
                 <Select value={formData.patec} onValueChange={(v) => updateField("patec", v)}>
                   <SelectTrigger><SelectValue placeholder="Selecionar PATEC" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="1">PATEC 1 — Milho + Feijão + Galinha/Cabra/Ovelha/Boi</SelectItem>
-                    <SelectItem value="2">PATEC 2 — Massango + Feijão + Galinha/Cabra/Ovelha/Boi</SelectItem>
-                    <SelectItem value="3">PATEC 3 — Massambala + Feijão + Galinha/Cabra/Ovelha/Boi</SelectItem>
+                    {patecs.map((p) => (
+                      <SelectItem
+                        key={p.id}
+                        value={p.legacy_number ? String(p.legacy_number) : p.code}
+                      >
+                        {p.code} — {p.name}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
             </div>
+
           </div>
         )}
 

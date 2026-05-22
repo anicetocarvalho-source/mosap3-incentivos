@@ -32,8 +32,11 @@ interface Sale {
   total: number;
   payment_method: string;
   payment_status: string;
+  unitel_transaction_id: string | null;
+  payment_reference: string | null;
   created_at: string;
 }
+
 
 interface SaleItem {
   id: string;
@@ -294,7 +297,21 @@ const Mosap3PayVendas = () => {
                       </div>
                     </TableCell>
                     <TableCell className="font-bold">{Number(s.total).toLocaleString("pt-AO")} Kz</TableCell>
-                    <TableCell className="text-xs">{s.payment_method === "unitel_money" ? "Unitel Money" : s.payment_method}</TableCell>
+                    <TableCell className="text-xs">
+                      <div className="flex flex-col">
+                        <span>{s.payment_method === "unitel_money" ? "Unitel Money" : s.payment_method}</span>
+                        {s.payment_method === "unitel_money" && s.payment_status === "pago" && s.unitel_transaction_id && (
+                          <button
+                            type="button"
+                            title="Copiar ID da transação"
+                            onClick={() => { navigator.clipboard?.writeText(s.unitel_transaction_id!); toast.success("ID copiado"); }}
+                            className="font-mono text-[10px] text-muted-foreground hover:text-primary text-left truncate max-w-[160px]"
+                          >
+                            TX: {s.unitel_transaction_id}
+                          </button>
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell>
                       <Badge variant={s.payment_status === "pago" ? "default" : s.payment_status === "pendente" ? "secondary" : "destructive"} className="text-[10px]">
                         {s.payment_status}
@@ -335,6 +352,9 @@ const Mosap3PayVendas = () => {
                   </div>
                   <span className="font-bold text-sm">{Number(s.total).toLocaleString("pt-AO")} Kz</span>
                 </div>
+                {s.payment_method === "unitel_money" && s.payment_status === "pago" && s.unitel_transaction_id && (
+                  <p className="font-mono text-[10px] text-muted-foreground truncate">TX: {s.unitel_transaction_id}</p>
+                )}
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
                   <span>{new Date(s.created_at).toLocaleDateString("pt-AO")}</span>
                   <div className="flex gap-1">
@@ -386,6 +406,29 @@ const Mosap3PayVendas = () => {
                 <Badge variant={selectedSale.payment_status === "pago" ? "default" : "secondary"}>{selectedSale.payment_status}</Badge>
                 <span className="text-xs text-muted-foreground">{selectedSale.payment_method === "unitel_money" ? "Unitel Money" : selectedSale.payment_method}</span>
               </div>
+              {selectedSale.payment_method === "unitel_money" && selectedSale.payment_status === "pago" && (selectedSale.unitel_transaction_id || selectedSale.payment_reference) && (
+                <div className="rounded-md border border-border bg-muted/30 p-3 space-y-1 text-xs">
+                  <p className="font-semibold uppercase tracking-wider text-[10px] text-muted-foreground">Referência Unitel Money</p>
+                  {selectedSale.unitel_transaction_id && (
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-muted-foreground">ID Transação</span>
+                      <button
+                        type="button"
+                        onClick={() => { navigator.clipboard?.writeText(selectedSale.unitel_transaction_id!); toast.success("ID copiado"); }}
+                        className="font-mono text-foreground hover:text-primary text-right truncate"
+                      >
+                        {selectedSale.unitel_transaction_id}
+                      </button>
+                    </div>
+                  )}
+                  {selectedSale.payment_reference && (
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-muted-foreground">Referência</span>
+                      <span className="font-mono text-foreground truncate">{selectedSale.payment_reference}</span>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </DialogContent>

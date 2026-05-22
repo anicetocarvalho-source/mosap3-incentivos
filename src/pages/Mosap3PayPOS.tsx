@@ -446,27 +446,38 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [farmerId, farmerPatecCode]);
 
-  // Toggle fullscreen API
+  // Toggle fullscreen API — com fallback para terminais sem suporte (ex: WebView Kwanza)
   const toggleFullscreen = useCallback(async (enable?: boolean) => {
     const shouldEnable = enable ?? !kioskMode;
+    const fullscreenSupported =
+      typeof document !== "undefined" &&
+      (document.fullscreenEnabled ?? (document as any).webkitFullscreenEnabled ?? false);
     try {
-      if (shouldEnable && !document.fullscreenElement) {
-        await document.documentElement.requestFullscreen();
-      } else if (!shouldEnable && document.fullscreenElement) {
-        await document.exitFullscreen();
+      if (fullscreenSupported) {
+        if (shouldEnable && !document.fullscreenElement) {
+          await document.documentElement.requestFullscreen();
+        } else if (!shouldEnable && document.fullscreenElement) {
+          await document.exitFullscreen();
+        }
       }
-    } catch { /* fullscreen not supported */ }
+    } catch {
+      /* Fullscreen API indisponível — segue para overlay puro */
+    }
     setKioskMode(shouldEnable);
   }, [kioskMode]);
 
   // Sync kiosk state when user exits fullscreen via browser (Esc on fullscreen)
   useEffect(() => {
     const handler = () => {
-      if (!document.fullscreenElement && kioskMode) setKioskMode(false);
+      // Só sincroniza quando o fullscreen API está em uso; ignora em terminais sem suporte
+      if (document.fullscreenEnabled && !document.fullscreenElement && kioskMode) {
+        setKioskMode(false);
+      }
     };
     document.addEventListener("fullscreenchange", handler);
     return () => document.removeEventListener("fullscreenchange", handler);
   }, [kioskMode]);
+
 
   // Kiosk keyboard shortcuts
   useEffect(() => {
@@ -1553,7 +1564,11 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
   // ─── KIOSK MODE ───
   if (kioskMode) {
     return (
-      <div ref={posContainerRef} className="fixed inset-0 z-50 flex bg-[hsl(220,20%,10%)] text-[hsl(0,0%,90%)]">
+      <div
+        ref={posContainerRef}
+        className="fixed inset-0 flex bg-[hsl(220,20%,10%)] text-[hsl(0,0%,90%)]"
+        style={{ zIndex: 9999, minHeight: "100dvh" }}
+      >
         {/* LEFT — Products */}
         <div className="flex-1 flex flex-col min-w-0">
           {/* Top bar */}

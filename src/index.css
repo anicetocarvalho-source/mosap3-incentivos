@@ -209,3 +209,15 @@
   table { page-break-inside: auto; }
   tr { page-break-inside: avoid; }
 }
+
+/* Manter Leaflet abaixo de modais (shadcn Dialog usa z-50) */
+.leaflet-pane,
+.leaflet-top,
+.leaflet-bottom,
+.leaflet-control,
+.leaflet-popup-pane,
+.leaflet-tooltip-pane {
+  z-index: 30 !important;
+}
+.leaflet-container { z-index: 0 !important; }
+

@@ -1,44 +1,79 @@
-## Estado actual
+# Correções Operacionais — Produtores · Parcelas · POS · Vendas
 
-Os 8 itens identificados no plano anterior já foram implementados no bloco `if (kioskMode)` de `src/pages/Mosap3PayPOS.tsx`:
+## 1. Produtores
 
-- Badge PATEC / "Sem PATEC" + telefone + aviso "Sem saldo" + botão "Definir parcela" no painel do produtor.
-- Alerta SIM bloqueado / "Pré desactivado" com botão **Contactar gestor**.
-- Checklist colapsável "Itens do PATEC" (✓ / Sem stock / Indisp.).
-- Chip "Filtrado por PATEC X" e aviso "Produtor sem PATEC" na grid.
-- Badge "Resta: N" (limite por época) e badge "Sem stock" por produto.
-- Bloco `patecBlock` (venda bloqueada por época) já partilhado.
-- OTP Unitel Money, parcela-dialog e diálogo de confirmação reutilizam os fluxos do POS normal.
+### 1.1 PATECs e Escolas de Campo limitados a 3 opções
+**Causa**: `src/components/FarmerRegistrationForm.tsx` (linhas 360–362 e 373–375) tem PATEC 1/2/3 e EC Caimbambo/Longonjo/Cuemba **hardcoded**. A base já contém 10 PATECs (memória `patec-composicao`) e a tabela de escolas é dinâmica.
 
-## O que falta para fechar
+**Ação**:
+- Carregar PATECs via hook `usePatecs()` (já existe) — filtrar `is_active=true`, ordenar por `sort_order`.
+- Carregar Escolas de Campo via consulta a `schools` filtrada pela `provincia` (e, se preenchida, `municipio`) do formulário; cair para todas se o utilizador ainda não escolheu província.
+- Guardar `patec_code` (texto) em vez do número legado, mantendo compatibilidade com `farmers.patec` (int) como fallback.
 
-Pequenos polimentos de consistência — nenhum bloqueador funcional:
+### 1.2 Não é possível registar a produção no perfil do produtor
+**Investigação adicional necessária** em `src/pages/FichaProdutor.tsx` / `FarmerProfile.tsx`: identificar se o botão "Nova Produção" está presente, se o diálogo abre e se o `insert` em `farmer_production` falha (provável vínculo a `farmer_parcels` ou validação obrigatória de fase). Corrigir handler e validar com RLS `Backoffice can insert production`.
 
-### 1. Consistência de formatação de saldo (UX)
-No painel do produtor seleccionado (linhas ~1725-1729) o saldo é renderizado com `farmerBalance.toLocaleString("pt-AO")`. Substituir pelo componente partilhado **`FarmerSaldoBadge variant="kiosk"`** (já usado nas sugestões, linha 1857) para garantir uso de `computeSaldoFinal` e `formatKzCompact` — alinhado com a memória `features/padrao-listagens-sistema` e a regra core do saldo canónico.
+## 2. Parcelas
 
-### 2. Linha de saldo no diálogo de confirmação
-O `confirmOpen` Kiosk (linhas ~2019-2048) já mostra "Saldo restante", mas não mostra o **saldo actual antes da compra** nem o aviso quando `farmerBalance <= 0` (caso o operador abra o dialog mesmo assim). Adicionar uma linha "Saldo actual" acima de "Saldo restante" para paridade com o POS normal.
+### 2.1 Mapa sobrepõe a modal "Nova Parcela"
+**Causa**: o container Leaflet usa `z-index: 400–700` (panes/controles), enquanto o `DialogOverlay` shadcn usa `z-50`. Quando o diálogo abre, o mapa fica visualmente por cima.
 
-### 3. Atalhos visíveis (descoberta)
-O botão `Settings2` no topbar (linha 1599-1601) tem só `title="Atalhos: F1-F5"`. Trocar por um `Popover`/tooltip com a lista real (F1 = pesquisar produtor, F2 = pesquisar produto, F3 = limpar carrinho, F4 = emitir, F5 = sair Kiosk — confirmar mapeamento no `useEffect` linhas 493-507).
+**Ação**:
+- Forçar os panes do Leaflet a `z-index ≤ 30` via CSS global em `src/index.css` (`.leaflet-pane, .leaflet-top, .leaflet-bottom { z-index: 30 !important; }`) **ou** subir o `Dialog` shadcn para `z-[60]`. Optar pela primeira (menos invasiva).
 
-### 4. Verificação manual (checklist final)
-No preview `/mosap3pay/pos` → **F5** para entrar em Kiosk e validar:
-- Produtor sem PATEC → ver aviso vermelho na grid + badge "Sem PATEC" no painel.
-- Produtor com PATEC, sem parcela definida → botão "🌾 Definir parcela" visível.
-- Produtor com `sim_status` bloqueado → alerta + botão "Contactar gestor" funcional.
-- Checklist "Itens do PATEC" mostra ✓ / "Sem stock" / "Indisp." corretamente.
-- Produto com `max_per_farmer_per_season` → badge "Resta: N" actualiza ao adicionar ao carrinho.
-- Bloco `patecBlock` (época encerrada) aparece sticky acima do carrinho.
+### 2.2 Permitir múltiplas culturas por parcela
+**Schema**: `farmer_parcels.culture` é `text` simples.
 
-## Detalhes técnicos
+**Ação**:
+- Migração: adicionar coluna `cultures text[] NOT NULL DEFAULT '{}'` e copiar valores existentes (`UPDATE … SET cultures = ARRAY[culture]`). Manter `culture` (singular) para compatibilidade até refactor completo, preenchendo com `cultures[0]`.
+- Form em `Parcelas.tsx` e `ParcelRegistrationForm.tsx`: substituir `Select` único por **multi-select** (checkbox list dentro de Popover) ou tags clicáveis. Persistir array.
+- Listagens/mapa: mostrar todas as culturas (badges) em vez de uma só.
 
-- Todas as alterações dentro do bloco Kiosk; sem mudanças no POS normal nem em dialogs partilhados.
-- Sem novas dependências, sem alterações de DB/RLS/edge functions.
-- Manter HSL inline (tema Kiosk dedicado — memória `style/design-tokens-semanticos`).
-- Build automático verifica TypeScript.
+### 2.3 Simplificar entrada de coordenadas
+**Ação** (no diálogo de Nova Parcela):
+- Botão **"Usar a minha localização"** → `navigator.geolocation.getCurrentPosition` preenche lat/lon automaticamente.
+- Botão **"Escolher no mapa"** → fecha o diálogo, ativa modo "picker" no `ParcelasMap` (cursor em cruz, clique coloca marcador, devolve lat/lon ao reabrir o form).
+- Manter inputs manuais (lat/lon) como opção avançada, num bloco recolhível "Inserir manualmente".
 
-## Resumo
+## 3. POS
 
-Funcionalmente o Kiosk está em paridade com o POS. Para "fechar" formalmente só faltam: (1) trocar saldo por `FarmerSaldoBadge`, (2) acrescentar "Saldo actual" no confirm, (3) popover com lista de atalhos, e (4) executar a checklist manual no preview.
+### 3.1 Kiosk mostra ecrã preto no terminal Kwanza
+**Causa**: `toggleFullscreen` (linha 450) chama `document.documentElement.requestFullscreen()`. No WebView do terminal Kwanza, a API de Fullscreen não está implementada — a chamada falha silenciosamente (já protegida por `try/catch`), mas o overlay kiosk fica renderizado em `fixed inset-0 z-50` (linha 1556) por cima de uma página que perdeu interactividade (browser do terminal não aplica o estilo `:fullscreen` esperado e a navbar do Kwanza esconde o conteúdo).
+
+**Ação**:
+- Detectar suporte: `document.fullscreenEnabled === false` → não chamar `requestFullscreen`, apenas ativar `kioskMode` como overlay puro.
+- Garantir que o overlay kiosk usa `bg-background` opaco com `min-h-[100dvh] w-screen`, força `position: fixed; top:0; left:0; right:0; bottom:0; z-index: 9999` para sobrepor qualquer chrome do Kwanza.
+- Adicionar botão "Sair do modo Kiosk" visível mesmo quando o fullscreen API falha.
+
+### 3.2 Erro nos hectares ao seleccionar produtor
+**Investigação adicional necessária** durante implementação: reproduzir no preview, capturar console/network. Hipóteses prováveis:
+- Diálogo `parcelDialogOpen` (linha 2138) abre antes do `farmer` carregar completamente → `PARCEL_OPTIONS` retorna `undefined`.
+- Falta de `parcelSize` persistido entre selecções (limpar `setParcelSize(null)` ao mudar de produtor).
+
+Implementar reset explícito de `parcelSize` no `setFarmer` e validação defensiva antes de abrir o diálogo.
+
+## 4. Vendas
+
+### 4.1 Mostrar ID de transação Unitel Money em vendas pagas
+**Schema**: `pos_sales.unitel_transaction_id` (texto) já é gravado pela função `unitel-money-payment` (linha 265).
+
+**Ação** em `src/pages/Mosap3PayVendas.tsx`:
+- Incluir `unitel_transaction_id` no `select` da listagem.
+- Na tabela desktop, acrescentar coluna **"ID Transação"** (visível apenas quando `payment_method = 'unitel_money'` e `payment_status = 'pago'`), com cópia rápida (botão `Copy`).
+- No diálogo de detalhe (`selectedSale`), mostrar bloco "Referência Unitel Money" com `unitel_transaction_id` e `payment_reference` quando aplicável.
+- Replicar no cartão mobile (badge pequeno com `TX: …`).
+
+## Detalhes técnicos / Ordem de execução
+
+```text
+1) Migração SQL (parcelas multi-cultura)
+2) Form Produtores (PATECs + Escolas dinâmicas)
+3) Form Parcelas (multi-cultura + coords UX)
+4) CSS leaflet z-index
+5) POS Kiosk fallback sem fullscreen
+6) POS: reset parcelSize ao trocar farmer (após reproduzir o bug)
+7) Vendas: coluna + detalhe com Unitel TX ID
+8) Diagnose + fix do registo de produção no perfil produtor
+```
+
+Sem impacto noutros módulos. Sem novos secrets necessários.

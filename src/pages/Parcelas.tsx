@@ -36,12 +36,57 @@ const Parcelas = () => {
   // Form state
   const [formFarmer, setFormFarmer] = useState("");
   const [formArea, setFormArea] = useState("");
-  const [formCulture, setFormCulture] = useState("");
+  const [formCultures, setFormCultures] = useState<string[]>([]);
   const [formLat, setFormLat] = useState("");
   const [formLon, setFormLon] = useState("");
   const [formNotes, setFormNotes] = useState("");
   const [focusCoords, setFocusCoords] = useState<{ lat: number; lon: number; zoom?: number } | null>(null);
+  const [pickerMode, setPickerMode] = useState(false);
+  const [geoLoading, setGeoLoading] = useState(false);
   const mapSectionRef = useRef<HTMLDivElement>(null);
+
+  const CULTURE_OPTIONS = ["Milho", "Feijão", "Mandioca", "Soja", "Amendoim", "Batata Doce", "Massango", "Massambala", "Arroz", "Sorgo", "Gergelim"];
+
+  const toggleCulture = (c: string) => {
+    setFormCultures((prev) => prev.includes(c) ? prev.filter(x => x !== c) : [...prev, c]);
+  };
+
+  const handleUseMyLocation = () => {
+    if (!navigator.geolocation) {
+      toast({ title: "Geolocalização indisponível", description: "O dispositivo não suporta esta funcionalidade.", variant: "destructive" });
+      return;
+    }
+    setGeoLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setFormLat(pos.coords.latitude.toFixed(6));
+        setFormLon(pos.coords.longitude.toFixed(6));
+        setGeoLoading(false);
+        toast({ title: "Localização capturada", description: `Precisão: ±${Math.round(pos.coords.accuracy)} m` });
+      },
+      (err) => {
+        setGeoLoading(false);
+        toast({ title: "Erro ao obter localização", description: err.message, variant: "destructive" });
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
+
+  const handlePickOnMap = () => {
+    setDialogOpen(false);
+    setPickerMode(true);
+    setShowMap(true);
+    setTimeout(() => mapSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
+    toast({ title: "Modo Mapa activo", description: "Toque no mapa onde fica a parcela." });
+  };
+
+  const handleMapPick = (lat: number, lon: number) => {
+    setFormLat(lat.toFixed(6));
+    setFormLon(lon.toFixed(6));
+    setPickerMode(false);
+    setDialogOpen(true);
+    toast({ title: "Localização selecionada", description: `${lat.toFixed(5)}, ${lon.toFixed(5)}` });
+  };
 
   const handleFocusOnMap = () => {
     const lat = parseFloat(formLat);
@@ -57,6 +102,7 @@ const Parcelas = () => {
       mapSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 100);
   };
+
 
   const { data: parcels = [], isLoading, isError, refetch } = useQuery({
     queryKey: ["farmer_parcels"],
@@ -118,8 +164,8 @@ const Parcelas = () => {
   }));
 
   const handleSubmit = async () => {
-    if (!formFarmer || !formArea || !formCulture) {
-      toast({ title: "Preencha todos os campos obrigatórios", variant: "destructive" });
+    if (!formFarmer || !formArea || formCultures.length === 0) {
+      toast({ title: "Preencha todos os campos obrigatórios", description: "Produtor, área e pelo menos uma cultura.", variant: "destructive" });
       return;
     }
     const code = `PRC-${Date.now().toString(36).toUpperCase()}`;
@@ -127,15 +173,16 @@ const Parcelas = () => {
       parcel_code: code,
       farmer_code: formFarmer,
       area: formArea + " ha",
-      culture: formCulture,
+      culture: formCultures[0],
+      cultures: formCultures,
       lat: formLat || null,
       lon: formLon || null,
-    });
+    } as any);
     if (error) { toast({ title: "Erro ao registar", description: error.message, variant: "destructive" }); return; }
     toast({ title: "Parcela registada com sucesso" });
     queryClient.invalidateQueries({ queryKey: ["farmer_parcels"] });
     setDialogOpen(false);
-    setFormFarmer(""); setFormArea(""); setFormCulture(""); setFormLat(""); setFormLon(""); setFormNotes("");
+    setFormFarmer(""); setFormArea(""); setFormCultures([]); setFormLat(""); setFormLon(""); setFormNotes("");
   };
 
   return (
@@ -149,7 +196,7 @@ const Parcelas = () => {
           <DialogTrigger asChild>
             <Button className="gap-2"><Plus className="h-4 w-4" />Nova Parcela</Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-lg">
+          <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
             <DialogHeader><DialogTitle className="font-heading">Registar Parcela</DialogTitle></DialogHeader>
             <div className="grid gap-4 py-4">
               <div className="space-y-2">
@@ -163,56 +210,70 @@ const Parcelas = () => {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Área (hectares)</Label>
-                  <Input placeholder="0.0" type="number" step="0.1" value={formArea} onChange={(e) => setFormArea(e.target.value)} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Cultura</Label>
-                  <Select value={formCulture} onValueChange={setFormCulture}>
-                    <SelectTrigger><SelectValue placeholder="Selecionar" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Milho">Milho</SelectItem>
-                      <SelectItem value="Feijão">Feijão</SelectItem>
-                      <SelectItem value="Mandioca">Mandioca</SelectItem>
-                      <SelectItem value="Soja">Soja</SelectItem>
-                      <SelectItem value="Amendoim">Amendoim</SelectItem>
-                      <SelectItem value="Batata Doce">Batata Doce</SelectItem>
-                      <SelectItem value="Massango">Massango</SelectItem>
-                    </SelectContent>
-                  </Select>
+              <div className="space-y-2">
+                <Label>Área (hectares)</Label>
+                <Input placeholder="0.0" type="number" step="0.1" value={formArea} onChange={(e) => setFormArea(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>Culturas <span className="text-muted-foreground text-xs">(uma ou várias)</span></Label>
+                <div className="flex flex-wrap gap-1.5">
+                  {CULTURE_OPTIONS.map((c) => {
+                    const active = formCultures.includes(c);
+                    return (
+                      <button
+                        key={c}
+                        type="button"
+                        onClick={() => toggleCulture(c)}
+                        className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
+                          active
+                            ? "bg-primary text-primary-foreground border-primary"
+                            : "bg-card text-foreground border-border hover:bg-muted"
+                        }`}
+                      >
+                        {c}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Latitude</Label>
-                  <Input placeholder="-12.0000" value={formLat} onChange={(e) => setFormLat(e.target.value)} />
+              <div className="space-y-2 rounded-lg border border-border p-3 bg-muted/30">
+                <Label className="text-xs uppercase tracking-wider text-muted-foreground">Localização GPS</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button type="button" variant="outline" size="sm" onClick={handleUseMyLocation} disabled={geoLoading} className="gap-1.5">
+                    <Crosshair className="h-3.5 w-3.5" />
+                    {geoLoading ? "A obter..." : "Minha localização"}
+                  </Button>
+                  <Button type="button" variant="outline" size="sm" onClick={handlePickOnMap} className="gap-1.5">
+                    <MapPin className="h-3.5 w-3.5" />
+                    Escolher no mapa
+                  </Button>
                 </div>
-                <div className="space-y-2">
-                  <Label>Longitude</Label>
-                  <Input placeholder="14.0000" value={formLon} onChange={(e) => setFormLon(e.target.value)} />
+                <div className="grid grid-cols-2 gap-2">
+                  <Input placeholder="Latitude" value={formLat} onChange={(e) => setFormLat(e.target.value)} className="text-xs" />
+                  <Input placeholder="Longitude" value={formLon} onChange={(e) => setFormLon(e.target.value)} className="text-xs" />
                 </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="gap-1.5 w-full"
+                  onClick={handleFocusOnMap}
+                  disabled={!formLat || !formLon}
+                >
+                  <Eye className="h-3.5 w-3.5" />
+                  Pré-visualizar no mapa
+                </Button>
               </div>
-              <Button
-                type="button"
-                variant="outline"
-                className="gap-2 w-full"
-                onClick={handleFocusOnMap}
-                disabled={!formLat || !formLon}
-              >
-                <Crosshair className="h-4 w-4" />
-                Centrar no mapa
-              </Button>
               <div className="space-y-2">
                 <Label>Observações</Label>
-                <Textarea placeholder="Informações adicionais..." rows={3} value={formNotes} onChange={(e) => setFormNotes(e.target.value)} />
+                <Textarea placeholder="Informações adicionais..." rows={2} value={formNotes} onChange={(e) => setFormNotes(e.target.value)} />
               </div>
               <Button onClick={handleSubmit}>Registar Parcela</Button>
             </div>
           </DialogContent>
         </Dialog>
       </div>
+
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

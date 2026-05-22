@@ -759,6 +759,7 @@ export type Database = {
           area: string
           created_at: string
           culture: string
+          cultures: string[]
           farmer_code: string
           id: string
           lat: string | null
@@ -771,6 +772,7 @@ export type Database = {
           area: string
           created_at?: string
           culture: string
+          cultures?: string[]
           farmer_code: string
           id?: string
           lat?: string | null
@@ -783,6 +785,7 @@ export type Database = {
           area?: string
           created_at?: string
           culture?: string
+          cultures?: string[]
           farmer_code?: string
           id?: string
           lat?: string | null

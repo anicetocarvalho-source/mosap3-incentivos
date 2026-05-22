@@ -26,12 +26,18 @@ type Parcela = {
 type Props = {
   parcelas: Parcela[];
   focusCoords?: { lat: number; lon: number; zoom?: number } | null;
+  /** Modo picker: ao clicar no mapa, devolve as coordenadas. */
+  pickerMode?: boolean;
+  onPick?: (lat: number, lon: number) => void;
 };
 
-const ParcelasMap = ({ parcelas, focusCoords }: Props) => {
+const ParcelasMap = ({ parcelas, focusCoords, pickerMode, onPick }: Props) => {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<L.Map | null>(null);
   const focusMarkerRef = useRef<L.Marker | null>(null);
+  const pickerMarkerRef = useRef<L.Marker | null>(null);
+  const onPickRef = useRef(onPick);
+  onPickRef.current = onPick;
 
   useEffect(() => {
     if (!mapRef.current || mapInstance.current) return;
@@ -127,8 +133,46 @@ const ParcelasMap = ({ parcelas, focusCoords }: Props) => {
     focusMarkerRef.current = L.marker(latlng, { icon: pulseIcon }).addTo(map);
   }, [focusCoords]);
 
+  // Picker mode: click on map to choose coords
+  useEffect(() => {
+    const map = mapInstance.current;
+    if (!map) return;
+    const container = map.getContainer();
+    if (pickerMode) {
+      container.style.cursor = "crosshair";
+      const handler = (e: L.LeafletMouseEvent) => {
+        const { lat, lng } = e.latlng;
+        if (pickerMarkerRef.current) pickerMarkerRef.current.remove();
+        const icon = L.divIcon({
+          className: "picker-marker",
+          html: `<div style="width:30px;height:30px;border-radius:50%;background:hsl(var(--primary));border:3px solid white;box-shadow:0 2px 10px rgba(0,0,0,0.4);"></div>`,
+          iconSize: [30, 30],
+          iconAnchor: [15, 15],
+        });
+        pickerMarkerRef.current = L.marker(e.latlng, { icon }).addTo(map);
+        onPickRef.current?.(lat, lng);
+      };
+      map.on("click", handler);
+      return () => {
+        container.style.cursor = "";
+        map.off("click", handler);
+      };
+    } else {
+      container.style.cursor = "";
+      if (pickerMarkerRef.current) {
+        pickerMarkerRef.current.remove();
+        pickerMarkerRef.current = null;
+      }
+    }
+  }, [pickerMode]);
+
   return (
     <div className="relative z-0 isolate rounded-lg overflow-hidden border border-border">
+      {pickerMode && (
+        <div className="absolute top-2 left-1/2 -translate-x-1/2 z-[31] bg-primary text-primary-foreground px-3 py-1.5 rounded-full text-xs font-semibold shadow-lg pointer-events-none">
+          Toque no mapa para escolher a localização
+        </div>
+      )}
       <div ref={mapRef} style={{ height: 420, width: "100%" }} />
       <div className="flex items-center gap-4 px-4 py-2 bg-card border-t border-border text-xs">
         <span className="text-muted-foreground font-medium">Legenda:</span>
