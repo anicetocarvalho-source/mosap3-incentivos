@@ -345,7 +345,11 @@ const Parcelas = () => {
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <span className="text-xs font-medium px-2 py-1 rounded bg-accent text-accent-foreground">{p.culture}</span>
+                      <div className="flex flex-wrap gap-1">
+                        {((p.cultures && p.cultures.length > 0) ? p.cultures : [p.culture]).map((c: string) => (
+                          <span key={c} className="text-xs font-medium px-2 py-0.5 rounded bg-accent text-accent-foreground">{c}</span>
+                        ))}
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-right font-semibold">{p.area}</td>
                     <td className="px-4 py-3">
