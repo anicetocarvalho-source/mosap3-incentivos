@@ -194,6 +194,16 @@ const Parcelas = () => {
                   <Input placeholder="14.0000" value={formLon} onChange={(e) => setFormLon(e.target.value)} />
                 </div>
               </div>
+              <Button
+                type="button"
+                variant="outline"
+                className="gap-2 w-full"
+                onClick={handleFocusOnMap}
+                disabled={!formLat || !formLon}
+              >
+                <Crosshair className="h-4 w-4" />
+                Centrar no mapa
+              </Button>
               <div className="space-y-2">
                 <Label>Observações</Label>
                 <Textarea placeholder="Informações adicionais..." rows={3} value={formNotes} onChange={(e) => setFormNotes(e.target.value)} />
