@@ -195,7 +195,10 @@ const FarmerRegistrationForm = ({ open, onOpenChange, editData }: Props) => {
           province: provinceOptions.find(p => p.id === formData.provincia)?.name || formData.provincia || null,
           municipality: formData.municipio || null,
           school: formData.escolaCampo || null,
-          patec: formData.patec ? parseInt(formData.patec) : null,
+          patec: formData.patec && /^\d+$/.test(formData.patec) ? parseInt(formData.patec) : (patecs.find(p => p.code === formData.patec)?.legacy_number ?? null),
+          patec_code: formData.patec
+            ? (patecs.find(p => p.code === formData.patec || String(p.legacy_number) === formData.patec)?.code ?? null)
+            : null,
           photo_frontal_url: photoUrls.frontal || null,
           photo_profile_left_url: photoUrls.perfilEsq || null,
           photo_profile_right_url: photoUrls.perfilDir || null,
