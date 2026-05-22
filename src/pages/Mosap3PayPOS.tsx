@@ -2055,6 +2055,7 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
                   <AlertTriangle className="h-3 w-3" /> Sem saldo — emissão bloqueada
                 </div>
               )}
+            </div>
             {patecBlock && (
               <Alert variant="destructive" className="mt-3">
                 <Ban className="h-4 w-4" />
