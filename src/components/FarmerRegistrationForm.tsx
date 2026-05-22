@@ -85,6 +85,23 @@ const FarmerRegistrationForm = ({ open, onOpenChange, editData }: Props) => {
   const selectedProvinceId = formData.provincia || undefined;
   const { provinces: provinceOptions, municipalities: municipalityOptions } = useProvinceMunicipalities(selectedProvinceId);
 
+  // PATECs ativos (carregados da BD)
+  const { patecs } = usePatecs({ activeOnly: true });
+
+  // Escolas de Campo da BD, filtradas pela província/município escolhidos
+  const [schoolOptions, setSchoolOptions] = useState<{ id: string; name: string }[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      let q = supabase.from("schools").select("id, name, province_id, municipality_id").order("name");
+      if (formData.provincia) q = q.eq("province_id", formData.provincia);
+      const { data } = await q;
+      if (!cancelled) setSchoolOptions(((data as any[]) || []).map((s) => ({ id: s.id, name: s.name })));
+    })();
+    return () => { cancelled = true; };
+  }, [formData.provincia]);
+
+
   useEffect(() => {
     if (editData && open) {
       // Match province name to ID
