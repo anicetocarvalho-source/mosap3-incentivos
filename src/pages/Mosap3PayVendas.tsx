@@ -403,6 +403,29 @@ const Mosap3PayVendas = () => {
                 <Badge variant={selectedSale.payment_status === "pago" ? "default" : "secondary"}>{selectedSale.payment_status}</Badge>
                 <span className="text-xs text-muted-foreground">{selectedSale.payment_method === "unitel_money" ? "Unitel Money" : selectedSale.payment_method}</span>
               </div>
+              {selectedSale.payment_method === "unitel_money" && selectedSale.payment_status === "pago" && (selectedSale.unitel_transaction_id || selectedSale.payment_reference) && (
+                <div className="rounded-md border border-border bg-muted/30 p-3 space-y-1 text-xs">
+                  <p className="font-semibold uppercase tracking-wider text-[10px] text-muted-foreground">Referência Unitel Money</p>
+                  {selectedSale.unitel_transaction_id && (
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-muted-foreground">ID Transação</span>
+                      <button
+                        type="button"
+                        onClick={() => { navigator.clipboard?.writeText(selectedSale.unitel_transaction_id!); toast.success("ID copiado"); }}
+                        className="font-mono text-foreground hover:text-primary text-right truncate"
+                      >
+                        {selectedSale.unitel_transaction_id}
+                      </button>
+                    </div>
+                  )}
+                  {selectedSale.payment_reference && (
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-muted-foreground">Referência</span>
+                      <span className="font-mono text-foreground truncate">{selectedSale.payment_reference}</span>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </DialogContent>
