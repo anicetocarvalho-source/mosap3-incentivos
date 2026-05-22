@@ -1724,7 +1724,7 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
                     </div>
                     <p className="text-[10px] text-[hsl(220,10%,45%)]">{farmer.code} • {farmer.phone || "—"}</p>
                     <p className={`text-[10px] font-semibold ${farmerBalance > 0 ? "text-[hsl(120,60%,50%)]" : "text-[hsl(0,70%,60%)]"}`}>
-                      Saldo: {farmerBalance.toLocaleString("pt-AO")} Kz
+                      Saldo: <span className="font-mono">{formatKzCompact(farmerBalance)}</span>
                     </p>
                     {farmerBalance <= 0 && (
                       <p className="text-[9px] text-[hsl(0,70%,65%)] font-medium leading-none mt-0.5">⚠ Sem saldo — compras bloqueadas</p>
