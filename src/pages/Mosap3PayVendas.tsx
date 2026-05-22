@@ -352,6 +352,9 @@ const Mosap3PayVendas = () => {
                   </div>
                   <span className="font-bold text-sm">{Number(s.total).toLocaleString("pt-AO")} Kz</span>
                 </div>
+                {s.payment_method === "unitel_money" && s.payment_status === "pago" && s.unitel_transaction_id && (
+                  <p className="font-mono text-[10px] text-muted-foreground truncate">TX: {s.unitel_transaction_id}</p>
+                )}
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
                   <span>{new Date(s.created_at).toLocaleDateString("pt-AO")}</span>
                   <div className="flex gap-1">
