@@ -61,6 +61,7 @@ const FarmerProfile = () => {
   const [expandedProduction, setExpandedProduction] = useState<string | null>(null);
   const [zoomedImageIndex, setZoomedImageIndex] = useState<number | null>(null);
   const [parcelDialogOpen, setParcelDialogOpen] = useState(false);
+  const [productionDialogOpen, setProductionDialogOpen] = useState(false);
   const [dependentDialogOpen, setDependentDialogOpen] = useState(false);
   const [transactionDialogOpen, setTransactionDialogOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
