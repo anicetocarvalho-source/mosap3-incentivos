@@ -2042,11 +2042,19 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
                 <span>Total</span>
                 <span className="text-[hsl(45,90%,55%)] font-mono">{cartTotal.toLocaleString("pt-AO")} Kz</span>
               </div>
-              <div className={`flex justify-between text-xs mt-1 ${farmerBalance - cartTotal >= 0 ? "text-[hsl(120,60%,50%)]" : "text-[hsl(0,70%,60%)]"}`}>
-                <span>Saldo restante</span>
-                <span className="font-mono font-semibold">{(farmerBalance - cartTotal).toLocaleString("pt-AO")} Kz</span>
+              <div className="flex justify-between text-xs mt-1 text-[hsl(220,10%,55%)]">
+                <span>Saldo actual</span>
+                <span className="font-mono">{formatKzCompact(farmerBalance)}</span>
               </div>
-            </div>
+              <div className={`flex justify-between text-xs ${farmerBalance - cartTotal >= 0 ? "text-[hsl(120,60%,50%)]" : "text-[hsl(0,70%,60%)]"}`}>
+                <span>Saldo restante</span>
+                <span className="font-mono font-semibold">{formatKzCompact(farmerBalance - cartTotal)}</span>
+              </div>
+              {farmerBalance <= 0 && (
+                <div className="mt-2 rounded-md border border-[hsl(0,70%,40%)] bg-[hsl(0,60%,12%)] px-2 py-1.5 text-[10px] text-[hsl(0,70%,75%)] flex items-center gap-1.5">
+                  <AlertTriangle className="h-3 w-3" /> Sem saldo — emissão bloqueada
+                </div>
+              )}
             {patecBlock && (
               <Alert variant="destructive" className="mt-3">
                 <Ban className="h-4 w-4" />
