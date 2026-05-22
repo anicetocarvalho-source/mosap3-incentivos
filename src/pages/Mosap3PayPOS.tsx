@@ -1597,9 +1597,32 @@ const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
               <button onClick={() => toggleFullscreen(false)} className="p-2 rounded-lg bg-[hsl(220,15%,15%)] hover:bg-[hsl(220,15%,20%)] transition-colors" title="Sair Kiosk (F5)">
                 <Minimize className="h-4 w-4" />
               </button>
-              <button className="p-2 rounded-lg bg-[hsl(220,15%,15%)] hover:bg-[hsl(220,15%,20%)] transition-colors" title="Atalhos: F1-F5">
-                <Settings2 className="h-4 w-4" />
-              </button>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button className="p-2 rounded-lg bg-[hsl(220,15%,15%)] hover:bg-[hsl(220,15%,20%)] transition-colors" title="Atalhos do teclado">
+                    <Keyboard className="h-4 w-4" />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent align="end" className="w-64 bg-[hsl(220,18%,14%)] border-[hsl(220,15%,22%)] text-[hsl(0,0%,88%)] p-3">
+                  <p className="text-[11px] font-bold uppercase tracking-wide text-[hsl(220,10%,55%)] mb-2">Atalhos</p>
+                  <ul className="space-y-1.5 text-xs">
+                    {[
+                      ["F1", "Pesquisar produtor"],
+                      ["F2", "Pesquisar produto"],
+                      ["F3", "Emitir venda"],
+                      ["F4", "Limpar carrinho"],
+                      ["F5", "Sair do Kiosk"],
+                      ["Enter", "Confirmar venda"],
+                      ["Esc", "Fechar/sair"],
+                    ].map(([k, l]) => (
+                      <li key={k} className="flex items-center justify-between gap-3">
+                        <span className="text-[hsl(0,0%,82%)]">{l}</span>
+                        <kbd className="px-1.5 py-0.5 rounded bg-[hsl(220,15%,18%)] border border-[hsl(220,15%,28%)] font-mono text-[10px] text-[hsl(45,90%,60%)]">{k}</kbd>
+                      </li>
+                    ))}
+                  </ul>
+                </PopoverContent>
+              </Popover>
             </div>
           </div>
 
