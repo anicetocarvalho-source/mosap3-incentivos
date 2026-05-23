@@ -62,14 +62,10 @@ const Producao = () => {
     },
   });
 
-  const { data: farmersList = [] } = useQuery({
-    queryKey: ["farmers_list_select"],
-    queryFn: async () => {
-      return await fetchAllPages<any>(() =>
-        supabase.from("farmers").select("code, full_name", { count: "exact" }).neq("status","Removido").order("full_name")
-      );
-    },
-  });
+  const { farmers: farmersList } = useFarmersList();
+  const sortedFarmers = [...farmersList].sort((a, b) => (a.full_name || "").localeCompare(b.full_name || ""));
+  const [farmerPickerOpen, setFarmerPickerOpen] = useState(false);
+  const selectedFarmer = sortedFarmers.find((f) => f.code === formFarmer);
 
   useEffect(() => { setPage(1); }, [search, cultureFilter, statusFilter]);
 
