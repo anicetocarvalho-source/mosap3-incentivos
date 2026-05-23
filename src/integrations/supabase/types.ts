@@ -2695,6 +2695,17 @@ export type Database = {
         }
         Returns: Json
       }
+      public_lookup_device_session: {
+        Args: { _code: string }
+        Returns: {
+          device_type: string
+          expires_at: string
+          farmer_code: string
+          id: string
+          session_code: string
+          status: string
+        }[]
+      }
       public_lookup_nfc_tag: {
         Args: { _uid: string }
         Returns: {
