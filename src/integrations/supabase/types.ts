@@ -2695,6 +2695,25 @@ export type Database = {
         }
         Returns: Json
       }
+      public_lookup_nfc_tag: {
+        Args: { _uid: string }
+        Returns: {
+          farmer_code: string
+          is_active: boolean
+        }[]
+      }
+      public_verify_farmer_card: {
+        Args: { _token: string }
+        Returns: {
+          card_status: string
+          farmer_code: string
+          farmer_name: string
+          has_credit: boolean
+          province: string
+          status: string
+          updated_at: string
+        }[]
+      }
       recalc_all_farmer_totals: { Args: never; Returns: number }
       recalc_farmer_totals: {
         Args: { _farmer_code: string }
