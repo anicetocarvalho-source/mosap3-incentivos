@@ -26,45 +26,16 @@ const VerificacaoCartao = () => {
     if (!token) { setNotFound(true); setLoading(false); return; }
 
     async function verify() {
-      // Get card by token
-      const { data: card, error } = await supabase
-        .from("farmer_cards")
-        .select("*")
-        .eq("card_token", token)
-        .maybeSingle();
+      // Public token verification via dedicated RPC (no anon SELECT exposure)
+      const { data: rows, error } = await supabase
+        .rpc("public_verify_farmer_card", { _token: token });
 
-      if (error || !card) {
+      if (error || !rows || rows.length === 0) {
         setNotFound(true);
         setLoading(false);
         return;
       }
-
-      // Get farmer info (limited)
-      const { data: farmer } = await supabase
-        .from("farmers")
-        .select("full_name, code, status, province, valor_recebido")
-        .eq("code", card.farmer_code)
-        .maybeSingle();
-
-      if (!farmer) {
-        setNotFound(true);
-        setLoading(false);
-        return;
-      }
-
-      const hasCredit = farmer.valor_recebido && parseFloat(
-        (farmer.valor_recebido || "0").replace(/[^\d,-]/g, "").replace(",", ".")
-      ) > 0;
-
-      setData({
-        farmer_name: farmer.full_name,
-        farmer_code: farmer.code,
-        status: farmer.status || "Pendente",
-        province: farmer.province,
-        has_credit: !!hasCredit,
-        card_status: card.status,
-        updated_at: card.updated_at,
-      });
+      setData(rows[0] as VerificationData);
       setLoading(false);
     }
 
