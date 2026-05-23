@@ -22,6 +22,11 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllPages } from "@/lib/supabaseFetchAll";
 import { toast } from "@/hooks/use-toast";
+import { useFarmersList } from "@/hooks/useFarmersList";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Check, ChevronsUpDown } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 const PAGE_SIZE = 10;
 
@@ -57,14 +62,10 @@ const Producao = () => {
     },
   });
 
-  const { data: farmersList = [] } = useQuery({
-    queryKey: ["farmers_list_select"],
-    queryFn: async () => {
-      return await fetchAllPages<any>(() =>
-        supabase.from("farmers").select("code, full_name", { count: "exact" }).neq("status","Removido").order("full_name")
-      );
-    },
-  });
+  const { farmers: farmersList } = useFarmersList();
+  const sortedFarmers = [...farmersList].sort((a, b) => (a.full_name || "").localeCompare(b.full_name || ""));
+  const [farmerPickerOpen, setFarmerPickerOpen] = useState(false);
+  const selectedFarmer = sortedFarmers.find((f) => f.code === formFarmer);
 
   useEffect(() => { setPage(1); }, [search, cultureFilter, statusFilter]);
 
@@ -135,14 +136,43 @@ const Producao = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Produtor</Label>
-                  <Select value={formFarmer} onValueChange={setFormFarmer}>
-                    <SelectTrigger><SelectValue placeholder="Selecionar" /></SelectTrigger>
-                    <SelectContent>
-                      {farmersList.map((f: any) => (
-                        <SelectItem key={f.code} value={f.code}>{f.full_name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Popover open={farmerPickerOpen} onOpenChange={setFarmerPickerOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        className="w-full justify-between font-normal"
+                      >
+                        <span className="truncate">
+                          {selectedFarmer ? `${selectedFarmer.code} · ${selectedFarmer.full_name}` : "Selecionar produtor"}
+                        </span>
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                      <Command>
+                        <CommandInput placeholder="Pesquisar por nome ou código..." />
+                        <CommandList>
+                          <CommandEmpty>
+                            {sortedFarmers.length === 0 ? "Sem produtores no seu âmbito" : "Sem resultados"}
+                          </CommandEmpty>
+                          <CommandGroup>
+                            {sortedFarmers.map((f) => (
+                              <CommandItem
+                                key={f.code}
+                                value={`${f.code} ${f.full_name}`}
+                                onSelect={() => { setFormFarmer(f.code); setFarmerPickerOpen(false); }}
+                              >
+                                <Check className={cn("mr-2 h-4 w-4", formFarmer === f.code ? "opacity-100" : "opacity-0")} />
+                                <span className="font-mono text-xs text-muted-foreground mr-2">{f.code}</span>
+                                <span className="truncate">{f.full_name}</span>
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
                 </div>
                 <div className="space-y-2">
                   <Label>Cultura</Label>
