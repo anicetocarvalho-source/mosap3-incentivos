@@ -1,11 +1,17 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
+import { getPendingCount, syncAll } from "@/lib/offlineDb";
+import { isDevOrPreview } from "@/lib/devMode";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { RefreshCw, CheckCircle2, AlertTriangle, XCircle } from "lucide-react";
+import { toast } from "sonner";
+import { RefreshCw, CheckCircle2, AlertTriangle, XCircle, Wifi, WifiOff, Cloud, AlertOctagon } from "lucide-react";
+
+const APP_VERSION = (import.meta.env.VITE_APP_VERSION as string | undefined) ?? "dev";
 
 const TABLES = [
   "farmers",
@@ -42,10 +48,57 @@ type RowResult = {
   ms: number;
 };
 
+interface ClientErrorRow {
+  id: string;
+  message: string;
+  url: string | null;
+  user_agent: string | null;
+  app_version: string | null;
+  created_at: string;
+}
+
+interface ErrorSummary {
+  total24h: number;
+  recent: ClientErrorRow[];
+}
+
 export default function Diagnostico() {
   const { user, roles, isOfflineSession } = useAuth();
+  const isOnline = useOnlineStatus();
   const [results, setResults] = useState<RowResult[]>([]);
   const [loading, setLoading] = useState(false);
+  const [pendingSync, setPendingSync] = useState<number>(0);
+  const [errorSummary, setErrorSummary] = useState<ErrorSummary | null>(null);
+  const isAdmin = roles.includes("admin");
+
+  const refreshPending = async () => {
+    try {
+      setPendingSync(await getPendingCount());
+    } catch {
+      setPendingSync(0);
+    }
+  };
+
+  const refreshErrors = async () => {
+    if (!isAdmin) return;
+    try {
+      const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      const [{ count }, { data }] = await Promise.all([
+        supabase
+          .from("client_errors")
+          .select("*", { count: "exact", head: true })
+          .gte("created_at", since),
+        supabase
+          .from("client_errors")
+          .select("id, message, url, user_agent, app_version, created_at")
+          .order("created_at", { ascending: false })
+          .limit(10),
+      ]);
+      setErrorSummary({ total24h: count ?? 0, recent: (data ?? []) as ClientErrorRow[] });
+    } catch {
+      setErrorSummary(null);
+    }
+  };
 
   const run = async () => {
     setLoading(true);
@@ -73,6 +126,38 @@ export default function Diagnostico() {
       setResults([...out]);
     }
     setLoading(false);
+    await refreshPending();
+    await refreshErrors();
+  };
+
+  const handleForceSync = async () => {
+    if (!navigator.onLine) {
+      toast.error("Sem ligação. Reconecte para sincronizar.");
+      return;
+    }
+    const res = await syncAll();
+    toast.success(`Sincronizado: ${res.synced} ok, ${res.failed} falhas.`);
+    await refreshPending();
+  };
+
+  const handleCleanupNotifications = async () => {
+    const { data, error } = await supabase.rpc("cleanup_old_notifications");
+    if (error) {
+      toast.error(`Falhou: ${error.message}`);
+      return;
+    }
+    const row = (data as any[])?.[0];
+    toast.success(`Apagadas: ${row?.deleted_read ?? 0} lidas + ${row?.deleted_unread ?? 0} não lidas.`);
+  };
+
+  const handleCleanupErrors = async () => {
+    const { data, error } = await supabase.rpc("cleanup_old_client_errors");
+    if (error) {
+      toast.error(`Falhou: ${error.message}`);
+      return;
+    }
+    toast.success(`Apagados ${data ?? 0} erros antigos (>30 dias).`);
+    await refreshErrors();
   };
 
   useEffect(() => {
@@ -90,15 +175,48 @@ export default function Diagnostico() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Diagnóstico de Acesso</h1>
+          <h1 className="text-2xl font-bold">Diagnóstico</h1>
           <p className="text-sm text-muted-foreground">
-            Conta linhas por tabela com a sessão actual. Útil para identificar problemas de RLS.
+            Saúde do sistema, sessão actual, RLS por tabela e erros recentes do cliente.
           </p>
         </div>
         <Button onClick={run} disabled={loading}>
           <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
           {loading ? "A executar..." : "Recarregar"}
         </Button>
+      </div>
+
+      {/* Saúde do sistema */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2">{isOnline ? <Wifi className="h-4 w-4 text-success" /> : <WifiOff className="h-4 w-4 text-destructive" />}Ligação</CardTitle></CardHeader>
+          <CardContent><div className="text-2xl font-bold">{isOnline ? "Online" : "Offline"}</div></CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><Cloud className="h-4 w-4" />Fila de sync</CardTitle></CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{pendingSync}</div>
+            {pendingSync > 0 && (
+              <Button size="sm" variant="outline" className="mt-2" onClick={handleForceSync}>Forçar sync</Button>
+            )}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><AlertOctagon className="h-4 w-4" />Erros 24h</CardTitle></CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{isAdmin ? errorSummary?.total24h ?? "—" : "—"}</div>
+            {!isAdmin && <p className="text-xs text-muted-foreground">Só admins</p>}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-sm">Ambiente</CardTitle></CardHeader>
+          <CardContent>
+            <div className="text-sm font-mono">{APP_VERSION}</div>
+            <Badge variant={isDevOrPreview() ? "outline" : "secondary"} className="mt-2">
+              {isDevOrPreview() ? "Dev / Preview" : "Produção"}
+            </Badge>
+          </CardContent>
+        </Card>
       </div>
 
       <Card>
@@ -117,6 +235,45 @@ export default function Diagnostico() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Erros recentes (admin) */}
+      {isAdmin && (
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0">
+            <CardTitle className="text-base">Erros recentes do cliente</CardTitle>
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline" onClick={handleCleanupErrors}>Apagar &gt;30d</Button>
+              <Button size="sm" variant="outline" onClick={handleCleanupNotifications}>Limpar notificações antigas</Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {!errorSummary || errorSummary.recent.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Sem erros registados nas últimas 24h. 🎉</p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Quando</TableHead>
+                    <TableHead>Mensagem</TableHead>
+                    <TableHead>URL</TableHead>
+                    <TableHead>Versão</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {errorSummary.recent.map((e) => (
+                    <TableRow key={e.id}>
+                      <TableCell className="text-xs whitespace-nowrap">{new Date(e.created_at).toLocaleString("pt-PT")}</TableCell>
+                      <TableCell className="text-xs max-w-xs truncate" title={e.message}>{e.message}</TableCell>
+                      <TableCell className="text-xs max-w-xs truncate" title={e.url ?? ""}>{e.url ?? "—"}</TableCell>
+                      <TableCell className="text-xs font-mono">{e.app_version ?? "—"}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>

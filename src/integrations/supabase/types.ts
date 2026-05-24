@@ -173,6 +173,42 @@ export type Database = {
         }
         Relationships: []
       }
+      client_errors: {
+        Row: {
+          app_version: string | null
+          context: Json | null
+          created_at: string
+          id: string
+          message: string
+          stack: string | null
+          url: string | null
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          app_version?: string | null
+          context?: Json | null
+          created_at?: string
+          id?: string
+          message: string
+          stack?: string | null
+          url?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          app_version?: string | null
+          context?: Json | null
+          created_at?: string
+          id?: string
+          message?: string
+          stack?: string | null
+          url?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       credit_note_items: {
         Row: {
           created_at: string
@@ -2515,6 +2551,7 @@ export type Database = {
         }
       }
       bulk_insert_orphan_phones: { Args: { _data: Json }; Returns: Json }
+      cleanup_old_client_errors: { Args: never; Returns: number }
       cleanup_old_notifications: {
         Args: never
         Returns: {

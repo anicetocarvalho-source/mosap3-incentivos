@@ -5,9 +5,11 @@ import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
 import { setupAutoSync } from "./lib/offlineDb";
+import { installGlobalErrorHandlers } from "./lib/errorReporter";
 import ErrorBoundary from "./components/ErrorBoundary";
 
 setupAutoSync();
+installGlobalErrorHandlers();
 
 createRoot(document.getElementById("root")!).render(
   <ErrorBoundary>
