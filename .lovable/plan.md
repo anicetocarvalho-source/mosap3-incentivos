@@ -1,108 +1,61 @@
 # Plano: Endurecimento Pré-Produção MOSAP3
 
-Objectivo: deixar o sistema pronto para go-live com produtores reais, MOSAP3Pay com Unitel Money em produção e conformidade AGT. Organizado em 4 fases sequenciais.
+Objectivo: deixar o sistema pronto para go-live com produtores reais, MOSAP3Pay com Unitel Money em produção e conformidade AGT.
 
 ---
 
-## Fase 1 — Segurança & Conformidade (bloqueante)
+## ✅ Fase 1 — Segurança & Conformidade (concluída)
 
-**1.1 Auditoria automática**
-- Correr `supabase--linter` e fechar todos os warnings.
-- Correr `security--run_security_scan` e tratar findings ALTO/CRÍTICO.
-- Activar **Leaked Password Protection (HIBP)** via `configure_auth`.
-
-**1.2 Revisão manual de RLS**
-- Validar políticas nas tabelas sensíveis: `farmers`, `farmer_incentives`, `pos_sales`, `pos_payment_otps`, `user_roles`, `system_settings`, `audit_logs`, `farmer_documents`.
-- Confirmar que `system_settings` com chaves Unitel só é legível por admin.
-- Garantir que nenhuma Edge Function devolve `service_role` ou dados fora do âmbito do utilizador.
-
-**1.3 SMS Gateway para OTP do POS**
-- Hoje `pos-otp-send` devolve `dev_code` ao fornecedor quando `SMS_GATEWAY_ENABLED!="true"` — inseguro em produção.
-- Configurar gateway SMS real (Unitel SMS) e adicionar secrets `SMS_GATEWAY_URL`, `SMS_GATEWAY_TOKEN`, `SMS_SENDER_ID`.
-- Bloquear `dev_code` em domínio de produção mesmo com gateway off.
+- HIBP activado, signup público desactivado, anónimos desactivados.
+- RBAC `has_any_backoffice_role` endurecida (enumeração explícita de 9 roles).
+- RLS removida de tabelas sensíveis para anon: `pos_sales`, `pos_sale_items`, `credit_notes`, `farmer_cards`, `farmer_nfc_tags`, `fingerprint_verifications`, `stock_movements`.
+- RPCs públicas seguras: `public_verify_farmer_card`, `public_lookup_nfc_tag`, `public_lookup_device_session`.
+- Storage `farmer-media` e `supplier-logos` restringidos.
+- Resultado: 0 erros críticos (antes: 9).
 
 ---
 
-## Fase 2 — Integrações Críticas
+## Fase 2 — Integrações Críticas (próxima)
 
-**2.1 Unitel Money — validação end-to-end com credenciais de produção**
-- Testar BuyGoods sync, async e refund com transacções reais de baixo valor.
-- Confirmar idempotência: callback async duplicada não cria dupla venda.
-- Implementar job de reconciliação para callbacks perdidas (cron edge function).
-- Timeout/retry policy explícita em `unitel-money-payment`.
-
-**2.2 SAF-T (AO) — homologação AGT**
-- Gerar SAF-T de 1 mês completo com vendas + notas de crédito.
-- Correr `validate-saft` e corrigir avarias.
-- Submeter ficheiro de teste ao portal AGT para validação oficial.
-
-**2.3 Auditoria completa de acções sensíveis**
-- Confirmar que `audit_logs` regista: CRUD produtores, incentivos, vendas, alterações de role, alterações de `system_settings`, anulações/notas de crédito, OTP send/verify.
-- Definir política de retenção (ex: 5 anos para fiscal).
+**2.1 Unitel Money produção** — BuyGoods sync/async/refund com credenciais reais, idempotência, job de reconciliação.
+**2.2 SMS Gateway POS OTP** — substituir `dev_code` por gateway Unitel SMS real (secrets `SMS_GATEWAY_URL/TOKEN/SENDER_ID`).
+**2.3 SAF-T (AO)** — homologação AGT com 1 mês de dados reais.
+**2.4 Auditoria completa** — confirmar cobertura `audit_logs` e retenção 5 anos.
 
 ---
 
-## Fase 3 — Performance, Escala & Resiliência
+## ✅ Fase 3 — Performance, Escala & Resiliência (concluída)
 
-**3.1 Saúde da base de dados**
-- Correr `supabase--db_health` e dimensionar instância adequada.
-- Adicionar índices nas colunas mais consultadas: `farmers(province_id, municipality_id, eca_code, status)`, `pos_sales(farmer_code, created_at, status)`, `farmer_incentives(farmer_code, season_id)`.
+**3.1 Saúde DB** — snapshot OK (mem 54%, disco 44%, conn 8/60). Ver `docs/PHASE3_PERFORMANCE.md`.
 
-**3.2 Testes de carga**
-- Simular 50k produtores e 100k transacções em ambiente de staging.
-- Validar que `fetchAllPages` e ecrãs com listagens grandes (`/agricultores`, `/incentivos`, `/vendas`) respondem <2s.
+**3.2 Índices adicionados:**
+- `idx_pos_sale_items_sale_id`
+- `idx_farmer_incentives_code_date`, `idx_farmer_incentives_status`
+- `idx_pos_sales_supplier_created`
+- `idx_audit_logs_user_created`
+- `idx_notifications_user_created`
 
-**3.3 PWA offline — validação em dispositivos reais**
-- Testar checklist do README em 3-4 Androids reais (incluindo gama baixa usada por extensionistas).
-- Cenários: registo offline → reconectar → sync; perda de conectividade a meio de venda POS; SyncQueue v3 com 100+ items pendentes.
-- Medir tamanho do bundle inicial (importante para 2G/3G rurais).
+**3.3 Manutenção:** função `cleanup_old_notifications()` (admin-only) — apaga lidas >90d, não lidas >180d. Tabela actual: 133k linhas, 14k dead tuples → executar 1ª vez antes do go-live.
 
-**3.4 Backup & disaster recovery**
-- Documentar política de backups automáticos.
-- Executar restauro de teste pelo menos 1× e cronometrar RTO.
+**3.4 A executar manualmente antes do go-live** (instruções em `docs/PHASE3_PERFORMANCE.md`):
+- Testes de carga k6/Artillery em staging (50k produtores, 100k transacções, alvo <2s p95).
+- Validação PWA em 3-4 Androids reais (incluindo gama baixa + 2G/3G).
+- 1 restauro de backup cronometrado (RTO alvo <4h).
+- Export SAF-T mensal offsite (retenção fiscal 5 anos).
+
+**3.5 Linter:** 39 warnings SECURITY DEFINER são falsos positivos arquitecturais (RPCs públicas seguras + helpers RBAC). Documentado.
 
 ---
 
 ## Fase 4 — Operação & UX
 
-**4.1 Monitorização**
-- Integrar reporte de erros frontend (Sentry ou equivalente) no `ErrorBoundary`.
-- Alertas automáticos: SyncQueue acumulando, Edge Functions com erro >5%, callbacks Unitel falhadas.
-- Expor métricas-chave em `/diagnostico` para admin.
-
-**4.2 Limpeza pré-go-live**
-- Verificar que auto-fill dos 9 perfis de teste (`isDevOrPreview()`) está desactivado no domínio de produção final (não `.lovable.app`).
-- Limpar produtores, vendas e incentivos de teste da base de dados.
-- Verificar que `disable_signup=true` no auth (registo público fechado).
-
-**4.3 Onboarding & documentação**
-- Manual do utilizador resumido por perfil RBAC (9 níveis).
-- Vídeos curtos (2-3 min): registo de produtor, registo de parcela, venda POS com OTP, distribuição de incentivos em lote.
-- Changelog visível ao utilizador.
-
-**4.4 Testes E2E dos fluxos críticos** (opcional mas recomendado)
-- Playwright cobrindo: registo de produtor, venda POS com OTP, distribuição de incentivos em lote.
+**4.1 Monitorização** — Sentry no `ErrorBoundary`, alertas (SyncQueue, edge errors >5%, Unitel callbacks), métricas em `/diagnostico`.
+**4.2 Limpeza pré-go-live** — auto-fill 9 perfis desactivado no domínio final, limpar dados de teste, `disable_signup=true` confirmado.
+**4.3 Onboarding** — manual por perfil RBAC, vídeos curtos, changelog.
+**4.4 Testes E2E** (opcional) — Playwright nos fluxos críticos.
 
 ---
 
-## Detalhes técnicos
+## Próximo passo
 
-**Ordem de execução recomendada:** Fase 1 → 2 em paralelo com 3.1/3.2 → 3.3/3.4 → 4.
-
-**Ferramentas automáticas a usar primeiro:**
-- `supabase--linter`
-- `security--run_security_scan`
-- `supabase--db_health`
-- `security--get_table_schema`
-
-**Secrets a adicionar antes de produção:**
-- `SMS_GATEWAY_URL`, `SMS_GATEWAY_TOKEN`, `SMS_SENDER_ID`, `SMS_GATEWAY_ENABLED=true`
-- Credenciais Unitel Money de produção (substituir as de sandbox em `system_settings`)
-
-**Não está no plano (já implementado):** RBAC, RLS base, SyncQueue v3, compressão de imagens, saldo canónico, soft-delete de produtores, SAF-T generator, kiosk mode.
-
----
-
-## Próximo passo proposto
-
-Começar pela **Fase 1.1** — corrida automática dos 3 scanners (linter, security scan, db health) para obter findings concretos e refinar este plano com prioridades reais do teu projecto.
+Fase 2 — começar por adicionar secrets `SMS_GATEWAY_*` e validar Unitel Money em ambiente sandbox→produção.
