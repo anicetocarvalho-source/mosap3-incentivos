@@ -2515,6 +2515,13 @@ export type Database = {
         }
       }
       bulk_insert_orphan_phones: { Args: { _data: Json }; Returns: Json }
+      cleanup_old_notifications: {
+        Args: never
+        Returns: {
+          deleted_read: number
+          deleted_unread: number
+        }[]
+      }
       cleanup_pos_otp_idempotency: { Args: { p_max?: number }; Returns: number }
       credit_notes_kpis: { Args: { _search?: string }; Returns: Json }
       dashboard_charts: {
