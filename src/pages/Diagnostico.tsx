@@ -1,11 +1,17 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
+import { getPendingCount, syncAll } from "@/lib/offlineDb";
+import { isDevOrPreview } from "@/lib/devMode";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { RefreshCw, CheckCircle2, AlertTriangle, XCircle } from "lucide-react";
+import { toast } from "sonner";
+import { RefreshCw, CheckCircle2, AlertTriangle, XCircle, Wifi, WifiOff, Cloud, AlertOctagon } from "lucide-react";
+
+const APP_VERSION = (import.meta.env.VITE_APP_VERSION as string | undefined) ?? "dev";
 
 const TABLES = [
   "farmers",
