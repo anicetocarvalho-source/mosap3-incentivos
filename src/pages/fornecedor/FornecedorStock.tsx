@@ -471,12 +471,35 @@ const FornecedorStock = () => {
                 <TableBody>
                   {filteredMovements.length === 0 ? (
                     <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Sem movimentos</TableCell></TableRow>
-                  ) : filteredMovements.slice(0, 100).map(m => {
+                  ) : filteredMovements.slice(0, 100).map(entry => {
+                    if (entry.kind === "price") {
+                      const up = Number(entry.new_price) > Number(entry.previous_price);
+                      return (
+                        <TableRow key={`price-${entry.id}`}>
+                          <TableCell className="text-xs text-muted-foreground whitespace-nowrap">{new Date(entry.created_at).toLocaleString("pt-AO")}</TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1">
+                              <Tag className="h-3.5 w-3.5 text-info" />
+                              <Badge variant="outline" className="text-[10px]">Preço</Badge>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-sm font-medium">{getProductName(entry.product_id)}</TableCell>
+                          <TableCell className="text-center">
+                            <span className={`font-bold ${up ? "text-warning" : "text-success"}`}>{up ? "▲" : "▼"}</span>
+                          </TableCell>
+                          <TableCell className="text-center text-xs text-muted-foreground tabular-nums">
+                            {Number(entry.previous_price).toLocaleString("pt-AO")} → <span className="font-semibold text-foreground">{Number(entry.new_price).toLocaleString("pt-AO")} Kz</span>
+                          </TableCell>
+                          <TableCell className="text-xs text-muted-foreground max-w-[200px] truncate">{entry.reason || "—"}</TableCell>
+                        </TableRow>
+                      );
+                    }
+                    const m = entry;
                     const meta = MOVEMENT_LABELS[m.movement_type] || MOVEMENT_LABELS.ajuste;
                     const Icon = meta.icon;
                     const isMovOut = m.movement_type === "saida" || m.movement_type === "venda";
                     return (
-                      <TableRow key={m.id}>
+                      <TableRow key={`stock-${m.id}`}>
                         <TableCell className="text-xs text-muted-foreground whitespace-nowrap">{new Date(m.created_at).toLocaleString("pt-AO")}</TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1">
