@@ -261,7 +261,7 @@ const FornecedorStock = () => {
       <div className="space-y-6">
         <div>
           <h1 className="text-xl font-heading font-bold flex items-center gap-2">
-            <Package className="h-5 w-5 text-primary" /> Gestão de Stock
+            <Package className="h-5 w-5 text-primary" /> Stock & Preços
           </h1>
           <p className="text-muted-foreground text-sm">Inventário da loja {supplier.name}</p>
         </div>
@@ -274,7 +274,7 @@ const FornecedorStock = () => {
     <div className="space-y-6">
       <div>
         <h1 className="text-xl font-heading font-bold flex items-center gap-2">
-          <Package className="h-5 w-5 text-primary" /> Gestão de Stock
+          <Package className="h-5 w-5 text-primary" /> Stock & Preços
         </h1>
         <p className="text-muted-foreground text-sm">Inventário da loja {supplier.name}</p>
       </div>
@@ -410,6 +410,7 @@ const FornecedorStock = () => {
                               <ArrowDownCircle className="h-3 w-3 mr-1 text-destructive" /> Saída
                             </Button>
                             <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => openMovement(p, "ajuste")}><RotateCcw className="h-3 w-3" /></Button>
+                            <Button variant="ghost" size="sm" className="h-7 text-xs" title="Editar preço" onClick={() => openEditPrice(p)}><Tag className="h-3 w-3" /></Button>
                             <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => openHistory(p)}><History className="h-3 w-3" /></Button>
                           </div>
                         </TableCell>
