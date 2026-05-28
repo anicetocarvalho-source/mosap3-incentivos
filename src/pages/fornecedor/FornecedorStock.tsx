@@ -451,6 +451,7 @@ const FornecedorStock = () => {
                 {Object.entries(MOVEMENT_LABELS).map(([k, v]) => (
                   <SelectItem key={k} value={k}>{v.label}</SelectItem>
                 ))}
+                <SelectItem value="preco">Preço</SelectItem>
               </SelectContent>
             </Select>
           </div>
