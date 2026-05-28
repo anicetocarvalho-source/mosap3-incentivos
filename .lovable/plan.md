@@ -1,59 +1,51 @@
-# Plano: Endurecimento Pré-Produção MOSAP3
+# Unificação dos módulos Stock e Preços & Stock (Portal Fornecedor)
 
----
+## Diagnóstico
 
-## ✅ Fase 1 — Segurança & Conformidade (concluída)
+Os dois itens da sidebar do fornecedor cobrem o mesmo domínio (produtos do fornecedor + `stock_movements`), com funcionalidades parcialmente redundantes:
 
-- HIBP, signup público desactivado, anónimos desactivados.
-- RBAC endurecida, RLS sensível protegida, RPCs públicas seguras.
-- Storage `farmer-media` e `supplier-logos` restringidos.
-- Resultado: 0 erros críticos.
+| Funcionalidade | `/fornecedor/stock` (Gestão de Stock) | `/fornecedor/precos` (Preços & Stock) |
+|---|---|---|
+| Listar produtos | ✅ Tabela + KPIs + alertas | ✅ Tabela simples |
+| Editar preço | ❌ | ✅ (com motivo + `product_price_history`) |
+| Ajustar stock | ✅ Entrada/Saída/Ajuste tipados | ✅ Ajuste genérico (com motivo) |
+| Editar stock mínimo | ✅ | ❌ |
+| Histórico de movimentos | ✅ (`stock_movements`) | ✅ (combinado preço + stock) |
+| KPIs, alertas, saúde do stock | ✅ | ❌ |
 
----
+**Conclusão:** o utilizador tem razão — são essencialmente a mesma coisa. `Preços & Stock` foi adicionado depois para colmatar a ausência de edição de preço em `Stock`, mas acabou por duplicar a lógica de ajuste de stock.
 
-## Fase 2 — Integrações Críticas (próxima)
+## Proposta: módulo único "Stock & Preços"
 
-**2.1 Unitel Money produção** — BuyGoods sync/async/refund com credenciais reais, idempotência, job de reconciliação.
-**2.2 SMS Gateway POS OTP** — substituir `dev_code` por gateway Unitel SMS (secrets `SMS_GATEWAY_URL/TOKEN/SENDER_ID`).
-**2.3 SAF-T (AO)** — homologação AGT com 1 mês de dados reais.
-**2.4 Auditoria** — cobertura completa de `audit_logs` e retenção 5 anos.
+Manter a página rica (`FornecedorStock.tsx`) como base e absorver a única funcionalidade exclusiva de `FornecedorPrecosStock.tsx`: **edição de preço com motivo + registo em `product_price_history`**.
 
----
+### Alterações
 
-## ✅ Fase 3 — Performance, Escala & Resiliência (concluída)
+1. **`src/pages/fornecedor/FornecedorStock.tsx`**
+   - Adicionar coluna **Preço** na tabela de produtos (já existe como subtítulo, passa a coluna editável).
+   - Adicionar botão **"Editar preço"** (ícone `Tag`) por linha, que abre um diálogo dedicado: novo preço + motivo obrigatório (≥3 chars), grava em `supplier_products` e cria entrada em `product_price_history`.
+   - No separador **Movimentos**, integrar também as linhas de `product_price_history` (badge "Preço" vs "Stock"), reaproveitando o componente `HistoryRow` existente em `FornecedorPrecosStock.tsx`.
+   - Atualizar título para **"Stock & Preços"**.
 
-- 6 índices novos, função `cleanup_old_notifications()`.
-- Snapshot DB saudável.
-- Doc completa em `docs/PHASE3_PERFORMANCE.md` (testes carga, PWA Androids, DR).
+2. **`src/components/fornecedor/FornecedorLayout.tsx`**
+   - Remover a entrada `/fornecedor/precos` do `navItems`.
+   - Renomear o item `Stock` para **"Stock & Preços"** (ícone mantém-se `Warehouse`).
 
----
+3. **`src/App.tsx`** (rotas)
+   - Manter a rota `/fornecedor/precos` apontada para `FornecedorStock` (redirect implícito) durante 1 versão, para não partir links/bookmarks. Alternativa: remover a rota — confirmar preferência.
 
-## ✅ Fase 4 — Operação & UX (concluída — parte automatizável)
+4. **`src/pages/fornecedor/FornecedorPrecosStock.tsx`**
+   - Eliminar após migração da lógica de preço.
 
-**4.1 Monitorização (feito):**
-- Tabela `client_errors` + RPC `cleanup_old_client_errors()`.
-- `lib/errorReporter.ts` com throttle de 60s por (mensagem+URL).
-- Handlers globais para `window.onerror` e `unhandledrejection`.
-- `ErrorBoundary` envia erros + component stack.
-- `/diagnostico` reformulado: KPIs (ligação, fila sync, erros 24h, versão), forçar sync, tabela de erros recentes (admin), botões de limpeza.
+### Não muda
+- Esquema da BD (`supplier_products`, `stock_movements`, `product_price_history`) — sem migrações.
+- RLS, permissões, edge functions.
+- POS, Vendas, Facturas.
 
-**4.2 Limpeza pré-go-live (feito):**
-- `isDevOrPreview()` corrigido — auto-fill dos 9 perfis de teste só aparece em `id-preview--*.lovable.app`, `localhost` ou `VITE_FORCE_DEV_MODE=true`. **Já não aparece no URL publicado**.
-- Pendente manual: limpar produtores/vendas/incentivos de teste da base de dados antes do go-live.
+## Resultado para o utilizador
 
-**4.3 Documentação (parcial):**
-- `CHANGELOG.md` criado e visível para futura referência.
-- Pendente manual: manual do utilizador por perfil RBAC (9 níveis) e vídeos curtos de fluxos críticos.
+Sidebar do fornecedor passa de 10 → 9 itens; um único sítio para gerir produtos, preços, stock e ver histórico unificado.
 
-**4.4 Testes E2E (opcional):**
-- Playwright nos fluxos críticos (registo produtor, venda POS com OTP, distribuição de incentivos em lote). Não implementado, sugerido para iteração futura.
+## Pergunta antes de implementar
 
-**Pendente externo:**
-- Alerts (SyncQueue, edge errors >5%, Unitel callbacks) — requer integração com Sentry/Datadog ou serviço similar.
-- Manual e vídeos — produção de conteúdo manual.
-
----
-
-## Próximo passo
-
-**Fase 2** — começar por adicionar os secrets `SMS_GATEWAY_*` e validar Unitel Money em sandbox → produção.
+A rota `/fornecedor/precos` deve **(a)** redirecionar para `/fornecedor/stock` ou **(b)** ser removida (404)?
