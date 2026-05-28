@@ -15,8 +15,7 @@ interface Supplier {
 const navItems = [
   { to: "/fornecedor", icon: LayoutDashboard, label: "Dashboard" },
   { to: "/fornecedor/produtos", icon: Package, label: "Produtos" },
-  { to: "/fornecedor/stock", icon: Warehouse, label: "Stock" },
-  { to: "/fornecedor/precos", icon: Tag, label: "Preços & Stock" },
+  { to: "/fornecedor/stock", icon: Warehouse, label: "Stock & Preços" },
   { to: "/fornecedor/pos/venda", icon: ShoppingCart, label: "Vender (Terminal POS)" },
   { to: "/fornecedor/pos", icon: Monitor, label: "Terminais POS" },
   { to: "/fornecedor/vendas", icon: ShoppingCart, label: "Vendas" },
