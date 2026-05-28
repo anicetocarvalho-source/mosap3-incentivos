@@ -63,8 +63,10 @@ const FornecedorStock = () => {
   const { supplier } = useOutletContext<{ supplier: { id: string; name: string } }>();
   const [products, setProducts] = useState<Product[]>([]);
   const [movements, setMovements] = useState<StockMovement[]>([]);
+  const [priceLogs, setPriceLogs] = useState<PriceLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<Error | null>(null);
+  const [filterStatus, setFilterStatus] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
   const [search, setSearch] = useState("");
   const [movSearch, setMovSearch] = useState("");
