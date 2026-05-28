@@ -564,6 +564,38 @@ const FornecedorStock = () => {
         </DialogContent>
       </Dialog>
 
+      {/* Edit Price Dialog */}
+      <Dialog open={editPriceOpen} onOpenChange={setEditPriceOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><Tag className="h-5 w-5 text-primary" /> Editar Preço</DialogTitle>
+          </DialogHeader>
+          {editPriceProduct && (
+            <div className="space-y-4">
+              <div className="p-3 bg-muted/50 rounded-lg">
+                <p className="font-semibold">{editPriceProduct.name}</p>
+                <p className="text-sm text-muted-foreground">Preço actual: <span className="font-bold">{Number(editPriceProduct.price).toLocaleString("pt-AO")} Kz</span> / {editPriceProduct.unit}</p>
+              </div>
+              <div className="space-y-2">
+                <Label>Novo Preço (Kz)</Label>
+                <Input type="number" min={0} step="0.01" value={newPrice} onChange={e => setNewPrice(e.target.value)} autoFocus />
+              </div>
+              <div className="space-y-2">
+                <Label>Motivo *</Label>
+                <Textarea rows={2} placeholder="Ex: revisão mensal, ajuste de mercado..." value={priceReason} onChange={e => setPriceReason(e.target.value)} />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditPriceOpen(false)} disabled={submitting}>Cancelar</Button>
+            <Button onClick={savePrice} disabled={submitting}>
+              {submitting && <Loader2 className="h-4 w-4 animate-spin mr-1" />} Guardar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+
       {/* History Dialog */}
       <Dialog open={historyOpen} onOpenChange={setHistoryOpen}>
         <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
