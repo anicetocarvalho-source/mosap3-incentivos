@@ -99,14 +99,16 @@ const FornecedorStock = () => {
     setLoading(true);
     setLoadError(null);
     try {
-      const [prodRes, movRes] = await Promise.all([
+      const [prodRes, movRes, priceRes] = await Promise.all([
         supabase.from("supplier_products").select("id, name, category, stock, min_stock, price, unit, supplier_id, status").eq("supplier_id", supplier.id).order("name"),
         supabase.from("stock_movements").select("*").eq("supplier_id", supplier.id).order("created_at", { ascending: false }).limit(200),
+        supabase.from("product_price_history").select("id, product_id, previous_price, new_price, reason, created_at").eq("supplier_id", supplier.id).order("created_at", { ascending: false }).limit(200),
       ]);
       if (prodRes.error) throw prodRes.error;
       if (movRes.error) throw movRes.error;
       setProducts((prodRes.data as Product[]) || []);
       setMovements((movRes.data as StockMovement[]) || []);
+      setPriceLogs((priceRes.data as PriceLog[]) || []);
     } catch (e: any) {
       setLoadError(e);
       toast.error("Erro ao carregar stock: " + (e.message || "tente novamente"));
