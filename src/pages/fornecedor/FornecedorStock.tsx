@@ -132,14 +132,29 @@ const FornecedorStock = () => {
     return true;
   });
 
-  const filteredMovements = movements.filter(m => {
-    if (movFilterType !== "all" && m.movement_type !== movFilterType) return false;
-    if (movSearch) {
-      const product = products.find(p => p.id === m.product_id);
-      return product?.name.toLowerCase().includes(movSearch.toLowerCase());
-    }
-    return true;
-  });
+  type UnifiedEntry =
+    | ({ kind: "stock" } & StockMovement)
+    | ({ kind: "price" } & PriceLog);
+
+  const filteredMovements: UnifiedEntry[] = (() => {
+    const stockEntries: UnifiedEntry[] = movements.map(m => ({ kind: "stock", ...m }));
+    const priceEntries: UnifiedEntry[] = movFilterType === "all" || movFilterType === "preco"
+      ? priceLogs.map(p => ({ kind: "price", ...p }))
+      : [];
+    const merged = [...stockEntries, ...priceEntries].filter(e => {
+      if (e.kind === "stock") {
+        if (movFilterType !== "all" && movFilterType !== "preco" && e.movement_type !== movFilterType) return false;
+      } else if (movFilterType !== "all" && movFilterType !== "preco") {
+        return false;
+      }
+      if (movSearch) {
+        const product = products.find(p => p.id === e.product_id);
+        return product?.name.toLowerCase().includes(movSearch.toLowerCase());
+      }
+      return true;
+    });
+    return merged.sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at));
+  })();
 
   const getProductName = (id: string) => products.find(p => p.id === id)?.name || "—";
 
