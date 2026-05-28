@@ -179,6 +179,43 @@ const FornecedorStock = () => {
     }
   };
 
+  const openEditPrice = (product: Product) => {
+    setEditPriceProduct(product);
+    setNewPrice(String(product.price));
+    setPriceReason("");
+    setEditPriceOpen(true);
+  };
+
+  const savePrice = async () => {
+    if (!editPriceProduct) return;
+    const parsed = Number(newPrice);
+    if (!isFinite(parsed) || parsed < 0) { toast.error("Preço inválido"); return; }
+    if (parsed === Number(editPriceProduct.price)) { toast.info("Sem alterações"); return; }
+    if (priceReason.trim().length < 3) { toast.error("Indique um motivo (≥ 3 caracteres)"); return; }
+    setSubmitting(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const { error: upErr } = await supabase.from("supplier_products").update({ price: parsed }).eq("id", editPriceProduct.id);
+      if (upErr) throw upErr;
+      const { error: logErr } = await supabase.from("product_price_history").insert({
+        product_id: editPriceProduct.id,
+        supplier_id: supplier.id,
+        previous_price: editPriceProduct.price,
+        new_price: parsed,
+        reason: priceReason.trim(),
+        created_by: user?.id,
+      });
+      if (logErr) console.warn("Falha ao registar histórico de preço:", logErr.message);
+      toast.success(`Preço de ${editPriceProduct.name} actualizado`);
+      setEditPriceOpen(false);
+      fetchData();
+    } catch (e: any) {
+      toast.error("Erro: " + e.message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const submitMovement = async () => {
     if (!moveProduct || moveQty <= 0) { toast.error("Indique uma quantidade válida"); return; }
     const isOut = moveType === "saida" || moveType === "venda";
