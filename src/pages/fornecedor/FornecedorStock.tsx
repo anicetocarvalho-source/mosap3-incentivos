@@ -67,7 +67,6 @@ const FornecedorStock = () => {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<Error | null>(null);
   const [filterStatus, setFilterStatus] = useState("all");
-  const [filterStatus, setFilterStatus] = useState("all");
   const [search, setSearch] = useState("");
   const [movSearch, setMovSearch] = useState("");
   const [movFilterType, setMovFilterType] = useState("all");
@@ -89,6 +88,12 @@ const FornecedorStock = () => {
   const [editMinOpen, setEditMinOpen] = useState(false);
   const [editMinProduct, setEditMinProduct] = useState<Product | null>(null);
   const [editMinValue, setEditMinValue] = useState(0);
+
+  // Edit price
+  const [editPriceOpen, setEditPriceOpen] = useState(false);
+  const [editPriceProduct, setEditPriceProduct] = useState<Product | null>(null);
+  const [newPrice, setNewPrice] = useState("");
+  const [priceReason, setPriceReason] = useState("");
 
   const fetchData = async () => {
     setLoading(true);
