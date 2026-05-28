@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useOutletContext } from "react-router-dom";
-import { Package, AlertTriangle, ArrowUpCircle, ArrowDownCircle, RotateCcw, Search, History, Edit2, TrendingDown, TrendingUp, Loader2 } from "lucide-react";
+import { Package, AlertTriangle, ArrowUpCircle, ArrowDownCircle, RotateCcw, Search, History, Edit2, TrendingDown, TrendingUp, Loader2, Tag } from "lucide-react";
 import { ErrorState } from "@/components/ui/error-state";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -42,6 +42,15 @@ interface StockMovement {
   created_by: string | null;
 }
 
+interface PriceLog {
+  id: string;
+  product_id: string;
+  previous_price: number;
+  new_price: number;
+  reason: string | null;
+  created_at: string;
+}
+
 const MOVEMENT_LABELS: Record<string, { label: string; color: string; icon: any }> = {
   entrada: { label: "Entrada", color: "text-primary", icon: ArrowUpCircle },
   saida: { label: "Saída", color: "text-destructive", icon: ArrowDownCircle },
@@ -54,6 +63,7 @@ const FornecedorStock = () => {
   const { supplier } = useOutletContext<{ supplier: { id: string; name: string } }>();
   const [products, setProducts] = useState<Product[]>([]);
   const [movements, setMovements] = useState<StockMovement[]>([]);
+  const [priceLogs, setPriceLogs] = useState<PriceLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<Error | null>(null);
   const [filterStatus, setFilterStatus] = useState("all");
@@ -79,18 +89,26 @@ const FornecedorStock = () => {
   const [editMinProduct, setEditMinProduct] = useState<Product | null>(null);
   const [editMinValue, setEditMinValue] = useState(0);
 
+  // Edit price
+  const [editPriceOpen, setEditPriceOpen] = useState(false);
+  const [editPriceProduct, setEditPriceProduct] = useState<Product | null>(null);
+  const [newPrice, setNewPrice] = useState("");
+  const [priceReason, setPriceReason] = useState("");
+
   const fetchData = async () => {
     setLoading(true);
     setLoadError(null);
     try {
-      const [prodRes, movRes] = await Promise.all([
+      const [prodRes, movRes, priceRes] = await Promise.all([
         supabase.from("supplier_products").select("id, name, category, stock, min_stock, price, unit, supplier_id, status").eq("supplier_id", supplier.id).order("name"),
         supabase.from("stock_movements").select("*").eq("supplier_id", supplier.id).order("created_at", { ascending: false }).limit(200),
+        supabase.from("product_price_history").select("id, product_id, previous_price, new_price, reason, created_at").eq("supplier_id", supplier.id).order("created_at", { ascending: false }).limit(200),
       ]);
       if (prodRes.error) throw prodRes.error;
       if (movRes.error) throw movRes.error;
       setProducts((prodRes.data as Product[]) || []);
       setMovements((movRes.data as StockMovement[]) || []);
+      setPriceLogs((priceRes.data as PriceLog[]) || []);
     } catch (e: any) {
       setLoadError(e);
       toast.error("Erro ao carregar stock: " + (e.message || "tente novamente"));
@@ -114,14 +132,29 @@ const FornecedorStock = () => {
     return true;
   });
 
-  const filteredMovements = movements.filter(m => {
-    if (movFilterType !== "all" && m.movement_type !== movFilterType) return false;
-    if (movSearch) {
-      const product = products.find(p => p.id === m.product_id);
-      return product?.name.toLowerCase().includes(movSearch.toLowerCase());
-    }
-    return true;
-  });
+  type UnifiedEntry =
+    | ({ kind: "stock" } & StockMovement)
+    | ({ kind: "price" } & PriceLog);
+
+  const filteredMovements: UnifiedEntry[] = (() => {
+    const stockEntries: UnifiedEntry[] = movements.map(m => ({ kind: "stock", ...m }));
+    const priceEntries: UnifiedEntry[] = movFilterType === "all" || movFilterType === "preco"
+      ? priceLogs.map(p => ({ kind: "price", ...p }))
+      : [];
+    const merged = [...stockEntries, ...priceEntries].filter(e => {
+      if (e.kind === "stock") {
+        if (movFilterType !== "all" && movFilterType !== "preco" && e.movement_type !== movFilterType) return false;
+      } else if (movFilterType !== "all" && movFilterType !== "preco") {
+        return false;
+      }
+      if (movSearch) {
+        const product = products.find(p => p.id === e.product_id);
+        return product?.name.toLowerCase().includes(movSearch.toLowerCase());
+      }
+      return true;
+    });
+    return merged.sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at));
+  })();
 
   const getProductName = (id: string) => products.find(p => p.id === id)?.name || "—";
 
@@ -153,6 +186,43 @@ const FornecedorStock = () => {
       await supabase.from("supplier_products").update({ min_stock: editMinValue }).eq("id", editMinProduct.id);
       toast.success(`Stock mínimo de ${editMinProduct.name} actualizado para ${editMinValue}`);
       setEditMinOpen(false);
+      fetchData();
+    } catch (e: any) {
+      toast.error("Erro: " + e.message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const openEditPrice = (product: Product) => {
+    setEditPriceProduct(product);
+    setNewPrice(String(product.price));
+    setPriceReason("");
+    setEditPriceOpen(true);
+  };
+
+  const savePrice = async () => {
+    if (!editPriceProduct) return;
+    const parsed = Number(newPrice);
+    if (!isFinite(parsed) || parsed < 0) { toast.error("Preço inválido"); return; }
+    if (parsed === Number(editPriceProduct.price)) { toast.info("Sem alterações"); return; }
+    if (priceReason.trim().length < 3) { toast.error("Indique um motivo (≥ 3 caracteres)"); return; }
+    setSubmitting(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const { error: upErr } = await supabase.from("supplier_products").update({ price: parsed }).eq("id", editPriceProduct.id);
+      if (upErr) throw upErr;
+      const { error: logErr } = await supabase.from("product_price_history").insert({
+        product_id: editPriceProduct.id,
+        supplier_id: supplier.id,
+        previous_price: editPriceProduct.price,
+        new_price: parsed,
+        reason: priceReason.trim(),
+        created_by: user?.id,
+      });
+      if (logErr) console.warn("Falha ao registar histórico de preço:", logErr.message);
+      toast.success(`Preço de ${editPriceProduct.name} actualizado`);
+      setEditPriceOpen(false);
       fetchData();
     } catch (e: any) {
       toast.error("Erro: " + e.message);
@@ -206,7 +276,7 @@ const FornecedorStock = () => {
       <div className="space-y-6">
         <div>
           <h1 className="text-xl font-heading font-bold flex items-center gap-2">
-            <Package className="h-5 w-5 text-primary" /> Gestão de Stock
+            <Package className="h-5 w-5 text-primary" /> Stock & Preços
           </h1>
           <p className="text-muted-foreground text-sm">Inventário da loja {supplier.name}</p>
         </div>
@@ -219,7 +289,7 @@ const FornecedorStock = () => {
     <div className="space-y-6">
       <div>
         <h1 className="text-xl font-heading font-bold flex items-center gap-2">
-          <Package className="h-5 w-5 text-primary" /> Gestão de Stock
+          <Package className="h-5 w-5 text-primary" /> Stock & Preços
         </h1>
         <p className="text-muted-foreground text-sm">Inventário da loja {supplier.name}</p>
       </div>
@@ -355,6 +425,7 @@ const FornecedorStock = () => {
                               <ArrowDownCircle className="h-3 w-3 mr-1 text-destructive" /> Saída
                             </Button>
                             <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => openMovement(p, "ajuste")}><RotateCcw className="h-3 w-3" /></Button>
+                            <Button variant="ghost" size="sm" className="h-7 text-xs" title="Editar preço" onClick={() => openEditPrice(p)}><Tag className="h-3 w-3" /></Button>
                             <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => openHistory(p)}><History className="h-3 w-3" /></Button>
                           </div>
                         </TableCell>
@@ -380,6 +451,7 @@ const FornecedorStock = () => {
                 {Object.entries(MOVEMENT_LABELS).map(([k, v]) => (
                   <SelectItem key={k} value={k}>{v.label}</SelectItem>
                 ))}
+                <SelectItem value="preco">Preço</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -400,12 +472,35 @@ const FornecedorStock = () => {
                 <TableBody>
                   {filteredMovements.length === 0 ? (
                     <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Sem movimentos</TableCell></TableRow>
-                  ) : filteredMovements.slice(0, 100).map(m => {
+                  ) : filteredMovements.slice(0, 100).map(entry => {
+                    if (entry.kind === "price") {
+                      const up = Number(entry.new_price) > Number(entry.previous_price);
+                      return (
+                        <TableRow key={`price-${entry.id}`}>
+                          <TableCell className="text-xs text-muted-foreground whitespace-nowrap">{new Date(entry.created_at).toLocaleString("pt-AO")}</TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1">
+                              <Tag className="h-3.5 w-3.5 text-info" />
+                              <Badge variant="outline" className="text-[10px]">Preço</Badge>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-sm font-medium">{getProductName(entry.product_id)}</TableCell>
+                          <TableCell className="text-center">
+                            <span className={`font-bold ${up ? "text-warning" : "text-success"}`}>{up ? "▲" : "▼"}</span>
+                          </TableCell>
+                          <TableCell className="text-center text-xs text-muted-foreground tabular-nums">
+                            {Number(entry.previous_price).toLocaleString("pt-AO")} → <span className="font-semibold text-foreground">{Number(entry.new_price).toLocaleString("pt-AO")} Kz</span>
+                          </TableCell>
+                          <TableCell className="text-xs text-muted-foreground max-w-[200px] truncate">{entry.reason || "—"}</TableCell>
+                        </TableRow>
+                      );
+                    }
+                    const m = entry;
                     const meta = MOVEMENT_LABELS[m.movement_type] || MOVEMENT_LABELS.ajuste;
                     const Icon = meta.icon;
                     const isMovOut = m.movement_type === "saida" || m.movement_type === "venda";
                     return (
-                      <TableRow key={m.id}>
+                      <TableRow key={`stock-${m.id}`}>
                         <TableCell className="text-xs text-muted-foreground whitespace-nowrap">{new Date(m.created_at).toLocaleString("pt-AO")}</TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1">
@@ -507,6 +602,38 @@ const FornecedorStock = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Edit Price Dialog */}
+      <Dialog open={editPriceOpen} onOpenChange={setEditPriceOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><Tag className="h-5 w-5 text-primary" /> Editar Preço</DialogTitle>
+          </DialogHeader>
+          {editPriceProduct && (
+            <div className="space-y-4">
+              <div className="p-3 bg-muted/50 rounded-lg">
+                <p className="font-semibold">{editPriceProduct.name}</p>
+                <p className="text-sm text-muted-foreground">Preço actual: <span className="font-bold">{Number(editPriceProduct.price).toLocaleString("pt-AO")} Kz</span> / {editPriceProduct.unit}</p>
+              </div>
+              <div className="space-y-2">
+                <Label>Novo Preço (Kz)</Label>
+                <Input type="number" min={0} step="0.01" value={newPrice} onChange={e => setNewPrice(e.target.value)} autoFocus />
+              </div>
+              <div className="space-y-2">
+                <Label>Motivo *</Label>
+                <Textarea rows={2} placeholder="Ex: revisão mensal, ajuste de mercado..." value={priceReason} onChange={e => setPriceReason(e.target.value)} />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditPriceOpen(false)} disabled={submitting}>Cancelar</Button>
+            <Button onClick={savePrice} disabled={submitting}>
+              {submitting && <Loader2 className="h-4 w-4 animate-spin mr-1" />} Guardar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
 
       {/* History Dialog */}
       <Dialog open={historyOpen} onOpenChange={setHistoryOpen}>
