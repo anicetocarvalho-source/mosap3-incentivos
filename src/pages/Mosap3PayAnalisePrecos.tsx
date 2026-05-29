@@ -52,9 +52,24 @@ export default function Mosap3PayAnalisePrecos() {
   const [abruptDays, setAbruptDays] = useState(90);
   const [abruptThreshold, setAbruptThreshold] = useState(25);
   const [evolutionProduct, setEvolutionProduct] = useState<PriceAlertRow | null>(null);
+  const [reviewProduct, setReviewProduct] = useState<PriceAlertRow | null>(null);
+  const [reviewStatusFilter, setReviewStatusFilter] = useState<string>("all");
 
   const { data: alerts = [], isLoading, error, refetch } = usePriceAnalysis({ minSuppliers, highPct, mediumPct });
   const { data: abrupt = [], isLoading: loadingAbrupt } = useAbruptPriceChanges({ days: abruptDays, thresholdPct: abruptThreshold });
+  const { data: reviews = [] } = usePriceAlertReviews();
+
+  const reviewMap = useMemo(() => {
+    const m = new Map<string, PriceAlertReview>();
+    reviews.forEach((r) => m.set(`${r.product_id}|${r.supplier_id}`, r));
+    return m;
+  }, [reviews]);
+
+  const reviewStatusOf = (row: PriceAlertRow): "pendente" | "revisto" | "desactualizado" => {
+    const r = reviewMap.get(`${row.product_id}|${row.supplier_id}`);
+    if (!r) return "pendente";
+    return Number(r.reviewed_price) === Number(row.current_price) ? "revisto" : "desactualizado";
+  };
 
   const categories = useMemo(() => {
     const set = new Set(alerts.map((a) => a.category));
@@ -66,21 +81,23 @@ export default function Mosap3PayAnalisePrecos() {
       if (severityFilter === "anormais" && a.severity === "normal") return false;
       if (severityFilter !== "all" && severityFilter !== "anormais" && a.severity !== severityFilter) return false;
       if (categoryFilter !== "all" && a.category !== categoryFilter) return false;
+      if (reviewStatusFilter !== "all" && reviewStatusOf(a) !== reviewStatusFilter) return false;
       if (search) {
         const q = search.toLowerCase();
         if (!a.product_name.toLowerCase().includes(q) && !a.supplier_name.toLowerCase().includes(q)) return false;
       }
       return true;
     });
-  }, [alerts, severityFilter, categoryFilter, search]);
+  }, [alerts, severityFilter, categoryFilter, search, reviewStatusFilter, reviewMap]);
 
   const stats = useMemo(() => {
     const monitored = alerts.length;
     const abnormal = alerts.filter((a) => a.severity !== "normal").length;
     const high = alerts.filter((a) => a.severity === "alta").length;
     const suppliersWithAlerts = new Set(alerts.filter((a) => a.severity !== "normal").map((a) => a.supplier_id)).size;
-    return { monitored, abnormal, high, suppliersWithAlerts };
-  }, [alerts]);
+    const pending = alerts.filter((a) => a.severity !== "normal" && reviewStatusOf(a) !== "revisto").length;
+    return { monitored, abnormal, high, suppliersWithAlerts, pending };
+  }, [alerts, reviewMap]);
 
   return (
     <div className="space-y-6">
