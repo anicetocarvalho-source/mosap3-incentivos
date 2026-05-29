@@ -240,9 +240,16 @@ const FornecedorStock = () => {
   const openHistory = async (product: Product) => {
     setHistoryProduct(product);
     setHistoryVisible(HIST_PAGE);
-    const { data } = await supabase.from("stock_movements").select("*").eq("product_id", product.id).order("created_at", { ascending: false }).limit(200);
-    setProductMovements((data as StockMovement[]) || []);
     setHistoryOpen(true);
+    const [movRes, priceRes] = await Promise.all([
+      supabase.from("stock_movements").select("*").eq("product_id", product.id).order("created_at", { ascending: false }).limit(200),
+      supabase.from("product_price_history").select("id, product_id, previous_price, new_price, reason, created_at, created_by").eq("product_id", product.id).order("created_at", { ascending: false }).limit(200),
+    ]);
+    const movs = (movRes.data as StockMovement[]) || [];
+    const plogs = (priceRes.data as PriceLog[]) || [];
+    setProductMovements(movs);
+    setProductPriceLogs(plogs);
+    await resolveUserNames([...movs.map(m => m.created_by), ...plogs.map(p => p.created_by)]);
   };
 
   const openEditMin = (product: Product) => {
