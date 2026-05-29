@@ -1,20 +1,30 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { TrendingUp, AlertTriangle, BarChart3, Search, Filter, ExternalLink, Activity, LineChart as LineChartIcon } from "lucide-react";
+import { TrendingUp, AlertTriangle, BarChart3, Search, Filter, ExternalLink, Activity, LineChart as LineChartIcon, CheckCircle2, RotateCcw } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import StatCard from "@/components/StatCard";
 import PageHeader from "@/components/PageHeader";
 import { ErrorState } from "@/components/ui/error-state";
 import { LoadingState } from "@/components/ui/loading-state";
 import { formatKz } from "@/lib/numberFormat";
-import { usePriceAnalysis, useAbruptPriceChanges, type PriceAlertRow } from "@/hooks/usePriceAnalysis";
+import {
+  usePriceAnalysis,
+  useAbruptPriceChanges,
+  usePriceAlertReviews,
+  useUpsertPriceAlertReview,
+  useDeletePriceAlertReview,
+  type PriceAlertRow,
+  type PriceAlertReview,
+} from "@/hooks/usePriceAnalysis";
+import { toast } from "sonner";
 import { LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer, ReferenceLine, Legend } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
@@ -42,9 +52,24 @@ export default function Mosap3PayAnalisePrecos() {
   const [abruptDays, setAbruptDays] = useState(90);
   const [abruptThreshold, setAbruptThreshold] = useState(25);
   const [evolutionProduct, setEvolutionProduct] = useState<PriceAlertRow | null>(null);
+  const [reviewProduct, setReviewProduct] = useState<PriceAlertRow | null>(null);
+  const [reviewStatusFilter, setReviewStatusFilter] = useState<string>("all");
 
   const { data: alerts = [], isLoading, error, refetch } = usePriceAnalysis({ minSuppliers, highPct, mediumPct });
   const { data: abrupt = [], isLoading: loadingAbrupt } = useAbruptPriceChanges({ days: abruptDays, thresholdPct: abruptThreshold });
+  const { data: reviews = [] } = usePriceAlertReviews();
+
+  const reviewMap = useMemo(() => {
+    const m = new Map<string, PriceAlertReview>();
+    reviews.forEach((r) => m.set(`${r.product_id}|${r.supplier_id}`, r));
+    return m;
+  }, [reviews]);
+
+  const reviewStatusOf = (row: PriceAlertRow): "pendente" | "revisto" | "desactualizado" => {
+    const r = reviewMap.get(`${row.product_id}|${row.supplier_id}`);
+    if (!r) return "pendente";
+    return Number(r.reviewed_price) === Number(row.current_price) ? "revisto" : "desactualizado";
+  };
 
   const categories = useMemo(() => {
     const set = new Set(alerts.map((a) => a.category));
@@ -56,21 +81,23 @@ export default function Mosap3PayAnalisePrecos() {
       if (severityFilter === "anormais" && a.severity === "normal") return false;
       if (severityFilter !== "all" && severityFilter !== "anormais" && a.severity !== severityFilter) return false;
       if (categoryFilter !== "all" && a.category !== categoryFilter) return false;
+      if (reviewStatusFilter !== "all" && reviewStatusOf(a) !== reviewStatusFilter) return false;
       if (search) {
         const q = search.toLowerCase();
         if (!a.product_name.toLowerCase().includes(q) && !a.supplier_name.toLowerCase().includes(q)) return false;
       }
       return true;
     });
-  }, [alerts, severityFilter, categoryFilter, search]);
+  }, [alerts, severityFilter, categoryFilter, search, reviewStatusFilter, reviewMap]);
 
   const stats = useMemo(() => {
     const monitored = alerts.length;
     const abnormal = alerts.filter((a) => a.severity !== "normal").length;
     const high = alerts.filter((a) => a.severity === "alta").length;
     const suppliersWithAlerts = new Set(alerts.filter((a) => a.severity !== "normal").map((a) => a.supplier_id)).size;
-    return { monitored, abnormal, high, suppliersWithAlerts };
-  }, [alerts]);
+    const pending = alerts.filter((a) => a.severity !== "normal" && reviewStatusOf(a) !== "revisto").length;
+    return { monitored, abnormal, high, suppliersWithAlerts, pending };
+  }, [alerts, reviewMap]);
 
   return (
     <div className="space-y-6">
@@ -82,8 +109,8 @@ export default function Mosap3PayAnalisePrecos() {
 
       {/* KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
-        <StatCard title="Produtos monitorizados" value={String(stats.monitored)} icon={BarChart3} />
         <StatCard title="Alertas activos" value={String(stats.abnormal)} icon={AlertTriangle} changeType={stats.abnormal > 0 ? "negative" : "positive"} change={stats.abnormal > 0 ? "Requer revisão" : "Tudo normal"} />
+        <StatCard title="Pendentes de revisão" value={String(stats.pending)} icon={Activity} changeType={stats.pending > 0 ? "negative" : "positive"} change={stats.pending === 0 ? "Tudo revisto" : `${stats.abnormal - stats.pending} já revistos`} />
         <StatCard title="Severidade alta" value={String(stats.high)} icon={Activity} changeType={stats.high > 0 ? "negative" : "neutral"} />
         <StatCard title="Fornecedores afectados" value={String(stats.suppliersWithAlerts)} icon={AlertTriangle} />
       </div>
@@ -129,7 +156,7 @@ export default function Mosap3PayAnalisePrecos() {
         <TabsContent value="alertas" className="space-y-3">
           {/* Filtros */}
           <Card>
-            <CardContent className="pt-4 grid grid-cols-1 md:grid-cols-3 gap-3">
+            <CardContent className="pt-4 grid grid-cols-1 md:grid-cols-4 gap-3">
               <div className="relative">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -154,6 +181,15 @@ export default function Mosap3PayAnalisePrecos() {
                   <SelectItem value="alta">Severidade alta</SelectItem>
                   <SelectItem value="media">Severidade média</SelectItem>
                   <SelectItem value="baixa">Preço suspeito (baixo)</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={reviewStatusFilter} onValueChange={setReviewStatusFilter}>
+                <SelectTrigger><SelectValue placeholder="Estado de revisão" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os estados</SelectItem>
+                  <SelectItem value="pendente">Pendentes</SelectItem>
+                  <SelectItem value="revisto">Revistos</SelectItem>
+                  <SelectItem value="desactualizado">Revisão desactualizada</SelectItem>
                 </SelectContent>
               </Select>
             </CardContent>
@@ -181,12 +217,15 @@ export default function Mosap3PayAnalisePrecos() {
                       <TableHead className="text-right">Desvio</TableHead>
                       <TableHead>Severidade</TableHead>
                       <TableHead>Última alteração</TableHead>
+                      <TableHead>Revisão</TableHead>
                       <TableHead></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filtered.map((row) => {
                       const sev = SEVERITY_LABELS[row.severity];
+                      const rstatus = reviewStatusOf(row);
+                      const rev = reviewMap.get(`${row.product_id}|${row.supplier_id}`);
                       return (
                         <TableRow key={`${row.product_id}-${row.supplier_id}`}>
                           <TableCell className="font-medium">{row.product_name} <span className="text-muted-foreground text-xs">/ {row.unit}</span></TableCell>
@@ -200,8 +239,29 @@ export default function Mosap3PayAnalisePrecos() {
                           </TableCell>
                           <TableCell><Badge className={sev.classes} variant="outline">{sev.label}</Badge></TableCell>
                           <TableCell className="text-xs text-muted-foreground">{fmtDate(row.last_changed_at)}</TableCell>
+                          <TableCell className="text-xs">
+                            {rstatus === "revisto" ? (
+                              <div className="flex flex-col">
+                                <Badge variant="outline" className="bg-success/15 text-success border-success/30 w-fit">
+                                  <CheckCircle2 className="h-3 w-3 mr-1" /> Revisto
+                                </Badge>
+                                <span className="text-muted-foreground mt-1">
+                                  {rev?.reviewer_name ?? "—"} · {fmtDate(rev?.reviewed_at ?? null)}
+                                </span>
+                              </div>
+                            ) : rstatus === "desactualizado" ? (
+                              <Badge variant="outline" className="bg-warning/15 text-warning border-warning/30">
+                                <RotateCcw className="h-3 w-3 mr-1" /> Preço mudou
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline" className="bg-muted text-muted-foreground">Pendente</Badge>
+                            )}
+                          </TableCell>
                           <TableCell>
                             <div className="flex gap-1 justify-end">
+                              <Button size="sm" variant={rstatus === "revisto" ? "ghost" : "outline"} onClick={() => setReviewProduct(row)} title="Marcar como revisto">
+                                <CheckCircle2 className="h-4 w-4" />
+                              </Button>
                               <Button size="sm" variant="ghost" onClick={() => setEvolutionProduct(row)} title="Ver evolução">
                                 <LineChartIcon className="h-4 w-4" />
                               </Button>
@@ -221,6 +281,8 @@ export default function Mosap3PayAnalisePrecos() {
               <div className="md:hidden divide-y rounded-lg border bg-card">
                 {filtered.map((row) => {
                   const sev = SEVERITY_LABELS[row.severity];
+                  const rstatus = reviewStatusOf(row);
+                  const rev = reviewMap.get(`${row.product_id}|${row.supplier_id}`);
                   return (
                     <div key={`${row.product_id}-${row.supplier_id}`} className="p-3 space-y-2">
                       <div className="flex items-start justify-between gap-2">
@@ -235,9 +297,21 @@ export default function Mosap3PayAnalisePrecos() {
                         <div><span className="text-muted-foreground">Média</span><br/><span className="font-mono">{formatKz(row.avg_price, false)}</span></div>
                         <div className={`font-semibold ${row.deviation_pct > 0 ? "text-destructive" : "text-info"}`}>{fmtPct(row.deviation_pct)}</div>
                       </div>
-                      <Button size="sm" variant="outline" className="w-full" onClick={() => setEvolutionProduct(row)}>
-                        <LineChartIcon className="h-3 w-3 mr-1" /> Evolução
-                      </Button>
+                      {rstatus === "revisto" ? (
+                        <p className="text-xs text-success">✓ Revisto por {rev?.reviewer_name ?? "—"} · {fmtDate(rev?.reviewed_at ?? null)}</p>
+                      ) : rstatus === "desactualizado" ? (
+                        <p className="text-xs text-warning">⚠ Revisão desactualizada (preço alterou)</p>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">Sem revisão</p>
+                      )}
+                      <div className="grid grid-cols-2 gap-2">
+                        <Button size="sm" variant="outline" onClick={() => setEvolutionProduct(row)}>
+                          <LineChartIcon className="h-3 w-3 mr-1" /> Evolução
+                        </Button>
+                        <Button size="sm" variant={rstatus === "revisto" ? "ghost" : "default"} onClick={() => setReviewProduct(row)}>
+                          <CheckCircle2 className="h-3 w-3 mr-1" /> {rstatus === "revisto" ? "Editar revisão" : "Marcar revisto"}
+                        </Button>
+                      </div>
                     </div>
                   );
                 })}
@@ -287,7 +361,114 @@ export default function Mosap3PayAnalisePrecos() {
       </Tabs>
 
       <PriceEvolutionDialog product={evolutionProduct} onClose={() => setEvolutionProduct(null)} marketAvg={evolutionProduct?.avg_price ?? 0} />
+      <ReviewAlertDialog
+        product={reviewProduct}
+        existing={reviewProduct ? reviewMap.get(`${reviewProduct.product_id}|${reviewProduct.supplier_id}`) ?? null : null}
+        onClose={() => setReviewProduct(null)}
+      />
     </div>
+  );
+}
+
+function ReviewAlertDialog({
+  product,
+  existing,
+  onClose,
+}: {
+  product: PriceAlertRow | null;
+  existing: PriceAlertReview | null;
+  onClose: () => void;
+}) {
+  const upsert = useUpsertPriceAlertReview();
+  const remove = useDeletePriceAlertReview();
+  const [notes, setNotes] = useState("");
+
+  // reset notes when opening
+  useEffect(() => {
+    setNotes(existing?.notes ?? "");
+  }, [existing?.id, product?.product_id]);
+
+  if (!product) return null;
+
+  const handleSave = async () => {
+    try {
+      await upsert.mutateAsync({
+        product_id: product.product_id,
+        supplier_id: product.supplier_id,
+        reviewed_price: Number(product.current_price),
+        notes: notes.trim() || null,
+      });
+      toast.success("Alerta marcado como revisto.");
+      onClose();
+    } catch (e: any) {
+      toast.error(e.message || "Não foi possível guardar a revisão.");
+    }
+  };
+
+  const handleRemove = async () => {
+    if (!existing) return;
+    try {
+      await remove.mutateAsync(existing.id);
+      toast.success("Revisão removida. Alerta volta a pendente.");
+      onClose();
+    } catch (e: any) {
+      toast.error(e.message || "Não foi possível remover a revisão.");
+    }
+  };
+
+  return (
+    <Dialog open={!!product} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Marcar alerta como revisto</DialogTitle>
+          <DialogDescription>
+            {product.product_name} — {product.supplier_name}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3 text-sm">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="rounded-md bg-muted p-2">
+              <span className="text-xs text-muted-foreground">Preço actual</span><br />
+              <span className="font-mono font-semibold">{formatKz(product.current_price)}</span>
+            </div>
+            <div className="rounded-md bg-muted p-2">
+              <span className="text-xs text-muted-foreground">Desvio</span><br />
+              <span className={`font-semibold ${product.deviation_pct > 0 ? "text-destructive" : "text-info"}`}>{fmtPct(product.deviation_pct)}</span>
+            </div>
+          </div>
+          {existing && (
+            <div className="rounded-md border p-2 text-xs space-y-1">
+              <div>
+                <span className="text-muted-foreground">Última revisão:</span>{" "}
+                <span className="font-medium">{existing.reviewer_name ?? "—"}</span>
+              </div>
+              <div className="text-muted-foreground">{fmtDate(existing.reviewed_at)} · preço revisto {formatKz(Number(existing.reviewed_price))}</div>
+              {existing.notes && <div className="text-muted-foreground italic">"{existing.notes}"</div>}
+            </div>
+          )}
+          <div>
+            <label className="text-xs text-muted-foreground">Notas da revisão (opcional)</label>
+            <Textarea
+              placeholder="Ex.: confirmado com o fornecedor, justificado por aumento do custo da matéria-prima…"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={3}
+            />
+          </div>
+        </div>
+        <DialogFooter className="gap-2 sm:gap-0">
+          {existing && (
+            <Button variant="ghost" onClick={handleRemove} disabled={remove.isPending}>
+              Remover revisão
+            </Button>
+          )}
+          <Button variant="outline" onClick={onClose}>Cancelar</Button>
+          <Button onClick={handleSave} disabled={upsert.isPending}>
+            <CheckCircle2 className="h-4 w-4 mr-1" /> {existing ? "Actualizar revisão" : "Marcar como revisto"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

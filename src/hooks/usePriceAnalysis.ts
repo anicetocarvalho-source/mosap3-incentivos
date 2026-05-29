@@ -1,5 +1,82 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+
+export interface PriceAlertReview {
+  id: string;
+  product_id: string;
+  supplier_id: string;
+  reviewed_price: number;
+  reviewed_by: string;
+  reviewer_name: string | null;
+  notes: string | null;
+  reviewed_at: string;
+}
+
+export function usePriceAlertReviews() {
+  return useQuery({
+    queryKey: ["price-alert-reviews"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("price_alert_reviews")
+        .select("*")
+        .order("reviewed_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as PriceAlertReview[];
+    },
+    staleTime: 30_000,
+  });
+}
+
+export function useUpsertPriceAlertReview() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: {
+      product_id: string;
+      supplier_id: string;
+      reviewed_price: number;
+      notes?: string | null;
+    }) => {
+      const { data: userData } = await supabase.auth.getUser();
+      const user = userData.user;
+      if (!user) throw new Error("Sessão expirada.");
+      const reviewerName =
+        (user.user_metadata as any)?.full_name ||
+        (user.user_metadata as any)?.name ||
+        user.email ||
+        null;
+      const { data, error } = await supabase
+        .from("price_alert_reviews")
+        .upsert(
+          {
+            product_id: payload.product_id,
+            supplier_id: payload.supplier_id,
+            reviewed_price: payload.reviewed_price,
+            reviewed_by: user.id,
+            reviewer_name: reviewerName,
+            notes: payload.notes ?? null,
+            reviewed_at: new Date().toISOString(),
+          },
+          { onConflict: "product_id,supplier_id" },
+        )
+        .select()
+        .single();
+      if (error) throw error;
+      return data as PriceAlertReview;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["price-alert-reviews"] }),
+  });
+}
+
+export function useDeletePriceAlertReview() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("price_alert_reviews").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["price-alert-reviews"] }),
+  });
+}
 
 export interface PriceAlertRow {
   product_key: string;

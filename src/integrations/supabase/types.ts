@@ -1750,6 +1750,39 @@ export type Database = {
           },
         ]
       }
+      price_alert_reviews: {
+        Row: {
+          id: string
+          notes: string | null
+          product_id: string
+          reviewed_at: string
+          reviewed_by: string
+          reviewed_price: number
+          reviewer_name: string | null
+          supplier_id: string
+        }
+        Insert: {
+          id?: string
+          notes?: string | null
+          product_id: string
+          reviewed_at?: string
+          reviewed_by: string
+          reviewed_price: number
+          reviewer_name?: string | null
+          supplier_id: string
+        }
+        Update: {
+          id?: string
+          notes?: string | null
+          product_id?: string
+          reviewed_at?: string
+          reviewed_by?: string
+          reviewed_price?: number
+          reviewer_name?: string | null
+          supplier_id?: string
+        }
+        Relationships: []
+      }
       product_price_history: {
         Row: {
           created_at: string
