@@ -666,7 +666,7 @@ const FornecedorStock = () => {
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditPriceOpen(false)} disabled={submitting}>Cancelar</Button>
-            <Button onClick={savePrice} disabled={submitting}>
+            <Button onClick={savePrice} disabled={submitting || !!priceError || !newPrice}>
               {submitting && <Loader2 className="h-4 w-4 animate-spin mr-1" />} Guardar
             </Button>
           </DialogFooter>
