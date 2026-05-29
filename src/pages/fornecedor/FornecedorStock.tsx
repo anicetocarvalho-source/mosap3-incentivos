@@ -225,25 +225,26 @@ const FornecedorStock = () => {
 
   const savePrice = async () => {
     if (!editPriceProduct) return;
-    const parsed = Number(newPrice);
-    if (!isFinite(parsed) || parsed < 0) { toast.error("Preço inválido"); return; }
-    if (parsed === Number(editPriceProduct.price)) { toast.info("Sem alterações"); return; }
+    const rounded = Math.round(Number(newPrice) * 100) / 100;
+    if (!isFinite(rounded) || rounded < 0) { toast.error("Preço inválido"); return; }
+    if (rounded > MAX_PRICE) { toast.error(`O preço máximo permitido é ${MAX_PRICE.toLocaleString("pt-AO")} Kz`); return; }
+    if (rounded === Math.round(editPriceProduct.price * 100) / 100) { toast.info("Sem alterações"); return; }
     if (priceReason.trim().length < 3) { toast.error("Indique um motivo (≥ 3 caracteres)"); return; }
     setSubmitting(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      const { error: upErr } = await supabase.from("supplier_products").update({ price: parsed }).eq("id", editPriceProduct.id);
+      const { error: upErr } = await supabase.from("supplier_products").update({ price: rounded }).eq("id", editPriceProduct.id);
       if (upErr) throw upErr;
       const { error: logErr } = await supabase.from("product_price_history").insert({
         product_id: editPriceProduct.id,
         supplier_id: supplier.id,
         previous_price: editPriceProduct.price,
-        new_price: parsed,
+        new_price: rounded,
         reason: priceReason.trim(),
         created_by: user?.id,
       });
       if (logErr) console.warn("Falha ao registar histórico de preço:", logErr.message);
-      toast.success(`Preço de ${editPriceProduct.name} actualizado`);
+      toast.success(`Preço de ${editPriceProduct.name} actualizado para ${rounded.toLocaleString("pt-AO")} Kz`);
       setEditPriceOpen(false);
       fetchData();
     } catch (e: any) {
