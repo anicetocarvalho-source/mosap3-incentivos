@@ -526,15 +526,15 @@ const FornecedorStock = () => {
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-1">
-                            <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => openMovement(p, "entrada")}>
+                            <Button variant="ghost" size="sm" className="h-7 text-xs" disabled={!canManageStock} title={canManageStock ? "" : (denialReason || "Sem permissão")} onClick={() => openMovement(p, "entrada")}>
                               <ArrowUpCircle className="h-3 w-3 mr-1 text-primary" /> Entrada
                             </Button>
-                            <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => openMovement(p, "saida")}>
+                            <Button variant="ghost" size="sm" className="h-7 text-xs" disabled={!canManageStock} title={canManageStock ? "" : (denialReason || "Sem permissão")} onClick={() => openMovement(p, "saida")}>
                               <ArrowDownCircle className="h-3 w-3 mr-1 text-destructive" /> Saída
                             </Button>
-                            <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => openMovement(p, "ajuste")}><RotateCcw className="h-3 w-3" /></Button>
-                            <Button variant="ghost" size="sm" className="h-7 text-xs" title="Editar preço" onClick={() => openEditPrice(p)}><Tag className="h-3 w-3" /></Button>
-                            <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => openHistory(p)}><History className="h-3 w-3" /></Button>
+                            <Button variant="ghost" size="sm" className="h-7 text-xs" disabled={!canManageStock} title={canManageStock ? "Ajuste de inventário" : (denialReason || "Sem permissão")} onClick={() => openMovement(p, "ajuste")}><RotateCcw className="h-3 w-3" /></Button>
+                            <Button variant="ghost" size="sm" className="h-7 text-xs" disabled={!canManagePrices} title={canManagePrices ? "Editar preço" : (denialReason || "Sem permissão")} onClick={() => openEditPrice(p)}><Tag className="h-3 w-3" /></Button>
+                            <Button variant="ghost" size="sm" className="h-7 text-xs" title="Histórico" onClick={() => openHistory(p)}><History className="h-3 w-3" /></Button>
                           </div>
                         </TableCell>
                       </TableRow>
