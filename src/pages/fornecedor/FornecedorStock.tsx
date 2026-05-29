@@ -142,6 +142,7 @@ const FornecedorStock = () => {
   };
 
   useEffect(() => { fetchData(); }, [supplier.id]);
+  useEffect(() => { setMovVisible(MOV_PAGE); }, [movSearch, movFilterType]);
 
   const activeProducts = products.filter(p => p.status === "Ativo");
   const lowStockProducts = activeProducts.filter(p => p.stock <= p.min_stock && p.stock > 0);
