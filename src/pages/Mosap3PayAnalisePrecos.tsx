@@ -162,7 +162,7 @@ export default function Mosap3PayAnalisePrecos() {
           {error ? (
             <ErrorState title="Erro ao carregar análise" description={(error as Error).message} onRetry={() => refetch()} />
           ) : isLoading ? (
-            <LoadingState message="A analisar preços de mercado…" />
+            <LoadingState label="A analisar preços de mercado…" />
           ) : filtered.length === 0 ? (
             <Card><CardContent className="py-10 text-center text-sm text-muted-foreground">Sem alertas com os filtros actuais.</CardContent></Card>
           ) : (
@@ -248,7 +248,7 @@ export default function Mosap3PayAnalisePrecos() {
 
         <TabsContent value="variacoes" className="space-y-3">
           {loadingAbrupt ? (
-            <LoadingState message="A carregar histórico…" />
+            <LoadingState label="A carregar histórico…" />
           ) : abrupt.length === 0 ? (
             <Card><CardContent className="py-10 text-center text-sm text-muted-foreground">Sem variações abruptas no período seleccionado.</CardContent></Card>
           ) : (
@@ -328,7 +328,7 @@ function PriceEvolutionDialog({
           <DialogTitle>Evolução de preço — {product?.product_name}</DialogTitle>
         </DialogHeader>
         {!product ? null : isLoading ? (
-          <LoadingState message="A carregar histórico…" />
+          <LoadingState label="A carregar histórico…" />
         ) : (
           <div className="space-y-3">
             <div className="grid grid-cols-3 gap-3 text-xs">
