@@ -499,6 +499,28 @@ const FornecedorStock = () => {
               </SelectContent>
             </Select>
           </div>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input placeholder="Filtrar por motivo..." value={movReasonSearch} onChange={e => setMovReasonSearch(e.target.value)} className="pl-9" />
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="relative">
+                <CalendarIcon className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                <Input type="date" value={movDateFrom} onChange={e => setMovDateFrom(e.target.value)} className="pl-8 w-[150px] text-sm" />
+              </div>
+              <span className="text-muted-foreground text-sm">até</span>
+              <div className="relative">
+                <CalendarIcon className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                <Input type="date" value={movDateTo} onChange={e => setMovDateTo(e.target.value)} className="pl-8 w-[150px] text-sm" />
+              </div>
+            </div>
+            {(movReasonSearch || movDateFrom || movDateTo) && (
+              <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => { setMovReasonSearch(""); setMovDateFrom(""); setMovDateTo(""); }}>
+                <X className="h-3.5 w-3.5 mr-1" /> Limpar filtros
+              </Button>
+            )}
+          </div>
 
           <Card>
             <CardContent className="p-0 overflow-x-auto">
