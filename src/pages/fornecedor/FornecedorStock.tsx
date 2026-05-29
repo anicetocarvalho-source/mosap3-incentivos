@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useOutletContext } from "react-router-dom";
-import { Package, AlertTriangle, ArrowUpCircle, ArrowDownCircle, RotateCcw, Search, History, Edit2, TrendingDown, TrendingUp, Loader2, Tag } from "lucide-react";
+import { Package, AlertTriangle, ArrowUpCircle, ArrowDownCircle, RotateCcw, Search, History, Edit2, TrendingDown, TrendingUp, Loader2, Tag, Calendar as CalendarIcon, X } from "lucide-react";
 import { ErrorState } from "@/components/ui/error-state";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -70,6 +70,9 @@ const FornecedorStock = () => {
   const [search, setSearch] = useState("");
   const [movSearch, setMovSearch] = useState("");
   const [movFilterType, setMovFilterType] = useState("all");
+  const [movReasonSearch, setMovReasonSearch] = useState("");
+  const [movDateFrom, setMovDateFrom] = useState("");
+  const [movDateTo, setMovDateTo] = useState("");
   const MOV_PAGE = 50;
   const HIST_PAGE = 20;
   const [movVisible, setMovVisible] = useState(MOV_PAGE);
@@ -142,7 +145,7 @@ const FornecedorStock = () => {
   };
 
   useEffect(() => { fetchData(); }, [supplier.id]);
-  useEffect(() => { setMovVisible(MOV_PAGE); }, [movSearch, movFilterType]);
+  useEffect(() => { setMovVisible(MOV_PAGE); }, [movSearch, movFilterType, movReasonSearch, movDateFrom, movDateTo]);
 
   const activeProducts = products.filter(p => p.status === "Ativo");
   const lowStockProducts = activeProducts.filter(p => p.stock <= p.min_stock && p.stock > 0);
@@ -174,7 +177,19 @@ const FornecedorStock = () => {
       }
       if (movSearch) {
         const product = products.find(p => p.id === e.product_id);
-        return product?.name.toLowerCase().includes(movSearch.toLowerCase());
+        if (!product?.name.toLowerCase().includes(movSearch.toLowerCase())) return false;
+      }
+      if (movReasonSearch) {
+        const reason = e.kind === "stock" ? e.reason : e.reason;
+        if (!reason || !reason.toLowerCase().includes(movReasonSearch.toLowerCase())) return false;
+      }
+      if (movDateFrom || movDateTo) {
+        const date = new Date(e.created_at);
+        const from = movDateFrom ? new Date(movDateFrom) : null;
+        const to = movDateTo ? new Date(movDateTo) : null;
+        if (to) to.setHours(23, 59, 59, 999);
+        if (from && date < from) return false;
+        if (to && date > to) return false;
       }
       return true;
     });
@@ -483,6 +498,28 @@ const FornecedorStock = () => {
                 <SelectItem value="preco">Preço</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input placeholder="Filtrar por motivo..." value={movReasonSearch} onChange={e => setMovReasonSearch(e.target.value)} className="pl-9" />
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="relative">
+                <CalendarIcon className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                <Input type="date" value={movDateFrom} onChange={e => setMovDateFrom(e.target.value)} className="pl-8 w-[150px] text-sm" />
+              </div>
+              <span className="text-muted-foreground text-sm">até</span>
+              <div className="relative">
+                <CalendarIcon className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                <Input type="date" value={movDateTo} onChange={e => setMovDateTo(e.target.value)} className="pl-8 w-[150px] text-sm" />
+              </div>
+            </div>
+            {(movReasonSearch || movDateFrom || movDateTo) && (
+              <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => { setMovReasonSearch(""); setMovDateFrom(""); setMovDateTo(""); }}>
+                <X className="h-3.5 w-3.5 mr-1" /> Limpar filtros
+              </Button>
+            )}
           </div>
 
           <Card>
