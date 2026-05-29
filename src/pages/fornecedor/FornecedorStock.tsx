@@ -193,7 +193,8 @@ const FornecedorStock = () => {
 
   const openHistory = async (product: Product) => {
     setHistoryProduct(product);
-    const { data } = await supabase.from("stock_movements").select("*").eq("product_id", product.id).order("created_at", { ascending: false }).limit(50);
+    setHistoryVisible(HIST_PAGE);
+    const { data } = await supabase.from("stock_movements").select("*").eq("product_id", product.id).order("created_at", { ascending: false }).limit(200);
     setProductMovements((data as StockMovement[]) || []);
     setHistoryOpen(true);
   };
