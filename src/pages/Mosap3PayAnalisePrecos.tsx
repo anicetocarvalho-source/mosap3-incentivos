@@ -308,7 +308,7 @@ export default function Mosap3PayAnalisePrecos() {
 
               {/* Mobile cards */}
               <div className="md:hidden divide-y rounded-lg border bg-card">
-                {filtered.map((row) => {
+                {visible.map((row) => {
                   const sev = SEVERITY_LABELS[row.severity];
                   const rstatus = reviewStatusOf(row);
                   const rev = reviewMap.get(`${row.product_id}|${row.supplier_id}`);
