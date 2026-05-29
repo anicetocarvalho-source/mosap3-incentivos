@@ -240,7 +240,17 @@ const FornecedorStock = () => {
 
   const getProductName = (id: string) => products.find(p => p.id === id)?.name || "—";
 
+  const guardManageStock = () => {
+    if (!canManageStock) { toast.error(denialReason || "Sem permissão para gerir stock"); return false; }
+    return true;
+  };
+  const guardManagePrices = () => {
+    if (!canManagePrices) { toast.error(denialReason || "Sem permissão para editar preços"); return false; }
+    return true;
+  };
+
   const openMovement = (product: Product, type: string) => {
+    if (!guardManageStock()) return;
     setMoveProduct(product);
     setMoveType(type);
     setMoveQty(0);
