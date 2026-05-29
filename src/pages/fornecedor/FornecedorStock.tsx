@@ -94,6 +94,26 @@ const FornecedorStock = () => {
   const [editPriceProduct, setEditPriceProduct] = useState<Product | null>(null);
   const [newPrice, setNewPrice] = useState("");
   const [priceReason, setPriceReason] = useState("");
+  const [priceError, setPriceError] = useState<string | null>(null);
+
+  const MAX_PRICE = 10_000_000;
+
+  const validatePrice = (raw: string): string | null => {
+    if (raw.trim() === "") return "Indique um preço";
+    const val = Number(raw);
+    if (!isFinite(val)) return "Preço inválido";
+    if (val < 0) return "O preço não pode ser negativo";
+    if (val > MAX_PRICE) return `O preço máximo permitido é ${MAX_PRICE.toLocaleString("pt-AO")} Kz`;
+    const rounded = Math.round(val * 100) / 100;
+    if (rounded !== val) return null; // will be auto-corrected, not an error
+    return null;
+  };
+
+  const formatPriceInput = (raw: string): string => {
+    const val = Number(raw);
+    if (!isFinite(val)) return raw;
+    return String(Math.max(0, Math.min(MAX_PRICE, Math.round(val * 100) / 100)));
+  };
 
   const fetchData = async () => {
     setLoading(true);
