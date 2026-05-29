@@ -570,18 +570,19 @@ const FornecedorStock = () => {
                     <TableHead>Produto</TableHead>
                     <TableHead className="text-center">Qtd</TableHead>
                     <TableHead className="text-center">Stock</TableHead>
+                    <TableHead>Utilizador</TableHead>
                     <TableHead>Motivo</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredMovements.length === 0 ? (
-                    <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Sem movimentos</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Sem movimentos</TableCell></TableRow>
                   ) : filteredMovements.slice(0, movVisible).map(entry => {
                     if (entry.kind === "price") {
                       const up = Number(entry.new_price) > Number(entry.previous_price);
                       return (
                         <TableRow key={`price-${entry.id}`}>
-                          <TableCell className="text-xs text-muted-foreground whitespace-nowrap">{new Date(entry.created_at).toLocaleString("pt-AO")}</TableCell>
+                          <TableCell className="text-xs text-muted-foreground whitespace-nowrap" title={new Date(entry.created_at).toISOString()}>{formatDateTime(entry.created_at)}</TableCell>
                           <TableCell>
                             <div className="flex items-center gap-1">
                               <Tag className="h-3.5 w-3.5 text-info" />
@@ -595,6 +596,9 @@ const FornecedorStock = () => {
                           <TableCell className="text-center text-xs text-muted-foreground tabular-nums">
                             {Number(entry.previous_price).toLocaleString("pt-AO")} → <span className="font-semibold text-foreground">{Number(entry.new_price).toLocaleString("pt-AO")} Kz</span>
                           </TableCell>
+                          <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                            <span className="inline-flex items-center gap-1"><User className="h-3 w-3" />{getUserName(entry.created_by)}</span>
+                          </TableCell>
                           <TableCell className="text-xs text-muted-foreground max-w-[200px] truncate">{entry.reason || "—"}</TableCell>
                         </TableRow>
                       );
@@ -605,7 +609,7 @@ const FornecedorStock = () => {
                     const isMovOut = m.movement_type === "saida" || m.movement_type === "venda";
                     return (
                       <TableRow key={`stock-${m.id}`}>
-                        <TableCell className="text-xs text-muted-foreground whitespace-nowrap">{new Date(m.created_at).toLocaleString("pt-AO")}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground whitespace-nowrap" title={new Date(m.created_at).toISOString()}>{formatDateTime(m.created_at)}</TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1">
                             <Icon className={`h-3.5 w-3.5 ${meta.color}`} />
@@ -617,6 +621,9 @@ const FornecedorStock = () => {
                           <span className={`font-bold ${isMovOut ? "text-destructive" : "text-primary"}`}>{isMovOut ? "-" : "+"}{m.quantity}</span>
                         </TableCell>
                         <TableCell className="text-center text-xs text-muted-foreground">{m.previous_stock} → <span className="font-semibold text-foreground">{m.new_stock}</span></TableCell>
+                        <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                          <span className="inline-flex items-center gap-1"><User className="h-3 w-3" />{getUserName(m.created_by)}</span>
+                        </TableCell>
                         <TableCell className="text-xs text-muted-foreground max-w-[200px] truncate">{m.reason || "—"}</TableCell>
                       </TableRow>
                     );
