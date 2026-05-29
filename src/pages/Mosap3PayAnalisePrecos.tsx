@@ -345,6 +345,27 @@ export default function Mosap3PayAnalisePrecos() {
                   );
                 })}
               </div>
+
+              {/* Paginação / infinite scroll */}
+              <div className="flex flex-col items-center gap-2 py-3 text-xs text-muted-foreground">
+                <span>
+                  A mostrar {visible.length} de {filtered.length} alertas
+                </span>
+                {hasMore ? (
+                  <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setVisibleCount((c) => Math.min(c + PAGE_SIZE, filtered.length))}
+                    >
+                      Carregar mais ({Math.min(PAGE_SIZE, filtered.length - visibleCount)})
+                    </Button>
+                    <div ref={sentinelRef} aria-hidden className="h-1 w-full" />
+                  </>
+                ) : filtered.length > PAGE_SIZE ? (
+                  <span>— fim da lista —</span>
+                ) : null}
+              </div>
             </>
           )}
         </TabsContent>
