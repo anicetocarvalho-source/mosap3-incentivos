@@ -339,6 +339,7 @@ const FornecedorStock = () => {
   };
 
   const submitMovement = async () => {
+    if (!guardManageStock()) return;
     if (!moveProduct || moveQty <= 0) { toast.error("Indique uma quantidade válida"); return; }
     const isOut = moveType === "saida" || moveType === "venda";
     if (isOut && moveQty > moveProduct.stock) { toast.error("Quantidade excede o stock disponível"); return; }
