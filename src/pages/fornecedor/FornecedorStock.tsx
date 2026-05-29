@@ -402,6 +402,17 @@ const FornecedorStock = () => {
         <p className="text-muted-foreground text-sm">Inventário da loja {supplier.name}</p>
       </div>
 
+      {denialReason && (
+        <div className="flex items-start gap-2 rounded-lg border border-warning/40 bg-warning/10 p-3 text-sm text-warning-foreground">
+          <Lock className="h-4 w-4 mt-0.5 text-warning" />
+          <div>
+            <p className="font-semibold">Modo apenas leitura</p>
+            <p className="text-muted-foreground">{denialReason}</p>
+          </div>
+        </div>
+      )}
+
+
       {/* Alerts */}
       {(lowStockProducts.length > 0 || outOfStock.length > 0) && (
         <Card className="border-amber-500/30 bg-amber-500/5">
