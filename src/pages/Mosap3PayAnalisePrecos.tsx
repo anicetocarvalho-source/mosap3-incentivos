@@ -156,7 +156,7 @@ export default function Mosap3PayAnalisePrecos() {
         <TabsContent value="alertas" className="space-y-3">
           {/* Filtros */}
           <Card>
-            <CardContent className="pt-4 grid grid-cols-1 md:grid-cols-3 gap-3">
+            <CardContent className="pt-4 grid grid-cols-1 md:grid-cols-4 gap-3">
               <div className="relative">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -181,6 +181,15 @@ export default function Mosap3PayAnalisePrecos() {
                   <SelectItem value="alta">Severidade alta</SelectItem>
                   <SelectItem value="media">Severidade média</SelectItem>
                   <SelectItem value="baixa">Preço suspeito (baixo)</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={reviewStatusFilter} onValueChange={setReviewStatusFilter}>
+                <SelectTrigger><SelectValue placeholder="Estado de revisão" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os estados</SelectItem>
+                  <SelectItem value="pendente">Pendentes</SelectItem>
+                  <SelectItem value="revisto">Revistos</SelectItem>
+                  <SelectItem value="desactualizado">Revisão desactualizada</SelectItem>
                 </SelectContent>
               </Select>
             </CardContent>
