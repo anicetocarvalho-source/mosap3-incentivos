@@ -91,6 +91,8 @@ const FornecedorStock = () => {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyProduct, setHistoryProduct] = useState<Product | null>(null);
   const [productMovements, setProductMovements] = useState<StockMovement[]>([]);
+  const [productPriceLogs, setProductPriceLogs] = useState<PriceLog[]>([]);
+  const [userNames, setUserNames] = useState<Record<string, string>>({});
 
   // Edit min_stock
   const [editMinOpen, setEditMinOpen] = useState(false);
