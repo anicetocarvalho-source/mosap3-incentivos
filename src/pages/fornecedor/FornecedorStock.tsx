@@ -640,7 +640,23 @@ const FornecedorStock = () => {
               </div>
               <div className="space-y-2">
                 <Label>Novo Preço (Kz)</Label>
-                <Input type="number" min={0} step="0.01" value={newPrice} onChange={e => setNewPrice(e.target.value)} autoFocus />
+                <Input
+                  type="number"
+                  min={0}
+                  max={MAX_PRICE}
+                  step="0.01"
+                  value={newPrice}
+                  onChange={e => {
+                    const val = e.target.value;
+                    setNewPrice(val);
+                    setPriceError(validatePrice(val));
+                  }}
+                  onBlur={() => setNewPrice(formatPriceInput(newPrice))}
+                  autoFocus
+                  className={priceError ? "border-destructive focus-visible:ring-destructive" : ""}
+                />
+                {priceError && <p className="text-xs text-destructive">{priceError}</p>}
+                <p className="text-[10px] text-muted-foreground">Máx. {MAX_PRICE.toLocaleString("pt-AO")} Kz • arredondado a 2 casas decimais</p>
               </div>
               <div className="space-y-2">
                 <Label>Motivo *</Label>
