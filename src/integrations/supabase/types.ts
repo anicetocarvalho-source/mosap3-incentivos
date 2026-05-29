@@ -2550,6 +2550,32 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      analyze_supplier_prices: {
+        Args: {
+          p_high_pct?: number
+          p_medium_pct?: number
+          p_min_suppliers?: number
+        }
+        Returns: {
+          avg_price: number
+          category: string
+          current_price: number
+          deviation_pct: number
+          last_changed_at: string
+          max_price: number
+          median_price: number
+          min_price: number
+          product_id: string
+          product_key: string
+          product_name: string
+          severity: string
+          stddev_price: number
+          supplier_id: string
+          supplier_name: string
+          suppliers_count: number
+          unit: string
+        }[]
+      }
       bulk_insert_orphan_phones: { Args: { _data: Json }; Returns: Json }
       cleanup_old_client_errors: { Args: never; Returns: number }
       cleanup_old_notifications: {
@@ -2588,6 +2614,23 @@ export type Database = {
       dashboard_patec_counts: {
         Args: { p_ecas?: string[]; p_provinces?: string[]; p_scope?: string }
         Returns: Json
+      }
+      detect_abrupt_price_changes: {
+        Args: { p_days?: number; p_threshold_pct?: number }
+        Returns: {
+          change_pct: number
+          created_at: string
+          created_by: string
+          delta: number
+          id: string
+          new_price: number
+          previous_price: number
+          product_id: string
+          product_name: string
+          reason: string
+          supplier_id: string
+          supplier_name: string
+        }[]
       }
       detect_farmer_anomalies: {
         Args: {

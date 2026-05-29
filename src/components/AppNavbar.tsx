@@ -35,6 +35,7 @@ import {
   AlertTriangle,
   Sparkles,
   ShieldCheck,
+  TrendingUp,
 } from "lucide-react";
 import { mosapLogo, LOGO_SIZES } from "@/config/brand";
 import { useAuth } from "@/hooks/useAuth";
@@ -114,6 +115,7 @@ export const navItems: NavItem[] = [
       { label: "Facturas", path: "/mosap3pay/facturas", icon: Receipt },
       { label: "Notas de Crédito", path: "/mosap3pay/notas-credito", icon: FileText },
       { label: "Stock", path: "/mosap3pay/stock", icon: Package },
+      { label: "Análise de Preços", path: "/mosap3pay/analise-precos", icon: TrendingUp },
       { label: "Relatórios", path: "/mosap3pay/relatorios", icon: BarChart3 },
       { label: "Reconciliação", path: "/mosap3pay/reconciliacao", icon: Wand2 },
       { label: "Cartões SIM", path: "/mosap3pay/cartoes-sim", icon: Smartphone },
