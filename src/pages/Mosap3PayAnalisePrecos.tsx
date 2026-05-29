@@ -99,6 +99,35 @@ export default function Mosap3PayAnalisePrecos() {
     return { monitored, abnormal, high, suppliersWithAlerts, pending };
   }, [alerts, reviewMap]);
 
+  // Paginação / infinite scroll para a tabela de alertas
+  const PAGE_SIZE = 50;
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+
+  // Reset paginação sempre que filtros mudam
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+  }, [search, categoryFilter, severityFilter, reviewStatusFilter, minSuppliers, highPct, mediumPct]);
+
+  const visible = useMemo(() => filtered.slice(0, visibleCount), [filtered, visibleCount]);
+  const hasMore = visibleCount < filtered.length;
+
+  useEffect(() => {
+    if (!hasMore) return;
+    const el = sentinelRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          setVisibleCount((c) => Math.min(c + PAGE_SIZE, filtered.length));
+        }
+      },
+      { rootMargin: "300px" },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [hasMore, filtered.length]);
+
   return (
     <div className="space-y-6">
       <PageHeader
