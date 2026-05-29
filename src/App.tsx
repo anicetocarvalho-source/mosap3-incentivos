@@ -48,6 +48,7 @@ import Mosap3PayNotasCredito from "@/pages/Mosap3PayNotasCredito";
 import Mosap3PayFacturas from "@/pages/Mosap3PayFacturas";
 import Mosap3PayFacturaDetalhe from "@/pages/Mosap3PayFacturaDetalhe";
 import Mosap3PayStock from "@/pages/Mosap3PayStock";
+import Mosap3PayAnalisePrecos from "@/pages/Mosap3PayAnalisePrecos";
 import Mosap3PayAuditLogs from "@/pages/Mosap3PayAuditLogs";
 import Mosap3PayConfiguracoes from "@/pages/Mosap3PayConfiguracoes";
 import Mosap3PayReconciliacao from "@/pages/Mosap3PayReconciliacao";
@@ -119,6 +120,7 @@ const App = () => (
               <Route path="/mosap3pay/facturas/:id" element={<Mosap3PayFacturaDetalhe />} />
               <Route path="/mosap3pay/notas-credito" element={<Mosap3PayNotasCredito />} />
               <Route path="/mosap3pay/stock" element={<Mosap3PayStock />} />
+              <Route path="/mosap3pay/analise-precos" element={<RoleGuard allowedRoles={["admin", "gestor_incentivos"]}><Mosap3PayAnalisePrecos /></RoleGuard>} />
               <Route path="/mosap3pay/auditoria" element={<Mosap3PayAuditLogs />} />
               <Route path="/mosap3pay/configuracoes" element={<Mosap3PayConfiguracoes />} />
               <Route path="/mosap3pay/reconciliacao" element={<RoleGuard allowedRoles={["admin", "gestor_incentivos"]}><Mosap3PayReconciliacao /></RoleGuard>} />
