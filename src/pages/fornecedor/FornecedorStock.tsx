@@ -70,6 +70,10 @@ const FornecedorStock = () => {
   const [search, setSearch] = useState("");
   const [movSearch, setMovSearch] = useState("");
   const [movFilterType, setMovFilterType] = useState("all");
+  const MOV_PAGE = 50;
+  const HIST_PAGE = 20;
+  const [movVisible, setMovVisible] = useState(MOV_PAGE);
+  const [historyVisible, setHistoryVisible] = useState(HIST_PAGE);
 
   // Movement dialog
   const [moveOpen, setMoveOpen] = useState(false);
@@ -138,6 +142,7 @@ const FornecedorStock = () => {
   };
 
   useEffect(() => { fetchData(); }, [supplier.id]);
+  useEffect(() => { setMovVisible(MOV_PAGE); }, [movSearch, movFilterType]);
 
   const activeProducts = products.filter(p => p.status === "Ativo");
   const lowStockProducts = activeProducts.filter(p => p.stock <= p.min_stock && p.stock > 0);
@@ -188,7 +193,8 @@ const FornecedorStock = () => {
 
   const openHistory = async (product: Product) => {
     setHistoryProduct(product);
-    const { data } = await supabase.from("stock_movements").select("*").eq("product_id", product.id).order("created_at", { ascending: false }).limit(50);
+    setHistoryVisible(HIST_PAGE);
+    const { data } = await supabase.from("stock_movements").select("*").eq("product_id", product.id).order("created_at", { ascending: false }).limit(200);
     setProductMovements((data as StockMovement[]) || []);
     setHistoryOpen(true);
   };
@@ -495,7 +501,7 @@ const FornecedorStock = () => {
                 <TableBody>
                   {filteredMovements.length === 0 ? (
                     <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Sem movimentos</TableCell></TableRow>
-                  ) : filteredMovements.slice(0, 100).map(entry => {
+                  ) : filteredMovements.slice(0, movVisible).map(entry => {
                     if (entry.kind === "price") {
                       const up = Number(entry.new_price) > Number(entry.previous_price);
                       return (
@@ -544,6 +550,14 @@ const FornecedorStock = () => {
               </Table>
             </CardContent>
           </Card>
+          {filteredMovements.length > 0 && (
+            <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
+              <span>A mostrar {Math.min(movVisible, filteredMovements.length)} de {filteredMovements.length}</span>
+              {movVisible < filteredMovements.length && (
+                <Button variant="outline" size="sm" onClick={() => setMovVisible(v => v + MOV_PAGE)}>Carregar mais</Button>
+              )}
+            </div>
+          )}
         </TabsContent>
       </Tabs>
 
@@ -689,7 +703,7 @@ const FornecedorStock = () => {
             <p className="text-center text-muted-foreground py-8">Sem movimentos registados</p>
           ) : (
             <div className="space-y-2">
-              {productMovements.map(m => {
+              {productMovements.slice(0, historyVisible).map(m => {
                 const meta = MOVEMENT_LABELS[m.movement_type] || MOVEMENT_LABELS.ajuste;
                 const Icon = meta.icon;
                 const isMovOut = m.movement_type === "saida" || m.movement_type === "venda";
@@ -710,6 +724,12 @@ const FornecedorStock = () => {
                   </div>
                 );
               })}
+              <div className="flex items-center justify-between text-xs text-muted-foreground pt-2">
+                <span>A mostrar {Math.min(historyVisible, productMovements.length)} de {productMovements.length}</span>
+                {historyVisible < productMovements.length && (
+                  <Button variant="outline" size="sm" onClick={() => setHistoryVisible(v => v + HIST_PAGE)}>Carregar mais</Button>
+                )}
+              </div>
             </div>
           )}
         </DialogContent>
