@@ -361,7 +361,114 @@ export default function Mosap3PayAnalisePrecos() {
       </Tabs>
 
       <PriceEvolutionDialog product={evolutionProduct} onClose={() => setEvolutionProduct(null)} marketAvg={evolutionProduct?.avg_price ?? 0} />
+      <ReviewAlertDialog
+        product={reviewProduct}
+        existing={reviewProduct ? reviewMap.get(`${reviewProduct.product_id}|${reviewProduct.supplier_id}`) ?? null : null}
+        onClose={() => setReviewProduct(null)}
+      />
     </div>
+  );
+}
+
+function ReviewAlertDialog({
+  product,
+  existing,
+  onClose,
+}: {
+  product: PriceAlertRow | null;
+  existing: PriceAlertReview | null;
+  onClose: () => void;
+}) {
+  const upsert = useUpsertPriceAlertReview();
+  const remove = useDeletePriceAlertReview();
+  const [notes, setNotes] = useState("");
+
+  // reset notes when opening
+  useMemo(() => {
+    setNotes(existing?.notes ?? "");
+  }, [existing?.id, product?.product_id]);
+
+  if (!product) return null;
+
+  const handleSave = async () => {
+    try {
+      await upsert.mutateAsync({
+        product_id: product.product_id,
+        supplier_id: product.supplier_id,
+        reviewed_price: Number(product.current_price),
+        notes: notes.trim() || null,
+      });
+      toast.success("Alerta marcado como revisto.");
+      onClose();
+    } catch (e: any) {
+      toast.error(e.message || "Não foi possível guardar a revisão.");
+    }
+  };
+
+  const handleRemove = async () => {
+    if (!existing) return;
+    try {
+      await remove.mutateAsync(existing.id);
+      toast.success("Revisão removida. Alerta volta a pendente.");
+      onClose();
+    } catch (e: any) {
+      toast.error(e.message || "Não foi possível remover a revisão.");
+    }
+  };
+
+  return (
+    <Dialog open={!!product} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Marcar alerta como revisto</DialogTitle>
+          <DialogDescription>
+            {product.product_name} — {product.supplier_name}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3 text-sm">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="rounded-md bg-muted p-2">
+              <span className="text-xs text-muted-foreground">Preço actual</span><br />
+              <span className="font-mono font-semibold">{formatKz(product.current_price)}</span>
+            </div>
+            <div className="rounded-md bg-muted p-2">
+              <span className="text-xs text-muted-foreground">Desvio</span><br />
+              <span className={`font-semibold ${product.deviation_pct > 0 ? "text-destructive" : "text-info"}`}>{fmtPct(product.deviation_pct)}</span>
+            </div>
+          </div>
+          {existing && (
+            <div className="rounded-md border p-2 text-xs space-y-1">
+              <div>
+                <span className="text-muted-foreground">Última revisão:</span>{" "}
+                <span className="font-medium">{existing.reviewer_name ?? "—"}</span>
+              </div>
+              <div className="text-muted-foreground">{fmtDate(existing.reviewed_at)} · preço revisto {formatKz(Number(existing.reviewed_price))}</div>
+              {existing.notes && <div className="text-muted-foreground italic">"{existing.notes}"</div>}
+            </div>
+          )}
+          <div>
+            <label className="text-xs text-muted-foreground">Notas da revisão (opcional)</label>
+            <Textarea
+              placeholder="Ex.: confirmado com o fornecedor, justificado por aumento do custo da matéria-prima…"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={3}
+            />
+          </div>
+        </div>
+        <DialogFooter className="gap-2 sm:gap-0">
+          {existing && (
+            <Button variant="ghost" onClick={handleRemove} disabled={remove.isPending}>
+              Remover revisão
+            </Button>
+          )}
+          <Button variant="outline" onClick={onClose}>Cancelar</Button>
+          <Button onClick={handleSave} disabled={upsert.isPending}>
+            <CheckCircle2 className="h-4 w-4 mr-1" /> {existing ? "Actualizar revisão" : "Marcar como revisto"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
