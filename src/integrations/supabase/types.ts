@@ -2687,6 +2687,19 @@ export type Database = {
           out_severity: string
         }[]
       }
+      dispatch_price_alert_notifications: {
+        Args: {
+          p_dedupe_hours?: number
+          p_high_pct?: number
+          p_medium_pct?: number
+          p_min_suppliers?: number
+        }
+        Returns: {
+          alerts_evaluated: number
+          alerts_skipped: number
+          notifications_created: number
+        }[]
+      }
       farmers_distinct_provinces: {
         Args: never
         Returns: {
