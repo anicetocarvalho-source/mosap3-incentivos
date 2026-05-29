@@ -217,12 +217,15 @@ export default function Mosap3PayAnalisePrecos() {
                       <TableHead className="text-right">Desvio</TableHead>
                       <TableHead>Severidade</TableHead>
                       <TableHead>Última alteração</TableHead>
+                      <TableHead>Revisão</TableHead>
                       <TableHead></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filtered.map((row) => {
                       const sev = SEVERITY_LABELS[row.severity];
+                      const rstatus = reviewStatusOf(row);
+                      const rev = reviewMap.get(`${row.product_id}|${row.supplier_id}`);
                       return (
                         <TableRow key={`${row.product_id}-${row.supplier_id}`}>
                           <TableCell className="font-medium">{row.product_name} <span className="text-muted-foreground text-xs">/ {row.unit}</span></TableCell>
@@ -236,8 +239,29 @@ export default function Mosap3PayAnalisePrecos() {
                           </TableCell>
                           <TableCell><Badge className={sev.classes} variant="outline">{sev.label}</Badge></TableCell>
                           <TableCell className="text-xs text-muted-foreground">{fmtDate(row.last_changed_at)}</TableCell>
+                          <TableCell className="text-xs">
+                            {rstatus === "revisto" ? (
+                              <div className="flex flex-col">
+                                <Badge variant="outline" className="bg-success/15 text-success border-success/30 w-fit">
+                                  <CheckCircle2 className="h-3 w-3 mr-1" /> Revisto
+                                </Badge>
+                                <span className="text-muted-foreground mt-1">
+                                  {rev?.reviewer_name ?? "—"} · {fmtDate(rev?.reviewed_at ?? null)}
+                                </span>
+                              </div>
+                            ) : rstatus === "desactualizado" ? (
+                              <Badge variant="outline" className="bg-warning/15 text-warning border-warning/30">
+                                <RotateCcw className="h-3 w-3 mr-1" /> Preço mudou
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline" className="bg-muted text-muted-foreground">Pendente</Badge>
+                            )}
+                          </TableCell>
                           <TableCell>
                             <div className="flex gap-1 justify-end">
+                              <Button size="sm" variant={rstatus === "revisto" ? "ghost" : "outline"} onClick={() => setReviewProduct(row)} title="Marcar como revisto">
+                                <CheckCircle2 className="h-4 w-4" />
+                              </Button>
                               <Button size="sm" variant="ghost" onClick={() => setEvolutionProduct(row)} title="Ver evolução">
                                 <LineChartIcon className="h-4 w-4" />
                               </Button>
