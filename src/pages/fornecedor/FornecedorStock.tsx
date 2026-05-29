@@ -62,7 +62,17 @@ const MOVEMENT_LABELS: Record<string, { label: string; color: string; icon: any 
 };
 
 const FornecedorStock = () => {
-  const { supplier } = useOutletContext<{ supplier: { id: string; name: string } }>();
+  const { supplier } = useOutletContext<{ supplier: { id: string; name: string; status: string; user_id: string } }>();
+  const { user, isAdmin } = useAuth();
+  const isSupplierActive = supplier.status === "Ativo";
+  const isOwner = !!user && user.id === supplier.user_id;
+  const canManagePrices = isSupplierActive && (isOwner || isAdmin);
+  const canManageStock = isSupplierActive && (isOwner || isAdmin);
+  const denialReason = !isSupplierActive
+    ? `Conta ${supplier.status?.toLowerCase() || "inactiva"}: acções de stock e preço bloqueadas.`
+    : (!isOwner && !isAdmin)
+      ? "Apenas o titular da conta de fornecedor ou um administrador podem editar preços e registar motivos."
+      : null;
   const [products, setProducts] = useState<Product[]>([]);
   const [movements, setMovements] = useState<StockMovement[]>([]);
   const [priceLogs, setPriceLogs] = useState<PriceLog[]>([]);
