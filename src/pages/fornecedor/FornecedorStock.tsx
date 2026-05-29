@@ -274,6 +274,7 @@ const FornecedorStock = () => {
   };
 
   const openEditMin = (product: Product) => {
+    if (!guardManageStock()) return;
     setEditMinProduct(product);
     setEditMinValue(product.min_stock);
     setEditMinOpen(true);
@@ -281,6 +282,7 @@ const FornecedorStock = () => {
 
   const saveMinStock = async () => {
     if (!editMinProduct) return;
+    if (!guardManageStock()) return;
     setSubmitting(true);
     try {
       await supabase.from("supplier_products").update({ min_stock: editMinValue }).eq("id", editMinProduct.id);
@@ -295,6 +297,7 @@ const FornecedorStock = () => {
   };
 
   const openEditPrice = (product: Product) => {
+    if (!guardManagePrices()) return;
     setEditPriceProduct(product);
     const initial = String(Math.round(product.price * 100) / 100);
     setNewPrice(initial);
@@ -305,6 +308,7 @@ const FornecedorStock = () => {
 
   const savePrice = async () => {
     if (!editPriceProduct) return;
+    if (!guardManagePrices()) return;
     const rounded = Math.round(Number(newPrice) * 100) / 100;
     if (!isFinite(rounded) || rounded < 0) { toast.error("Preço inválido"); return; }
     if (rounded > MAX_PRICE) { toast.error(`O preço máximo permitido é ${MAX_PRICE.toLocaleString("pt-AO")} Kz`); return; }
