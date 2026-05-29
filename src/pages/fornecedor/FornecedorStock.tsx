@@ -132,19 +132,47 @@ const FornecedorStock = () => {
       const [prodRes, movRes, priceRes] = await Promise.all([
         supabase.from("supplier_products").select("id, name, category, stock, min_stock, price, unit, supplier_id, status").eq("supplier_id", supplier.id).order("name"),
         supabase.from("stock_movements").select("*").eq("supplier_id", supplier.id).order("created_at", { ascending: false }).limit(200),
-        supabase.from("product_price_history").select("id, product_id, previous_price, new_price, reason, created_at").eq("supplier_id", supplier.id).order("created_at", { ascending: false }).limit(200),
+        supabase.from("product_price_history").select("id, product_id, previous_price, new_price, reason, created_at, created_by").eq("supplier_id", supplier.id).order("created_at", { ascending: false }).limit(200),
       ]);
       if (prodRes.error) throw prodRes.error;
       if (movRes.error) throw movRes.error;
+      const movs = (movRes.data as StockMovement[]) || [];
+      const plogs = (priceRes.data as PriceLog[]) || [];
       setProducts((prodRes.data as Product[]) || []);
-      setMovements((movRes.data as StockMovement[]) || []);
-      setPriceLogs((priceRes.data as PriceLog[]) || []);
+      setMovements(movs);
+      setPriceLogs(plogs);
+      await resolveUserNames([...movs.map(m => m.created_by), ...plogs.map(p => p.created_by)]);
     } catch (e: any) {
       setLoadError(e);
       toast.error("Erro ao carregar stock: " + (e.message || "tente novamente"));
     } finally {
       setLoading(false);
     }
+  };
+
+  const resolveUserNames = async (ids: (string | null)[]) => {
+    const unique = Array.from(new Set(ids.filter((x): x is string => !!x)));
+    const missing = unique.filter(id => !userNames[id]);
+    if (missing.length === 0) return;
+    const { data } = await supabase.from("profiles").select("user_id, full_name").in("user_id", missing);
+    if (data) {
+      setUserNames(prev => {
+        const next = { ...prev };
+        (data as { user_id: string; full_name: string }[]).forEach(p => { next[p.user_id] = p.full_name || "—"; });
+        missing.forEach(id => { if (!next[id]) next[id] = "Utilizador desconhecido"; });
+        return next;
+      });
+    }
+  };
+
+  const formatDateTime = (iso: string) => {
+    const d = new Date(iso);
+    return d.toLocaleString("pt-AO", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+  };
+
+  const getUserName = (id: string | null | undefined) => {
+    if (!id) return "Sistema";
+    return userNames[id] || "A carregar…";
   };
 
   useEffect(() => { fetchData(); }, [supplier.id]);
