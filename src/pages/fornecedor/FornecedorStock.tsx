@@ -70,6 +70,10 @@ const FornecedorStock = () => {
   const [search, setSearch] = useState("");
   const [movSearch, setMovSearch] = useState("");
   const [movFilterType, setMovFilterType] = useState("all");
+  const MOV_PAGE = 50;
+  const HIST_PAGE = 20;
+  const [movVisible, setMovVisible] = useState(MOV_PAGE);
+  const [historyVisible, setHistoryVisible] = useState(HIST_PAGE);
 
   // Movement dialog
   const [moveOpen, setMoveOpen] = useState(false);
