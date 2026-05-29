@@ -525,8 +525,8 @@ const FornecedorStock = () => {
                           </div>
                         </TableCell>
                         <TableCell className="text-center">
-                          <button className="text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1 mx-auto" onClick={() => openEditMin(p)}>
-                            {p.min_stock} <Edit2 className="h-2.5 w-2.5" />
+                          <button className="text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1 mx-auto disabled:opacity-50 disabled:cursor-not-allowed" disabled={!canManageStock} title={canManageStock ? "Editar stock mínimo" : (denialReason || "Sem permissão")} onClick={() => openEditMin(p)}>
+                            {p.min_stock} {canManageStock && <Edit2 className="h-2.5 w-2.5" />}
                           </button>
                         </TableCell>
                         <TableCell className="text-center text-sm font-medium">{(p.stock * Number(p.price)).toLocaleString("pt-AO")} Kz</TableCell>
