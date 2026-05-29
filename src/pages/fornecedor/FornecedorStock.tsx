@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useOutletContext } from "react-router-dom";
-import { Package, AlertTriangle, ArrowUpCircle, ArrowDownCircle, RotateCcw, Search, History, Edit2, TrendingDown, TrendingUp, Loader2, Tag, Calendar as CalendarIcon, X } from "lucide-react";
+import { Package, AlertTriangle, ArrowUpCircle, ArrowDownCircle, RotateCcw, Search, History, Edit2, TrendingDown, TrendingUp, Loader2, Tag, Calendar as CalendarIcon, X, User } from "lucide-react";
 import { ErrorState } from "@/components/ui/error-state";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -49,6 +49,7 @@ interface PriceLog {
   new_price: number;
   reason: string | null;
   created_at: string;
+  created_by: string | null;
 }
 
 const MOVEMENT_LABELS: Record<string, { label: string; color: string; icon: any }> = {
@@ -90,6 +91,8 @@ const FornecedorStock = () => {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyProduct, setHistoryProduct] = useState<Product | null>(null);
   const [productMovements, setProductMovements] = useState<StockMovement[]>([]);
+  const [productPriceLogs, setProductPriceLogs] = useState<PriceLog[]>([]);
+  const [userNames, setUserNames] = useState<Record<string, string>>({});
 
   // Edit min_stock
   const [editMinOpen, setEditMinOpen] = useState(false);
@@ -129,19 +132,47 @@ const FornecedorStock = () => {
       const [prodRes, movRes, priceRes] = await Promise.all([
         supabase.from("supplier_products").select("id, name, category, stock, min_stock, price, unit, supplier_id, status").eq("supplier_id", supplier.id).order("name"),
         supabase.from("stock_movements").select("*").eq("supplier_id", supplier.id).order("created_at", { ascending: false }).limit(200),
-        supabase.from("product_price_history").select("id, product_id, previous_price, new_price, reason, created_at").eq("supplier_id", supplier.id).order("created_at", { ascending: false }).limit(200),
+        supabase.from("product_price_history").select("id, product_id, previous_price, new_price, reason, created_at, created_by").eq("supplier_id", supplier.id).order("created_at", { ascending: false }).limit(200),
       ]);
       if (prodRes.error) throw prodRes.error;
       if (movRes.error) throw movRes.error;
+      const movs = (movRes.data as StockMovement[]) || [];
+      const plogs = (priceRes.data as PriceLog[]) || [];
       setProducts((prodRes.data as Product[]) || []);
-      setMovements((movRes.data as StockMovement[]) || []);
-      setPriceLogs((priceRes.data as PriceLog[]) || []);
+      setMovements(movs);
+      setPriceLogs(plogs);
+      await resolveUserNames([...movs.map(m => m.created_by), ...plogs.map(p => p.created_by)]);
     } catch (e: any) {
       setLoadError(e);
       toast.error("Erro ao carregar stock: " + (e.message || "tente novamente"));
     } finally {
       setLoading(false);
     }
+  };
+
+  const resolveUserNames = async (ids: (string | null)[]) => {
+    const unique = Array.from(new Set(ids.filter((x): x is string => !!x)));
+    const missing = unique.filter(id => !userNames[id]);
+    if (missing.length === 0) return;
+    const { data } = await supabase.from("profiles").select("user_id, full_name").in("user_id", missing);
+    if (data) {
+      setUserNames(prev => {
+        const next = { ...prev };
+        (data as { user_id: string; full_name: string }[]).forEach(p => { next[p.user_id] = p.full_name || "—"; });
+        missing.forEach(id => { if (!next[id]) next[id] = "Utilizador desconhecido"; });
+        return next;
+      });
+    }
+  };
+
+  const formatDateTime = (iso: string) => {
+    const d = new Date(iso);
+    return d.toLocaleString("pt-AO", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+  };
+
+  const getUserName = (id: string | null | undefined) => {
+    if (!id) return "Sistema";
+    return userNames[id] || "A carregar…";
   };
 
   useEffect(() => { fetchData(); }, [supplier.id]);
@@ -209,9 +240,16 @@ const FornecedorStock = () => {
   const openHistory = async (product: Product) => {
     setHistoryProduct(product);
     setHistoryVisible(HIST_PAGE);
-    const { data } = await supabase.from("stock_movements").select("*").eq("product_id", product.id).order("created_at", { ascending: false }).limit(200);
-    setProductMovements((data as StockMovement[]) || []);
     setHistoryOpen(true);
+    const [movRes, priceRes] = await Promise.all([
+      supabase.from("stock_movements").select("*").eq("product_id", product.id).order("created_at", { ascending: false }).limit(200),
+      supabase.from("product_price_history").select("id, product_id, previous_price, new_price, reason, created_at, created_by").eq("product_id", product.id).order("created_at", { ascending: false }).limit(200),
+    ]);
+    const movs = (movRes.data as StockMovement[]) || [];
+    const plogs = (priceRes.data as PriceLog[]) || [];
+    setProductMovements(movs);
+    setProductPriceLogs(plogs);
+    await resolveUserNames([...movs.map(m => m.created_by), ...plogs.map(p => p.created_by)]);
   };
 
   const openEditMin = (product: Product) => {
@@ -532,18 +570,19 @@ const FornecedorStock = () => {
                     <TableHead>Produto</TableHead>
                     <TableHead className="text-center">Qtd</TableHead>
                     <TableHead className="text-center">Stock</TableHead>
+                    <TableHead>Utilizador</TableHead>
                     <TableHead>Motivo</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredMovements.length === 0 ? (
-                    <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Sem movimentos</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Sem movimentos</TableCell></TableRow>
                   ) : filteredMovements.slice(0, movVisible).map(entry => {
                     if (entry.kind === "price") {
                       const up = Number(entry.new_price) > Number(entry.previous_price);
                       return (
                         <TableRow key={`price-${entry.id}`}>
-                          <TableCell className="text-xs text-muted-foreground whitespace-nowrap">{new Date(entry.created_at).toLocaleString("pt-AO")}</TableCell>
+                          <TableCell className="text-xs text-muted-foreground whitespace-nowrap" title={new Date(entry.created_at).toISOString()}>{formatDateTime(entry.created_at)}</TableCell>
                           <TableCell>
                             <div className="flex items-center gap-1">
                               <Tag className="h-3.5 w-3.5 text-info" />
@@ -557,6 +596,9 @@ const FornecedorStock = () => {
                           <TableCell className="text-center text-xs text-muted-foreground tabular-nums">
                             {Number(entry.previous_price).toLocaleString("pt-AO")} → <span className="font-semibold text-foreground">{Number(entry.new_price).toLocaleString("pt-AO")} Kz</span>
                           </TableCell>
+                          <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                            <span className="inline-flex items-center gap-1"><User className="h-3 w-3" />{getUserName(entry.created_by)}</span>
+                          </TableCell>
                           <TableCell className="text-xs text-muted-foreground max-w-[200px] truncate">{entry.reason || "—"}</TableCell>
                         </TableRow>
                       );
@@ -567,7 +609,7 @@ const FornecedorStock = () => {
                     const isMovOut = m.movement_type === "saida" || m.movement_type === "venda";
                     return (
                       <TableRow key={`stock-${m.id}`}>
-                        <TableCell className="text-xs text-muted-foreground whitespace-nowrap">{new Date(m.created_at).toLocaleString("pt-AO")}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground whitespace-nowrap" title={new Date(m.created_at).toISOString()}>{formatDateTime(m.created_at)}</TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1">
                             <Icon className={`h-3.5 w-3.5 ${meta.color}`} />
@@ -579,6 +621,9 @@ const FornecedorStock = () => {
                           <span className={`font-bold ${isMovOut ? "text-destructive" : "text-primary"}`}>{isMovOut ? "-" : "+"}{m.quantity}</span>
                         </TableCell>
                         <TableCell className="text-center text-xs text-muted-foreground">{m.previous_stock} → <span className="font-semibold text-foreground">{m.new_stock}</span></TableCell>
+                        <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                          <span className="inline-flex items-center gap-1"><User className="h-3 w-3" />{getUserName(m.created_by)}</span>
+                        </TableCell>
                         <TableCell className="text-xs text-muted-foreground max-w-[200px] truncate">{m.reason || "—"}</TableCell>
                       </TableRow>
                     );
@@ -736,39 +781,69 @@ const FornecedorStock = () => {
               <p>Stock actual: <span className="font-bold">{historyProduct.stock} {historyProduct.unit}</span> • Mín: {historyProduct.min_stock}</p>
             </div>
           )}
-          {productMovements.length === 0 ? (
-            <p className="text-center text-muted-foreground py-8">Sem movimentos registados</p>
-          ) : (
-            <div className="space-y-2">
-              {productMovements.slice(0, historyVisible).map(m => {
-                const meta = MOVEMENT_LABELS[m.movement_type] || MOVEMENT_LABELS.ajuste;
-                const Icon = meta.icon;
-                const isMovOut = m.movement_type === "saida" || m.movement_type === "venda";
-                return (
-                  <div key={m.id} className="flex items-start gap-3 p-3 border rounded-lg">
-                    <Icon className={`h-5 w-5 mt-0.5 ${meta.color}`} />
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="text-[10px]">{meta.label}</Badge>
-                        <span className="text-xs text-muted-foreground">{new Date(m.created_at).toLocaleString("pt-AO")}</span>
+          {(() => {
+            type HEntry = ({ kind: "stock" } & StockMovement) | ({ kind: "price" } & PriceLog);
+            const merged: HEntry[] = [
+              ...productMovements.map(m => ({ kind: "stock" as const, ...m })),
+              ...productPriceLogs.map(p => ({ kind: "price" as const, ...p })),
+            ].sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at));
+            if (merged.length === 0) {
+              return <p className="text-center text-muted-foreground py-8">Sem movimentos registados</p>;
+            }
+            return (
+              <div className="space-y-2">
+                {merged.slice(0, historyVisible).map(entry => {
+                  if (entry.kind === "price") {
+                    const up = Number(entry.new_price) > Number(entry.previous_price);
+                    return (
+                      <div key={`price-${entry.id}`} className="flex items-start gap-3 p-3 border rounded-lg">
+                        <Tag className="h-5 w-5 mt-0.5 text-info" />
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <Badge variant="outline" className="text-[10px]">Preço</Badge>
+                            <span className="text-xs text-muted-foreground" title={new Date(entry.created_at).toISOString()}>{formatDateTime(entry.created_at)}</span>
+                            <span className="text-xs text-muted-foreground inline-flex items-center gap-1"><User className="h-3 w-3" />{getUserName(entry.created_by)}</span>
+                          </div>
+                          <p className="text-sm mt-1 tabular-nums">
+                            <span className={`font-bold ${up ? "text-warning" : "text-success"}`}>{up ? "▲" : "▼"}</span>
+                            <span className="ml-2">{Number(entry.previous_price).toLocaleString("pt-AO")} → <span className="font-semibold">{Number(entry.new_price).toLocaleString("pt-AO")} Kz</span></span>
+                          </p>
+                          {entry.reason && <p className="text-xs text-muted-foreground mt-1">📝 {entry.reason}</p>}
+                        </div>
                       </div>
-                      <p className="text-sm mt-1">
-                        <span className={`font-bold ${isMovOut ? "text-destructive" : "text-primary"}`}>{isMovOut ? "-" : "+"}{m.quantity}</span>
-                        <span className="text-muted-foreground ml-2">(Stock: {m.previous_stock} → {m.new_stock})</span>
-                      </p>
-                      {m.reason && <p className="text-xs text-muted-foreground mt-1">📝 {m.reason}</p>}
+                    );
+                  }
+                  const m = entry;
+                  const meta = MOVEMENT_LABELS[m.movement_type] || MOVEMENT_LABELS.ajuste;
+                  const Icon = meta.icon;
+                  const isMovOut = m.movement_type === "saida" || m.movement_type === "venda";
+                  return (
+                    <div key={`stock-${m.id}`} className="flex items-start gap-3 p-3 border rounded-lg">
+                      <Icon className={`h-5 w-5 mt-0.5 ${meta.color}`} />
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Badge variant="outline" className="text-[10px]">{meta.label}</Badge>
+                          <span className="text-xs text-muted-foreground" title={new Date(m.created_at).toISOString()}>{formatDateTime(m.created_at)}</span>
+                          <span className="text-xs text-muted-foreground inline-flex items-center gap-1"><User className="h-3 w-3" />{getUserName(m.created_by)}</span>
+                        </div>
+                        <p className="text-sm mt-1">
+                          <span className={`font-bold ${isMovOut ? "text-destructive" : "text-primary"}`}>{isMovOut ? "-" : "+"}{m.quantity}</span>
+                          <span className="text-muted-foreground ml-2">(Stock: {m.previous_stock} → {m.new_stock})</span>
+                        </p>
+                        {m.reason && <p className="text-xs text-muted-foreground mt-1">📝 {m.reason}</p>}
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
-              <div className="flex items-center justify-between text-xs text-muted-foreground pt-2">
-                <span>A mostrar {Math.min(historyVisible, productMovements.length)} de {productMovements.length}</span>
-                {historyVisible < productMovements.length && (
-                  <Button variant="outline" size="sm" onClick={() => setHistoryVisible(v => v + HIST_PAGE)}>Carregar mais</Button>
-                )}
+                  );
+                })}
+                <div className="flex items-center justify-between text-xs text-muted-foreground pt-2">
+                  <span>A mostrar {Math.min(historyVisible, merged.length)} de {merged.length}</span>
+                  {historyVisible < merged.length && (
+                    <Button variant="outline" size="sm" onClick={() => setHistoryVisible(v => v + HIST_PAGE)}>Carregar mais</Button>
+                  )}
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
         </DialogContent>
       </Dialog>
     </div>
