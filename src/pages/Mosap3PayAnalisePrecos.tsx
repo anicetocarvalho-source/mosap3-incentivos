@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { TrendingUp, AlertTriangle, BarChart3, Search, Filter, ExternalLink, Activity, LineChart as LineChartIcon, CheckCircle2, RotateCcw } from "lucide-react";
+import { TrendingUp, AlertTriangle, BarChart3, Search, Filter, ExternalLink, Activity, LineChart as LineChartIcon, CheckCircle2, RotateCcw, Bell, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -128,6 +128,49 @@ export default function Mosap3PayAnalisePrecos() {
     return () => io.disconnect();
   }, [hasMore, filtered.length]);
 
+  // Dispatch in-app notifications for high-severity alerts (dedupe 24h in DB)
+  const [dispatching, setDispatching] = useState(false);
+  const autoDispatchedRef = useRef(false);
+  const dispatchNotifications = async (silent = false) => {
+    setDispatching(true);
+    try {
+      const { data, error } = await supabase.rpc("dispatch_price_alert_notifications", {
+        p_min_suppliers: minSuppliers,
+        p_high_pct: highPct,
+        p_medium_pct: mediumPct,
+        p_dedupe_hours: 24,
+      });
+      if (error) throw error;
+      const row = Array.isArray(data) ? data[0] : data;
+      const created = row?.notifications_created ?? 0;
+      const evaluated = row?.alerts_evaluated ?? 0;
+      const skipped = row?.alerts_skipped ?? 0;
+      if (!silent) {
+        if (created > 0) {
+          toast.success(`${created} notificações enviadas (${evaluated} alertas, ${skipped} já notificados)`);
+        } else if (evaluated === 0) {
+          toast.info("Sem alertas de severidade alta no momento.");
+        } else {
+          toast.info(`Todos os ${evaluated} alertas já foram notificados nas últimas 24h.`);
+        }
+      }
+    } catch (e: any) {
+      if (!silent) toast.error(e?.message || "Falha ao enviar notificações");
+    } finally {
+      setDispatching(false);
+    }
+  };
+
+  // Auto-dispatch silently once per session when high-severity alerts exist
+  useEffect(() => {
+    if (autoDispatchedRef.current) return;
+    if (isLoading) return;
+    if (stats.high <= 0) return;
+    autoDispatchedRef.current = true;
+    dispatchNotifications(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoading, stats.high]);
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -135,6 +178,16 @@ export default function Mosap3PayAnalisePrecos() {
         description="Detecte preços anormais e variações abruptas dos produtos dos fornecedores comparativamente à média de mercado."
         icon={TrendingUp}
       />
+
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs text-muted-foreground">
+          Os gestores recebem notificações automáticas no sistema quando surgem alertas de severidade alta (anti-spam de 24h).
+        </p>
+        <Button size="sm" variant="outline" onClick={() => dispatchNotifications(false)} disabled={dispatching || stats.high === 0}>
+          {dispatching ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Bell className="h-4 w-4 mr-2" />}
+          Notificar gestores agora
+        </Button>
+      </div>
 
       {/* KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
