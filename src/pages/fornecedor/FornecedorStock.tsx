@@ -94,6 +94,26 @@ const FornecedorStock = () => {
   const [editPriceProduct, setEditPriceProduct] = useState<Product | null>(null);
   const [newPrice, setNewPrice] = useState("");
   const [priceReason, setPriceReason] = useState("");
+  const [priceError, setPriceError] = useState<string | null>(null);
+
+  const MAX_PRICE = 10_000_000;
+
+  const validatePrice = (raw: string): string | null => {
+    if (raw.trim() === "") return "Indique um preço";
+    const val = Number(raw);
+    if (!isFinite(val)) return "Preço inválido";
+    if (val < 0) return "O preço não pode ser negativo";
+    if (val > MAX_PRICE) return `O preço máximo permitido é ${MAX_PRICE.toLocaleString("pt-AO")} Kz`;
+    const rounded = Math.round(val * 100) / 100;
+    if (rounded !== val) return null; // will be auto-corrected, not an error
+    return null;
+  };
+
+  const formatPriceInput = (raw: string): string => {
+    const val = Number(raw);
+    if (!isFinite(val)) return raw;
+    return String(Math.max(0, Math.min(MAX_PRICE, Math.round(val * 100) / 100)));
+  };
 
   const fetchData = async () => {
     setLoading(true);
@@ -196,32 +216,35 @@ const FornecedorStock = () => {
 
   const openEditPrice = (product: Product) => {
     setEditPriceProduct(product);
-    setNewPrice(String(product.price));
+    const initial = String(Math.round(product.price * 100) / 100);
+    setNewPrice(initial);
     setPriceReason("");
+    setPriceError(null);
     setEditPriceOpen(true);
   };
 
   const savePrice = async () => {
     if (!editPriceProduct) return;
-    const parsed = Number(newPrice);
-    if (!isFinite(parsed) || parsed < 0) { toast.error("Preço inválido"); return; }
-    if (parsed === Number(editPriceProduct.price)) { toast.info("Sem alterações"); return; }
+    const rounded = Math.round(Number(newPrice) * 100) / 100;
+    if (!isFinite(rounded) || rounded < 0) { toast.error("Preço inválido"); return; }
+    if (rounded > MAX_PRICE) { toast.error(`O preço máximo permitido é ${MAX_PRICE.toLocaleString("pt-AO")} Kz`); return; }
+    if (rounded === Math.round(editPriceProduct.price * 100) / 100) { toast.info("Sem alterações"); return; }
     if (priceReason.trim().length < 3) { toast.error("Indique um motivo (≥ 3 caracteres)"); return; }
     setSubmitting(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      const { error: upErr } = await supabase.from("supplier_products").update({ price: parsed }).eq("id", editPriceProduct.id);
+      const { error: upErr } = await supabase.from("supplier_products").update({ price: rounded }).eq("id", editPriceProduct.id);
       if (upErr) throw upErr;
       const { error: logErr } = await supabase.from("product_price_history").insert({
         product_id: editPriceProduct.id,
         supplier_id: supplier.id,
         previous_price: editPriceProduct.price,
-        new_price: parsed,
+        new_price: rounded,
         reason: priceReason.trim(),
         created_by: user?.id,
       });
       if (logErr) console.warn("Falha ao registar histórico de preço:", logErr.message);
-      toast.success(`Preço de ${editPriceProduct.name} actualizado`);
+      toast.success(`Preço de ${editPriceProduct.name} actualizado para ${rounded.toLocaleString("pt-AO")} Kz`);
       setEditPriceOpen(false);
       fetchData();
     } catch (e: any) {
@@ -617,7 +640,23 @@ const FornecedorStock = () => {
               </div>
               <div className="space-y-2">
                 <Label>Novo Preço (Kz)</Label>
-                <Input type="number" min={0} step="0.01" value={newPrice} onChange={e => setNewPrice(e.target.value)} autoFocus />
+                <Input
+                  type="number"
+                  min={0}
+                  max={MAX_PRICE}
+                  step="0.01"
+                  value={newPrice}
+                  onChange={e => {
+                    const val = e.target.value;
+                    setNewPrice(val);
+                    setPriceError(validatePrice(val));
+                  }}
+                  onBlur={() => setNewPrice(formatPriceInput(newPrice))}
+                  autoFocus
+                  className={priceError ? "border-destructive focus-visible:ring-destructive" : ""}
+                />
+                {priceError && <p className="text-xs text-destructive">{priceError}</p>}
+                <p className="text-[10px] text-muted-foreground">Máx. {MAX_PRICE.toLocaleString("pt-AO")} Kz • arredondado a 2 casas decimais</p>
               </div>
               <div className="space-y-2">
                 <Label>Motivo *</Label>
@@ -627,7 +666,7 @@ const FornecedorStock = () => {
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditPriceOpen(false)} disabled={submitting}>Cancelar</Button>
-            <Button onClick={savePrice} disabled={submitting}>
+            <Button onClick={savePrice} disabled={submitting || !!priceError || !newPrice}>
               {submitting && <Loader2 className="h-4 w-4 animate-spin mr-1" />} Guardar
             </Button>
           </DialogFooter>
