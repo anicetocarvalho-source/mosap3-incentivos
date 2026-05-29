@@ -703,7 +703,7 @@ const FornecedorStock = () => {
             <p className="text-center text-muted-foreground py-8">Sem movimentos registados</p>
           ) : (
             <div className="space-y-2">
-              {productMovements.map(m => {
+              {productMovements.slice(0, historyVisible).map(m => {
                 const meta = MOVEMENT_LABELS[m.movement_type] || MOVEMENT_LABELS.ajuste;
                 const Icon = meta.icon;
                 const isMovOut = m.movement_type === "saida" || m.movement_type === "venda";
@@ -724,6 +724,12 @@ const FornecedorStock = () => {
                   </div>
                 );
               })}
+              <div className="flex items-center justify-between text-xs text-muted-foreground pt-2">
+                <span>A mostrar {Math.min(historyVisible, productMovements.length)} de {productMovements.length}</span>
+                {historyVisible < productMovements.length && (
+                  <Button variant="outline" size="sm" onClick={() => setHistoryVisible(v => v + HIST_PAGE)}>Carregar mais</Button>
+                )}
+              </div>
             </div>
           )}
         </DialogContent>
