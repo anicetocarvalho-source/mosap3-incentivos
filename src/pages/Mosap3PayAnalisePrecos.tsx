@@ -109,8 +109,8 @@ export default function Mosap3PayAnalisePrecos() {
 
       {/* KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
-        <StatCard title="Produtos monitorizados" value={String(stats.monitored)} icon={BarChart3} />
         <StatCard title="Alertas activos" value={String(stats.abnormal)} icon={AlertTriangle} changeType={stats.abnormal > 0 ? "negative" : "positive"} change={stats.abnormal > 0 ? "Requer revisão" : "Tudo normal"} />
+        <StatCard title="Pendentes de revisão" value={String(stats.pending)} icon={Activity} changeType={stats.pending > 0 ? "negative" : "positive"} change={stats.pending === 0 ? "Tudo revisto" : `${stats.abnormal - stats.pending} já revistos`} />
         <StatCard title="Severidade alta" value={String(stats.high)} icon={Activity} changeType={stats.high > 0 ? "negative" : "neutral"} />
         <StatCard title="Fornecedores afectados" value={String(stats.suppliersWithAlerts)} icon={AlertTriangle} />
       </div>
