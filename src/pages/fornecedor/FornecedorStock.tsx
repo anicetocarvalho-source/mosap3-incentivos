@@ -177,7 +177,19 @@ const FornecedorStock = () => {
       }
       if (movSearch) {
         const product = products.find(p => p.id === e.product_id);
-        return product?.name.toLowerCase().includes(movSearch.toLowerCase());
+        if (!product?.name.toLowerCase().includes(movSearch.toLowerCase())) return false;
+      }
+      if (movReasonSearch) {
+        const reason = e.kind === "stock" ? e.reason : e.reason;
+        if (!reason || !reason.toLowerCase().includes(movReasonSearch.toLowerCase())) return false;
+      }
+      if (movDateFrom || movDateTo) {
+        const date = new Date(e.created_at);
+        const from = movDateFrom ? new Date(movDateFrom) : null;
+        const to = movDateTo ? new Date(movDateTo) : null;
+        if (to) to.setHours(23, 59, 59, 999);
+        if (from && date < from) return false;
+        if (to && date > to) return false;
       }
       return true;
     });
