@@ -550,6 +550,14 @@ const FornecedorStock = () => {
               </Table>
             </CardContent>
           </Card>
+          {filteredMovements.length > 0 && (
+            <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
+              <span>A mostrar {Math.min(movVisible, filteredMovements.length)} de {filteredMovements.length}</span>
+              {movVisible < filteredMovements.length && (
+                <Button variant="outline" size="sm" onClick={() => setMovVisible(v => v + MOV_PAGE)}>Carregar mais</Button>
+              )}
+            </div>
+          )}
         </TabsContent>
       </Tabs>
 
