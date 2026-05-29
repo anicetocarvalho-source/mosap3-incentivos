@@ -216,8 +216,10 @@ const FornecedorStock = () => {
 
   const openEditPrice = (product: Product) => {
     setEditPriceProduct(product);
-    setNewPrice(String(product.price));
+    const initial = String(Math.round(product.price * 100) / 100);
+    setNewPrice(initial);
     setPriceReason("");
+    setPriceError(null);
     setEditPriceOpen(true);
   };
 
