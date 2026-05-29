@@ -251,7 +251,7 @@ export default function Mosap3PayAnalisePrecos() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filtered.map((row) => {
+                    {visible.map((row) => {
                       const sev = SEVERITY_LABELS[row.severity];
                       const rstatus = reviewStatusOf(row);
                       const rev = reviewMap.get(`${row.product_id}|${row.supplier_id}`);
