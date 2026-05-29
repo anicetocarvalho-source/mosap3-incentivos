@@ -1,20 +1,30 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { TrendingUp, AlertTriangle, BarChart3, Search, Filter, ExternalLink, Activity, LineChart as LineChartIcon } from "lucide-react";
+import { TrendingUp, AlertTriangle, BarChart3, Search, Filter, ExternalLink, Activity, LineChart as LineChartIcon, CheckCircle2, RotateCcw } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import StatCard from "@/components/StatCard";
 import PageHeader from "@/components/PageHeader";
 import { ErrorState } from "@/components/ui/error-state";
 import { LoadingState } from "@/components/ui/loading-state";
 import { formatKz } from "@/lib/numberFormat";
-import { usePriceAnalysis, useAbruptPriceChanges, type PriceAlertRow } from "@/hooks/usePriceAnalysis";
+import {
+  usePriceAnalysis,
+  useAbruptPriceChanges,
+  usePriceAlertReviews,
+  useUpsertPriceAlertReview,
+  useDeletePriceAlertReview,
+  type PriceAlertRow,
+  type PriceAlertReview,
+} from "@/hooks/usePriceAnalysis";
+import { toast } from "sonner";
 import { LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer, ReferenceLine, Legend } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
