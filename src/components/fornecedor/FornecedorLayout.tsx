@@ -10,6 +10,7 @@ interface Supplier {
   id: string;
   name: string;
   status: string;
+  user_id: string;
 }
 
 const navItems = [
