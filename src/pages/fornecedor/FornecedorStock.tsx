@@ -70,6 +70,9 @@ const FornecedorStock = () => {
   const [search, setSearch] = useState("");
   const [movSearch, setMovSearch] = useState("");
   const [movFilterType, setMovFilterType] = useState("all");
+  const [movReasonSearch, setMovReasonSearch] = useState("");
+  const [movDateFrom, setMovDateFrom] = useState("");
+  const [movDateTo, setMovDateTo] = useState("");
   const MOV_PAGE = 50;
   const HIST_PAGE = 20;
   const [movVisible, setMovVisible] = useState(MOV_PAGE);
