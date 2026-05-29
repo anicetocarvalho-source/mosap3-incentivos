@@ -49,6 +49,7 @@ interface PriceLog {
   new_price: number;
   reason: string | null;
   created_at: string;
+  created_by: string | null;
 }
 
 const MOVEMENT_LABELS: Record<string, { label: string; color: string; icon: any }> = {
