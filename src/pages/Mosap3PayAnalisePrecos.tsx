@@ -281,6 +281,8 @@ export default function Mosap3PayAnalisePrecos() {
               <div className="md:hidden divide-y rounded-lg border bg-card">
                 {filtered.map((row) => {
                   const sev = SEVERITY_LABELS[row.severity];
+                  const rstatus = reviewStatusOf(row);
+                  const rev = reviewMap.get(`${row.product_id}|${row.supplier_id}`);
                   return (
                     <div key={`${row.product_id}-${row.supplier_id}`} className="p-3 space-y-2">
                       <div className="flex items-start justify-between gap-2">
@@ -295,9 +297,21 @@ export default function Mosap3PayAnalisePrecos() {
                         <div><span className="text-muted-foreground">Média</span><br/><span className="font-mono">{formatKz(row.avg_price, false)}</span></div>
                         <div className={`font-semibold ${row.deviation_pct > 0 ? "text-destructive" : "text-info"}`}>{fmtPct(row.deviation_pct)}</div>
                       </div>
-                      <Button size="sm" variant="outline" className="w-full" onClick={() => setEvolutionProduct(row)}>
-                        <LineChartIcon className="h-3 w-3 mr-1" /> Evolução
-                      </Button>
+                      {rstatus === "revisto" ? (
+                        <p className="text-xs text-success">✓ Revisto por {rev?.reviewer_name ?? "—"} · {fmtDate(rev?.reviewed_at ?? null)}</p>
+                      ) : rstatus === "desactualizado" ? (
+                        <p className="text-xs text-warning">⚠ Revisão desactualizada (preço alterou)</p>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">Sem revisão</p>
+                      )}
+                      <div className="grid grid-cols-2 gap-2">
+                        <Button size="sm" variant="outline" onClick={() => setEvolutionProduct(row)}>
+                          <LineChartIcon className="h-3 w-3 mr-1" /> Evolução
+                        </Button>
+                        <Button size="sm" variant={rstatus === "revisto" ? "ghost" : "default"} onClick={() => setReviewProduct(row)}>
+                          <CheckCircle2 className="h-3 w-3 mr-1" /> {rstatus === "revisto" ? "Editar revisão" : "Marcar revisto"}
+                        </Button>
+                      </div>
                     </div>
                   );
                 })}
