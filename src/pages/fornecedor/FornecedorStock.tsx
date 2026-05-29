@@ -781,39 +781,69 @@ const FornecedorStock = () => {
               <p>Stock actual: <span className="font-bold">{historyProduct.stock} {historyProduct.unit}</span> • Mín: {historyProduct.min_stock}</p>
             </div>
           )}
-          {productMovements.length === 0 ? (
-            <p className="text-center text-muted-foreground py-8">Sem movimentos registados</p>
-          ) : (
-            <div className="space-y-2">
-              {productMovements.slice(0, historyVisible).map(m => {
-                const meta = MOVEMENT_LABELS[m.movement_type] || MOVEMENT_LABELS.ajuste;
-                const Icon = meta.icon;
-                const isMovOut = m.movement_type === "saida" || m.movement_type === "venda";
-                return (
-                  <div key={m.id} className="flex items-start gap-3 p-3 border rounded-lg">
-                    <Icon className={`h-5 w-5 mt-0.5 ${meta.color}`} />
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="text-[10px]">{meta.label}</Badge>
-                        <span className="text-xs text-muted-foreground">{new Date(m.created_at).toLocaleString("pt-AO")}</span>
+          {(() => {
+            type HEntry = ({ kind: "stock" } & StockMovement) | ({ kind: "price" } & PriceLog);
+            const merged: HEntry[] = [
+              ...productMovements.map(m => ({ kind: "stock" as const, ...m })),
+              ...productPriceLogs.map(p => ({ kind: "price" as const, ...p })),
+            ].sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at));
+            if (merged.length === 0) {
+              return <p className="text-center text-muted-foreground py-8">Sem movimentos registados</p>;
+            }
+            return (
+              <div className="space-y-2">
+                {merged.slice(0, historyVisible).map(entry => {
+                  if (entry.kind === "price") {
+                    const up = Number(entry.new_price) > Number(entry.previous_price);
+                    return (
+                      <div key={`price-${entry.id}`} className="flex items-start gap-3 p-3 border rounded-lg">
+                        <Tag className="h-5 w-5 mt-0.5 text-info" />
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <Badge variant="outline" className="text-[10px]">Preço</Badge>
+                            <span className="text-xs text-muted-foreground" title={new Date(entry.created_at).toISOString()}>{formatDateTime(entry.created_at)}</span>
+                            <span className="text-xs text-muted-foreground inline-flex items-center gap-1"><User className="h-3 w-3" />{getUserName(entry.created_by)}</span>
+                          </div>
+                          <p className="text-sm mt-1 tabular-nums">
+                            <span className={`font-bold ${up ? "text-warning" : "text-success"}`}>{up ? "▲" : "▼"}</span>
+                            <span className="ml-2">{Number(entry.previous_price).toLocaleString("pt-AO")} → <span className="font-semibold">{Number(entry.new_price).toLocaleString("pt-AO")} Kz</span></span>
+                          </p>
+                          {entry.reason && <p className="text-xs text-muted-foreground mt-1">📝 {entry.reason}</p>}
+                        </div>
                       </div>
-                      <p className="text-sm mt-1">
-                        <span className={`font-bold ${isMovOut ? "text-destructive" : "text-primary"}`}>{isMovOut ? "-" : "+"}{m.quantity}</span>
-                        <span className="text-muted-foreground ml-2">(Stock: {m.previous_stock} → {m.new_stock})</span>
-                      </p>
-                      {m.reason && <p className="text-xs text-muted-foreground mt-1">📝 {m.reason}</p>}
+                    );
+                  }
+                  const m = entry;
+                  const meta = MOVEMENT_LABELS[m.movement_type] || MOVEMENT_LABELS.ajuste;
+                  const Icon = meta.icon;
+                  const isMovOut = m.movement_type === "saida" || m.movement_type === "venda";
+                  return (
+                    <div key={`stock-${m.id}`} className="flex items-start gap-3 p-3 border rounded-lg">
+                      <Icon className={`h-5 w-5 mt-0.5 ${meta.color}`} />
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Badge variant="outline" className="text-[10px]">{meta.label}</Badge>
+                          <span className="text-xs text-muted-foreground" title={new Date(m.created_at).toISOString()}>{formatDateTime(m.created_at)}</span>
+                          <span className="text-xs text-muted-foreground inline-flex items-center gap-1"><User className="h-3 w-3" />{getUserName(m.created_by)}</span>
+                        </div>
+                        <p className="text-sm mt-1">
+                          <span className={`font-bold ${isMovOut ? "text-destructive" : "text-primary"}`}>{isMovOut ? "-" : "+"}{m.quantity}</span>
+                          <span className="text-muted-foreground ml-2">(Stock: {m.previous_stock} → {m.new_stock})</span>
+                        </p>
+                        {m.reason && <p className="text-xs text-muted-foreground mt-1">📝 {m.reason}</p>}
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
-              <div className="flex items-center justify-between text-xs text-muted-foreground pt-2">
-                <span>A mostrar {Math.min(historyVisible, productMovements.length)} de {productMovements.length}</span>
-                {historyVisible < productMovements.length && (
-                  <Button variant="outline" size="sm" onClick={() => setHistoryVisible(v => v + HIST_PAGE)}>Carregar mais</Button>
-                )}
+                  );
+                })}
+                <div className="flex items-center justify-between text-xs text-muted-foreground pt-2">
+                  <span>A mostrar {Math.min(historyVisible, merged.length)} de {merged.length}</span>
+                  {historyVisible < merged.length && (
+                    <Button variant="outline" size="sm" onClick={() => setHistoryVisible(v => v + HIST_PAGE)}>Carregar mais</Button>
+                  )}
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
         </DialogContent>
       </Dialog>
     </div>
