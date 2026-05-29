@@ -384,7 +384,7 @@ function ReviewAlertDialog({
   const [notes, setNotes] = useState("");
 
   // reset notes when opening
-  useMemo(() => {
+  useEffect(() => {
     setNotes(existing?.notes ?? "");
   }, [existing?.id, product?.product_id]);
 
