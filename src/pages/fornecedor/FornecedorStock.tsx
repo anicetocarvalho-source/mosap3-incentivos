@@ -501,7 +501,7 @@ const FornecedorStock = () => {
                 <TableBody>
                   {filteredMovements.length === 0 ? (
                     <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Sem movimentos</TableCell></TableRow>
-                  ) : filteredMovements.slice(0, 100).map(entry => {
+                  ) : filteredMovements.slice(0, movVisible).map(entry => {
                     if (entry.kind === "price") {
                       const up = Number(entry.new_price) > Number(entry.previous_price);
                       return (
