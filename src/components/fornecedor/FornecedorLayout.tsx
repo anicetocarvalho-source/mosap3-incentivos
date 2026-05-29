@@ -10,6 +10,7 @@ interface Supplier {
   id: string;
   name: string;
   status: string;
+  user_id: string;
 }
 
 const navItems = [
@@ -35,7 +36,7 @@ const FornecedorLayout = () => {
     const check = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { navigate("/auth?profile=fornecedor"); return; }
-      const { data } = await supabase.from("suppliers").select("id, name, status").eq("user_id", user.id).maybeSingle();
+      const { data } = await supabase.from("suppliers").select("id, name, status, user_id").eq("user_id", user.id).maybeSingle();
       if (!data) { await supabase.auth.signOut(); navigate("/auth?profile=fornecedor"); toast.error("Conta não associada a fornecedor"); return; }
       setSupplier(data);
       setLoading(false);

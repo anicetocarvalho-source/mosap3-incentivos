@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useOutletContext } from "react-router-dom";
-import { Package, AlertTriangle, ArrowUpCircle, ArrowDownCircle, RotateCcw, Search, History, Edit2, TrendingDown, TrendingUp, Loader2, Tag, Calendar as CalendarIcon, X, User } from "lucide-react";
+import { Package, AlertTriangle, ArrowUpCircle, ArrowDownCircle, RotateCcw, Search, History, Edit2, TrendingDown, TrendingUp, Loader2, Tag, Calendar as CalendarIcon, X, User, Lock } from "lucide-react";
 import { ErrorState } from "@/components/ui/error-state";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 
 interface Product {
@@ -61,7 +62,17 @@ const MOVEMENT_LABELS: Record<string, { label: string; color: string; icon: any 
 };
 
 const FornecedorStock = () => {
-  const { supplier } = useOutletContext<{ supplier: { id: string; name: string } }>();
+  const { supplier } = useOutletContext<{ supplier: { id: string; name: string; status: string; user_id: string } }>();
+  const { user, isAdmin } = useAuth();
+  const isSupplierActive = supplier.status === "Ativo";
+  const isOwner = !!user && user.id === supplier.user_id;
+  const canManagePrices = isSupplierActive && (isOwner || isAdmin);
+  const canManageStock = isSupplierActive && (isOwner || isAdmin);
+  const denialReason = !isSupplierActive
+    ? `Conta ${supplier.status?.toLowerCase() || "inactiva"}: acções de stock e preço bloqueadas.`
+    : (!isOwner && !isAdmin)
+      ? "Apenas o titular da conta de fornecedor ou um administrador podem editar preços e registar motivos."
+      : null;
   const [products, setProducts] = useState<Product[]>([]);
   const [movements, setMovements] = useState<StockMovement[]>([]);
   const [priceLogs, setPriceLogs] = useState<PriceLog[]>([]);
@@ -229,7 +240,17 @@ const FornecedorStock = () => {
 
   const getProductName = (id: string) => products.find(p => p.id === id)?.name || "—";
 
+  const guardManageStock = () => {
+    if (!canManageStock) { toast.error(denialReason || "Sem permissão para gerir stock"); return false; }
+    return true;
+  };
+  const guardManagePrices = () => {
+    if (!canManagePrices) { toast.error(denialReason || "Sem permissão para editar preços"); return false; }
+    return true;
+  };
+
   const openMovement = (product: Product, type: string) => {
+    if (!guardManageStock()) return;
     setMoveProduct(product);
     setMoveType(type);
     setMoveQty(0);
@@ -253,6 +274,7 @@ const FornecedorStock = () => {
   };
 
   const openEditMin = (product: Product) => {
+    if (!guardManageStock()) return;
     setEditMinProduct(product);
     setEditMinValue(product.min_stock);
     setEditMinOpen(true);
@@ -260,6 +282,7 @@ const FornecedorStock = () => {
 
   const saveMinStock = async () => {
     if (!editMinProduct) return;
+    if (!guardManageStock()) return;
     setSubmitting(true);
     try {
       await supabase.from("supplier_products").update({ min_stock: editMinValue }).eq("id", editMinProduct.id);
@@ -274,6 +297,7 @@ const FornecedorStock = () => {
   };
 
   const openEditPrice = (product: Product) => {
+    if (!guardManagePrices()) return;
     setEditPriceProduct(product);
     const initial = String(Math.round(product.price * 100) / 100);
     setNewPrice(initial);
@@ -284,6 +308,7 @@ const FornecedorStock = () => {
 
   const savePrice = async () => {
     if (!editPriceProduct) return;
+    if (!guardManagePrices()) return;
     const rounded = Math.round(Number(newPrice) * 100) / 100;
     if (!isFinite(rounded) || rounded < 0) { toast.error("Preço inválido"); return; }
     if (rounded > MAX_PRICE) { toast.error(`O preço máximo permitido é ${MAX_PRICE.toLocaleString("pt-AO")} Kz`); return; }
@@ -314,6 +339,7 @@ const FornecedorStock = () => {
   };
 
   const submitMovement = async () => {
+    if (!guardManageStock()) return;
     if (!moveProduct || moveQty <= 0) { toast.error("Indique uma quantidade válida"); return; }
     const isOut = moveType === "saida" || moveType === "venda";
     if (isOut && moveQty > moveProduct.stock) { toast.error("Quantidade excede o stock disponível"); return; }
@@ -375,6 +401,17 @@ const FornecedorStock = () => {
         </h1>
         <p className="text-muted-foreground text-sm">Inventário da loja {supplier.name}</p>
       </div>
+
+      {denialReason && (
+        <div className="flex items-start gap-2 rounded-lg border border-warning/40 bg-warning/10 p-3 text-sm text-warning-foreground">
+          <Lock className="h-4 w-4 mt-0.5 text-warning" />
+          <div>
+            <p className="font-semibold">Modo apenas leitura</p>
+            <p className="text-muted-foreground">{denialReason}</p>
+          </div>
+        </div>
+      )}
+
 
       {/* Alerts */}
       {(lowStockProducts.length > 0 || outOfStock.length > 0) && (
@@ -488,8 +525,8 @@ const FornecedorStock = () => {
                           </div>
                         </TableCell>
                         <TableCell className="text-center">
-                          <button className="text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1 mx-auto" onClick={() => openEditMin(p)}>
-                            {p.min_stock} <Edit2 className="h-2.5 w-2.5" />
+                          <button className="text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1 mx-auto disabled:opacity-50 disabled:cursor-not-allowed" disabled={!canManageStock} title={canManageStock ? "Editar stock mínimo" : (denialReason || "Sem permissão")} onClick={() => openEditMin(p)}>
+                            {p.min_stock} {canManageStock && <Edit2 className="h-2.5 w-2.5" />}
                           </button>
                         </TableCell>
                         <TableCell className="text-center text-sm font-medium">{(p.stock * Number(p.price)).toLocaleString("pt-AO")} Kz</TableCell>
@@ -500,15 +537,15 @@ const FornecedorStock = () => {
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-1">
-                            <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => openMovement(p, "entrada")}>
+                            <Button variant="ghost" size="sm" className="h-7 text-xs" disabled={!canManageStock} title={canManageStock ? "" : (denialReason || "Sem permissão")} onClick={() => openMovement(p, "entrada")}>
                               <ArrowUpCircle className="h-3 w-3 mr-1 text-primary" /> Entrada
                             </Button>
-                            <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => openMovement(p, "saida")}>
+                            <Button variant="ghost" size="sm" className="h-7 text-xs" disabled={!canManageStock} title={canManageStock ? "" : (denialReason || "Sem permissão")} onClick={() => openMovement(p, "saida")}>
                               <ArrowDownCircle className="h-3 w-3 mr-1 text-destructive" /> Saída
                             </Button>
-                            <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => openMovement(p, "ajuste")}><RotateCcw className="h-3 w-3" /></Button>
-                            <Button variant="ghost" size="sm" className="h-7 text-xs" title="Editar preço" onClick={() => openEditPrice(p)}><Tag className="h-3 w-3" /></Button>
-                            <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => openHistory(p)}><History className="h-3 w-3" /></Button>
+                            <Button variant="ghost" size="sm" className="h-7 text-xs" disabled={!canManageStock} title={canManageStock ? "Ajuste de inventário" : (denialReason || "Sem permissão")} onClick={() => openMovement(p, "ajuste")}><RotateCcw className="h-3 w-3" /></Button>
+                            <Button variant="ghost" size="sm" className="h-7 text-xs" disabled={!canManagePrices} title={canManagePrices ? "Editar preço" : (denialReason || "Sem permissão")} onClick={() => openEditPrice(p)}><Tag className="h-3 w-3" /></Button>
+                            <Button variant="ghost" size="sm" className="h-7 text-xs" title="Histórico" onClick={() => openHistory(p)}><History className="h-3 w-3" /></Button>
                           </div>
                         </TableCell>
                       </TableRow>
