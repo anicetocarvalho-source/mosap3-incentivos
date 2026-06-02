@@ -1,11 +1,15 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
-import { CreditCard, Store, Monitor, ShoppingCart, TrendingUp, Package, Users, AlertTriangle, Loader2 } from "lucide-react";
+import {
+  CreditCard, Store, Monitor, ShoppingCart, TrendingUp, Package, Users, AlertTriangle, Loader2,
+  Receipt, FileText, BarChart3, Wand2, Smartphone, Shield, Settings, ShieldCheck,
+} from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllPages } from "@/lib/supabaseFetchAll";
+import { usePriceAnalysis, usePriceAlertReviews } from "@/hooks/usePriceAnalysis";
 
 const Mosap3Pay = () => {
   const [stats, setStats] = useState({
