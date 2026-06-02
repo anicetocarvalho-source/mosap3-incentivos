@@ -104,50 +104,12 @@ const Mosap3Pay = () => {
         ))}
       </div>
 
-      {/* Quick Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <Store className="h-4 w-4 text-info" /> Gestão de Fornecedores
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <p className="text-xs text-muted-foreground">Cadastrar fornecedores, gerir catálogo de produtos, configurar terminais POS e definir limites por época.</p>
-            <Button asChild size="sm" variant="outline" className="w-full">
-              <Link to="/mosap3pay/fornecedores">Gerir Fornecedores</Link>
-            </Button>
-          </CardContent>
-        </Card>
+      {/* Banner contextual: alertas de preço alta severidade não revistos */}
+      <PriceAlertsBanner />
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <Monitor className="h-4 w-4 text-accent-foreground" /> Terminal POS
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <p className="text-xs text-muted-foreground">Realizar vendas, identificar produtores por código/telefone, validar PATEC e processar pagamentos.</p>
-            <Button asChild size="sm" className="w-full">
-              <Link to="/mosap3pay/pos">Abrir POS</Link>
-            </Button>
-          </CardContent>
-        </Card>
+      {/* Acessos rápidos agrupados por área */}
+      <FeatureGrid />
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <TrendingUp className="h-4 w-4 text-success" /> Histórico de Vendas
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <p className="text-xs text-muted-foreground">Consultar todas as transações, filtrar por fornecedor, produtor ou período, e exportar relatórios.</p>
-            <Button asChild size="sm" variant="outline" className="w-full">
-              <Link to="/mosap3pay/vendas">Ver Vendas</Link>
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
 
       {/* Recent Sales */}
       <Card>
