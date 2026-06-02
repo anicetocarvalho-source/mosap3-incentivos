@@ -544,6 +544,12 @@ export default function Mosap3PayAnalisePrecos() {
         existing={reviewProduct ? reviewMap.get(`${reviewProduct.product_id}|${reviewProduct.supplier_id}`) ?? null : null}
         onClose={() => setReviewProduct(null)}
       />
+      <BatchReviewDialog
+        open={batchReviewOpen}
+        items={selectedPending}
+        onClose={() => setBatchReviewOpen(false)}
+        onSuccess={() => setSelectedKeys(new Set())}
+      />
     </div>
   );
 }
