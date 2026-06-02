@@ -284,5 +284,3 @@ function FeatureGrid() {
 
 export default Mosap3Pay;
 
-
-export default Mosap3Pay;
