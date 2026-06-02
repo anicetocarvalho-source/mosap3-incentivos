@@ -75,10 +75,42 @@ export default function Mosap3PayAnalisePrecos() {
     return Number(r.reviewed_price) === Number(row.current_price) ? "revisto" : "desactualizado";
   };
 
+  const rowKey = (row: PriceAlertRow) => `${row.product_id}|${row.supplier_id}`;
+
   const categories = useMemo(() => {
     const set = new Set(alerts.map((a) => a.category));
     return Array.from(set).sort();
   }, [alerts]);
+
+  // Seleção em lote
+  const visibleKeys = useMemo(() => visible.map(rowKey), [visible]);
+  const allVisibleSelected = visibleKeys.length > 0 && visibleKeys.every((k) => selectedKeys.has(k));
+  const someVisibleSelected = visibleKeys.some((k) => selectedKeys.has(k)) && !allVisibleSelected;
+  const selectedPending = useMemo(
+    () => visible.filter((r) => selectedKeys.has(rowKey(r)) && reviewStatusOf(r) !== "revisto"),
+    [visible, selectedKeys, reviewMap],
+  );
+
+  const toggleSelectAllVisible = () => {
+    setSelectedKeys((prev) => {
+      const next = new Set(prev);
+      if (allVisibleSelected) {
+        visibleKeys.forEach((k) => next.delete(k));
+      } else {
+        visibleKeys.forEach((k) => next.add(k));
+      }
+      return next;
+    });
+  };
+
+  const toggleRow = (key: string) => {
+    setSelectedKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
 
   const filtered = useMemo(() => {
     return alerts.filter((a) => {
