@@ -436,9 +436,16 @@ export default function Mosap3PayAnalisePrecos() {
                   return (
                     <div key={`${row.product_id}-${row.supplier_id}`} className="p-3 space-y-2">
                       <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <p className="font-medium text-sm">{row.product_name}</p>
-                          <p className="text-xs text-muted-foreground">{row.supplier_name} · {row.category}</p>
+                        <div className="flex items-start gap-2">
+                          <Checkbox
+                            checked={selectedKeys.has(rowKey(row))}
+                            onCheckedChange={() => toggleRow(rowKey(row))}
+                            aria-label={`Seleccionar ${row.product_name}`}
+                          />
+                          <div>
+                            <p className="font-medium text-sm">{row.product_name}</p>
+                            <p className="text-xs text-muted-foreground">{row.supplier_name} · {row.category}</p>
+                          </div>
                         </div>
                         <Badge className={sev.classes} variant="outline">{sev.label}</Badge>
                       </div>
