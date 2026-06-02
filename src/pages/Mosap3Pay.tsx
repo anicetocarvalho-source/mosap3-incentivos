@@ -148,4 +148,141 @@ const Mosap3Pay = () => {
   );
 };
 
+// ----------------------------------------------------------------------------
+// Banner contextual: alertas de preço com severidade alta ainda não revistos
+// ----------------------------------------------------------------------------
+function PriceAlertsBanner() {
+  const { data: alerts } = usePriceAnalysis();
+  const { data: reviews } = usePriceAlertReviews();
+
+  const pending = useMemo(() => {
+    if (!alerts) return [];
+    const reviewedKeys = new Set(
+      (reviews ?? []).map((r) => `${r.product_id}::${r.supplier_id}`),
+    );
+    return alerts.filter(
+      (a) => a.severity === "alta" && !reviewedKeys.has(`${a.product_id}::${a.supplier_id}`),
+    );
+  }, [alerts, reviews]);
+
+  if (pending.length === 0) return null;
+
+  const supplierCount = new Set(pending.map((p) => p.supplier_id)).size;
+
+  return (
+    <Card className="border-warning/50 bg-warning/5">
+      <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center gap-3 justify-between">
+        <div className="flex items-start gap-3">
+          <div className="h-10 w-10 rounded-full bg-warning/15 flex items-center justify-center flex-shrink-0">
+            <AlertTriangle className="h-5 w-5 text-warning" />
+          </div>
+          <div>
+            <p className="text-sm font-semibold">
+              {pending.length} {pending.length === 1 ? "alerta" : "alertas"} de preço anormal por rever
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {supplierCount} {supplierCount === 1 ? "fornecedor" : "fornecedores"} com produtos em severidade alta
+            </p>
+          </div>
+        </div>
+        <Button asChild size="sm" variant="default">
+          <Link to="/mosap3pay/analise-precos">Rever alertas</Link>
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ----------------------------------------------------------------------------
+// Grelha de funcionalidades agrupada por área
+// ----------------------------------------------------------------------------
+type FeatureCard = {
+  icon: any;
+  label: string;
+  desc: string;
+  to: string;
+  color: string;
+  badge?: string;
+};
+
+type FeatureGroup = {
+  title: string;
+  items: FeatureCard[];
+};
+
+const FEATURE_GROUPS: FeatureGroup[] = [
+  {
+    title: "Operação",
+    items: [
+      { icon: Monitor, label: "Terminal POS", desc: "Registar vendas e validar PATEC do produtor", to: "/mosap3pay/pos", color: "text-primary" },
+      { icon: ShoppingCart, label: "Vendas", desc: "Histórico de transações e filtros avançados", to: "/mosap3pay/vendas", color: "text-success" },
+      { icon: Receipt, label: "Facturas", desc: "Documentos fiscais emitidos (Série FT)", to: "/mosap3pay/facturas", color: "text-info" },
+      { icon: FileText, label: "Notas de Crédito", desc: "Anular ou ajustar facturas (Série NC)", to: "/mosap3pay/notas-credito", color: "text-warning", badge: "Novo" },
+    ],
+  },
+  {
+    title: "Catálogo & Stock",
+    items: [
+      { icon: Store, label: "Fornecedores", desc: "Cadastro, catálogo e zonas de atuação", to: "/mosap3pay/fornecedores", color: "text-info" },
+      { icon: Package, label: "Stock", desc: "Existências por loja com alertas de mínimo", to: "/mosap3pay/stock", color: "text-success" },
+      { icon: ShieldCheck, label: "Aprovação de Fornecedores", desc: "Validar candidaturas pendentes", to: "/mosap3pay/fornecedores/aprovacoes", color: "text-primary" },
+    ],
+  },
+  {
+    title: "Análise & Controlo",
+    items: [
+      { icon: TrendingUp, label: "Análise de Preços", desc: "Detectar variações anormais entre fornecedores", to: "/mosap3pay/analise-precos", color: "text-warning", badge: "Novo" },
+      { icon: BarChart3, label: "Painel de Vendas", desc: "KPIs comerciais e séries temporais", to: "/mosap3pay/painel-vendas", color: "text-primary", badge: "Novo" },
+      { icon: Wand2, label: "Reconciliação", desc: "Conferência financeira e fecho de caixa", to: "/mosap3pay/reconciliacao", color: "text-info" },
+      { icon: BarChart3, label: "Relatórios", desc: "Relatórios financeiros e fiscais (SAF-T AO)", to: "/mosap3pay/relatorios", color: "text-success" },
+    ],
+  },
+  {
+    title: "Administração",
+    items: [
+      { icon: Shield, label: "Auditoria", desc: "Histórico de ações críticas no módulo", to: "/mosap3pay/auditoria", color: "text-primary" },
+      { icon: AlertTriangle, label: "Ocorrências", desc: "Incidentes e reclamações registadas", to: "/mosap3pay/ocorrencias", color: "text-destructive" },
+      { icon: Smartphone, label: "Cartões SIM", desc: "Gestão de SIMs Unitel Money por terminal", to: "/mosap3pay/cartoes-sim", color: "text-info" },
+      { icon: Settings, label: "Configurações", desc: "Séries fiscais, integrações e parâmetros", to: "/mosap3pay/configuracoes", color: "text-muted-foreground" },
+    ],
+  },
+];
+
+function FeatureGrid() {
+  return (
+    <div className="space-y-5">
+      {FEATURE_GROUPS.map((group) => (
+        <div key={group.title}>
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+            {group.title}
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {group.items.map((item) => (
+              <Link key={item.to} to={item.to}>
+                <Card className="h-full hover:border-primary/50 hover:shadow-sm transition-all cursor-pointer">
+                  <CardContent className="p-4 space-y-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <item.icon className={`h-5 w-5 ${item.color}`} />
+                      {item.badge && (
+                        <Badge variant="secondary" className="text-[10px] h-5 px-1.5">
+                          {item.badge}
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="text-sm font-semibold leading-tight">{item.label}</p>
+                    <p className="text-[11px] text-muted-foreground leading-snug">{item.desc}</p>
+                  </CardContent>
+                </Card>
+              </Link>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export default Mosap3Pay;
+
+
 export default Mosap3Pay;
