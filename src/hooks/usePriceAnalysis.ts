@@ -137,6 +137,41 @@ export function usePriceAnalysis(params?: {
   });
 }
 
+export function useBatchUpsertPriceAlertReview() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (
+      items: { product_id: string; supplier_id: string; reviewed_price: number; notes?: string | null }[],
+    ) => {
+      const { data: userData } = await supabase.auth.getUser();
+      const user = userData.user;
+      if (!user) throw new Error("Sessão expirada.");
+      const reviewerName =
+        (user.user_metadata as any)?.full_name ||
+        (user.user_metadata as any)?.name ||
+        user.email ||
+        null;
+      const now = new Date().toISOString();
+      const rows = items.map((i) => ({
+        product_id: i.product_id,
+        supplier_id: i.supplier_id,
+        reviewed_price: i.reviewed_price,
+        reviewed_by: user.id,
+        reviewer_name: reviewerName,
+        notes: i.notes ?? null,
+        reviewed_at: now,
+      }));
+      const { data, error } = await supabase
+        .from("price_alert_reviews")
+        .upsert(rows, { onConflict: "product_id,supplier_id" })
+        .select();
+      if (error) throw error;
+      return (data ?? []) as PriceAlertReview[];
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["price-alert-reviews"] }),
+  });
+}
+
 export function useAbruptPriceChanges(params?: { days?: number; thresholdPct?: number }) {
   const days = params?.days ?? 90;
   const thresholdPct = params?.thresholdPct ?? 25;
