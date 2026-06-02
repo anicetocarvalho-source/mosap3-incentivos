@@ -120,6 +120,36 @@ export default function Mosap3PayAnalisePrecos() {
   const visible = useMemo(() => filtered.slice(0, visibleCount), [filtered, visibleCount]);
   const hasMore = visibleCount < filtered.length;
 
+  // Seleção em lote (depende de visible)
+  const visibleKeys = useMemo(() => visible.map(rowKey), [visible]);
+  const allVisibleSelected = visibleKeys.length > 0 && visibleKeys.every((k) => selectedKeys.has(k));
+  const someVisibleSelected = visibleKeys.some((k) => selectedKeys.has(k)) && !allVisibleSelected;
+  const selectedPending = useMemo(
+    () => visible.filter((r) => selectedKeys.has(rowKey(r)) && reviewStatusOf(r) !== "revisto"),
+    [visible, selectedKeys, reviewMap],
+  );
+
+  const toggleSelectAllVisible = () => {
+    setSelectedKeys((prev) => {
+      const next = new Set(prev);
+      if (allVisibleSelected) {
+        visibleKeys.forEach((k) => next.delete(k));
+      } else {
+        visibleKeys.forEach((k) => next.add(k));
+      }
+      return next;
+    });
+  };
+
+  const toggleRow = (key: string) => {
+    setSelectedKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
   useEffect(() => {
     if (!hasMore) return;
     const el = sentinelRef.current;
