@@ -54,7 +54,7 @@ type NavItem = {
   icon: any;
   label: string;
   path?: string;
-  children?: { label: string; path: string; icon?: any; allowedRoles?: AppRole[] }[];
+  children?: { label: string; path: string; icon?: any; allowedRoles?: AppRole[]; badge?: string; separatorBefore?: boolean }[];
   allowedRoles?: AppRole[];
   sidebar?: boolean;
   moduleName?: string;
