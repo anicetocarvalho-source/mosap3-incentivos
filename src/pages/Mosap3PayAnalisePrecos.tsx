@@ -371,6 +371,13 @@ export default function Mosap3PayAnalisePrecos() {
                       const rev = reviewMap.get(`${row.product_id}|${row.supplier_id}`);
                       return (
                         <TableRow key={`${row.product_id}-${row.supplier_id}`}>
+                          <TableCell className="w-10">
+                            <Checkbox
+                              checked={selectedKeys.has(rowKey(row))}
+                              onCheckedChange={() => toggleRow(rowKey(row))}
+                              aria-label={`Seleccionar ${row.product_name}`}
+                            />
+                          </TableCell>
                           <TableCell className="font-medium">{row.product_name} <span className="text-muted-foreground text-xs">/ {row.unit}</span></TableCell>
                           <TableCell><Badge variant="outline">{row.category}</Badge></TableCell>
                           <TableCell>{row.supplier_name}</TableCell>
