@@ -82,7 +82,7 @@ export default function Mosap3PayAnalisePrecos() {
     return Array.from(set).sort();
   }, [alerts]);
 
-  // Seleção em lote — declarado após visible (abaixo)
+  // (helpers de seleção em lote movidos para depois de `visible`)
 
   const filtered = useMemo(() => {
     return alerts.filter((a) => {
