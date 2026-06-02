@@ -720,3 +720,74 @@ function PriceEvolutionDialog({
     </Dialog>
   );
 }
+
+function BatchReviewDialog({
+  open,
+  items,
+  onClose,
+  onSuccess,
+}: {
+  open: boolean;
+  items: PriceAlertRow[];
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const batch = useBatchUpsertPriceAlertReview();
+  const [notes, setNotes] = useState("");
+
+  useEffect(() => {
+    if (open) setNotes("");
+  }, [open]);
+
+  const handleSave = async () => {
+    try {
+      const payload = items.map((row) => ({
+        product_id: row.product_id,
+        supplier_id: row.supplier_id,
+        reviewed_price: Number(row.current_price),
+        notes: notes.trim() || null,
+      }));
+      await batch.mutateAsync(payload);
+      toast.success(`${items.length} alerta${items.length > 1 ? "s" : ""} marcado${items.length > 1 ? "s" : ""} como revisto${items.length > 1 ? "s" : ""}.`);
+      onSuccess();
+      onClose();
+    } catch (e: any) {
+      toast.error(e.message || "Não foi possível guardar as revisões.");
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Revisão em lote</DialogTitle>
+          <DialogDescription>
+            {items.length} alerta{items.length > 1 ? "s" : ""} seleccionado{items.length > 1 ? "s" : ""} para marcar como revisto{items.length > 1 ? "s" : ""}.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3 text-sm">
+          <div className="rounded-md bg-muted p-2 text-xs">
+            <span className="text-muted-foreground">Produtos:</span>{" "}
+            <span className="font-medium">{items.map((i) => i.product_name).join(", ")}</span>
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground">Notas da revisão (opcional, aplicada a todos)</label>
+            <Textarea
+              placeholder="Ex.: confirmado com fornecedores, justificado por aumento de custos…"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={3}
+            />
+          </div>
+        </div>
+        <DialogFooter className="gap-2 sm:gap-0">
+          <Button variant="outline" onClick={onClose}>Cancelar</Button>
+          <Button onClick={handleSave} disabled={batch.isPending}>
+            <CheckCircle2 className="h-4 w-4 mr-1" />
+            {batch.isPending ? "A guardar…" : `Marcar ${items.length} revisto${items.length > 1 ? "s" : ""}`}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
