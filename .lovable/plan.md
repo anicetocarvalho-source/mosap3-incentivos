@@ -1,66 +1,86 @@
-## Objectivo
 
-Detectar e alertar sobre preços anormais praticados por fornecedores, comparando cada produto à média dos restantes fornecedores do mesmo produto/categoria, para controlar especulação e variações abruptas.
+# Validação de acessos por tipo de utilizador
 
-## Nova página: `/mosap3pay/analise-precos`
+Fiz uma auditoria cruzada entre (1) a matriz `module_permissions` na base de dados, (2) os `allowedRoles` definidos em `AppNavbar.tsx` / `RoleGuard.tsx` e (3) as políticas RLS nas tabelas do backend. Resumo do estado atual e o que proponho corrigir.
 
-Acessível apenas a roles backoffice (admin, gestor_incentivos). Adicionada ao menu **Comercial → MOSAP3Pay**, a seguir a "Stock".
+## 1. Achados principais
 
-### Estrutura da página
+### A. A matriz de permissões está VAZIA (crítico)
+A tabela `module_permissions` não tem nenhuma linha. Consequências:
+- A página `/perfis` mostra todos os switches desligados, mas isso não reflete a realidade.
+- O `canAccessModule()` faz fallback "permitir tudo" quando não encontra dados → quem decide acesso é apenas o `allowedRoles` hardcoded em `navItems`.
+- Resultado: módulos sem `allowedRoles` ficam visíveis para TODOS os perfis com sessão.
 
-**1. KPIs no topo**
-- Total de produtos monitorizados
-- Produtos com preço anormal (alertas activos)
-- Variação média de mercado (últimos 30 dias)
-- Fornecedores com ≥1 alerta
+### B. Módulos visíveis para perfis que não deveriam ver
+Pelo `navItems` actual, qualquer perfil autenticado (incluindo Técnico Extensionista e Júniores) vê:
+- Dashboard
+- Produtores (Registo do Pequeno Produtor, Cartões ID)
+- Escolas de Campo
+- Parcelas
+- Produção
+- Instalar
 
-**2. Tabela "Alertas de Preço Anormal"** (default tab)
-Colunas: Produto · Categoria · Fornecedor · Preço actual · Média de mercado · Desvio (%) · Severidade · Última alteração · Acções (ver histórico, ver fornecedor).
+Restritos correctamente por `allowedRoles`:
+- Incentivos, MOSAP3Pay, Anomalias → só `admin` + `gestor_incentivos`
+- Relatórios → backoffice excepto `tecnico_extensionista`
+- Utilizadores, Configurações → só `admin`
 
-Filtros: pesquisa por produto/fornecedor, categoria, severidade, província do fornecedor.
+### C. Backend (RLS) não diferencia perfis dentro do backoffice
+Quase todas as tabelas (`farmers`, `farmer_parcels`, `farmer_production`, `farmer_incentives`, `farmer_transactions`, etc.) usam `has_any_backoffice_role()`, que devolve true para **todos** os 9 perfis backoffice. Significa que:
+- Um Técnico Extensionista pode, via API directa, ler/editar produtores de qualquer província.
+- O filtro geográfico (províncias / ECAs) só é aplicado no cliente via `farmerScope.ts` — não é uma barreira de segurança.
 
-**3. Tabela "Variações Abruptas"** (segundo tab)
-Lista alterações em `product_price_history` cuja variação ultrapassa um limiar configurável (default ±25% num único ajuste), com motivo, utilizador e data.
+### D. Perfil Fornecedor
+Tem fluxo separado em `/fornecedor/*` com guarda própria (`FornecedorLayout`) e RLS dedicada — está OK e isolado do backoffice.
 
-**4. Gráfico de evolução** (modal ao clicar num produto)
-Linha temporal do preço desse produto por fornecedor + linha tracejada da média de mercado, usando `recharts`.
+### E. Pequenas inconsistências
+- `Perfis.tsx` lista o módulo "Compras" e "Empresas" que já foram removidos da navegação.
+- O perfil `fornecedor` aparece como coluna em `/perfis` mas não tem nada a ver com módulos backoffice.
+- "Análise de Preços" (recém criada) herda permissão do pai MOSAP3Pay → OK.
 
-## Regras de detecção
+## 2. Matriz proposta (a popular em `module_permissions`)
 
-Para cada `supplier_products` activo, agrupar por "produto comparável":
-- Chave de agrupamento: `lower(name)` + `category` + `unit` (mesma unidade é essencial para comparar). Mínimo de 3 fornecedores para gerar média fiável; caso contrário marcar "amostra insuficiente" e não alertar.
-- Calcular `avg_price`, `median_price`, `stddev` por grupo.
-- **Severidade**:
-  - Alta: desvio > +40% acima da média **ou** > 2× desvio-padrão
-  - Média: desvio > +25% e ≤ +40%
-  - Baixa (informativa): desvio < -25% (preço suspeito de dumping)
-- Limiares configuráveis em `system_settings` (chaves novas: `price_alert_high_pct`, `price_alert_medium_pct`, `price_alert_min_suppliers`).
-
-## Implementação técnica
-
-```text
-src/pages/Mosap3PayAnalisePrecos.tsx        (nova página)
-src/hooks/usePriceAnalysis.ts               (carrega + calcula grupos)
-src/components/precos/PriceAlertsTable.tsx
-src/components/precos/AbruptChangesTable.tsx
-src/components/precos/PriceEvolutionDialog.tsx
 ```
+Módulo                          adm  gest  sAgr sMon sAgn jAgr jMon jAgn tEx
+Dashboard                        x    x     x    x    x    x    x    x    x
+Cadastro de Agricultores         x    x     x    x    x    x    x    x    x
+Escolas de Campo                 x    x     x    x    x    x    x    x    x
+Parcelas                         x    x     x    .    .    x    .    .    x
+Produção                         x    x     x    .    .    x    .    .    x
+Incentivos                       x    x     .    .    .    .    .    .    .
+MOSAP3Pay                        x    x     .    .    .    .    .    .    .
+Relatórios                       x    x     x    x    x    x    x    x    .
+Anomalias                        x    x     .    .    .    .    .    .    .
+Utilizadores                     x    .     .    .    .    .    .    .    .
+Configurações                    x    .     .    .    .    .    .    .    .
+Gestão de Províncias             x    .     .    .    .    .    .    .    .
+Gestão de ECAs                   x    x     x    x    x    .    .    .    .
+```
+(Confirmar consigo antes de aplicar — ver Decisões abaixo.)
 
-- **RPC SQL** `analyze_supplier_prices(p_min_suppliers int, p_high_pct numeric, p_medium_pct numeric)` (SECURITY DEFINER, `has_any_backoffice_role`):
-  - Devolve linhas: `product_key`, `product_name`, `category`, `unit`, `supplier_id`, `supplier_name`, `province`, `current_price`, `avg_price`, `median_price`, `stddev`, `deviation_pct`, `severity`, `last_changed_at`.
-  - Faz `GROUP BY` e `JOIN LATERAL` para obter `last_changed_at` de `product_price_history`.
-- **RPC SQL** `detect_abrupt_price_changes(p_days int, p_threshold_pct numeric)`:
-  - Lê `product_price_history` últimos N dias com `abs(delta/previous_price) >= threshold`.
-- Sem alterações ao esquema existente; apenas funções e (opcional) 3 chaves em `system_settings`.
+## 3. Plano de correcção
 
-## Integrações
+### Passo 1 — Popular `module_permissions` (migração SQL)
+Inserir uma linha por par (módulo, role) seguindo a matriz acima. Limpar entradas órfãs ("Compras", "Empresas") e remover a coluna `fornecedor` da página `/perfis`.
 
-- **Cartão de aviso** no `FornecedorStock.tsx` (visão do fornecedor) quando algum dos seus produtos estiver marcado como "Alta" — mostra média de mercado e sugere revisão. Apenas leitura para o próprio fornecedor.
-- **Badge** no card do fornecedor em `Mosap3PayFornecedores.tsx` com contagem de produtos em alerta.
-- **Item no menu** Comercial → "Análise de Preços" (após Stock), com badge da contagem total de alertas activos (similar ao padrão já usado para PATEC pendentes).
+### Passo 2 — Reforçar `AppNavbar` para itens "abertos"
+Adicionar `moduleName` em todos os itens que hoje não têm restrição (Dashboard, Produtores, Escolas, Parcelas, Produção) para que a matriz DB passe a controlá-los efectivamente. Já existem `moduleName` em quase todos; falta acrescentar restrições onde só há `moduleName` sem `allowedRoles` fallback.
 
-## Fora deste plano
+### Passo 3 — Apertar RLS no backend (recomendado, mas opcional nesta fase)
+Substituir `has_any_backoffice_role()` por funções `can_read_farmers(uid)` / `can_write_farmers(uid)` que validem província ou ECA via `user_provinces` / `user_ecas`. Isto fecha o gap de o filtro geográfico ser só client-side. **Impacto alto**: requer testes em todas as queries. Sugiro fazer numa iteração separada.
 
-- Notificações automáticas (push/email) — pode ser adicionado em fase 2 reaproveitando `farmer_notifications` ou criando job cron.
-- Bloqueio automático de vendas com preço anormal — apenas alertar nesta fase, sem bloquear o POS.
-- Comparação com preços históricos do próprio fornecedor (já parcialmente coberto pelo histórico no Stock).
+### Passo 4 — Limpeza visual em `/perfis`
+- Remover linhas "Compras" e "Empresas".
+- Remover coluna "Fornecedor" (não se aplica a módulos internos).
+- Adicionar tooltip a explicar o efeito de cada toggle.
+
+## 4. Decisões que preciso de si
+
+1. **A matriz proposta na secção 2 está correcta?** Em particular:
+   - Júniores Monitoria/Agronegócio devem ver Parcelas e Produção?
+   - Técnico Extensionista deve aceder a Relatórios?
+   - Gestor de Incentivos deve gerir Utilizadores / Configurações?
+2. **Quer que eu avance já com o Passo 3 (RLS por província/ECA)** ou prefere fazer apenas Passos 1, 2 e 4 nesta iteração?
+3. **Confirma a remoção da coluna "Fornecedor"** da matriz `/perfis`?
+
+Assim que confirmar, executo as alterações.

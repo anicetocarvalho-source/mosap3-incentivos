@@ -98,8 +98,8 @@ export const navItems: NavItem[] = [
       { label: "Soma vs. Snapshot", path: "/relatorios/snapshots", icon: BarChart3 },
     ],
   },
-  { icon: MapPin, label: "Parcelas", path: "/parcelas", moduleName: "Parcelas" },
-  { icon: Wheat, label: "Produção", path: "/producao", moduleName: "Produção" },
+  { icon: MapPin, label: "Parcelas", path: "/parcelas", moduleName: "Parcelas", allowedRoles: ["admin","gestor_incentivos","senior_agricultura","junior_agricultura","tecnico_extensionista"] },
+  { icon: Wheat, label: "Produção", path: "/producao", moduleName: "Produção", allowedRoles: ["admin","gestor_incentivos","senior_agricultura","junior_agricultura","tecnico_extensionista"] },
   {
     icon: CreditCard,
     label: "MOSAP3Pay",

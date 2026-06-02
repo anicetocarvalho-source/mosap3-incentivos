@@ -15,7 +15,6 @@ const ROLE_LABELS: Record<string, string> = {
   senior_agronegocio: "Sén. Agronegócio",
   junior_agronegocio: "Jún. Agronegócio",
   tecnico_extensionista: "Téc. Extensionista",
-  fornecedor: "Fornecedor",
 };
 
 const ROLES = Object.keys(ROLE_LABELS);
@@ -28,9 +27,7 @@ const MODULE_NAMES = [
   "Incentivos",
   "MOSAP3Pay",
   "Transações",
-  "Compras",
   "Parcelas",
-  "Empresas",
   "Produção",
   "Pecuária",
   "Relatórios",
