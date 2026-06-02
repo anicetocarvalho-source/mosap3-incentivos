@@ -323,11 +323,34 @@ export default function Mosap3PayAnalisePrecos() {
             <Card><CardContent className="py-10 text-center text-sm text-muted-foreground">Sem alertas com os filtros actuais.</CardContent></Card>
           ) : (
             <>
+              {/* Toolbar de acções em lote */}
+              {selectedKeys.size > 0 && (
+                <Card className="bg-primary/5 border-primary/20">
+                  <CardContent className="py-3 flex flex-wrap items-center gap-3">
+                    <span className="text-sm font-medium">
+                      {selectedKeys.size} seleccionado{selectedKeys.size > 1 ? "s" : ""}
+                    </span>
+                    {selectedPending.length > 0 && (
+                      <Button size="sm" onClick={() => setBatchReviewOpen(true)}>
+                        <CheckCircle2 className="h-4 w-4 mr-1" />
+                        Marcar {selectedPending.length} revisto{selectedPending.length > 1 ? "s" : ""}
+                      </Button>
+                    )}
+                    <Button size="sm" variant="ghost" onClick={() => setSelectedKeys(new Set())}>
+                      Limpar selecção
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
+
               {/* Desktop table */}
               <Card className="hidden md:block overflow-hidden">
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-10">
+                        <Checkbox checked={allVisibleSelected} onCheckedChange={toggleSelectAllVisible} aria-label="Seleccionar todos visíveis" />
+                      </TableHead>
                       <TableHead>Produto</TableHead>
                       <TableHead>Categoria</TableHead>
                       <TableHead>Fornecedor</TableHead>
