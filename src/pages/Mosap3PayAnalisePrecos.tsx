@@ -56,6 +56,8 @@ export default function Mosap3PayAnalisePrecos() {
   const [evolutionProduct, setEvolutionProduct] = useState<PriceAlertRow | null>(null);
   const [reviewProduct, setReviewProduct] = useState<PriceAlertRow | null>(null);
   const [reviewStatusFilter, setReviewStatusFilter] = useState<string>("all");
+  const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
+  const [batchReviewOpen, setBatchReviewOpen] = useState(false);
 
   const { data: alerts = [], isLoading, error, refetch } = usePriceAnalysis({ minSuppliers, highPct, mediumPct });
   const { data: abrupt = [], isLoading: loadingAbrupt } = useAbruptPriceChanges({ days: abruptDays, thresholdPct: abruptThreshold });
