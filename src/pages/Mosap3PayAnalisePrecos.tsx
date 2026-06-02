@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -21,6 +22,7 @@ import {
   usePriceAlertReviews,
   useUpsertPriceAlertReview,
   useDeletePriceAlertReview,
+  useBatchUpsertPriceAlertReview,
   type PriceAlertRow,
   type PriceAlertReview,
 } from "@/hooks/usePriceAnalysis";
@@ -54,6 +56,8 @@ export default function Mosap3PayAnalisePrecos() {
   const [evolutionProduct, setEvolutionProduct] = useState<PriceAlertRow | null>(null);
   const [reviewProduct, setReviewProduct] = useState<PriceAlertRow | null>(null);
   const [reviewStatusFilter, setReviewStatusFilter] = useState<string>("all");
+  const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
+  const [batchReviewOpen, setBatchReviewOpen] = useState(false);
 
   const { data: alerts = [], isLoading, error, refetch } = usePriceAnalysis({ minSuppliers, highPct, mediumPct });
   const { data: abrupt = [], isLoading: loadingAbrupt } = useAbruptPriceChanges({ days: abruptDays, thresholdPct: abruptThreshold });
@@ -71,10 +75,14 @@ export default function Mosap3PayAnalisePrecos() {
     return Number(r.reviewed_price) === Number(row.current_price) ? "revisto" : "desactualizado";
   };
 
+  const rowKey = (row: PriceAlertRow) => `${row.product_id}|${row.supplier_id}`;
+
   const categories = useMemo(() => {
     const set = new Set(alerts.map((a) => a.category));
     return Array.from(set).sort();
   }, [alerts]);
+
+  // (helpers de seleção em lote movidos para depois de `visible`)
 
   const filtered = useMemo(() => {
     return alerts.filter((a) => {
@@ -111,6 +119,36 @@ export default function Mosap3PayAnalisePrecos() {
 
   const visible = useMemo(() => filtered.slice(0, visibleCount), [filtered, visibleCount]);
   const hasMore = visibleCount < filtered.length;
+
+  // Seleção em lote (depende de visible)
+  const visibleKeys = useMemo(() => visible.map(rowKey), [visible]);
+  const allVisibleSelected = visibleKeys.length > 0 && visibleKeys.every((k) => selectedKeys.has(k));
+  const someVisibleSelected = visibleKeys.some((k) => selectedKeys.has(k)) && !allVisibleSelected;
+  const selectedPending = useMemo(
+    () => visible.filter((r) => selectedKeys.has(rowKey(r)) && reviewStatusOf(r) !== "revisto"),
+    [visible, selectedKeys, reviewMap],
+  );
+
+  const toggleSelectAllVisible = () => {
+    setSelectedKeys((prev) => {
+      const next = new Set(prev);
+      if (allVisibleSelected) {
+        visibleKeys.forEach((k) => next.delete(k));
+      } else {
+        visibleKeys.forEach((k) => next.add(k));
+      }
+      return next;
+    });
+  };
+
+  const toggleRow = (key: string) => {
+    setSelectedKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
 
   useEffect(() => {
     if (!hasMore) return;
@@ -285,11 +323,34 @@ export default function Mosap3PayAnalisePrecos() {
             <Card><CardContent className="py-10 text-center text-sm text-muted-foreground">Sem alertas com os filtros actuais.</CardContent></Card>
           ) : (
             <>
+              {/* Toolbar de acções em lote */}
+              {selectedKeys.size > 0 && (
+                <Card className="bg-primary/5 border-primary/20">
+                  <CardContent className="py-3 flex flex-wrap items-center gap-3">
+                    <span className="text-sm font-medium">
+                      {selectedKeys.size} seleccionado{selectedKeys.size > 1 ? "s" : ""}
+                    </span>
+                    {selectedPending.length > 0 && (
+                      <Button size="sm" onClick={() => setBatchReviewOpen(true)}>
+                        <CheckCircle2 className="h-4 w-4 mr-1" />
+                        Marcar {selectedPending.length} revisto{selectedPending.length > 1 ? "s" : ""}
+                      </Button>
+                    )}
+                    <Button size="sm" variant="ghost" onClick={() => setSelectedKeys(new Set())}>
+                      Limpar selecção
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
+
               {/* Desktop table */}
               <Card className="hidden md:block overflow-hidden">
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-10">
+                        <Checkbox checked={allVisibleSelected} onCheckedChange={toggleSelectAllVisible} aria-label="Seleccionar todos visíveis" />
+                      </TableHead>
                       <TableHead>Produto</TableHead>
                       <TableHead>Categoria</TableHead>
                       <TableHead>Fornecedor</TableHead>
@@ -310,6 +371,13 @@ export default function Mosap3PayAnalisePrecos() {
                       const rev = reviewMap.get(`${row.product_id}|${row.supplier_id}`);
                       return (
                         <TableRow key={`${row.product_id}-${row.supplier_id}`}>
+                          <TableCell className="w-10">
+                            <Checkbox
+                              checked={selectedKeys.has(rowKey(row))}
+                              onCheckedChange={() => toggleRow(rowKey(row))}
+                              aria-label={`Seleccionar ${row.product_name}`}
+                            />
+                          </TableCell>
                           <TableCell className="font-medium">{row.product_name} <span className="text-muted-foreground text-xs">/ {row.unit}</span></TableCell>
                           <TableCell><Badge variant="outline">{row.category}</Badge></TableCell>
                           <TableCell>{row.supplier_name}</TableCell>
@@ -368,9 +436,16 @@ export default function Mosap3PayAnalisePrecos() {
                   return (
                     <div key={`${row.product_id}-${row.supplier_id}`} className="p-3 space-y-2">
                       <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <p className="font-medium text-sm">{row.product_name}</p>
-                          <p className="text-xs text-muted-foreground">{row.supplier_name} · {row.category}</p>
+                        <div className="flex items-start gap-2">
+                          <Checkbox
+                            checked={selectedKeys.has(rowKey(row))}
+                            onCheckedChange={() => toggleRow(rowKey(row))}
+                            aria-label={`Seleccionar ${row.product_name}`}
+                          />
+                          <div>
+                            <p className="font-medium text-sm">{row.product_name}</p>
+                            <p className="text-xs text-muted-foreground">{row.supplier_name} · {row.category}</p>
+                          </div>
                         </div>
                         <Badge className={sev.classes} variant="outline">{sev.label}</Badge>
                       </div>
@@ -468,6 +543,12 @@ export default function Mosap3PayAnalisePrecos() {
         product={reviewProduct}
         existing={reviewProduct ? reviewMap.get(`${reviewProduct.product_id}|${reviewProduct.supplier_id}`) ?? null : null}
         onClose={() => setReviewProduct(null)}
+      />
+      <BatchReviewDialog
+        open={batchReviewOpen}
+        items={selectedPending}
+        onClose={() => setBatchReviewOpen(false)}
+        onSuccess={() => setSelectedKeys(new Set())}
       />
     </div>
   );
@@ -635,6 +716,77 @@ function PriceEvolutionDialog({
             </div>
           </div>
         )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function BatchReviewDialog({
+  open,
+  items,
+  onClose,
+  onSuccess,
+}: {
+  open: boolean;
+  items: PriceAlertRow[];
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const batch = useBatchUpsertPriceAlertReview();
+  const [notes, setNotes] = useState("");
+
+  useEffect(() => {
+    if (open) setNotes("");
+  }, [open]);
+
+  const handleSave = async () => {
+    try {
+      const payload = items.map((row) => ({
+        product_id: row.product_id,
+        supplier_id: row.supplier_id,
+        reviewed_price: Number(row.current_price),
+        notes: notes.trim() || null,
+      }));
+      await batch.mutateAsync(payload);
+      toast.success(`${items.length} alerta${items.length > 1 ? "s" : ""} marcado${items.length > 1 ? "s" : ""} como revisto${items.length > 1 ? "s" : ""}.`);
+      onSuccess();
+      onClose();
+    } catch (e: any) {
+      toast.error(e.message || "Não foi possível guardar as revisões.");
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Revisão em lote</DialogTitle>
+          <DialogDescription>
+            {items.length} alerta{items.length > 1 ? "s" : ""} seleccionado{items.length > 1 ? "s" : ""} para marcar como revisto{items.length > 1 ? "s" : ""}.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3 text-sm">
+          <div className="rounded-md bg-muted p-2 text-xs">
+            <span className="text-muted-foreground">Produtos:</span>{" "}
+            <span className="font-medium">{items.map((i) => i.product_name).join(", ")}</span>
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground">Notas da revisão (opcional, aplicada a todos)</label>
+            <Textarea
+              placeholder="Ex.: confirmado com fornecedores, justificado por aumento de custos…"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={3}
+            />
+          </div>
+        </div>
+        <DialogFooter className="gap-2 sm:gap-0">
+          <Button variant="outline" onClick={onClose}>Cancelar</Button>
+          <Button onClick={handleSave} disabled={batch.isPending}>
+            <CheckCircle2 className="h-4 w-4 mr-1" />
+            {batch.isPending ? "A guardar…" : `Marcar ${items.length} revisto${items.length > 1 ? "s" : ""}`}
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
