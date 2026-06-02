@@ -1,86 +1,56 @@
+## Diagnóstico
 
-# Validação de acessos por tipo de utilizador
+As funcionalidades **estão implementadas e acessíveis**, mas ficaram "escondidas":
 
-Fiz uma auditoria cruzada entre (1) a matriz `module_permissions` na base de dados, (2) os `allowedRoles` definidos em `AppNavbar.tsx` / `RoleGuard.tsx` e (3) as políticas RLS nas tabelas do backend. Resumo do estado atual e o que proponho corrigir.
+| Funcionalidade | Estado real | Onde está hoje |
+|---|---|---|
+| Análise de Preços | OK — rota `/mosap3pay/analise-precos` + RoleGuard admin/gestor_incentivos | Apenas no dropdown do menu superior "MOSAP3Pay" (item nº 10 numa lista de 16) |
+| Marcar alerta como "revisto" | OK — botão dentro da página Análise de Preços | Só visível depois de abrir Análise de Preços |
+| Notificações de severidade alta | OK — trigger BD + sino `NotificationBell` no header | Sino existe mas sem indicação contextual no hub MOSAP3Pay |
+| Outras features recentes (Notas de Crédito, Reconciliação, Stock, Ocorrências, Auditoria, Painel de Vendas, Cartões SIM) | OK — todas com rota e link no dropdown | Idem: só no dropdown |
 
-## 1. Achados principais
+**Causa raiz:** o hub `/mosap3pay` (Dashboard MOSAP3Pay, o que o utilizador abre primeiro) só mostra **3 cards rápidos** (Fornecedores, POS, Histórico de Vendas). Tudo o resto vive escondido no submenu da barra do topo, o que dá a falsa impressão de que "não está disponível".
 
-### A. A matriz de permissões está VAZIA (crítico)
-A tabela `module_permissions` não tem nenhuma linha. Consequências:
-- A página `/perfis` mostra todos os switches desligados, mas isso não reflete a realidade.
-- O `canAccessModule()` faz fallback "permitir tudo" quando não encontra dados → quem decide acesso é apenas o `allowedRoles` hardcoded em `navItems`.
-- Resultado: módulos sem `allowedRoles` ficam visíveis para TODOS os perfis com sessão.
+Não é problema de permissões (o utilizador é admin, `module_permissions` está populada, RoleGuards passam) nem de rota em falta.
 
-### B. Módulos visíveis para perfis que não deveriam ver
-Pelo `navItems` actual, qualquer perfil autenticado (incluindo Técnico Extensionista e Júniores) vê:
-- Dashboard
-- Produtores (Registo do Pequeno Produtor, Cartões ID)
-- Escolas de Campo
-- Parcelas
-- Produção
-- Instalar
+## Plano
 
-Restritos correctamente por `allowedRoles`:
-- Incentivos, MOSAP3Pay, Anomalias → só `admin` + `gestor_incentivos`
-- Relatórios → backoffice excepto `tecnico_extensionista`
-- Utilizadores, Configurações → só `admin`
+Reorganizar o hub `/mosap3pay` para expor **todas as funcionalidades** do módulo comercial, com destaque para as novas. Sem alterar lógica de negócio, RLS ou rotas.
 
-### C. Backend (RLS) não diferencia perfis dentro do backoffice
-Quase todas as tabelas (`farmers`, `farmer_parcels`, `farmer_production`, `farmer_incentives`, `farmer_transactions`, etc.) usam `has_any_backoffice_role()`, que devolve true para **todos** os 9 perfis backoffice. Significa que:
-- Um Técnico Extensionista pode, via API directa, ler/editar produtores de qualquer província.
-- O filtro geográfico (províncias / ECAs) só é aplicado no cliente via `farmerScope.ts` — não é uma barreira de segurança.
+### 1. Reescrever a grelha de acessos rápidos no hub MOSAP3Pay
+Substituir os 3 cards atuais por uma grelha responsiva (2/3/4 colunas) agrupada por área:
 
-### D. Perfil Fornecedor
-Tem fluxo separado em `/fornecedor/*` com guarda própria (`FornecedorLayout`) e RLS dedicada — está OK e isolado do backoffice.
-
-### E. Pequenas inconsistências
-- `Perfis.tsx` lista o módulo "Compras" e "Empresas" que já foram removidos da navegação.
-- O perfil `fornecedor` aparece como coluna em `/perfis` mas não tem nada a ver com módulos backoffice.
-- "Análise de Preços" (recém criada) herda permissão do pai MOSAP3Pay → OK.
-
-## 2. Matriz proposta (a popular em `module_permissions`)
-
+```text
+Operação          Catálogo & Stock     Análise & Controlo       Administração
+- Terminal POS    - Fornecedores       - Análise de Preços ★    - Configurações
+- Vendas          - Stock              - Painel de Vendas       - Auditoria
+- Facturas        - Aprovação Fornec.  - Reconciliação          - Cartões SIM
+- Notas Crédito                        - Relatórios MOSAP3Pay   - Ocorrências
 ```
-Módulo                          adm  gest  sAgr sMon sAgn jAgr jMon jAgn tEx
-Dashboard                        x    x     x    x    x    x    x    x    x
-Cadastro de Agricultores         x    x     x    x    x    x    x    x    x
-Escolas de Campo                 x    x     x    x    x    x    x    x    x
-Parcelas                         x    x     x    .    .    x    .    .    x
-Produção                         x    x     x    .    .    x    .    .    x
-Incentivos                       x    x     .    .    .    .    .    .    .
-MOSAP3Pay                        x    x     .    .    .    .    .    .    .
-Relatórios                       x    x     x    x    x    x    x    x    .
-Anomalias                        x    x     .    .    .    .    .    .    .
-Utilizadores                     x    .     .    .    .    .    .    .    .
-Configurações                    x    .     .    .    .    .    .    .    .
-Gestão de Províncias             x    .     .    .    .    .    .    .    .
-Gestão de ECAs                   x    x     x    x    x    .    .    .    .
-```
-(Confirmar consigo antes de aplicar — ver Decisões abaixo.)
 
-## 3. Plano de correcção
+Cada card: ícone, título, 1 linha de descrição, badge "Novo" nos itens recentes (Análise de Preços, Notas de Crédito, Painel de Vendas), botão `Link` para a rota.
 
-### Passo 1 — Popular `module_permissions` (migração SQL)
-Inserir uma linha por par (módulo, role) seguindo a matriz acima. Limpar entradas órfãs ("Compras", "Empresas") e remover a coluna `fornecedor` da página `/perfis`.
+### 2. Banner contextual de alertas de preço
+No topo do hub, se existirem alertas `severidade='alta'` não revistos do utilizador atual:
+- Card destacado (cor `warning`) com contagem ("3 fornecedores com preços anormais")
+- CTA "Rever alertas" → `/mosap3pay/analise-precos`
 
-### Passo 2 — Reforçar `AppNavbar` para itens "abertos"
-Adicionar `moduleName` em todos os itens que hoje não têm restrição (Dashboard, Produtores, Escolas, Parcelas, Produção) para que a matriz DB passe a controlá-los efectivamente. Já existem `moduleName` em quase todos; falta acrescentar restrições onde só há `moduleName` sem `allowedRoles` fallback.
+Usa a mesma query já existente em `usePriceAnalysis` (filtra `revisto_em IS NULL` e `severidade='alta'`).
 
-### Passo 3 — Apertar RLS no backend (recomendado, mas opcional nesta fase)
-Substituir `has_any_backoffice_role()` por funções `can_read_farmers(uid)` / `can_write_farmers(uid)` que validem província ou ECA via `user_provinces` / `user_ecas`. Isto fecha o gap de o filtro geográfico ser só client-side. **Impacto alto**: requer testes em todas as queries. Sugiro fazer numa iteração separada.
+### 3. Pequena melhoria de descoberta no menu
+No dropdown "MOSAP3Pay" do `AppNavbar`, adicionar um separador visual (`border-t`) entre grupos para facilitar a leitura dos 16 itens, e badge `Novo` ao lado de "Análise de Preços", "Notas de Crédito" e "Painel de Vendas" durante 30 dias.
 
-### Passo 4 — Limpeza visual em `/perfis`
-- Remover linhas "Compras" e "Empresas".
-- Remover coluna "Fornecedor" (não se aplica a módulos internos).
-- Adicionar tooltip a explicar o efeito de cada toggle.
+### Detalhes técnicos
 
-## 4. Decisões que preciso de si
+- Ficheiros a alterar:
+  - `src/pages/Mosap3Pay.tsx` — substituir bloco de Quick Actions (linhas ~103-146) pela nova grelha + banner
+  - `src/components/AppNavbar.tsx` — separadores e badges no submenu MOSAP3Pay (linhas 108-125)
+- Sem alterações a base de dados, RLS, hooks, ou tipos
+- Reutilizar tokens semânticos (`text-primary`, `text-warning`, `text-info`, `Badge variant="secondary"`)
+- Layout 100% responsivo (1 coluna no mobile, 2 no tablet, 4 no desktop)
 
-1. **A matriz proposta na secção 2 está correcta?** Em particular:
-   - Júniores Monitoria/Agronegócio devem ver Parcelas e Produção?
-   - Técnico Extensionista deve aceder a Relatórios?
-   - Gestor de Incentivos deve gerir Utilizadores / Configurações?
-2. **Quer que eu avance já com o Passo 3 (RLS por província/ECA)** ou prefere fazer apenas Passos 1, 2 e 4 nesta iteração?
-3. **Confirma a remoção da coluna "Fornecedor"** da matriz `/perfis`?
+### Fora do âmbito
 
-Assim que confirmar, executo as alterações.
+- Não mexer em permissões (`module_permissions` está OK)
+- Não alterar a lógica de cálculo de alertas nem o trigger de notificações
+- Não tocar no portal do fornecedor

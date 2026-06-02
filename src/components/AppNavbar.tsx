@@ -54,7 +54,7 @@ type NavItem = {
   icon: any;
   label: string;
   path?: string;
-  children?: { label: string; path: string; icon?: any; allowedRoles?: AppRole[] }[];
+  children?: { label: string; path: string; icon?: any; allowedRoles?: AppRole[]; badge?: string; separatorBefore?: boolean }[];
   allowedRoles?: AppRole[];
   sidebar?: boolean;
   moduleName?: string;
@@ -107,18 +107,18 @@ export const navItems: NavItem[] = [
     allowedRoles: ["admin", "gestor_incentivos"],
     children: [
       { label: "Dashboard", path: "/mosap3pay", icon: CreditCard },
-      { label: "Fornecedores", path: "/mosap3pay/fornecedores", icon: Store },
+      { label: "Fornecedores", path: "/mosap3pay/fornecedores", icon: Store, separatorBefore: true },
       { label: "Aprovação de Fornecedores", path: "/mosap3pay/fornecedores/aprovacoes", icon: ShieldCheck, allowedRoles: ["admin"] },
-      { label: "Terminal POS", path: "/mosap3pay/pos", icon: Monitor },
-     { label: "Vendas", path: "/mosap3pay/vendas", icon: ShoppingCart },
-     { label: "Painel de Vendas", path: "/mosap3pay/painel-vendas", icon: BarChart3 },
-      { label: "Facturas", path: "/mosap3pay/facturas", icon: Receipt },
-      { label: "Notas de Crédito", path: "/mosap3pay/notas-credito", icon: FileText },
       { label: "Stock", path: "/mosap3pay/stock", icon: Package },
-      { label: "Análise de Preços", path: "/mosap3pay/analise-precos", icon: TrendingUp },
+      { label: "Terminal POS", path: "/mosap3pay/pos", icon: Monitor, separatorBefore: true },
+      { label: "Vendas", path: "/mosap3pay/vendas", icon: ShoppingCart },
+      { label: "Painel de Vendas", path: "/mosap3pay/painel-vendas", icon: BarChart3, badge: "Novo" },
+      { label: "Facturas", path: "/mosap3pay/facturas", icon: Receipt },
+      { label: "Notas de Crédito", path: "/mosap3pay/notas-credito", icon: FileText, badge: "Novo" },
+      { label: "Análise de Preços", path: "/mosap3pay/analise-precos", icon: TrendingUp, badge: "Novo", separatorBefore: true },
       { label: "Relatórios", path: "/mosap3pay/relatorios", icon: BarChart3 },
       { label: "Reconciliação", path: "/mosap3pay/reconciliacao", icon: Wand2 },
-      { label: "Cartões SIM", path: "/mosap3pay/cartoes-sim", icon: Smartphone },
+      { label: "Cartões SIM", path: "/mosap3pay/cartoes-sim", icon: Smartphone, separatorBefore: true },
       { label: "Ocorrências", path: "/mosap3pay/ocorrencias", icon: AlertTriangle },
       { label: "Auditoria", path: "/mosap3pay/auditoria", icon: Shield },
       { label: "Configurações", path: "/mosap3pay/configuracoes", icon: Settings },
@@ -274,13 +274,20 @@ const AppNavbar = () => {
                             key={child.path}
                             to={child.path}
                             className={`flex items-center gap-2 px-4 py-2.5 text-sm transition-colors ${
+                              child.separatorBefore ? "border-t border-border mt-1 pt-2.5" : ""
+                            } ${
                               location.pathname === child.path
                                 ? "bg-accent text-accent-foreground font-medium"
                                 : "text-foreground hover:bg-muted"
                             }`}
                           >
                             {child.icon && <child.icon className="h-4 w-4" />}
-                            <span>{child.label}</span>
+                            <span className="flex-1">{child.label}</span>
+                            {child.badge && (
+                              <span className="ml-auto text-[10px] font-semibold px-1.5 py-0.5 rounded bg-primary/15 text-primary">
+                                {child.badge}
+                              </span>
+                            )}
                           </Link>
                         ))}
                       </div>
