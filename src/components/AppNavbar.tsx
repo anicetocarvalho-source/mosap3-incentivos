@@ -274,13 +274,20 @@ const AppNavbar = () => {
                             key={child.path}
                             to={child.path}
                             className={`flex items-center gap-2 px-4 py-2.5 text-sm transition-colors ${
+                              child.separatorBefore ? "border-t border-border mt-1 pt-2.5" : ""
+                            } ${
                               location.pathname === child.path
                                 ? "bg-accent text-accent-foreground font-medium"
                                 : "text-foreground hover:bg-muted"
                             }`}
                           >
                             {child.icon && <child.icon className="h-4 w-4" />}
-                            <span>{child.label}</span>
+                            <span className="flex-1">{child.label}</span>
+                            {child.badge && (
+                              <span className="ml-auto text-[10px] font-semibold px-1.5 py-0.5 rounded bg-primary/15 text-primary">
+                                {child.badge}
+                              </span>
+                            )}
                           </Link>
                         ))}
                       </div>
