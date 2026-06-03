@@ -268,6 +268,16 @@ export default function PatecCompositionDialog({ open, onOpenChange, patec }: Pr
       toast.error("Unidade obrigatória", { description: "Ex: kg, L, un, cabeça." });
       return;
     }
+
+    const dup = findDuplicate(name, subcategory, culture, it.id);
+    if (dup) {
+      toast.error("Item duplicado", {
+        description: `Já existe "${dup.name}" em ${
+          SUBCATEGORY_LABELS[dup.subcategory || ""] || dup.subcategory || "—"
+        }${dup.culture ? ` / ${dup.culture}` : ""}. Ajuste o item existente em vez de duplicar.`,
+      });
+      return;
+    }
     setSaving(true);
     const patch = {
       name,
