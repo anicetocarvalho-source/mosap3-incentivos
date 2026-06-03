@@ -1,56 +1,77 @@
-## Diagnóstico
 
-As funcionalidades **estão implementadas e acessíveis**, mas ficaram "escondidas":
+## Objetivo
 
-| Funcionalidade | Estado real | Onde está hoje |
-|---|---|---|
-| Análise de Preços | OK — rota `/mosap3pay/analise-precos` + RoleGuard admin/gestor_incentivos | Apenas no dropdown do menu superior "MOSAP3Pay" (item nº 10 numa lista de 16) |
-| Marcar alerta como "revisto" | OK — botão dentro da página Análise de Preços | Só visível depois de abrir Análise de Preços |
-| Notificações de severidade alta | OK — trigger BD + sino `NotificationBell` no header | Sino existe mas sem indicação contextual no hub MOSAP3Pay |
-| Outras features recentes (Notas de Crédito, Reconciliação, Stock, Ocorrências, Auditoria, Painel de Vendas, Cartões SIM) | OK — todas com rota e link no dropdown | Idem: só no dropdown |
+Permitir que o fornecedor crie **vendedores** (com username + PIN curto) e que cada terminal POS opere com um vendedor autenticado e um **turno aberto**, para saber em qualquer momento quem vendeu o quê.
 
-**Causa raiz:** o hub `/mosap3pay` (Dashboard MOSAP3Pay, o que o utilizador abre primeiro) só mostra **3 cards rápidos** (Fornecedores, POS, Histórico de Vendas). Tudo o resto vive escondido no submenu da barra do topo, o que dá a falsa impressão de que "não está disponível".
+## Modelo de funcionamento
 
-Não é problema de permissões (o utilizador é admin, `module_permissions` está populada, RoleGuards passam) nem de rota em falta.
+- O dono do fornecedor continua a entrar com email + password.
+- Dentro do portal cria/gere vendedores: nome, username único por fornecedor, PIN 4–6 dígitos, estado ativo/inativo.
+- Vendedor é do **fornecedor** (pode operar em qualquer POS / loja).
+- No POS, antes de vender, faz‑se "login de turno": escolhe o POS, escolhe o vendedor, introduz PIN → abre `pos_shift` (caixa). Todas as vendas dessa sessão gravam `seller_id` e `shift_id`.
+- No fim do dia o vendedor (ou o dono) **fecha o turno**: o sistema regista totais (nº de vendas, total bruto, IVA, métodos de pagamento) e timestamp de fecho. Turno fechado fica imutável.
+- Relatórios por vendedor / por turno / por dia.
 
-## Plano
+## Base de dados (migração)
 
-Reorganizar o hub `/mosap3pay` para expor **todas as funcionalidades** do módulo comercial, com destaque para as novas. Sem alterar lógica de negócio, RLS ou rotas.
+Novas tabelas em `public`:
 
-### 1. Reescrever a grelha de acessos rápidos no hub MOSAP3Pay
-Substituir os 3 cards atuais por uma grelha responsiva (2/3/4 colunas) agrupada por área:
+1. **`supplier_sellers`**
+   - `supplier_id` (FK suppliers), `full_name`, `username` (único por fornecedor), `pin_hash` (PBKDF2/bcrypt via pgcrypto, nunca PIN em claro), `pin_salt`, `is_active`, `created_by`, timestamps.
+   - Índice único `(supplier_id, lower(username))`.
+
+2. **`pos_shifts`**
+   - `supplier_id`, `seller_id` (FK supplier_sellers), `pos_id` (FK supplier_pos, opcional), `opened_at`, `closed_at`, `status` ('aberto'|'fechado'), `opening_note`, `closing_note`.
+   - `totals` jsonb consolidado no fecho (nº vendas, subtotal, iva, total, por método).
+   - Constraint: no máximo um turno `aberto` por `(seller_id, pos_id)`.
+
+3. **`pos_sales`** — adicionar colunas `seller_id uuid`, `shift_id uuid`, `seller_name text` (snapshot), índices por ambos. Backfill = NULL para vendas anteriores.
+
+Funções SECURITY DEFINER (parametrizadas, nada de SQL dinâmico):
+- `supplier_seller_login(_supplier_id, _username, _pin)` → valida hash, devolve `seller_id` + dados básicos. Rate‑limit simples por (supplier_id, username) via tentativas falhadas (campo `failed_attempts`, `locked_until`).
+- `open_pos_shift(_seller_id, _pos_id, _note)` → cria turno aberto.
+- `close_pos_shift(_shift_id, _note)` → consolida totais a partir de `pos_sales` e marca fechado.
+- `supplier_seller_set_pin(_seller_id, _new_pin)` → só dono do fornecedor / admin.
+
+RLS:
+- Dono do fornecedor (user_id = auth.uid() em `suppliers`) gere os seus vendedores e turnos (SELECT/INSERT/UPDATE).
+- Admin backoffice vê tudo.
+- `pos_sales` mantém RLS atual; trigger garante que `seller_id`/`shift_id`, se preenchidos, pertencem ao mesmo fornecedor.
+- GRANTs explícitos para `authenticated` e `service_role`.
+
+Auditoria: `audit_logs` para criação/desativação de vendedor, alteração de PIN, abertura/fecho de turno.
+
+## Frontend
+
+Páginas/components novos no portal do fornecedor:
 
 ```text
-Operação          Catálogo & Stock     Análise & Controlo       Administração
-- Terminal POS    - Fornecedores       - Análise de Preços ★    - Configurações
-- Vendas          - Stock              - Painel de Vendas       - Auditoria
-- Facturas        - Aprovação Fornec.  - Reconciliação          - Cartões SIM
-- Notas Crédito                        - Relatórios MOSAP3Pay   - Ocorrências
+/fornecedor/vendedores       → FornecedorVendedores.tsx (lista + dialog criar/editar + reset PIN + ativar/desativar)
+/fornecedor/turnos           → FornecedorTurnos.tsx (lista turnos por data/vendedor/POS; ver totais; reabrir indisponível)
 ```
 
-Cada card: ícone, título, 1 linha de descrição, badge "Novo" nos itens recentes (Análise de Preços, Notas de Crédito, Painel de Vendas), botão `Link` para a rota.
+POS (`Mosap3PayPOS` / `FornecedorPOSVenda`):
+- Novo gate "Abrir turno": seleciona POS + vendedor + PIN → chama `supplier_seller_login` e `open_pos_shift`.
+- Cabeçalho mostra "Vendedor: X · Turno aberto há Yh · Vendas: N".
+- Botão "Fechar turno" no menu (confirma totais e bloqueia novas vendas até abrir outro).
+- Sessão de turno guardada em `sessionStorage` (não localStorage) para não fugir entre operadores; expira ao fim de N horas configurável (default 12h) e ao fechar.
+- Cada `pos_sales.insert` passa a incluir `seller_id` + `shift_id` + `seller_name`.
 
-### 2. Banner contextual de alertas de preço
-No topo do hub, se existirem alertas `severidade='alta'` não revistos do utilizador atual:
-- Card destacado (cor `warning`) com contagem ("3 fornecedores com preços anormais")
-- CTA "Rever alertas" → `/mosap3pay/analise-precos`
+Navbar do portal do fornecedor: adicionar "Vendedores" e "Turnos" (badge "Novo" durante 14 dias). Atalho "Vendedores" também no Dashboard do fornecedor.
 
-Usa a mesma query já existente em `usePriceAnalysis` (filtra `revisto_em IS NULL` e `severidade='alta'`).
+Relatórios (`FornecedorVendas`, `FornecedorDashboard`): novos filtros por vendedor e por turno; coluna "Vendedor" na tabela de vendas; agregados por vendedor/dia.
 
-### 3. Pequena melhoria de descoberta no menu
-No dropdown "MOSAP3Pay" do `AppNavbar`, adicionar um separador visual (`border-t`) entre grupos para facilitar a leitura dos 16 itens, e badge `Novo` ao lado de "Análise de Preços", "Notas de Crédito" e "Painel de Vendas" durante 30 dias.
+## Validação
 
-### Detalhes técnicos
+- Zod nos forms (PIN: 4–6 dígitos numéricos; username: 3–30 chars alfanuméricos + ponto/underscore; nome obrigatório).
+- Testes vitest novos:
+  - hash de PIN (sucesso/falha/lock após 5 tentativas);
+  - abrir/fechar turno (não permite 2 abertos simultâneos);
+  - venda sem turno aberto é rejeitada no POS.
+- Teste manual no preview com 2 vendedores em paralelo.
 
-- Ficheiros a alterar:
-  - `src/pages/Mosap3Pay.tsx` — substituir bloco de Quick Actions (linhas ~103-146) pela nova grelha + banner
-  - `src/components/AppNavbar.tsx` — separadores e badges no submenu MOSAP3Pay (linhas 108-125)
-- Sem alterações a base de dados, RLS, hooks, ou tipos
-- Reutilizar tokens semânticos (`text-primary`, `text-warning`, `text-info`, `Badge variant="secondary"`)
-- Layout 100% responsivo (1 coluna no mobile, 2 no tablet, 4 no desktop)
+## Fora de âmbito
 
-### Fora do âmbito
-
-- Não mexer em permissões (`module_permissions` está OK)
-- Não alterar a lógica de cálculo de alertas nem o trigger de notificações
-- Não tocar no portal do fornecedor
+- Conta Lovable Cloud individual por vendedor (continua a haver 1 conta = dono).
+- Comissões e folha de pagamento por vendedor.
+- Login offline de vendedor (a primeira versão exige rede para validar PIN; podemos adicionar offline depois reaproveitando `offlineAuth`).
