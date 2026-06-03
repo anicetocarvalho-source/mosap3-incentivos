@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Outlet, useNavigate, Link, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { LayoutDashboard, Package, Monitor, ShoppingCart, LogOut, Menu, X, Warehouse, Settings, Store, Receipt, UserCog, Clock } from "lucide-react";
+import { LayoutDashboard, Package, Monitor, ShoppingCart, LogOut, Menu, X, Warehouse, Settings, Store, Receipt, UserCog, Clock, BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { mosapLogo, LOGO_SIZES } from "@/config/brand";
 import { toast } from "sonner";
