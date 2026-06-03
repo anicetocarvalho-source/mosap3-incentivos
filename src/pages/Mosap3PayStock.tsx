@@ -390,6 +390,14 @@ const Mosap3PayStock = () => {
                 <SelectItem value="out">🔴 Esgotado</SelectItem>
               </SelectContent>
             </Select>
+            <Select value={filterPatec} onValueChange={(v: any) => setFilterPatec(v)}>
+              <SelectTrigger className="w-[150px]"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos (PATEC)</SelectItem>
+                <SelectItem value="em_patec">Apenas em PATEC</SelectItem>
+                <SelectItem value="fora_patec">Fora de PATEC</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           <Card>
