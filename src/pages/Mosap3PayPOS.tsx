@@ -1615,6 +1615,22 @@ const Mosap3PayPOS = ({ forcedSupplierId, shiftContext }: Mosap3PayPOSProps = {}
               ))}
             </div>
             <div className="flex items-center gap-1 ml-auto">
+              {selectedSupplierId && !forcedSupplierId && (
+                <button
+                  onClick={() => {
+                    if (cart.length > 0 && !confirm("Trocar fornecedor irá limpar o carrinho actual. Continuar?")) return;
+                    setCart([]);
+                    setSelectedSupplierId("");
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[hsl(220,15%,15%)] hover:bg-[hsl(220,15%,20%)] transition-colors text-xs text-[hsl(0,0%,85%)]"
+                  title="Trocar fornecedor"
+                >
+                  <Package className="h-3.5 w-3.5 text-[hsl(45,90%,55%)]" />
+                  <span className="max-w-[140px] truncate">{suppliers.find(s => s.id === selectedSupplierId)?.name || "Trocar"}</span>
+                  <span className="text-[hsl(220,10%,55%)]">·</span>
+                  <span className="text-[hsl(45,90%,55%)]">Trocar</span>
+                </button>
+              )}
               <button onClick={() => toggleFullscreen(false)} className="p-2 rounded-lg bg-[hsl(220,15%,15%)] hover:bg-[hsl(220,15%,20%)] transition-colors" title="Sair Kiosk (F5)">
                 <Minimize className="h-4 w-4" />
               </button>
