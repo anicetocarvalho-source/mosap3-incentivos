@@ -15,6 +15,8 @@ import { toast } from "sonner";
 import { LoadingState } from "@/components/ui/loading-state";
 import { ErrorState } from "@/components/ui/error-state";
 import { EmptyState } from "@/components/ui/empty-state";
+import { UnitSelect } from "@/components/ui/unit-select";
+import { usePatecCatalogIndex } from "@/hooks/usePatecCatalogIndex";
 
 const patecLabels: Record<string, string> = { "1": "PATEC 1 — Milho", "2": "PATEC 2 — Massango", "3": "PATEC 3 — Massambala" };
 
