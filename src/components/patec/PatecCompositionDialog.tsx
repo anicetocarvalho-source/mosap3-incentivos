@@ -150,14 +150,30 @@ export default function PatecCompositionDialog({ open, onOpenChange, patec }: Pr
 
   const startEdit = (it: PatecItem) => {
     setEditingId(it.id);
+    setEditMode("quick");
     setEditQty(it.base_quantity != null ? String(it.base_quantity).replace(".", ",") : "");
     setEditUnit(it.unit || "");
+  };
+
+  const startEditFull = (it: PatecItem) => {
+    setEditingId(it.id);
+    setEditMode("full");
+    setEditFullCategory((it.category as "agricultura" | "pecuaria") || "agricultura");
+    setEditFullDraft({
+      name: it.name || "",
+      subcategory: it.subcategory || "",
+      culture: it.culture || "",
+      base_quantity: it.base_quantity != null ? String(it.base_quantity).replace(".", ",") : "",
+      unit: it.unit || "",
+    });
   };
 
   const cancelEdit = () => {
     setEditingId(null);
     setEditQty("");
     setEditUnit("");
+    setEditFullDraft(emptyDraft());
+    setEditMode("quick");
   };
 
   const saveEdit = async (it: PatecItem) => {
@@ -193,6 +209,56 @@ export default function PatecCompositionDialog({ open, onOpenChange, patec }: Pr
     }
     toast.success("Quantidade actualizada");
     setItems((prev) => prev.map((p) => (p.id === it.id ? { ...p, base_quantity: qty, unit } : p)));
+    cancelEdit();
+  };
+
+  const saveEditFull = async (it: PatecItem) => {
+    const name = editFullDraft.name.trim();
+    const subcategory = editFullDraft.subcategory.trim();
+    const culture = editFullDraft.culture.trim();
+    const unit = editFullDraft.unit.trim();
+    const qtyRaw = editFullDraft.base_quantity.trim().replace(",", ".");
+
+    if (!name) {
+      toast.error("Nome obrigatório");
+      return;
+    }
+    if (!subcategory) {
+      toast.error("Subcategoria obrigatória");
+      return;
+    }
+    if (qtyRaw === "") {
+      toast.error("Quantidade obrigatória");
+      return;
+    }
+    const qty = Number(qtyRaw);
+    if (!isFinite(qty) || isNaN(qty) || qty < 0) {
+      toast.error("Quantidade inválida", { description: "Use número ≥ 0." });
+      return;
+    }
+    if (!unit) {
+      toast.error("Unidade obrigatória", { description: "Ex: kg, L, un, cabeça." });
+      return;
+    }
+    setSaving(true);
+    const patch = {
+      name,
+      subcategory,
+      culture: culture || null,
+      base_quantity: qty,
+      unit,
+    };
+    const { error } = await supabase
+      .from("patec_items" as any)
+      .update(patch)
+      .eq("id", it.id);
+    setSaving(false);
+    if (error) {
+      toast.error("Erro ao guardar", { description: error.message });
+      return;
+    }
+    toast.success("Item actualizado");
+    setItems((prev) => prev.map((p) => (p.id === it.id ? { ...p, ...patch } : p)));
     cancelEdit();
   };
 
