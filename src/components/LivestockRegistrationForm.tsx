@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card } from "@/components/ui/card";
 import { Beef, HeartPulse, Milk, Loader2, WifiOff, Wifi } from "lucide-react";
+import { UnitSelect } from "@/components/ui/unit-select";
 
 const animalSchema = z.object({
   species: z.string().min(1, "Seleccione a espécie"),
@@ -410,16 +411,11 @@ export default function LivestockRegistrationForm({ farmerId, schoolId, existing
                 </div>
                 <div className="space-y-2">
                   <Label>Unidade *</Label>
-                  <Select onValueChange={(v) => productionForm.setValue("unit", v)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Unidade" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {UNITS.map((u) => (
-                        <SelectItem key={u} value={u}>{u}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <UnitSelect
+                    value={productionForm.watch("unit") || ""}
+                    onChange={(v) => productionForm.setValue("unit", v, { shouldValidate: true })}
+                    triggerClassName="h-10"
+                  />
                   {productionForm.formState.errors.unit && (
                     <p className="text-xs text-destructive">{productionForm.formState.errors.unit.message}</p>
                   )}
