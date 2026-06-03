@@ -2456,9 +2456,6 @@ const Mosap3PayPOS = ({ forcedSupplierId, shiftContext }: Mosap3PayPOSProps = {}
             <div className="p-3 bg-muted/50 rounded-lg space-y-1">
               <p className="font-medium">{farmer?.full_name}</p>
               <p className="text-xs text-muted-foreground">{farmer?.code} • {farmer?.patec ? patecLabels[farmer.patec] : "Sem PATEC"} • Tel: {farmer?.phone || "—"}</p>
-              {false && (
-                <p className="text-[11px] text-destructive">Defina a parcela antes de confirmar — as quantidades dependem dela.</p>
-              )}
               {!farmer?.phone && (
                 <p className="text-[11px] text-destructive">Agricultor sem telefone — não é possível enviar OTP. Actualize o contacto.</p>
               )}
