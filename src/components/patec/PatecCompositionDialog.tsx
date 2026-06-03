@@ -330,6 +330,16 @@ export default function PatecCompositionDialog({ open, onOpenChange, patec }: Pr
       return;
     }
 
+    const dup = findDuplicate(name, subcategory, culture);
+    if (dup) {
+      toast.error("Item duplicado", {
+        description: `Já existe "${dup.name}" em ${
+          SUBCATEGORY_LABELS[dup.subcategory || ""] || dup.subcategory || "—"
+        }${dup.culture ? ` / ${dup.culture}` : ""}. Edite a quantidade do item existente em vez de criar um novo.`,
+      });
+      return;
+    }
+
     // Calcular sort_order = max do mesmo grupo (cultura+subcategoria) + 10
     const sameGroup = items.filter(
       (i) =>
