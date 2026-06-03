@@ -30,6 +30,8 @@ const FornecedorProdutos = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<any>(null);
   const [form, setForm] = useState({ name: "", category: "insumos", unit: "un", price: "", stock: "", iva_rate: "14", patec_number: "", patec_category: "", max_per_farmer_per_season: "" });
+  const [patecFilter, setPatecFilter] = useState<"todos" | "em_patec" | "fora_patec">("todos");
+  const catalogIndex = usePatecCatalogIndex();
 
   // PATEC import state
   const [importOpen, setImportOpen] = useState(false);
@@ -136,7 +138,17 @@ const FornecedorProdutos = () => {
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <h1 className="text-xl font-heading font-bold flex items-center gap-2"><Package className="h-5 w-5 text-primary" /> Catálogo de Produtos</h1>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <Select value={patecFilter} onValueChange={(v: any) => setPatecFilter(v)}>
+            <SelectTrigger className="w-auto h-8 text-xs gap-1 min-w-[150px]">
+              <SelectValue placeholder="Filtro PATEC" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos os produtos</SelectItem>
+              <SelectItem value="em_patec">Apenas em PATEC</SelectItem>
+              <SelectItem value="fora_patec">Fora de PATEC</SelectItem>
+            </SelectContent>
+          </Select>
           <Select onValueChange={(v) => openImportPatec(Number(v))}>
             <SelectTrigger className="w-auto h-8 text-xs gap-1">
               <Download className="h-3 w-3" />
@@ -151,6 +163,7 @@ const FornecedorProdutos = () => {
           <Button onClick={openNew}><Plus className="h-4 w-4 mr-1" /> Adicionar</Button>
         </div>
       </div>
+
 
       <Card>
         <CardContent className="pt-4">
@@ -180,20 +193,43 @@ const FornecedorProdutos = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {products.map((p) => (
-                    <TableRow key={p.id}>
-                      <TableCell className="font-medium">{p.name}</TableCell>
-                      <TableCell><Badge variant="outline">{p.category}</Badge></TableCell>
-                      <TableCell>{p.patec_number ? `PATEC ${p.patec_number}` : "—"}</TableCell>
-                      <TableCell className="text-right">{Number(p.price).toLocaleString("pt-AO")} Kz</TableCell>
-                      <TableCell className="text-right">{p.stock}</TableCell>
-                      <TableCell className="text-right">{p.max_per_farmer_per_season ?? "—"}</TableCell>
-                      <TableCell className="text-right">
-                        <Button variant="ghost" size="sm" onClick={() => openEdit(p)}><Pencil className="h-3 w-3" /></Button>
-                        <Button variant="ghost" size="sm" className="text-destructive" onClick={() => handleDelete(p.id)}><Trash2 className="h-3 w-3" /></Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {products
+                    .filter((p) => {
+                      if (patecFilter === "todos") return true;
+                      const inPatec = catalogIndex.isInAnyPatec(p.name);
+                      return patecFilter === "em_patec" ? inPatec : !inPatec;
+                    })
+                    .map((p) => {
+                      const codes = catalogIndex.getPatecCodes(p.name);
+                      const inPatec = codes.length > 0;
+                      return (
+                        <TableRow key={p.id}>
+                          <TableCell className="font-medium">
+                            <div className="flex items-center gap-2">
+                              <span>{p.name}</span>
+                              {inPatec ? (
+                                <Badge variant="secondary" className="text-[9px] bg-success/15 text-success border-success/30">
+                                  PATEC: {codes.join(", ")}
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className="text-[9px] text-warning border-warning/40">
+                                  Fora de PATEC
+                                </Badge>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell><Badge variant="outline">{p.category}</Badge></TableCell>
+                          <TableCell>{p.patec_number ? `PATEC ${p.patec_number}` : "—"}</TableCell>
+                          <TableCell className="text-right">{Number(p.price).toLocaleString("pt-AO")} Kz</TableCell>
+                          <TableCell className="text-right">{p.stock} {p.unit}</TableCell>
+                          <TableCell className="text-right">{p.max_per_farmer_per_season ?? "—"}</TableCell>
+                          <TableCell className="text-right">
+                            <Button variant="ghost" size="sm" onClick={() => openEdit(p)}><Pencil className="h-3 w-3" /></Button>
+                            <Button variant="ghost" size="sm" className="text-destructive" onClick={() => handleDelete(p.id)}><Trash2 className="h-3 w-3" /></Button>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
                 </TableBody>
               </Table>
             </div>
