@@ -428,7 +428,16 @@ const Mosap3PayStock = () => {
                       return (
                         <TableRow key={p.id} className={isOut ? "bg-destructive/5" : isLow ? "bg-warning/5" : ""}>
                           <TableCell>
-                            <p className="font-medium text-sm">{p.name}</p>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p className="font-medium text-sm">{p.name}</p>
+                              {catalogIndex.isInAnyPatec(p.name) ? (
+                                <Badge variant="secondary" className="text-[9px] bg-success/15 text-success border-success/30">
+                                  PATEC: {catalogIndex.getPatecCodes(p.name).join(", ")}
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className="text-[9px] text-warning border-warning/40">Fora PATEC</Badge>
+                              )}
+                            </div>
                             <p className="text-[10px] text-muted-foreground">{p.category} • {Number(p.price).toLocaleString("pt-AO")} Kz/{p.unit}</p>
                           </TableCell>
                           <TableCell className="text-sm">{getSupplierName(p.supplier_id)}</TableCell>
