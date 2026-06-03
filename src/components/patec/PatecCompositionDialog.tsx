@@ -459,6 +459,90 @@ export default function PatecCompositionDialog({ open, onOpenChange, patec }: Pr
                 <div className="rounded-lg border divide-y">
                   {rows.map((r) => {
                     const isEditing = editingId === r.id;
+                    const isFullEdit = isEditing && editMode === "full";
+                    const editSubOptions =
+                      editFullCategory === "pecuaria" ? PECUARIA_SUBS : AGRICULTURA_SUBS;
+                    if (isFullEdit) {
+                      return (
+                        <div key={r.id} className="px-3 py-2 bg-primary/5 space-y-2">
+                          <p className="text-xs font-semibold text-primary uppercase tracking-wide">
+                            Editar item
+                          </p>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <Input
+                              placeholder="Nome do item *"
+                              value={editFullDraft.name}
+                              onChange={(e) =>
+                                setEditFullDraft((s) => ({ ...s, name: e.target.value }))
+                              }
+                              className="h-8 text-sm"
+                              maxLength={120}
+                              autoFocus
+                            />
+                            <Select
+                              value={editFullDraft.subcategory}
+                              onValueChange={(v) =>
+                                setEditFullDraft((s) => ({ ...s, subcategory: v }))
+                              }
+                            >
+                              <SelectTrigger className="h-8 text-sm">
+                                <SelectValue placeholder="Subcategoria *" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {editSubOptions.map((k) => (
+                                  <SelectItem key={k} value={k}>
+                                    {SUBCATEGORY_LABELS[k] || k}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <Input
+                              placeholder="Cultura / agrupamento (opcional)"
+                              value={editFullDraft.culture}
+                              onChange={(e) =>
+                                setEditFullDraft((s) => ({ ...s, culture: e.target.value }))
+                              }
+                              className="h-8 text-sm"
+                              list={datalistId}
+                              maxLength={80}
+                            />
+                            <div className="grid grid-cols-2 gap-2">
+                              <Input
+                                placeholder="Quantidade *"
+                                inputMode="decimal"
+                                value={editFullDraft.base_quantity}
+                                onChange={(e) =>
+                                  setEditFullDraft((s) => ({ ...s, base_quantity: e.target.value }))
+                                }
+                                className="h-8 text-sm"
+                              />
+                              <Input
+                                placeholder="Unidade *"
+                                value={editFullDraft.unit}
+                                onChange={(e) =>
+                                  setEditFullDraft((s) => ({ ...s, unit: e.target.value }))
+                                }
+                                className="h-8 text-sm"
+                                maxLength={20}
+                              />
+                            </div>
+                          </div>
+                          <div className="flex justify-end gap-2 pt-1">
+                            <Button size="sm" variant="ghost" onClick={cancelEdit} disabled={saving}>
+                              Cancelar
+                            </Button>
+                            <Button size="sm" onClick={() => saveEditFull(r)} disabled={saving}>
+                              {saving ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
+                              ) : (
+                                <Check className="h-3.5 w-3.5 mr-1" />
+                              )}
+                              Guardar
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    }
                     return (
                       <div key={r.id} className="flex items-center justify-between gap-3 px-3 py-1.5 text-sm">
                         <span className="flex-1 min-w-0 truncate">{r.name}</span>
@@ -501,20 +585,31 @@ export default function PatecCompositionDialog({ open, onOpenChange, patec }: Pr
                               variant="ghost"
                               className="h-6 w-6 opacity-60 hover:opacity-100"
                               onClick={() => startEdit(r)}
-                              title="Editar quantidade"
+                              title="Editar quantidade e unidade"
                             >
                               <Pencil className="h-3 w-3" />
                             </Button>
                             {isAdmin && (
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                className="h-6 w-6 opacity-60 hover:opacity-100 hover:text-destructive"
-                                onClick={() => setDeleteTarget(r)}
-                                title="Remover item do pacote"
-                              >
-                                <Trash2 className="h-3 w-3" />
-                              </Button>
+                              <>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-6 w-6 opacity-60 hover:opacity-100"
+                                  onClick={() => startEditFull(r)}
+                                  title="Editar todos os campos (nome, subcategoria, cultura, quantidade, unidade)"
+                                >
+                                  <Package className="h-3 w-3" />
+                                </Button>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-6 w-6 opacity-60 hover:opacity-100 hover:text-destructive"
+                                  onClick={() => setDeleteTarget(r)}
+                                  title="Remover item do pacote"
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              </>
                             )}
                           </div>
                         )}
