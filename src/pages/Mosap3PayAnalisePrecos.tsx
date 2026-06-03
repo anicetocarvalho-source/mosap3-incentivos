@@ -30,6 +30,7 @@ import { toast } from "sonner";
 import { LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer, ReferenceLine, Legend } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
+import { usePatecCatalogIndex } from "@/hooks/usePatecCatalogIndex";
 
 const SEVERITY_LABELS = {
   alta: { label: "Alta", classes: "bg-destructive/15 text-destructive border-destructive/30" },
@@ -48,6 +49,8 @@ export default function Mosap3PayAnalisePrecos() {
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [severityFilter, setSeverityFilter] = useState<string>("anormais");
+  const [patecFilter, setPatecFilter] = useState<"todos" | "em_patec" | "fora_patec">("todos");
+  const catalogIndex = usePatecCatalogIndex();
   const [minSuppliers, setMinSuppliers] = useState(3);
   const [highPct, setHighPct] = useState(40);
   const [mediumPct, setMediumPct] = useState(25);
@@ -90,13 +93,18 @@ export default function Mosap3PayAnalisePrecos() {
       if (severityFilter !== "all" && severityFilter !== "anormais" && a.severity !== severityFilter) return false;
       if (categoryFilter !== "all" && a.category !== categoryFilter) return false;
       if (reviewStatusFilter !== "all" && reviewStatusOf(a) !== reviewStatusFilter) return false;
+      if (patecFilter !== "todos") {
+        const inPatec = catalogIndex.isInAnyPatec(a.product_name);
+        if (patecFilter === "em_patec" && !inPatec) return false;
+        if (patecFilter === "fora_patec" && inPatec) return false;
+      }
       if (search) {
         const q = search.toLowerCase();
         if (!a.product_name.toLowerCase().includes(q) && !a.supplier_name.toLowerCase().includes(q)) return false;
       }
       return true;
     });
-  }, [alerts, severityFilter, categoryFilter, search, reviewStatusFilter, reviewMap]);
+  }, [alerts, severityFilter, categoryFilter, search, reviewStatusFilter, reviewMap, patecFilter, catalogIndex]);
 
   const stats = useMemo(() => {
     const monitored = alerts.length;
@@ -312,6 +320,14 @@ export default function Mosap3PayAnalisePrecos() {
                   <SelectItem value="desactualizado">Revisão desactualizada</SelectItem>
                 </SelectContent>
               </Select>
+              <Select value={patecFilter} onValueChange={(v: any) => setPatecFilter(v)}>
+                <SelectTrigger><SelectValue placeholder="Filtro PATEC" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos (PATEC)</SelectItem>
+                  <SelectItem value="em_patec">Apenas em PATEC</SelectItem>
+                  <SelectItem value="fora_patec">Fora de PATEC</SelectItem>
+                </SelectContent>
+              </Select>
             </CardContent>
           </Card>
 
@@ -378,7 +394,19 @@ export default function Mosap3PayAnalisePrecos() {
                               aria-label={`Seleccionar ${row.product_name}`}
                             />
                           </TableCell>
-                          <TableCell className="font-medium">{row.product_name} <span className="text-muted-foreground text-xs">/ {row.unit}</span></TableCell>
+                          <TableCell className="font-medium">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span>{row.product_name}</span>
+                              <span className="text-muted-foreground text-xs">/ {row.unit}</span>
+                              {catalogIndex.isInAnyPatec(row.product_name) ? (
+                                <Badge variant="secondary" className="text-[9px] bg-success/15 text-success border-success/30">
+                                  PATEC: {catalogIndex.getPatecCodes(row.product_name).join(", ")}
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className="text-[9px] text-warning border-warning/40">Fora PATEC</Badge>
+                              )}
+                            </div>
+                          </TableCell>
                           <TableCell><Badge variant="outline">{row.category}</Badge></TableCell>
                           <TableCell>{row.supplier_name}</TableCell>
                           <TableCell className="text-right font-mono">{formatKz(row.current_price)}</TableCell>

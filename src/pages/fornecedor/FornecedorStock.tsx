@@ -16,6 +16,7 @@ import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
+import { usePatecCatalogIndex } from "@/hooks/usePatecCatalogIndex";
 
 interface Product {
   id: string;
@@ -79,7 +80,9 @@ const FornecedorStock = () => {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<Error | null>(null);
   const [filterStatus, setFilterStatus] = useState("all");
+  const [filterPatec, setFilterPatec] = useState<"todos" | "em_patec" | "fora_patec">("todos");
   const [search, setSearch] = useState("");
+  const catalogIndex = usePatecCatalogIndex();
   const [movSearch, setMovSearch] = useState("");
   const [movFilterType, setMovFilterType] = useState("all");
   const [movReasonSearch, setMovReasonSearch] = useState("");
@@ -199,6 +202,11 @@ const FornecedorStock = () => {
     if (filterStatus === "low" && !(p.stock <= p.min_stock && p.stock > 0)) return false;
     if (filterStatus === "out" && p.stock !== 0) return false;
     if (filterStatus === "ok" && p.stock <= p.min_stock) return false;
+    if (filterPatec !== "todos") {
+      const inPatec = catalogIndex.isInAnyPatec(p.name);
+      if (filterPatec === "em_patec" && !inPatec) return false;
+      if (filterPatec === "fora_patec" && inPatec) return false;
+    }
     return true;
   });
 
@@ -488,6 +496,14 @@ const FornecedorStock = () => {
                 <SelectItem value="out">🔴 Esgotado</SelectItem>
               </SelectContent>
             </Select>
+            <Select value={filterPatec} onValueChange={(v: any) => setFilterPatec(v)}>
+              <SelectTrigger className="w-[150px]"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos (PATEC)</SelectItem>
+                <SelectItem value="em_patec">Apenas em PATEC</SelectItem>
+                <SelectItem value="fora_patec">Fora de PATEC</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           <Card>
@@ -515,7 +531,16 @@ const FornecedorStock = () => {
                     return (
                       <TableRow key={p.id} className={isOutItem ? "bg-destructive/5" : isLow ? "bg-amber-500/5" : ""}>
                         <TableCell>
-                          <p className="font-medium text-sm">{p.name}</p>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="font-medium text-sm">{p.name}</p>
+                            {catalogIndex.isInAnyPatec(p.name) ? (
+                              <Badge variant="secondary" className="text-[9px] bg-success/15 text-success border-success/30">
+                                PATEC: {catalogIndex.getPatecCodes(p.name).join(", ")}
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline" className="text-[9px] text-warning border-warning/40">Fora PATEC</Badge>
+                            )}
+                          </div>
                           <p className="text-[10px] text-muted-foreground">{p.category} • {Number(p.price).toLocaleString("pt-AO")} Kz/{p.unit}</p>
                         </TableCell>
                         <TableCell className="text-center">

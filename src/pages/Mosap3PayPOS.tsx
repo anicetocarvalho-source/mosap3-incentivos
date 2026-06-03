@@ -1575,7 +1575,15 @@ const Mosap3PayPOS = ({ forcedSupplierId, shiftContext }: Mosap3PayPOSProps = {}
               <div className="h-8 w-8 rounded-lg bg-[hsl(45,90%,50%)] flex items-center justify-center">
                 <CreditCard className="h-4 w-4 text-[hsl(220,20%,10%)]" />
               </div>
-              <span className="font-heading font-bold text-sm">MOSAP3 POS</span>
+              <div className="flex flex-col leading-tight">
+                <span className="font-heading font-bold text-sm">MOSAP3 POS</span>
+                {shiftContext?.seller_name && (
+                  <span className="text-[9px] text-[hsl(220,10%,55%)]">
+                    <span className="text-[hsl(45,90%,55%)]">{shiftContext.seller_name}</span>
+                    {shiftContext.pos_id && <> · POS {shiftContext.pos_id}</>}
+                  </span>
+                )}
+              </div>
             </div>
             <div className="flex-1 max-w-sm">
               <div className="relative">
@@ -1693,10 +1701,13 @@ const Mosap3PayPOS = ({ forcedSupplierId, shiftContext }: Mosap3PayPOSProps = {}
                       </div>
                       <p className="text-xs font-medium leading-tight line-clamp-2">{p.name}</p>
                       <p className="text-sm font-bold text-[hsl(45,90%,55%)] mt-1 font-mono">
-                        {Number(p.price).toLocaleString("pt-AO")} Kz
+                        {Number(p.price).toLocaleString("pt-AO")} Kz<span className="text-[9px] text-[hsl(220,10%,55%)] font-normal">/{p.unit || "un"}</span>
+                      </p>
+                      <p className={`text-[9px] mt-0.5 font-medium ${noStock ? "text-[hsl(0,70%,65%)]" : p.stock <= 5 ? "text-[hsl(45,90%,55%)]" : "text-[hsl(220,10%,55%)]"}`}>
+                        Stock: {p.stock} {p.unit || "un"}
                       </p>
                       {farmer && p.max_per_farmer_per_season && (
-                        <span className={`mt-1 text-[9px] font-medium ${remaining <= 0 ? "text-[hsl(0,70%,65%)]" : "text-[hsl(45,90%,55%)]"}`}>
+                        <span className={`mt-0.5 text-[9px] font-medium ${remaining <= 0 ? "text-[hsl(0,70%,65%)]" : "text-[hsl(45,90%,55%)]"}`}>
                           Resta: {Math.max(0, remaining)}
                         </span>
                       )}

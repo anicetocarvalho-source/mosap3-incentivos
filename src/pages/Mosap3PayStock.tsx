@@ -17,6 +17,7 @@ import { fetchAllPages } from "@/lib/supabaseFetchAll";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { ErrorState } from "@/components/ui/error-state";
+import { usePatecCatalogIndex } from "@/hooks/usePatecCatalogIndex";
 
 interface Product {
   id: string;
@@ -64,6 +65,8 @@ const Mosap3PayStock = () => {
   const queryClient = useQueryClient();
   const [filterSupplier, setFilterSupplier] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
+  const [filterPatec, setFilterPatec] = useState<"todos" | "em_patec" | "fora_patec">("todos");
+  const catalogIndex = usePatecCatalogIndex();
   const [search, setSearch] = useState("");
   const [movSearch, setMovSearch] = useState("");
   const [movFilterType, setMovFilterType] = useState("all");
@@ -129,6 +132,11 @@ const Mosap3PayStock = () => {
     if (filterStatus === "low" && !(p.stock <= p.min_stock && p.stock > 0)) return false;
     if (filterStatus === "out" && p.stock !== 0) return false;
     if (filterStatus === "ok" && p.stock <= p.min_stock) return false;
+    if (filterPatec !== "todos") {
+      const inPatec = catalogIndex.isInAnyPatec(p.name);
+      if (filterPatec === "em_patec" && !inPatec) return false;
+      if (filterPatec === "fora_patec" && inPatec) return false;
+    }
     return true;
   });
 
@@ -269,7 +277,7 @@ const Mosap3PayStock = () => {
   const movTotalPages = Math.ceil(filteredMovements.length / PAGE_SIZE);
   const paginatedMovements = filteredMovements.slice((movPage - 1) * PAGE_SIZE, movPage * PAGE_SIZE);
 
-  useEffect(() => { setProdPage(1); }, [search, filterSupplier, filterStatus]);
+  useEffect(() => { setProdPage(1); }, [search, filterSupplier, filterStatus, filterPatec]);
   useEffect(() => { setMovPage(1); }, [movSearch, movFilterType]);
 
   const PaginationBlock = ({ current, total, onChange }: { current: number; total: number; onChange: (p: number) => void }) => total > 1 ? (
@@ -382,6 +390,14 @@ const Mosap3PayStock = () => {
                 <SelectItem value="out">🔴 Esgotado</SelectItem>
               </SelectContent>
             </Select>
+            <Select value={filterPatec} onValueChange={(v: any) => setFilterPatec(v)}>
+              <SelectTrigger className="w-[150px]"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos (PATEC)</SelectItem>
+                <SelectItem value="em_patec">Apenas em PATEC</SelectItem>
+                <SelectItem value="fora_patec">Fora de PATEC</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           <Card>
@@ -412,7 +428,16 @@ const Mosap3PayStock = () => {
                       return (
                         <TableRow key={p.id} className={isOut ? "bg-destructive/5" : isLow ? "bg-warning/5" : ""}>
                           <TableCell>
-                            <p className="font-medium text-sm">{p.name}</p>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p className="font-medium text-sm">{p.name}</p>
+                              {catalogIndex.isInAnyPatec(p.name) ? (
+                                <Badge variant="secondary" className="text-[9px] bg-success/15 text-success border-success/30">
+                                  PATEC: {catalogIndex.getPatecCodes(p.name).join(", ")}
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className="text-[9px] text-warning border-warning/40">Fora PATEC</Badge>
+                              )}
+                            </div>
                             <p className="text-[10px] text-muted-foreground">{p.category} • {Number(p.price).toLocaleString("pt-AO")} Kz/{p.unit}</p>
                           </TableCell>
                           <TableCell className="text-sm">{getSupplierName(p.supplier_id)}</TableCell>
