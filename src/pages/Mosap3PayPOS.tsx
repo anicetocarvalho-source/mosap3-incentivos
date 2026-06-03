@@ -266,8 +266,6 @@ const Mosap3PayPOS = ({ forcedSupplierId, shiftContext }: Mosap3PayPOSProps = {}
   const [farmerBalance, setFarmerBalance] = useState<number>(0);
 
   // Parcela selecionada (após escolher agricultor)
-  const [parcelSize, setParcelSize] = useState<number | null>(null);
-  const [parcelDialogOpen, setParcelDialogOpen] = useState(false);
 
   // OTP do agricultor (verificação prévia ao pagamento Unitel Money)
   const [otpDialogOpen, setOtpDialogOpen] = useState(false);
@@ -742,7 +740,6 @@ const Mosap3PayPOS = ({ forcedSupplierId, shiftContext }: Mosap3PayPOSProps = {}
       setShowSuggestions(false);
       setFarmerSuggestions([]);
       setCart([]);
-      setParcelSize(null);
       setFarmerBalance(0);
       try {
         await supabase.from("audit_logs").insert({
@@ -760,8 +757,7 @@ const Mosap3PayPOS = ({ forcedSupplierId, shiftContext }: Mosap3PayPOSProps = {}
     setShowSuggestions(false);
     setFarmerSuggestions([]);
     setCart([]);
-    setParcelSize(null);
-    await loadPatecAndPurchases(f);
+    const patecLoaded = await loadPatecAndPurchases(f);
     const balance = await fetchFarmerBalance(f.code);
     if (balance <= 0) {
       toast.warning(`${f.full_name} tem saldo de incentivo de ${balance.toLocaleString("pt-AO")} Kz. Compras bloqueadas.`);
@@ -783,7 +779,9 @@ const Mosap3PayPOS = ({ forcedSupplierId, shiftContext }: Mosap3PayPOSProps = {}
       toast.warning(`Atenção: cartão SIM em estado "Pré desactivado". Confirme antes de finalizar.`);
     }
     toast.success(`Produtor identificado: ${f.full_name} — Saldo: ${balance.toLocaleString("pt-AO")} Kz`);
-    setParcelDialogOpen(true);
+    if (patecLoaded && patecLoaded.length > 0) {
+      prefillCartFromPatec(patecLoaded);
+    }
   };
 
   const searchFarmer = async () => {
@@ -805,11 +803,10 @@ const Mosap3PayPOS = ({ forcedSupplierId, shiftContext }: Mosap3PayPOSProps = {}
     }
   };
 
-  /** Calcula a quantidade recomendada para um item PATEC consoante a parcela escolhida. */
-  const computeRecommendedQty = (item: PatecItemFull, parcel: number): number => {
+  /** Quantidade recomendada de um item PATEC — definida directamente pelo Pacote Tecnológico. */
+  const computeRecommendedQty = (item: PatecItemFull): number => {
     if (!item.base_quantity || item.base_quantity <= 0) return 0;
-    const factor = parcel / PARCEL_REFERENCE;
-    return Math.max(1, Math.round(item.base_quantity * factor));
+    return Math.max(1, Math.round(item.base_quantity));
   };
 
   /** Encontra o produto do fornecedor que corresponde a um item do PATEC (match por nome). */
@@ -821,15 +818,15 @@ const Mosap3PayPOS = ({ forcedSupplierId, shiftContext }: Mosap3PayPOSProps = {}
     );
   };
 
-  /** Pré-popula o carrinho com todos os itens do PATEC, nas quantidades calculadas. */
-  const prefillCartFromPatec = (items: PatecItemFull[], parcel: number) => {
+  /** Pré-popula o carrinho com todos os itens do PATEC, nas quantidades definidas. */
+  const prefillCartFromPatec = (items: PatecItemFull[]) => {
     const newCart: CartItem[] = [];
     let missingQty = 0;
     let missingProduct = 0;
     for (const item of items) {
       const product = findProductForPatecItem(item);
       if (!product) { missingProduct++; continue; }
-      const qty = computeRecommendedQty(item, parcel);
+      const qty = computeRecommendedQty(item);
       if (qty <= 0) { missingQty++; continue; }
       const stockCap = Math.max(0, product.stock);
       const finalQty = Math.min(qty, stockCap);
@@ -842,28 +839,6 @@ const Mosap3PayPOS = ({ forcedSupplierId, shiftContext }: Mosap3PayPOSProps = {}
     }
     if (missingProduct > 0) {
       toast.info(`${missingProduct} item(s) do PATEC sem produto correspondente neste fornecedor.`);
-    }
-  };
-
-  const handleSelectParcel = (size: number) => {
-    setParcelSize(size);
-    setParcelDialogOpen(false);
-    const label = PARCEL_OPTIONS.find((p) => p.value === size)?.label;
-    toast.success(`Parcela ${label} seleccionada`, {
-      description: "As quantidades do PATEC serão calculadas automaticamente.",
-      duration: 8000,
-      action: {
-        label: "Desfazer",
-        onClick: () => {
-          setParcelSize(null);
-          setCart([]);
-          setParcelDialogOpen(true);
-          toast.info("Seleccione o tamanho correcto da parcela.");
-        },
-      },
-    });
-    if (patecItems.length > 0) {
-      prefillCartFromPatec(patecItems, size);
     }
   };
 
@@ -908,11 +883,6 @@ const Mosap3PayPOS = ({ forcedSupplierId, shiftContext }: Mosap3PayPOSProps = {}
       if (farmer) notifyNoBalance(farmer.full_name, farmer.code, farmerBalance);
       return;
     }
-    if (!parcelSize) {
-      toast.error("Seleccione primeiro o tamanho da parcela.");
-      setParcelDialogOpen(true);
-      return;
-    }
     // Só produtos do PATEC do agricultor são permitidos
     const patecItem = patecItems.find(
       (i) => i.name.trim().toLowerCase() === product.name.trim().toLowerCase()
@@ -921,7 +891,7 @@ const Mosap3PayPOS = ({ forcedSupplierId, shiftContext }: Mosap3PayPOSProps = {}
       toast.error(`"${product.name}" não pertence ao pacote tecnológico deste produtor.`);
       return;
     }
-    const recommendedQty = computeRecommendedQty(patecItem, parcelSize);
+    const recommendedQty = computeRecommendedQty(patecItem);
     if (recommendedQty <= 0) {
       toast.error(`Item "${product.name}" sem quantidade base configurada. Contacte o administrador.`);
       return;
@@ -1040,8 +1010,8 @@ const Mosap3PayPOS = ({ forcedSupplierId, shiftContext }: Mosap3PayPOSProps = {}
           farmer_name: farmer.full_name,
           farmer_phone: farmer.phone,
           patec_number: farmer.patec,
-          parcel_size: parcelSize,
-          parcel_size_label: parcelSize ? PARCEL_OPTIONS.find((p) => p.value === parcelSize)?.label : null,
+          parcel_size: null,
+          parcel_size_label: null,
           subtotal: cartSubtotal,
           iva_total: cartIva,
           total: cartTotal,
@@ -1771,19 +1741,8 @@ const Mosap3PayPOS = ({ forcedSupplierId, shiftContext }: Mosap3PayPOSProps = {}
                     {farmerBalance <= 0 && (
                       <p className="text-[9px] text-[hsl(0,70%,65%)] font-medium leading-none mt-0.5">⚠ Sem saldo — compras bloqueadas</p>
                     )}
-                    {farmer.patec && farmerBalance > 0 && (
-                      parcelSize ? (
-                        <button onClick={() => setParcelDialogOpen(true)} className="text-[9px] text-[hsl(45,90%,55%)] hover:underline mt-0.5">
-                          🌾 {PARCEL_OPTIONS.find((p) => p.value === parcelSize)?.label} · alterar
-                        </button>
-                      ) : (
-                        <button onClick={() => setParcelDialogOpen(true)} className="mt-1 inline-flex items-center gap-1 rounded border border-[hsl(45,90%,50%)] bg-[hsl(45,90%,50%)]/15 px-1.5 py-0.5 text-[9px] font-medium text-[hsl(45,90%,65%)] hover:bg-[hsl(45,90%,50%)]/25">
-                          🌾 Definir parcela
-                        </button>
-                      )
-                    )}
                   </div>
-                  <button onClick={() => { setFarmer(null); setPatecBlock(null); setFarmerSearch(""); setCart([]); setParcelSize(null); setPatecItems([]); }} className="text-[hsl(220,10%,40%)] hover:text-[hsl(0,70%,60%)]">
+                  <button onClick={() => { setFarmer(null); setPatecBlock(null); setFarmerSearch(""); setCart([]); setPatecItems([]); }} className="text-[hsl(220,10%,40%)] hover:text-[hsl(0,70%,60%)]">
                     <Trash2 className="h-3 w-3" />
                   </button>
                 </div>
@@ -2066,10 +2025,6 @@ const Mosap3PayPOS = ({ forcedSupplierId, shiftContext }: Mosap3PayPOSProps = {}
               <div className="p-3 bg-[hsl(220,15%,12%)] rounded-lg space-y-1">
                 <p className="font-medium">{farmer?.full_name}</p>
                 <p className="text-xs text-[hsl(220,10%,45%)]">{farmer?.code} • {farmer?.patec ? patecLabels[farmer.patec] : "Sem PATEC"}</p>
-                <div className="flex items-center justify-between pt-1">
-                  <span className="text-xs text-[hsl(220,10%,55%)]">🌾 Parcela: <strong className="text-[hsl(0,0%,90%)]">{parcelSize ? PARCEL_OPTIONS.find((p) => p.value === parcelSize)?.label : "— não definida —"}</strong></span>
-                  <button type="button" onClick={() => { setConfirmOpen(false); setParcelDialogOpen(true); }} className="text-[11px] text-[hsl(45,90%,55%)] hover:underline">Alterar</button>
-                </div>
               </div>
               <div className="space-y-1">
                 {cart.map((c) => (
@@ -2116,7 +2071,7 @@ const Mosap3PayPOS = ({ forcedSupplierId, shiftContext }: Mosap3PayPOSProps = {}
             )}
             <DialogFooter>
               <Button variant="outline" onClick={() => setConfirmOpen(false)}>Cancelar</Button>
-              <Button onClick={sendOtp} disabled={processing || otpSending || !!patecBlock || !parcelSize || !farmer?.phone} className="bg-[hsl(45,70%,40%)] text-[hsl(220,20%,10%)] hover:bg-[hsl(45,75%,45%)]">
+              <Button onClick={sendOtp} disabled={processing || otpSending || !!patecBlock || !farmer?.phone} className="bg-[hsl(45,70%,40%)] text-[hsl(220,20%,10%)] hover:bg-[hsl(45,75%,45%)]">
                 {otpSending ? "A enviar OTP..." : "Enviar OTP e Pagar"}
               </Button>
             </DialogFooter>
@@ -2145,7 +2100,7 @@ const Mosap3PayPOS = ({ forcedSupplierId, shiftContext }: Mosap3PayPOSProps = {}
                 <Button variant="outline" onClick={() => setShowInvoice(true)} disabled={!invoiceData}>
                   <Printer className="h-4 w-4 mr-1" /> Ver Factura
                 </Button>
-                <Button onClick={() => { setReceiptOpen(false); setFarmer(null); setPatecBlock(null); setFarmerSearch(""); setPaymentStatus("idle"); setInvoiceData(null); setParcelSize(null); setPatecItems([]); }} className="flex-1 bg-[hsl(45,70%,40%)] text-[hsl(220,20%,10%)] hover:bg-[hsl(45,75%,45%)]">
+                <Button onClick={() => { setReceiptOpen(false); setFarmer(null); setPatecBlock(null); setFarmerSearch(""); setPaymentStatus("idle"); setInvoiceData(null); setPatecItems([]); }} className="flex-1 bg-[hsl(45,70%,40%)] text-[hsl(220,20%,10%)] hover:bg-[hsl(45,75%,45%)]">
                   Nova Venda
                 </Button>
               </div>
@@ -2153,38 +2108,6 @@ const Mosap3PayPOS = ({ forcedSupplierId, shiftContext }: Mosap3PayPOSProps = {}
           </DialogContent>
         </Dialog>
 
-        {/* Parcel selection (kiosk) */}
-        <Dialog open={parcelDialogOpen} onOpenChange={(o) => { if (!o && !parcelSize) return; setParcelDialogOpen(o); }}>
-          <DialogContent className="bg-[hsl(220,18%,14%)] border-[hsl(220,15%,22%)] text-[hsl(0,0%,88%)]">
-            <DialogHeader><DialogTitle>Tamanho da parcela</DialogTitle></DialogHeader>
-            <div className="space-y-3">
-              <p className="text-sm text-[hsl(220,10%,55%)]">
-                Seleccione a parcela de terra para calcular as quantidades do {farmer?.patec ? patecLabels[farmer.patec] : "PATEC"}.
-              </p>
-              <div className="grid grid-cols-3 gap-3">
-                {PARCEL_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onPointerDown={(e) => { e.preventDefault(); handleSelectParcel(opt.value); }}
-                    className={`p-6 rounded-xl border-2 transition-all font-bold text-lg relative ${
-                      parcelSize === opt.value
-                        ? "bg-[hsl(45,90%,50%)] text-[hsl(220,20%,10%)] border-[hsl(45,90%,55%)] scale-105 shadow-lg"
-                        : "bg-[hsl(220,15%,15%)] border-[hsl(220,15%,22%)] hover:border-[hsl(45,90%,40%)]"
-                    }`}
-                  >
-                    {parcelSize === opt.value && (
-                      <span className="absolute top-2 right-2">
-                        <Check className="h-4 w-4" />
-                      </span>
-                    )}
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
 
         <Dialog open={showInvoice} onOpenChange={setShowInvoice}>
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -2285,25 +2208,6 @@ const Mosap3PayPOS = ({ forcedSupplierId, shiftContext }: Mosap3PayPOSProps = {}
                     <div className="flex-1">
                       <p className="font-semibold">{farmer.full_name}</p>
                       <p className="text-xs text-muted-foreground">Código: {farmer.code} • Tel: {farmer.phone || "—"}</p>
-                      {farmer.patec && farmerBalance > 0 && (
-                        parcelSize ? (
-                          <button
-                            onClick={() => setParcelDialogOpen(true)}
-                            className="text-[11px] text-primary hover:underline mt-1 inline-flex items-center gap-1"
-                            title="Alterar tamanho da parcela"
-                          >
-                            🌾 Parcela: <strong>{PARCEL_OPTIONS.find((p) => p.value === parcelSize)?.label}</strong> · Alterar
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => setParcelDialogOpen(true)}
-                            className="mt-1 inline-flex items-center gap-1 rounded-md border border-warning bg-warning/10 px-2 py-0.5 text-[11px] font-medium text-warning-foreground hover:bg-warning/20"
-                            title="Definir tamanho da parcela"
-                          >
-                            🌾 Definir tamanho da parcela
-                          </button>
-                        )
-                      )}
                     </div>
                     <div className="text-right">
                       {farmer.patec ? <Badge className="text-xs">{patecLabels[farmer.patec]}</Badge> : <Badge variant="destructive" className="text-xs">Sem PATEC</Badge>}
@@ -2552,11 +2456,7 @@ const Mosap3PayPOS = ({ forcedSupplierId, shiftContext }: Mosap3PayPOSProps = {}
             <div className="p-3 bg-muted/50 rounded-lg space-y-1">
               <p className="font-medium">{farmer?.full_name}</p>
               <p className="text-xs text-muted-foreground">{farmer?.code} • {farmer?.patec ? patecLabels[farmer.patec] : "Sem PATEC"} • Tel: {farmer?.phone || "—"}</p>
-              <div className="flex items-center justify-between pt-1">
-                <span className="text-xs">🌾 <strong>Parcela:</strong> {parcelSize ? PARCEL_OPTIONS.find((p) => p.value === parcelSize)?.label : <span className="text-destructive">não definida</span>}</span>
-                <button type="button" onClick={() => { setConfirmOpen(false); setParcelDialogOpen(true); }} className="text-[11px] text-primary hover:underline">Alterar parcela</button>
-              </div>
-              {!parcelSize && (
+              {false && (
                 <p className="text-[11px] text-destructive">Defina a parcela antes de confirmar — as quantidades dependem dela.</p>
               )}
               {!farmer?.phone && (
@@ -2592,7 +2492,7 @@ const Mosap3PayPOS = ({ forcedSupplierId, shiftContext }: Mosap3PayPOSProps = {}
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setConfirmOpen(false)}>Cancelar</Button>
-            <Button onClick={sendOtp} disabled={processing || otpSending || !!patecBlock || !parcelSize || !farmer?.phone}>
+            <Button onClick={sendOtp} disabled={processing || otpSending || !!patecBlock || !farmer?.phone}>
               {otpSending ? "A enviar OTP..." : "Enviar OTP e Pagar"}
             </Button>
           </DialogFooter>
@@ -2833,7 +2733,7 @@ const Mosap3PayPOS = ({ forcedSupplierId, shiftContext }: Mosap3PayPOSProps = {}
             <p className="text-sm text-muted-foreground">Código: <span className="font-mono font-bold">{lastSaleCode}</span></p>
             <div className="flex gap-2">
               <Button variant="outline" onClick={() => setShowInvoice(true)} disabled={!invoiceData}><Printer className="h-4 w-4 mr-1" /> Ver Factura</Button>
-              <Button onClick={() => { setReceiptOpen(false); setFarmer(null); setPatecBlock(null); setFarmerSearch(""); setPaymentStatus("idle"); setInvoiceData(null); setParcelSize(null); setPatecItems([]); }} className="flex-1">Nova Venda</Button>
+              <Button onClick={() => { setReceiptOpen(false); setFarmer(null); setPatecBlock(null); setFarmerSearch(""); setPaymentStatus("idle"); setInvoiceData(null); setPatecItems([]); }} className="flex-1">Nova Venda</Button>
             </div>
           </div>
         </DialogContent>
@@ -2847,43 +2747,6 @@ const Mosap3PayPOS = ({ forcedSupplierId, shiftContext }: Mosap3PayPOSProps = {}
         </DialogContent>
       </Dialog>
 
-      {/* Parcel selection (normal) */}
-      <Dialog open={parcelDialogOpen} onOpenChange={(o) => { if (!o && !parcelSize) return; setParcelDialogOpen(o); }}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Tamanho da parcela de terra</DialogTitle></DialogHeader>
-          <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">
-              Seleccione a parcela a produzir. As quantidades dos produtos do {farmer?.patec ? patecLabels[farmer.patec] : "PATEC"} serão calculadas automaticamente.
-            </p>
-            <div className="grid grid-cols-3 gap-3">
-              {PARCEL_OPTIONS.map((opt) => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onPointerDown={(e) => { e.preventDefault(); handleSelectParcel(opt.value); }}
-                  className={`p-6 rounded-xl border-2 transition-all font-bold text-lg relative ${
-                    parcelSize === opt.value
-                      ? "bg-primary text-primary-foreground border-primary scale-105 shadow-lg"
-                      : "bg-card border-border hover:border-primary/50"
-                  }`}
-                >
-                  {parcelSize === opt.value && (
-                    <span className="absolute top-2 right-2">
-                      <Check className="h-4 w-4" />
-                    </span>
-                  )}
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-            {cart.length > 0 && (
-              <p className="text-xs text-amber-600 dark:text-amber-400">
-                ⚠ Alterar a parcela vai recalcular as quantidades do carrinho.
-              </p>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
 
       <AlertDialog open={contactConfirmOpen} onOpenChange={setContactConfirmOpen}>
         <AlertDialogContent>
