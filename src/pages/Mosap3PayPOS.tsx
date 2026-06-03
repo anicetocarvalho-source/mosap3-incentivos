@@ -1649,18 +1649,31 @@ const Mosap3PayPOS = ({ forcedSupplierId, shiftContext }: Mosap3PayPOSProps = {}
 
           {/* Supplier selector (if none selected) */}
           {!selectedSupplierId && (
-            <div className="flex-1 flex items-center justify-center p-8">
-              <div className="text-center space-y-4">
-                <Monitor className="h-12 w-12 mx-auto text-[hsl(220,10%,30%)]" />
-                <p className="text-[hsl(220,10%,50%)]">Seleccione um fornecedor para começar</p>
-                <Select value={selectedSupplierId} onValueChange={setSelectedSupplierId}>
-                  <SelectTrigger className="w-64 mx-auto bg-[hsl(220,15%,15%)] border-[hsl(220,15%,25%)] text-[hsl(0,0%,85%)]">
-                    <SelectValue placeholder="Fornecedor..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {suppliers.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+            <div className="flex-1 flex items-center justify-center p-8 overflow-y-auto">
+              <div className="w-full max-w-2xl space-y-5">
+                <div className="text-center space-y-2">
+                  <Monitor className="h-12 w-12 mx-auto text-[hsl(220,10%,30%)]" />
+                  <p className="text-[hsl(220,10%,55%)] text-sm">Seleccione um fornecedor para começar</p>
+                </div>
+                {suppliers.length === 0 ? (
+                  <p className="text-center text-xs text-[hsl(220,10%,40%)]">Nenhum fornecedor disponível.</p>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[60vh] overflow-y-auto pr-1">
+                    {suppliers.map((s) => (
+                      <button
+                        key={s.id}
+                        type="button"
+                        onClick={() => setSelectedSupplierId(s.id)}
+                        className="flex items-center gap-3 px-4 py-3 rounded-lg border border-[hsl(220,15%,22%)] bg-[hsl(220,15%,14%)] hover:border-[hsl(45,90%,50%)] hover:bg-[hsl(220,15%,18%)] transition-colors text-left"
+                      >
+                        <div className="h-8 w-8 rounded-md bg-[hsl(220,15%,20%)] flex items-center justify-center">
+                          <Package className="h-4 w-4 text-[hsl(45,90%,55%)]" />
+                        </div>
+                        <span className="text-sm font-medium text-[hsl(0,0%,88%)] truncate">{s.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           )}
