@@ -1575,7 +1575,15 @@ const Mosap3PayPOS = ({ forcedSupplierId, shiftContext }: Mosap3PayPOSProps = {}
               <div className="h-8 w-8 rounded-lg bg-[hsl(45,90%,50%)] flex items-center justify-center">
                 <CreditCard className="h-4 w-4 text-[hsl(220,20%,10%)]" />
               </div>
-              <span className="font-heading font-bold text-sm">MOSAP3 POS</span>
+              <div className="flex flex-col leading-tight">
+                <span className="font-heading font-bold text-sm">MOSAP3 POS</span>
+                {shiftContext?.seller_name && (
+                  <span className="text-[9px] text-[hsl(220,10%,55%)]">
+                    <span className="text-[hsl(45,90%,55%)]">{shiftContext.seller_name}</span>
+                    {shiftContext.pos_id && <> · POS {shiftContext.pos_id}</>}
+                  </span>
+                )}
+              </div>
             </div>
             <div className="flex-1 max-w-sm">
               <div className="relative">
