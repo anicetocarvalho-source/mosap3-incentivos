@@ -22,6 +22,7 @@ const navItems = [
   { to: "/fornecedor/vendedores", icon: UserCog, label: "Vendedores", badge: "Novo" },
   { to: "/fornecedor/turnos", icon: Clock, label: "Turnos", badge: "Novo" },
   { to: "/fornecedor/vendas", icon: ShoppingCart, label: "Vendas" },
+  { to: "/fornecedor/relatorios/vendedores", icon: BarChart3, label: "Relatório Vendedores", badge: "Novo" },
   { to: "/fornecedor/facturas", icon: Receipt, label: "Facturas" },
   { to: "/fornecedor/lojas", icon: Store, label: "Lojas" },
   { to: "/fornecedor/perfil", icon: Settings, label: "Perfil da Empresa" },
