@@ -148,6 +148,34 @@ export default function PatecCompositionDialog({ open, onOpenChange, patec }: Pr
     return Array.from(s).sort();
   }, [items]);
 
+  const norm = (v: string | null | undefined) => (v || "").trim().toLowerCase();
+
+  /**
+   * Verifica duplicados na composição do pacote.
+   * Regra: dentro do mesmo patec_code, não pode existir outro item com a mesma
+   * combinação (subcategoria + cultura + nome), ignorando maiúsculas/espaços.
+   * Cultura vazia conta como grupo próprio ("sem cultura").
+   */
+  const findDuplicate = (
+    name: string,
+    subcategory: string,
+    culture: string,
+    excludeId?: string
+  ): PatecItem | null => {
+    const n = norm(name);
+    const s = norm(subcategory);
+    const c = norm(culture);
+    return (
+      items.find(
+        (it) =>
+          it.id !== excludeId &&
+          norm(it.name) === n &&
+          norm(it.subcategory) === s &&
+          norm(it.culture) === c
+      ) || null
+    );
+  };
+
   const startEdit = (it: PatecItem) => {
     setEditingId(it.id);
     setEditMode("quick");
@@ -240,6 +268,16 @@ export default function PatecCompositionDialog({ open, onOpenChange, patec }: Pr
       toast.error("Unidade obrigatória", { description: "Ex: kg, L, un, cabeça." });
       return;
     }
+
+    const dup = findDuplicate(name, subcategory, culture, it.id);
+    if (dup) {
+      toast.error("Item duplicado", {
+        description: `Já existe "${dup.name}" em ${
+          SUBCATEGORY_LABELS[dup.subcategory || ""] || dup.subcategory || "—"
+        }${dup.culture ? ` / ${dup.culture}` : ""}. Ajuste o item existente em vez de duplicar.`,
+      });
+      return;
+    }
     setSaving(true);
     const patch = {
       name,
@@ -299,6 +337,16 @@ export default function PatecCompositionDialog({ open, onOpenChange, patec }: Pr
     }
     if (!unit) {
       toast.error("Unidade obrigatória", { description: "Ex: kg, L, un, cabeça." });
+      return;
+    }
+
+    const dup = findDuplicate(name, subcategory, culture);
+    if (dup) {
+      toast.error("Item duplicado", {
+        description: `Já existe "${dup.name}" em ${
+          SUBCATEGORY_LABELS[dup.subcategory || ""] || dup.subcategory || "—"
+        }${dup.culture ? ` / ${dup.culture}` : ""}. Edite a quantidade do item existente em vez de criar um novo.`,
+      });
       return;
     }
 
