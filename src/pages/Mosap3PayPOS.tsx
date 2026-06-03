@@ -906,7 +906,7 @@ const Mosap3PayPOS = ({ forcedSupplierId, shiftContext }: Mosap3PayPOSProps = {}
       const existing = prev.find((c) => c.product.id === product.id);
       if (existing) {
         if (existing.quantity >= existing.recommendedQty) {
-          toast.error(`Quantidade máxima atingida (${existing.recommendedQty} ${product.unit}) para esta parcela.`);
+          toast.error(`Quantidade máxima do PATEC atingida (${existing.recommendedQty} ${product.unit}).`);
           return prev;
         }
         return prev.map((c) => c.product.id === product.id ? { ...c, quantity: c.quantity + 1 } : c);
