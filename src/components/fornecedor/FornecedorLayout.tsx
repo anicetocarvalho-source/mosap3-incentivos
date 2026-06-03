@@ -19,6 +19,8 @@ const navItems = [
   { to: "/fornecedor/stock", icon: Warehouse, label: "Stock & Preços" },
   { to: "/fornecedor/pos/venda", icon: ShoppingCart, label: "Vender (Terminal POS)" },
   { to: "/fornecedor/pos", icon: Monitor, label: "Terminais POS" },
+  { to: "/fornecedor/vendedores", icon: UserCog, label: "Vendedores", badge: "Novo" },
+  { to: "/fornecedor/turnos", icon: Clock, label: "Turnos", badge: "Novo" },
   { to: "/fornecedor/vendas", icon: ShoppingCart, label: "Vendas" },
   { to: "/fornecedor/facturas", icon: Receipt, label: "Facturas" },
   { to: "/fornecedor/lojas", icon: Store, label: "Lojas" },
