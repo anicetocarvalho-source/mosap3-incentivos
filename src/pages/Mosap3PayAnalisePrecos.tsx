@@ -320,6 +320,14 @@ export default function Mosap3PayAnalisePrecos() {
                   <SelectItem value="desactualizado">Revisão desactualizada</SelectItem>
                 </SelectContent>
               </Select>
+              <Select value={patecFilter} onValueChange={(v: any) => setPatecFilter(v)}>
+                <SelectTrigger><SelectValue placeholder="Filtro PATEC" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos (PATEC)</SelectItem>
+                  <SelectItem value="em_patec">Apenas em PATEC</SelectItem>
+                  <SelectItem value="fora_patec">Fora de PATEC</SelectItem>
+                </SelectContent>
+              </Select>
             </CardContent>
           </Card>
 
