@@ -68,6 +68,7 @@ import FornecedorPerfil from "@/pages/fornecedor/FornecedorPerfil";
 import FornecedorLojas from "@/pages/fornecedor/FornecedorLojas";
 import FornecedorVendedores from "@/pages/fornecedor/FornecedorVendedores";
 import FornecedorTurnos from "@/pages/fornecedor/FornecedorTurnos";
+import FornecedorRelatorioVendedores from "@/pages/fornecedor/FornecedorRelatorioVendedores";
 import NotFound from "@/pages/NotFound";
 import Diagnostico from "@/pages/Diagnostico";
 import Anomalias from "@/pages/Anomalias";
