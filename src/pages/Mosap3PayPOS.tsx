@@ -906,7 +906,7 @@ const Mosap3PayPOS = ({ forcedSupplierId, shiftContext }: Mosap3PayPOSProps = {}
       const existing = prev.find((c) => c.product.id === product.id);
       if (existing) {
         if (existing.quantity >= existing.recommendedQty) {
-          toast.error(`Quantidade máxima atingida (${existing.recommendedQty} ${product.unit}) para esta parcela.`);
+          toast.error(`Quantidade máxima do PATEC atingida (${existing.recommendedQty} ${product.unit}).`);
           return prev;
         }
         return prev.map((c) => c.product.id === product.id ? { ...c, quantity: c.quantity + 1 } : c);
@@ -923,7 +923,7 @@ const Mosap3PayPOS = ({ forcedSupplierId, shiftContext }: Mosap3PayPOSProps = {}
         if (newQty <= 0) return c;
         if (delta > 0) {
           if (newQty > c.recommendedQty) {
-            toast.error(`Quantidade máxima atingida (${c.recommendedQty} ${c.product.unit}) para esta parcela.`);
+            toast.error(`Quantidade máxima do PATEC atingida (${c.recommendedQty} ${c.product.unit}).`);
             return c;
           }
           const currentCartTotal = prev.reduce((sum, item) => sum + item.product.price * item.quantity * (1 + item.product.iva_rate / 100), 0);
