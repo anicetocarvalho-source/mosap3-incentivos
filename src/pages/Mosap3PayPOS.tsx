@@ -228,6 +228,7 @@ const Mosap3PayPOS = ({ forcedSupplierId, shiftContext }: Mosap3PayPOSProps = {}
   const [selectedSupplierId, setSelectedSupplierId] = useState<string>(forcedSupplierId || "");
   const [products, setProducts] = useState<Product[]>([]);
   const [farmer, setFarmer] = useState<Farmer | null>(null);
+  const lastPrefilledFarmerRef = useRef<string | null>(null);
   const [patecBlock, setPatecBlock] = useState<PatecBlockDetail | null>(null);
   const [farmerSearch, setFarmerSearch] = useState("");
   const [farmerSuggestions, setFarmerSuggestions] = useState<Farmer[]>([]);
@@ -779,9 +780,8 @@ const Mosap3PayPOS = ({ forcedSupplierId, shiftContext }: Mosap3PayPOSProps = {}
       toast.warning(`Atenção: cartão SIM em estado "Pré desactivado". Confirme antes de finalizar.`);
     }
     toast.success(`Produtor identificado: ${f.full_name} — Saldo: ${balance.toLocaleString("pt-AO")} Kz`);
-    if (patecLoaded && patecLoaded.length > 0) {
-      prefillCartFromPatec(patecLoaded);
-    }
+    // Prefill do carrinho é tratado pelo useEffect [farmer?.code, patecItems, products]
+    // que reage assim que PATEC + produtos estejam carregados.
   };
 
   const searchFarmer = async () => {
@@ -841,6 +841,30 @@ const Mosap3PayPOS = ({ forcedSupplierId, shiftContext }: Mosap3PayPOSProps = {}
       toast.info(`${missingProduct} item(s) do PATEC sem produto correspondente neste fornecedor.`);
     }
   };
+
+  /**
+   * Auto-reset e auto-prefill do carrinho quando o agricultor muda na mesma sessão.
+   * Garante que:
+   *  - Ao limpar o agricultor (logout/nova venda), o carrinho fica vazio.
+   *  - Ao trocar de agricultor, os itens do anterior são removidos antes do prefill.
+   *  - Se os produtos do fornecedor carregarem depois do PATEC (race), o prefill é
+   *    re-aplicado assim que ambos estiverem disponíveis.
+   * Só corre uma vez por código de agricultor (evita esmagar edições manuais do operador).
+   */
+  useEffect(() => {
+    const code = farmer?.code ?? null;
+    if (code !== lastPrefilledFarmerRef.current) {
+      // Mudou o agricultor (ou foi removido) → limpar carrinho do anterior.
+      setCart([]);
+      lastPrefilledFarmerRef.current = null;
+    }
+    if (!farmer || !code) return;
+    if (patecItems.length === 0 || products.length === 0) return;
+    if (lastPrefilledFarmerRef.current === code) return;
+    lastPrefilledFarmerRef.current = code;
+    prefillCartFromPatec(patecItems);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [farmer?.code, patecItems, products]);
 
   const getAvailableProducts = () => {
     if (!farmer) return [];
