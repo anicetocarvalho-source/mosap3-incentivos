@@ -1057,6 +1057,9 @@ const Mosap3PayPOS = ({ forcedSupplierId, shiftContext }: Mosap3PayPOSProps = {}
           unitel_transaction_id: prepaid?.conversationId ?? null,
           payment_reference: prepaid?.conversationId ?? null,
           created_by: user?.id,
+          seller_id: shiftContext?.seller_id ?? null,
+          shift_id: shiftContext?.shift_id ?? null,
+          seller_name: shiftContext?.seller_name ?? null,
         }).select().single()).then((res) => {
           if (res.error) throw res.error;
           return res;
