@@ -15,6 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { UnitSelect } from "@/components/ui/unit-select";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllPages } from "@/lib/supabaseFetchAll";
 import { toast } from "sonner";
@@ -624,7 +625,7 @@ const Mosap3PayFornecedores = () => {
                     </SelectContent>
                   </Select>
                 </div>
-                <div><Label>Unidade</Label><Input value={editProduct.unit || "un"} onChange={(e) => setEditProduct({ ...editProduct, unit: e.target.value })} /></div>
+                <div><Label>Unidade</Label><UnitSelect value={editProduct.unit || "un"} onChange={(v) => setEditProduct({ ...editProduct, unit: v })} triggerClassName="h-10" /></div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div><Label>Preço (Kz)</Label><Input type="number" value={editProduct.price || ""} onChange={(e) => setEditProduct({ ...editProduct, price: Number(e.target.value) })} /></div>
