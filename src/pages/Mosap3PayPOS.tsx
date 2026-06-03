@@ -218,11 +218,19 @@ const patecLabels: Record<number, string> = {
   3: "PATEC 3 — Massambala",
 };
 
-interface Mosap3PayPOSProps {
-  forcedSupplierId?: string;
+interface ShiftContext {
+  shift_id: string;
+  seller_id: string;
+  seller_name: string;
+  pos_id: string | null;
 }
 
-const Mosap3PayPOS = ({ forcedSupplierId }: Mosap3PayPOSProps = {}) => {
+interface Mosap3PayPOSProps {
+  forcedSupplierId?: string;
+  shiftContext?: ShiftContext;
+}
+
+const Mosap3PayPOS = ({ forcedSupplierId, shiftContext }: Mosap3PayPOSProps = {}) => {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [selectedSupplierId, setSelectedSupplierId] = useState<string>(forcedSupplierId || "");
   const [products, setProducts] = useState<Product[]>([]);
