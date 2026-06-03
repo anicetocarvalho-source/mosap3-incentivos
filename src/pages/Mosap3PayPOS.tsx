@@ -780,9 +780,8 @@ const Mosap3PayPOS = ({ forcedSupplierId, shiftContext }: Mosap3PayPOSProps = {}
       toast.warning(`Atenção: cartão SIM em estado "Pré desactivado". Confirme antes de finalizar.`);
     }
     toast.success(`Produtor identificado: ${f.full_name} — Saldo: ${balance.toLocaleString("pt-AO")} Kz`);
-    if (patecLoaded && patecLoaded.length > 0) {
-      prefillCartFromPatec(patecLoaded);
-    }
+    // Prefill do carrinho é tratado pelo useEffect [farmer?.code, patecItems, products]
+    // que reage assim que PATEC + produtos estejam carregados.
   };
 
   const searchFarmer = async () => {
