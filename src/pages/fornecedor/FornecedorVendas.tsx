@@ -31,7 +31,9 @@ const FornecedorVendas = () => {
   useEffect(() => { load(); }, [supplier.id]);
 
   const filtered = sales.filter((s) =>
-    !search || s.sale_code.toLowerCase().includes(search.toLowerCase()) || s.farmer_name.toLowerCase().includes(search.toLowerCase())
+    !search || s.sale_code.toLowerCase().includes(search.toLowerCase())
+    || s.farmer_name.toLowerCase().includes(search.toLowerCase())
+    || (s.seller_name || "").toLowerCase().includes(search.toLowerCase())
   );
 
   return (
