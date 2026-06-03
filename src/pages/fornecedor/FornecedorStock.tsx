@@ -16,6 +16,7 @@ import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
+import { usePatecCatalogIndex } from "@/hooks/usePatecCatalogIndex";
 
 interface Product {
   id: string;
@@ -79,7 +80,9 @@ const FornecedorStock = () => {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<Error | null>(null);
   const [filterStatus, setFilterStatus] = useState("all");
+  const [filterPatec, setFilterPatec] = useState<"todos" | "em_patec" | "fora_patec">("todos");
   const [search, setSearch] = useState("");
+  const catalogIndex = usePatecCatalogIndex();
   const [movSearch, setMovSearch] = useState("");
   const [movFilterType, setMovFilterType] = useState("all");
   const [movReasonSearch, setMovReasonSearch] = useState("");
@@ -199,6 +202,11 @@ const FornecedorStock = () => {
     if (filterStatus === "low" && !(p.stock <= p.min_stock && p.stock > 0)) return false;
     if (filterStatus === "out" && p.stock !== 0) return false;
     if (filterStatus === "ok" && p.stock <= p.min_stock) return false;
+    if (filterPatec !== "todos") {
+      const inPatec = catalogIndex.isInAnyPatec(p.name);
+      if (filterPatec === "em_patec" && !inPatec) return false;
+      if (filterPatec === "fora_patec" && inPatec) return false;
+    }
     return true;
   });
 
