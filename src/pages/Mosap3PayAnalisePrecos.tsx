@@ -30,6 +30,7 @@ import { toast } from "sonner";
 import { LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer, ReferenceLine, Legend } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
+import { usePatecCatalogIndex } from "@/hooks/usePatecCatalogIndex";
 
 const SEVERITY_LABELS = {
   alta: { label: "Alta", classes: "bg-destructive/15 text-destructive border-destructive/30" },
@@ -378,7 +379,19 @@ export default function Mosap3PayAnalisePrecos() {
                               aria-label={`Seleccionar ${row.product_name}`}
                             />
                           </TableCell>
-                          <TableCell className="font-medium">{row.product_name} <span className="text-muted-foreground text-xs">/ {row.unit}</span></TableCell>
+                          <TableCell className="font-medium">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span>{row.product_name}</span>
+                              <span className="text-muted-foreground text-xs">/ {row.unit}</span>
+                              {catalogIndex.isInAnyPatec(row.product_name) ? (
+                                <Badge variant="secondary" className="text-[9px] bg-success/15 text-success border-success/30">
+                                  PATEC: {catalogIndex.getPatecCodes(row.product_name).join(", ")}
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className="text-[9px] text-warning border-warning/40">Fora PATEC</Badge>
+                              )}
+                            </div>
+                          </TableCell>
                           <TableCell><Badge variant="outline">{row.category}</Badge></TableCell>
                           <TableCell>{row.supplier_name}</TableCell>
                           <TableCell className="text-right font-mono">{formatKz(row.current_price)}</TableCell>
