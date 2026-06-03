@@ -1675,6 +1675,9 @@ export type Database = {
           pos_id: string | null
           sale_code: string
           season: string | null
+          seller_id: string | null
+          seller_name: string | null
+          shift_id: string | null
           subtotal: number
           supplier_id: string
           total: number
@@ -1701,6 +1704,9 @@ export type Database = {
           pos_id?: string | null
           sale_code: string
           season?: string | null
+          seller_id?: string | null
+          seller_name?: string | null
+          shift_id?: string | null
           subtotal?: number
           supplier_id: string
           total?: number
@@ -1727,6 +1733,9 @@ export type Database = {
           pos_id?: string | null
           sale_code?: string
           season?: string | null
+          seller_id?: string | null
+          seller_name?: string | null
+          shift_id?: string | null
           subtotal?: number
           supplier_id?: string
           total?: number
@@ -1742,7 +1751,94 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "pos_sales_seller_id_fkey"
+            columns: ["seller_id"]
+            isOneToOne: false
+            referencedRelation: "supplier_sellers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pos_sales_shift_id_fkey"
+            columns: ["shift_id"]
+            isOneToOne: false
+            referencedRelation: "pos_shifts"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "pos_sales_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pos_shifts: {
+        Row: {
+          closed_at: string | null
+          closed_by: string | null
+          closing_note: string | null
+          created_at: string
+          id: string
+          opened_at: string
+          opened_by: string | null
+          opening_note: string | null
+          pos_id: string | null
+          seller_id: string
+          status: string
+          supplier_id: string
+          totals: Json
+          updated_at: string
+        }
+        Insert: {
+          closed_at?: string | null
+          closed_by?: string | null
+          closing_note?: string | null
+          created_at?: string
+          id?: string
+          opened_at?: string
+          opened_by?: string | null
+          opening_note?: string | null
+          pos_id?: string | null
+          seller_id: string
+          status?: string
+          supplier_id: string
+          totals?: Json
+          updated_at?: string
+        }
+        Update: {
+          closed_at?: string | null
+          closed_by?: string | null
+          closing_note?: string | null
+          created_at?: string
+          id?: string
+          opened_at?: string
+          opened_by?: string | null
+          opening_note?: string | null
+          pos_id?: string | null
+          seller_id?: string
+          status?: string
+          supplier_id?: string
+          totals?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pos_shifts_pos_id_fkey"
+            columns: ["pos_id"]
+            isOneToOne: false
+            referencedRelation: "supplier_pos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pos_shifts_seller_id_fkey"
+            columns: ["seller_id"]
+            isOneToOne: false
+            referencedRelation: "supplier_sellers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pos_shifts_supplier_id_fkey"
             columns: ["supplier_id"]
             isOneToOne: false
             referencedRelation: "suppliers"
@@ -2312,6 +2408,56 @@ export type Database = {
           },
         ]
       }
+      supplier_sellers: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          failed_attempts: number
+          full_name: string
+          id: string
+          is_active: boolean
+          locked_until: string | null
+          pin_hash: string
+          supplier_id: string
+          updated_at: string
+          username: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          failed_attempts?: number
+          full_name: string
+          id?: string
+          is_active?: boolean
+          locked_until?: string | null
+          pin_hash: string
+          supplier_id: string
+          updated_at?: string
+          username: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          failed_attempts?: number
+          full_name?: string
+          id?: string
+          is_active?: boolean
+          locked_until?: string | null
+          pin_hash?: string
+          supplier_id?: string
+          updated_at?: string
+          username?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_sellers_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       supplier_stores: {
         Row: {
           address: string | null
@@ -2619,6 +2765,31 @@ export type Database = {
         }[]
       }
       cleanup_pos_otp_idempotency: { Args: { p_max?: number }; Returns: number }
+      close_pos_shift: {
+        Args: { _closing_note?: string; _shift_id: string }
+        Returns: {
+          closed_at: string | null
+          closed_by: string | null
+          closing_note: string | null
+          created_at: string
+          id: string
+          opened_at: string
+          opened_by: string | null
+          opening_note: string | null
+          pos_id: string | null
+          seller_id: string
+          status: string
+          supplier_id: string
+          totals: Json
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "pos_shifts"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       credit_notes_kpis: { Args: { _search?: string }; Returns: Json }
       dashboard_charts: {
         Args: { p_ecas?: string[]; p_provinces?: string[]; p_scope: string }
@@ -2817,6 +2988,31 @@ export type Database = {
         }
         Returns: number
       }
+      open_pos_shift: {
+        Args: { _opening_note?: string; _pos_id: string; _seller_id: string }
+        Returns: {
+          closed_at: string | null
+          closed_by: string | null
+          closing_note: string | null
+          created_at: string
+          id: string
+          opened_at: string
+          opened_by: string | null
+          opening_note: string | null
+          pos_id: string | null
+          seller_id: string
+          status: string
+          supplier_id: string
+          totals: Json
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "pos_shifts"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       parse_ptao_numeric: { Args: { _s: string }; Returns: number }
       pos_sales_kpis: {
         Args: {
@@ -2867,6 +3063,43 @@ export type Database = {
       recalc_school_for_name: {
         Args: { _province_name: string; _school_name: string }
         Returns: undefined
+      }
+      supplier_seller_login: {
+        Args: { _pin: string; _supplier_id: string; _username: string }
+        Returns: {
+          full_name: string
+          seller_id: string
+          username: string
+        }[]
+      }
+      supplier_seller_upsert: {
+        Args: {
+          _full_name: string
+          _id: string
+          _is_active?: boolean
+          _pin: string
+          _supplier_id: string
+          _username: string
+        }
+        Returns: {
+          created_at: string
+          created_by: string | null
+          failed_attempts: number
+          full_name: string
+          id: string
+          is_active: boolean
+          locked_until: string | null
+          pin_hash: string
+          supplier_id: string
+          updated_at: string
+          username: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "supplier_sellers"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       test_parse_ptao_numeric: {
         Args: never
