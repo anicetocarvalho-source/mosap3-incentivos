@@ -68,6 +68,7 @@ import FornecedorPerfil from "@/pages/fornecedor/FornecedorPerfil";
 import FornecedorLojas from "@/pages/fornecedor/FornecedorLojas";
 import FornecedorVendedores from "@/pages/fornecedor/FornecedorVendedores";
 import FornecedorTurnos from "@/pages/fornecedor/FornecedorTurnos";
+import FornecedorRelatorioVendedores from "@/pages/fornecedor/FornecedorRelatorioVendedores";
 import NotFound from "@/pages/NotFound";
 import Diagnostico from "@/pages/Diagnostico";
 import Anomalias from "@/pages/Anomalias";
@@ -164,6 +165,7 @@ const App = () => (
             <Route path="lojas" element={<FornecedorLojas />} />
             <Route path="vendedores" element={<FornecedorVendedores />} />
             <Route path="turnos" element={<FornecedorTurnos />} />
+            <Route path="relatorios/vendedores" element={<FornecedorRelatorioVendedores />} />
             <Route path="perfil" element={<FornecedorPerfil />} />
           </Route>
 
