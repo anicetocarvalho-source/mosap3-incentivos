@@ -496,6 +496,14 @@ const FornecedorStock = () => {
                 <SelectItem value="out">🔴 Esgotado</SelectItem>
               </SelectContent>
             </Select>
+            <Select value={filterPatec} onValueChange={(v: any) => setFilterPatec(v)}>
+              <SelectTrigger className="w-[150px]"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos (PATEC)</SelectItem>
+                <SelectItem value="em_patec">Apenas em PATEC</SelectItem>
+                <SelectItem value="fora_patec">Fora de PATEC</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           <Card>
@@ -523,7 +531,16 @@ const FornecedorStock = () => {
                     return (
                       <TableRow key={p.id} className={isOutItem ? "bg-destructive/5" : isLow ? "bg-amber-500/5" : ""}>
                         <TableCell>
-                          <p className="font-medium text-sm">{p.name}</p>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="font-medium text-sm">{p.name}</p>
+                            {catalogIndex.isInAnyPatec(p.name) ? (
+                              <Badge variant="secondary" className="text-[9px] bg-success/15 text-success border-success/30">
+                                PATEC: {catalogIndex.getPatecCodes(p.name).join(", ")}
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline" className="text-[9px] text-warning border-warning/40">Fora PATEC</Badge>
+                            )}
+                          </div>
                           <p className="text-[10px] text-muted-foreground">{p.category} • {Number(p.price).toLocaleString("pt-AO")} Kz/{p.unit}</p>
                         </TableCell>
                         <TableCell className="text-center">
