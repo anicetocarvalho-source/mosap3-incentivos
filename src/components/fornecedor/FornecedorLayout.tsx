@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Outlet, useNavigate, Link, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { LayoutDashboard, Package, Monitor, ShoppingCart, LogOut, Menu, X, Warehouse, Settings, Store, Receipt } from "lucide-react";
+import { LayoutDashboard, Package, Monitor, ShoppingCart, LogOut, Menu, X, Warehouse, Settings, Store, Receipt, UserCog, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { mosapLogo, LOGO_SIZES } from "@/config/brand";
 import { toast } from "sonner";
@@ -19,6 +19,8 @@ const navItems = [
   { to: "/fornecedor/stock", icon: Warehouse, label: "Stock & Preços" },
   { to: "/fornecedor/pos/venda", icon: ShoppingCart, label: "Vender (Terminal POS)" },
   { to: "/fornecedor/pos", icon: Monitor, label: "Terminais POS" },
+  { to: "/fornecedor/vendedores", icon: UserCog, label: "Vendedores", badge: "Novo" },
+  { to: "/fornecedor/turnos", icon: Clock, label: "Turnos", badge: "Novo" },
   { to: "/fornecedor/vendas", icon: ShoppingCart, label: "Vendas" },
   { to: "/fornecedor/facturas", icon: Receipt, label: "Facturas" },
   { to: "/fornecedor/lojas", icon: Store, label: "Lojas" },
@@ -85,7 +87,8 @@ const FornecedorLayout = () => {
               <Link key={item.to} to={item.to} onClick={() => setMobileOpen(false)}
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${active ? "bg-sidebar-accent text-sidebar-primary" : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50"}`}>
                 <item.icon className="h-4 w-4" />
-                {item.label}
+                <span className="flex-1">{item.label}</span>
+                {(item as any).badge && <span className="text-[10px] bg-primary text-primary-foreground px-1.5 py-0.5 rounded-full font-semibold">{(item as any).badge}</span>}
               </Link>
             );
           })}

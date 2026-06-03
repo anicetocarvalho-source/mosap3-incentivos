@@ -31,7 +31,9 @@ const FornecedorVendas = () => {
   useEffect(() => { load(); }, [supplier.id]);
 
   const filtered = sales.filter((s) =>
-    !search || s.sale_code.toLowerCase().includes(search.toLowerCase()) || s.farmer_name.toLowerCase().includes(search.toLowerCase())
+    !search || s.sale_code.toLowerCase().includes(search.toLowerCase())
+    || s.farmer_name.toLowerCase().includes(search.toLowerCase())
+    || (s.seller_name || "").toLowerCase().includes(search.toLowerCase())
   );
 
   return (
@@ -62,6 +64,7 @@ const FornecedorVendas = () => {
                   <TableRow>
                     <TableHead>Código</TableHead>
                     <TableHead>Produtor</TableHead>
+                    <TableHead>Vendedor</TableHead>
                     <TableHead>PATEC</TableHead>
                     <TableHead className="text-right">Total</TableHead>
                     <TableHead>Pagamento</TableHead>
@@ -73,6 +76,7 @@ const FornecedorVendas = () => {
                     <TableRow key={s.id}>
                       <TableCell className="font-mono text-sm">{s.sale_code}</TableCell>
                       <TableCell>{s.farmer_name}</TableCell>
+                      <TableCell className="text-sm">{s.seller_name || <span className="text-muted-foreground">—</span>}</TableCell>
                       <TableCell>{s.patec_number ? `PATEC ${s.patec_number}` : "—"}</TableCell>
                       <TableCell className="text-right font-medium">{Number(s.total).toLocaleString("pt-AO")} Kz</TableCell>
                       <TableCell><Badge variant={s.payment_status === "pago" ? "default" : "outline"}>{s.payment_status}</Badge></TableCell>
