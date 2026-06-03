@@ -105,6 +105,9 @@ export default function PatecCompositionDialog({ open, onOpenChange, patec }: Pr
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editQty, setEditQty] = useState("");
   const [editUnit, setEditUnit] = useState("");
+  const [editFullDraft, setEditFullDraft] = useState<NewItemDraft>(emptyDraft());
+  const [editFullCategory, setEditFullCategory] = useState<"agricultura" | "pecuaria">("agricultura");
+  const [editMode, setEditMode] = useState<"quick" | "full">("quick");
   const [saving, setSaving] = useState(false);
   const [addingCategory, setAddingCategory] = useState<"agricultura" | "pecuaria" | null>(null);
   const [newItem, setNewItem] = useState<NewItemDraft>(emptyDraft());
