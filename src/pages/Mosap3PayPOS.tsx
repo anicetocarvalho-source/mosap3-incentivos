@@ -843,6 +843,30 @@ const Mosap3PayPOS = ({ forcedSupplierId, shiftContext }: Mosap3PayPOSProps = {}
     }
   };
 
+  /**
+   * Auto-reset e auto-prefill do carrinho quando o agricultor muda na mesma sessão.
+   * Garante que:
+   *  - Ao limpar o agricultor (logout/nova venda), o carrinho fica vazio.
+   *  - Ao trocar de agricultor, os itens do anterior são removidos antes do prefill.
+   *  - Se os produtos do fornecedor carregarem depois do PATEC (race), o prefill é
+   *    re-aplicado assim que ambos estiverem disponíveis.
+   * Só corre uma vez por código de agricultor (evita esmagar edições manuais do operador).
+   */
+  useEffect(() => {
+    const code = farmer?.code ?? null;
+    if (code !== lastPrefilledFarmerRef.current) {
+      // Mudou o agricultor (ou foi removido) → limpar carrinho do anterior.
+      setCart([]);
+      lastPrefilledFarmerRef.current = null;
+    }
+    if (!farmer || !code) return;
+    if (patecItems.length === 0 || products.length === 0) return;
+    if (lastPrefilledFarmerRef.current === code) return;
+    lastPrefilledFarmerRef.current = code;
+    prefillCartFromPatec(patecItems);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [farmer?.code, patecItems, products]);
+
   const getAvailableProducts = () => {
     if (!farmer) return [];
     return products.filter((p) => {
