@@ -17,6 +17,7 @@ import { fetchAllPages } from "@/lib/supabaseFetchAll";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { ErrorState } from "@/components/ui/error-state";
+import { usePatecCatalogIndex } from "@/hooks/usePatecCatalogIndex";
 
 interface Product {
   id: string;
@@ -64,6 +65,8 @@ const Mosap3PayStock = () => {
   const queryClient = useQueryClient();
   const [filterSupplier, setFilterSupplier] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
+  const [filterPatec, setFilterPatec] = useState<"todos" | "em_patec" | "fora_patec">("todos");
+  const catalogIndex = usePatecCatalogIndex();
   const [search, setSearch] = useState("");
   const [movSearch, setMovSearch] = useState("");
   const [movFilterType, setMovFilterType] = useState("all");
@@ -129,6 +132,11 @@ const Mosap3PayStock = () => {
     if (filterStatus === "low" && !(p.stock <= p.min_stock && p.stock > 0)) return false;
     if (filterStatus === "out" && p.stock !== 0) return false;
     if (filterStatus === "ok" && p.stock <= p.min_stock) return false;
+    if (filterPatec !== "todos") {
+      const inPatec = catalogIndex.isInAnyPatec(p.name);
+      if (filterPatec === "em_patec" && !inPatec) return false;
+      if (filterPatec === "fora_patec" && inPatec) return false;
+    }
     return true;
   });
 
@@ -269,7 +277,7 @@ const Mosap3PayStock = () => {
   const movTotalPages = Math.ceil(filteredMovements.length / PAGE_SIZE);
   const paginatedMovements = filteredMovements.slice((movPage - 1) * PAGE_SIZE, movPage * PAGE_SIZE);
 
-  useEffect(() => { setProdPage(1); }, [search, filterSupplier, filterStatus]);
+  useEffect(() => { setProdPage(1); }, [search, filterSupplier, filterStatus, filterPatec]);
   useEffect(() => { setMovPage(1); }, [movSearch, movFilterType]);
 
   const PaginationBlock = ({ current, total, onChange }: { current: number; total: number; onChange: (p: number) => void }) => total > 1 ? (
