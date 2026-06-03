@@ -49,6 +49,8 @@ export default function Mosap3PayAnalisePrecos() {
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [severityFilter, setSeverityFilter] = useState<string>("anormais");
+  const [patecFilter, setPatecFilter] = useState<"todos" | "em_patec" | "fora_patec">("todos");
+  const catalogIndex = usePatecCatalogIndex();
   const [minSuppliers, setMinSuppliers] = useState(3);
   const [highPct, setHighPct] = useState(40);
   const [mediumPct, setMediumPct] = useState(25);
@@ -91,13 +93,18 @@ export default function Mosap3PayAnalisePrecos() {
       if (severityFilter !== "all" && severityFilter !== "anormais" && a.severity !== severityFilter) return false;
       if (categoryFilter !== "all" && a.category !== categoryFilter) return false;
       if (reviewStatusFilter !== "all" && reviewStatusOf(a) !== reviewStatusFilter) return false;
+      if (patecFilter !== "todos") {
+        const inPatec = catalogIndex.isInAnyPatec(a.product_name);
+        if (patecFilter === "em_patec" && !inPatec) return false;
+        if (patecFilter === "fora_patec" && inPatec) return false;
+      }
       if (search) {
         const q = search.toLowerCase();
         if (!a.product_name.toLowerCase().includes(q) && !a.supplier_name.toLowerCase().includes(q)) return false;
       }
       return true;
     });
-  }, [alerts, severityFilter, categoryFilter, search, reviewStatusFilter, reviewMap]);
+  }, [alerts, severityFilter, categoryFilter, search, reviewStatusFilter, reviewMap, patecFilter, catalogIndex]);
 
   const stats = useMemo(() => {
     const monitored = alerts.length;
