@@ -19,6 +19,7 @@ import {
 import { Loader2, Package, Pencil, Check, X, Trash2, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
+import { UnitSelect } from "@/components/ui/unit-select";
 import type { Patec } from "@/hooks/usePatecs";
 
 interface PatecItem {
@@ -455,12 +456,10 @@ export default function PatecCompositionDialog({ open, onOpenChange, patec }: Pr
             onChange={(e) => setNewItem((s) => ({ ...s, base_quantity: e.target.value }))}
             className="h-8 text-sm"
           />
-          <Input
-            placeholder="Unidade *"
+          <UnitSelect
             value={newItem.unit}
-            onChange={(e) => setNewItem((s) => ({ ...s, unit: e.target.value }))}
-            className="h-8 text-sm"
-            maxLength={20}
+            onChange={(v) => setNewItem((s) => ({ ...s, unit: v }))}
+            triggerClassName="h-8"
           />
         </div>
       </div>
@@ -564,14 +563,12 @@ export default function PatecCompositionDialog({ open, onOpenChange, patec }: Pr
                                 }
                                 className="h-8 text-sm"
                               />
-                              <Input
-                                placeholder="Unidade *"
+                              <UnitSelect
                                 value={editFullDraft.unit}
-                                onChange={(e) =>
-                                  setEditFullDraft((s) => ({ ...s, unit: e.target.value }))
+                                onChange={(v) =>
+                                  setEditFullDraft((s) => ({ ...s, unit: v }))
                                 }
-                                className="h-8 text-sm"
-                                maxLength={20}
+                                triggerClassName="h-8"
                               />
                             </div>
                           </div>
@@ -604,12 +601,13 @@ export default function PatecCompositionDialog({ open, onOpenChange, patec }: Pr
                               className="h-7 w-20 text-xs"
                               autoFocus
                             />
-                            <Input
-                              value={editUnit}
-                              onChange={(e) => setEditUnit(e.target.value)}
-                              placeholder="Unid."
-                              className="h-7 w-20 text-xs"
-                            />
+                            <div className="w-28">
+                              <UnitSelect
+                                value={editUnit}
+                                onChange={setEditUnit}
+                                triggerClassName="h-7 text-xs"
+                              />
+                            </div>
                             <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => saveEdit(r)} disabled={saving}>
                               {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5 text-success" />}
                             </Button>
