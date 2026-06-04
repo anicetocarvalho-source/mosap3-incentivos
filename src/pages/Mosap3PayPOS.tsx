@@ -2186,7 +2186,7 @@ const Mosap3PayPOS = ({ forcedSupplierId, shiftContext }: Mosap3PayPOSProps = {}
                 <Button variant="outline" onClick={() => setShowInvoice(true)} disabled={!invoiceData}>
                   <Printer className="h-4 w-4 mr-1" /> Ver Factura
                 </Button>
-                <Button onClick={() => { setReceiptOpen(false); setFarmer(null); setPatecBlock(null); setFarmerSearch(""); setPaymentStatus("idle"); setInvoiceData(null); setPatecItems([]); }} className="flex-1 bg-[hsl(45,70%,40%)] text-[hsl(220,20%,10%)] hover:bg-[hsl(45,75%,45%)]">
+                <Button onClick={() => { setReceiptOpen(false); setFarmer(null); setPatecBlock(null); setPatecValidity(null); setFarmerSearch(""); setPaymentStatus("idle"); setInvoiceData(null); setPatecItems([]); }} className="flex-1 bg-[hsl(45,70%,40%)] text-[hsl(220,20%,10%)] hover:bg-[hsl(45,75%,45%)]">
                   Nova Venda
                 </Button>
               </div>
@@ -2816,7 +2816,7 @@ const Mosap3PayPOS = ({ forcedSupplierId, shiftContext }: Mosap3PayPOSProps = {}
             <p className="text-sm text-muted-foreground">Código: <span className="font-mono font-bold">{lastSaleCode}</span></p>
             <div className="flex gap-2">
               <Button variant="outline" onClick={() => setShowInvoice(true)} disabled={!invoiceData}><Printer className="h-4 w-4 mr-1" /> Ver Factura</Button>
-              <Button onClick={() => { setReceiptOpen(false); setFarmer(null); setPatecBlock(null); setFarmerSearch(""); setPaymentStatus("idle"); setInvoiceData(null); setPatecItems([]); }} className="flex-1">Nova Venda</Button>
+              <Button onClick={() => { setReceiptOpen(false); setFarmer(null); setPatecBlock(null); setPatecValidity(null); setFarmerSearch(""); setPaymentStatus("idle"); setInvoiceData(null); setPatecItems([]); }} className="flex-1">Nova Venda</Button>
             </div>
           </div>
         </DialogContent>
