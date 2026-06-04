@@ -239,6 +239,7 @@ const Mosap3PayPOS = ({ forcedSupplierId, shiftContext }: Mosap3PayPOSProps = {}
   const [farmer, setFarmer] = useState<Farmer | null>(null);
   const lastPrefilledFarmerRef = useRef<string | null>(null);
   const [patecBlock, setPatecBlock] = useState<PatecBlockDetail | null>(null);
+  const [patecValidity, setPatecValidity] = useState<PatecValidity | null>(null);
   const [farmerSearch, setFarmerSearch] = useState("");
   const [farmerSuggestions, setFarmerSuggestions] = useState<Farmer[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -449,6 +450,7 @@ const Mosap3PayPOS = ({ forcedSupplierId, shiftContext }: Mosap3PayPOSProps = {}
         });
       } else {
         setPatecBlock(null);
+        setPatecValidity(availability.validity ?? null);
       }
     })();
     return () => { cancelled = true; };
