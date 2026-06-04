@@ -1812,6 +1812,12 @@ const Mosap3PayPOS = ({ forcedSupplierId, shiftContext }: Mosap3PayPOSProps = {}
                       )}
                     </div>
                     <p className="text-[10px] text-[hsl(220,10%,45%)]">{farmer.code} • {farmer.phone || "—"}</p>
+                    {farmer.patec && (farmer.patec_code || patecValidity) && (
+                      <p className="text-[9px] text-[hsl(45,90%,55%)] font-medium leading-tight">
+                        {farmer.patec_code && <>Código: <span className="font-mono">{farmer.patec_code}</span></>}
+                        {patecValidity && <> · Válido até <span className="font-mono">{fmtDate(patecValidity.endDate)}</span></>}
+                      </p>
+                    )}
                     <p className={`text-[10px] font-semibold ${farmerBalance > 0 ? "text-[hsl(120,60%,50%)]" : "text-[hsl(0,70%,60%)]"}`}>
                       Saldo: <span className="font-mono">{formatKzCompact(farmerBalance)}</span>
                     </p>
