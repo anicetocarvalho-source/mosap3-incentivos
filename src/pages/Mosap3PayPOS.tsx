@@ -51,7 +51,16 @@ export interface PatecBlockDetail {
   lastSeason?: { name: string; end_date: string };
 }
 
-export type PatecAvailability = { ok: true } | { ok: false; detail: PatecBlockDetail };
+export interface PatecValidity {
+  code: string;
+  patecName: string;
+  seasonName: string;
+  endDate: string;
+}
+
+export type PatecAvailability =
+  | { ok: true; validity?: PatecValidity }
+  | { ok: false; detail: PatecBlockDetail };
 
 const fmtDate = (d: string) => {
   try { return new Date(d).toLocaleDateString("pt-AO"); } catch { return d; }
@@ -133,7 +142,7 @@ async function checkPatecAvailability(patecCode: string | null): Promise<PatecAv
       };
     }
     const inWindow = active.find((s) => s.start_date <= today && today <= s.end_date);
-    if (inWindow) return { ok: true };
+    if (inWindow) return { ok: true, validity: { code: p.code, patecName: p.name, seasonName: inWindow.name, endDate: inWindow.end_date } };
     const future = active
       .filter((s) => s.start_date > today)
       .sort((a, b) => (a.start_date < b.start_date ? -1 : 1))[0];
