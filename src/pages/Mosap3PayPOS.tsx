@@ -1150,6 +1150,8 @@ const Mosap3PayPOS = ({ forcedSupplierId, shiftContext }: Mosap3PayPOSProps = {}
       farmer_code: farmer.code,
       farmer_phone: farmer.phone,
       patec_number: farmer.patec,
+      patec_code: farmer.patec_code,
+      patec_valid_until: patecValidity?.endDate ?? null,
       supplier_name: supplierData?.name,
       subtotal: cartSubtotal,
       iva_total: cartIva,
@@ -2117,6 +2119,12 @@ const Mosap3PayPOS = ({ forcedSupplierId, shiftContext }: Mosap3PayPOSProps = {}
               <div className="p-3 bg-[hsl(220,15%,12%)] rounded-lg space-y-1">
                 <p className="font-medium">{farmer?.full_name}</p>
                 <p className="text-xs text-[hsl(220,10%,45%)]">{farmer?.code} • {farmer?.patec ? patecLabels[farmer.patec] : "Sem PATEC"}</p>
+                {farmer?.patec && (farmer.patec_code || patecValidity) && (
+                  <p className="text-[10px] text-[hsl(45,90%,55%)] leading-tight">
+                    {farmer.patec_code && <>Código PATEC: <span className="font-mono">{farmer.patec_code}</span></>}
+                    {patecValidity && <> · Válido até <span className="font-mono">{fmtDate(patecValidity.endDate)}</span></>}
+                  </p>
+                )}
               </div>
               <div className="space-y-1">
                 {cart.map((c) => (
@@ -2554,6 +2562,12 @@ const Mosap3PayPOS = ({ forcedSupplierId, shiftContext }: Mosap3PayPOSProps = {}
             <div className="p-3 bg-muted/50 rounded-lg space-y-1">
               <p className="font-medium">{farmer?.full_name}</p>
               <p className="text-xs text-muted-foreground">{farmer?.code} • {farmer?.patec ? patecLabels[farmer.patec] : "Sem PATEC"} • Tel: {farmer?.phone || "—"}</p>
+              {farmer?.patec && (farmer.patec_code || patecValidity) && (
+                <p className="text-[11px] text-muted-foreground leading-tight">
+                  {farmer.patec_code && <>Código PATEC: <span className="font-mono text-foreground">{farmer.patec_code}</span></>}
+                  {patecValidity && <> · Válido até <span className="font-mono text-foreground">{fmtDate(patecValidity.endDate)}</span></>}
+                </p>
+              )}
               {!farmer?.phone && (
                 <p className="text-[11px] text-destructive">Agricultor sem telefone — não é possível enviar OTP. Actualize o contacto.</p>
               )}
