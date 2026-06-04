@@ -1030,6 +1030,7 @@ const Mosap3PayPOS = ({ forcedSupplierId, shiftContext }: Mosap3PayPOSProps = {}
       return;
     }
     setPatecBlock(null);
+    setPatecValidity(availability.validity ?? null);
 
     setProcessing(true);
     setPaymentStatus(prepaid ? "paid" : "processing");
@@ -1818,7 +1819,7 @@ const Mosap3PayPOS = ({ forcedSupplierId, shiftContext }: Mosap3PayPOSProps = {}
                       <p className="text-[9px] text-[hsl(0,70%,65%)] font-medium leading-none mt-0.5">⚠ Sem saldo — compras bloqueadas</p>
                     )}
                   </div>
-                  <button onClick={() => { setFarmer(null); setPatecBlock(null); setFarmerSearch(""); setCart([]); setPatecItems([]); }} className="text-[hsl(220,10%,40%)] hover:text-[hsl(0,70%,60%)]">
+                  <button onClick={() => { setFarmer(null); setPatecBlock(null); setPatecValidity(null); setFarmerSearch(""); setCart([]); setPatecItems([]); }} className="text-[hsl(220,10%,40%)] hover:text-[hsl(0,70%,60%)]">
                     <Trash2 className="h-3 w-3" />
                   </button>
                 </div>
