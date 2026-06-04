@@ -787,6 +787,7 @@ const Mosap3PayPOS = ({ forcedSupplierId, shiftContext }: Mosap3PayPOSProps = {}
       return;
     }
     setPatecBlock(null);
+    setPatecValidity(availability.validity ?? null);
     if (f.sim_status === "Pré desactivado") {
       toast.warning(`Atenção: cartão SIM em estado "Pré desactivado". Confirme antes de finalizar.`);
     }
@@ -810,7 +811,7 @@ const Mosap3PayPOS = ({ forcedSupplierId, shiftContext }: Mosap3PayPOSProps = {}
       await selectFarmerFromSuggestion(data as Farmer);
     } else {
       toast.error("Produtor não encontrado. Verifique o código, BI, telefone ou nome e tente novamente.");
-      setFarmer(null); setPatecBlock(null);
+      setFarmer(null); setPatecBlock(null); setPatecValidity(null);
     }
   };
 
