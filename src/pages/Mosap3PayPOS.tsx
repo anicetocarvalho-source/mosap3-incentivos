@@ -1918,8 +1918,17 @@ const Mosap3PayPOS = ({ forcedSupplierId, shiftContext }: Mosap3PayPOSProps = {}
                         <User className="h-3 w-3 text-[hsl(220,10%,45%)] flex-shrink-0" />
                         <div className="flex-1 min-w-0">
                           <p className="font-medium truncate text-[hsl(0,0%,85%)]">{s.full_name}</p>
-                          <p className="text-[10px] text-[hsl(220,10%,45%)]">{s.code} • {s.phone || "—"}{s.patec ? ` • ${patecLabels[s.patec]}` : ""}</p>
+                          <p className="text-[10px] text-[hsl(220,10%,45%)]">{s.code} • {s.phone || "—"}</p>
                         </div>
+                        {s.patec ? (
+                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-[hsl(45,90%,50%)]/20 text-[hsl(45,90%,60%)] shrink-0">
+                            {patecLabels[s.patec]}
+                          </span>
+                        ) : (
+                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-[hsl(0,70%,40%)]/20 text-[hsl(0,70%,65%)] shrink-0">
+                            Sem PATEC
+                          </span>
+                        )}
                         <FarmerSaldoBadge variant="kiosk" valor_recebido={s.valor_recebido} total_gasto={s.total_gasto} />
                       </button>
                     ))}
@@ -2241,7 +2250,7 @@ const Mosap3PayPOS = ({ forcedSupplierId, shiftContext }: Mosap3PayPOSProps = {}
                             <p className="text-xs text-muted-foreground">{s.code} • {s.phone || "—"}</p>
                           </div>
                           <FarmerSaldoBadge variant="standard" valor_recebido={s.valor_recebido} total_gasto={s.total_gasto} />
-                          {s.patec ? <Badge variant="secondary" className="text-[10px]">{patecLabels[s.patec]}</Badge> : null}
+                          {s.patec ? <Badge variant="secondary" className="text-[10px]">{patecLabels[s.patec]}</Badge> : <Badge variant="destructive" className="text-[10px]">Sem PATEC</Badge>}
                         </button>
                       ))}
                       {farmerTotalCount !== null && (
