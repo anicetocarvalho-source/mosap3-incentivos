@@ -1,28 +1,65 @@
-## Problema
+## Objectivo
 
-No modo **Kiosk**, a lista de sugestões durante a identificação do produtor (`Mosap3PayPOS.tsx`, linha ~1921) só mostra o PATEC quando existe:
+Executar um teste completo do fluxo de venda no **Modo Kiosk** (`/mosap3pay/pos`) usando o browser automation, validando cada etapa visualmente e confirmando que a venda chega ao fim sem erros.
 
-```
-{s.code} • {s.phone} • PATEC 1 — Milho
-```
+## Etapas do teste
 
-Quando o produtor não tem PATEC atribuído, a linha fica sem qualquer indicação — o operador só descobre depois de seleccionar o produtor.
+1. **Navegação e entrada no Kiosk**
+   - Abrir `/mosap3pay/pos` na preview (viewport desktop 1340×860).
+   - Confirmar que carrega a UI do Terminal POS (login já ativo na sessão).
+   - Ativar o **Modo Kiosk** (botão dedicado) e validar tema escuro + fullscreen UI.
 
-No **Terminal POS** padrão a sugestão também é discreta, mas o cartão pós-selecção (linha 2277) mostra claramente um badge `Sem PATEC` vermelho. O Kiosk já tem esse badge no cartão (linha 1796), mas falta o aviso **na própria lista de sugestões** para evitar selecções inúteis.
+2. **Selecção / troca de fornecedor**
+   - Verificar que aparece o selector inicial de fornecedor.
+   - Escolher um fornecedor com stock.
+   - Trocar de fornecedor (botão "Trocar fornecedor") e voltar a escolher um — confirmar que o estado da venda reinicia corretamente.
 
-## Alteração proposta
+3. **Identificação do produtor**
+   - Pesquisar um produtor **com PATEC válido** (por código ou nome).
+   - Validar nas sugestões:
+     - Badge dourado com nome curto do PATEC.
+     - Código PATEC e data "Válido até".
+   - Selecionar o produtor e confirmar o cartão com saldo, PATEC, código e validade.
+   - Repetir rapidamente com um produtor **sem PATEC** para confirmar badge vermelho "Sem PATEC" (sem prosseguir a venda).
 
-Em `src/pages/Mosap3PayPOS.tsx`, no bloco do dropdown de sugestões do Kiosk (`if (kioskMode)`, ~linhas 1916-1925):
+4. **Adicionar produtos ao carrinho**
+   - Adicionar 1–2 produtos do catálogo do fornecedor (idealmente itens PATEC).
+   - Confirmar atualização do subtotal/IVA/total e do saldo disponível.
 
-- Substituir o texto inline `… • ${patecLabels[s.patec]}` por um **badge visual** à direita da linha (antes do `FarmerSaldoBadge`), com dois estados:
-  - **Com PATEC** → badge dourado (`bg-[hsl(45,90%,50%)]/20 text-[hsl(45,90%,60%)]`) com o nome curto do PATEC (`patecLabels[s.patec]`).
-  - **Sem PATEC** → badge vermelho (`bg-[hsl(0,70%,40%)]/20 text-[hsl(0,70%,65%)]`) com o texto `Sem PATEC`.
-- Reaproveitar exactamente o mesmo estilo já usado no cartão do produtor identificado (linhas 1791-1799) para manter consistência visual dentro do tema escuro Kiosk.
-- Aplicar a mesma melhoria à sugestão do Terminal POS padrão (linha 2244) para garantir que mostra também `Sem PATEC` (badge `variant="destructive"`) — hoje só aparece quando há PATEC.
+5. **Resumo da compra**
+   - Avançar para o ecrã de resumo.
+   - Confirmar visualmente que aparecem: produtor, código produtor, PATEC, **Código PATEC** e **Válido até**.
 
-Sem alterações de schema, queries ou lógica de venda — apenas apresentação.
+6. **Processamento do pagamento**
+   - Escolher método (Unitel Money / OTP conforme disponível em sandbox).
+   - Disparar o fluxo de pagamento. Se for necessário OTP real para produção, parar antes da submissão final e reportar — **não submeter** pagamentos reais sem confirmação do utilizador.
+   - Se for fluxo simulado/sandbox, completar e confirmar o ecrã de sucesso.
 
-## Validação
+7. **Recibo / Factura**
+   - Abrir o recibo gerado e verificar:
+     - Número da factura.
+     - Linha "PATEC N — CÓDIGO".
+     - Linha "Válido até: dd/mm/aaaa".
+     - QR code e hash presentes.
 
-- Abrir Kiosk em `/mosap3pay/pos`, pesquisar um produtor com PATEC e outro sem PATEC; confirmar badge dourado vs vermelho na sugestão.
-- Repetir no Terminal POS padrão (sair do Kiosk) e confirmar o mesmo comportamento.
+8. **Sair do Kiosk**
+   - Fechar Kiosk e confirmar retorno ao Terminal POS padrão sem erros.
+
+## Verificações transversais
+
+- **Console**: sem novos `error` durante todo o fluxo (warnings de React Router são esperados).
+- **Network**: chamadas a `pos_sales`, `farmer_incentives`, `unitel-money-payment` devolvem 2xx; capturar IDs e validar payloads chave (farmer_id, supplier_id, total).
+- **Screenshots**: capturar no mínimo: Kiosk inicial, selector fornecedor, sugestão com PATEC, cartão produtor, carrinho, resumo, recibo final.
+
+## Critérios de aceitação
+
+- Todos os 8 passos concluídos sem reload manual nem erros bloqueantes.
+- PATEC (número, código, validade) visível e correto no cartão, no resumo **e** no recibo.
+- Saldo do produtor atualiza após a venda (consultar via `supabase--read_query` em `farmers`/`pos_sales` pelo código).
+- Relatório final ao utilizador com: passos OK, problemas encontrados (se houver), screenshots e IDs de venda criados.
+
+## Notas
+
+- Se a sandbox não tiver fornecedor com PATEC + produtor com saldo suficiente, parar e pedir indicação de quais usar antes de continuar.
+- Não confirmar pagamentos via Unitel Money em produção sem aprovação explícita; se necessário, parar no ecrã de confirmação.
+- Nenhuma alteração de código está prevista. Se forem detetados bugs, parar o teste e reportar antes de propor correções.
