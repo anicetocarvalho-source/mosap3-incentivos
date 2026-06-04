@@ -51,7 +51,16 @@ export interface PatecBlockDetail {
   lastSeason?: { name: string; end_date: string };
 }
 
-export type PatecAvailability = { ok: true } | { ok: false; detail: PatecBlockDetail };
+export interface PatecValidity {
+  code: string;
+  patecName: string;
+  seasonName: string;
+  endDate: string;
+}
+
+export type PatecAvailability =
+  | { ok: true; validity?: PatecValidity }
+  | { ok: false; detail: PatecBlockDetail };
 
 const fmtDate = (d: string) => {
   try { return new Date(d).toLocaleDateString("pt-AO"); } catch { return d; }
@@ -133,7 +142,7 @@ async function checkPatecAvailability(patecCode: string | null): Promise<PatecAv
       };
     }
     const inWindow = active.find((s) => s.start_date <= today && today <= s.end_date);
-    if (inWindow) return { ok: true };
+    if (inWindow) return { ok: true, validity: { code: p.code, patecName: p.name, seasonName: inWindow.name, endDate: inWindow.end_date } };
     const future = active
       .filter((s) => s.start_date > today)
       .sort((a, b) => (a.start_date < b.start_date ? -1 : 1))[0];
@@ -230,6 +239,7 @@ const Mosap3PayPOS = ({ forcedSupplierId, shiftContext }: Mosap3PayPOSProps = {}
   const [farmer, setFarmer] = useState<Farmer | null>(null);
   const lastPrefilledFarmerRef = useRef<string | null>(null);
   const [patecBlock, setPatecBlock] = useState<PatecBlockDetail | null>(null);
+  const [patecValidity, setPatecValidity] = useState<PatecValidity | null>(null);
   const [farmerSearch, setFarmerSearch] = useState("");
   const [farmerSuggestions, setFarmerSuggestions] = useState<Farmer[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -440,6 +450,7 @@ const Mosap3PayPOS = ({ forcedSupplierId, shiftContext }: Mosap3PayPOSProps = {}
         });
       } else {
         setPatecBlock(null);
+        setPatecValidity(availability.validity ?? null);
       }
     })();
     return () => { cancelled = true; };
@@ -776,6 +787,7 @@ const Mosap3PayPOS = ({ forcedSupplierId, shiftContext }: Mosap3PayPOSProps = {}
       return;
     }
     setPatecBlock(null);
+    setPatecValidity(availability.validity ?? null);
     if (f.sim_status === "Pré desactivado") {
       toast.warning(`Atenção: cartão SIM em estado "Pré desactivado". Confirme antes de finalizar.`);
     }
@@ -799,7 +811,7 @@ const Mosap3PayPOS = ({ forcedSupplierId, shiftContext }: Mosap3PayPOSProps = {}
       await selectFarmerFromSuggestion(data as Farmer);
     } else {
       toast.error("Produtor não encontrado. Verifique o código, BI, telefone ou nome e tente novamente.");
-      setFarmer(null); setPatecBlock(null);
+      setFarmer(null); setPatecBlock(null); setPatecValidity(null);
     }
   };
 
@@ -1018,6 +1030,7 @@ const Mosap3PayPOS = ({ forcedSupplierId, shiftContext }: Mosap3PayPOSProps = {}
       return;
     }
     setPatecBlock(null);
+    setPatecValidity(availability.validity ?? null);
 
     setProcessing(true);
     setPaymentStatus(prepaid ? "paid" : "processing");
@@ -1799,6 +1812,12 @@ const Mosap3PayPOS = ({ forcedSupplierId, shiftContext }: Mosap3PayPOSProps = {}
                       )}
                     </div>
                     <p className="text-[10px] text-[hsl(220,10%,45%)]">{farmer.code} • {farmer.phone || "—"}</p>
+                    {farmer.patec && (farmer.patec_code || patecValidity) && (
+                      <p className="text-[9px] text-[hsl(45,90%,55%)] font-medium leading-tight">
+                        {farmer.patec_code && <>Código: <span className="font-mono">{farmer.patec_code}</span></>}
+                        {patecValidity && <> · Válido até <span className="font-mono">{fmtDate(patecValidity.endDate)}</span></>}
+                      </p>
+                    )}
                     <p className={`text-[10px] font-semibold ${farmerBalance > 0 ? "text-[hsl(120,60%,50%)]" : "text-[hsl(0,70%,60%)]"}`}>
                       Saldo: <span className="font-mono">{formatKzCompact(farmerBalance)}</span>
                     </p>
@@ -1806,7 +1825,7 @@ const Mosap3PayPOS = ({ forcedSupplierId, shiftContext }: Mosap3PayPOSProps = {}
                       <p className="text-[9px] text-[hsl(0,70%,65%)] font-medium leading-none mt-0.5">⚠ Sem saldo — compras bloqueadas</p>
                     )}
                   </div>
-                  <button onClick={() => { setFarmer(null); setPatecBlock(null); setFarmerSearch(""); setCart([]); setPatecItems([]); }} className="text-[hsl(220,10%,40%)] hover:text-[hsl(0,70%,60%)]">
+                  <button onClick={() => { setFarmer(null); setPatecBlock(null); setPatecValidity(null); setFarmerSearch(""); setCart([]); setPatecItems([]); }} className="text-[hsl(220,10%,40%)] hover:text-[hsl(0,70%,60%)]">
                     <Trash2 className="h-3 w-3" />
                   </button>
                 </div>
@@ -2173,7 +2192,7 @@ const Mosap3PayPOS = ({ forcedSupplierId, shiftContext }: Mosap3PayPOSProps = {}
                 <Button variant="outline" onClick={() => setShowInvoice(true)} disabled={!invoiceData}>
                   <Printer className="h-4 w-4 mr-1" /> Ver Factura
                 </Button>
-                <Button onClick={() => { setReceiptOpen(false); setFarmer(null); setPatecBlock(null); setFarmerSearch(""); setPaymentStatus("idle"); setInvoiceData(null); setPatecItems([]); }} className="flex-1 bg-[hsl(45,70%,40%)] text-[hsl(220,20%,10%)] hover:bg-[hsl(45,75%,45%)]">
+                <Button onClick={() => { setReceiptOpen(false); setFarmer(null); setPatecBlock(null); setPatecValidity(null); setFarmerSearch(""); setPaymentStatus("idle"); setInvoiceData(null); setPatecItems([]); }} className="flex-1 bg-[hsl(45,70%,40%)] text-[hsl(220,20%,10%)] hover:bg-[hsl(45,75%,45%)]">
                   Nova Venda
                 </Button>
               </div>
@@ -2284,6 +2303,12 @@ const Mosap3PayPOS = ({ forcedSupplierId, shiftContext }: Mosap3PayPOSProps = {}
                     </div>
                     <div className="text-right">
                       {farmer.patec ? <Badge className="text-xs">{patecLabels[farmer.patec]}</Badge> : <Badge variant="destructive" className="text-xs">Sem PATEC</Badge>}
+                      {farmer.patec && (farmer.patec_code || patecValidity) && (
+                        <p className="text-[10px] text-muted-foreground mt-1 leading-tight">
+                          {farmer.patec_code && <>Código: <span className="font-mono text-foreground">{farmer.patec_code}</span></>}
+                          {patecValidity && <><br/>Válido até <span className="font-mono text-foreground">{fmtDate(patecValidity.endDate)}</span></>}
+                        </p>
+                      )}
                       <p className={`text-xs font-semibold mt-1 ${farmerBalance > 0 ? "text-primary" : "text-destructive"}`}>
                         Saldo: {farmerBalance.toLocaleString("pt-AO")} Kz
                       </p>
@@ -2803,7 +2828,7 @@ const Mosap3PayPOS = ({ forcedSupplierId, shiftContext }: Mosap3PayPOSProps = {}
             <p className="text-sm text-muted-foreground">Código: <span className="font-mono font-bold">{lastSaleCode}</span></p>
             <div className="flex gap-2">
               <Button variant="outline" onClick={() => setShowInvoice(true)} disabled={!invoiceData}><Printer className="h-4 w-4 mr-1" /> Ver Factura</Button>
-              <Button onClick={() => { setReceiptOpen(false); setFarmer(null); setPatecBlock(null); setFarmerSearch(""); setPaymentStatus("idle"); setInvoiceData(null); setPatecItems([]); }} className="flex-1">Nova Venda</Button>
+              <Button onClick={() => { setReceiptOpen(false); setFarmer(null); setPatecBlock(null); setPatecValidity(null); setFarmerSearch(""); setPaymentStatus("idle"); setInvoiceData(null); setPatecItems([]); }} className="flex-1">Nova Venda</Button>
             </div>
           </div>
         </DialogContent>
