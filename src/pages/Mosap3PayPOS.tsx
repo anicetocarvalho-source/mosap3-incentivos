@@ -1150,6 +1150,8 @@ const Mosap3PayPOS = ({ forcedSupplierId, shiftContext }: Mosap3PayPOSProps = {}
       farmer_code: farmer.code,
       farmer_phone: farmer.phone,
       patec_number: farmer.patec,
+      patec_code: farmer.patec_code,
+      patec_valid_until: patecValidity?.endDate ?? null,
       supplier_name: supplierData?.name,
       subtotal: cartSubtotal,
       iva_total: cartIva,
