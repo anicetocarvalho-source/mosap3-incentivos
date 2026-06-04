@@ -2303,6 +2303,12 @@ const Mosap3PayPOS = ({ forcedSupplierId, shiftContext }: Mosap3PayPOSProps = {}
                     </div>
                     <div className="text-right">
                       {farmer.patec ? <Badge className="text-xs">{patecLabels[farmer.patec]}</Badge> : <Badge variant="destructive" className="text-xs">Sem PATEC</Badge>}
+                      {farmer.patec && (farmer.patec_code || patecValidity) && (
+                        <p className="text-[10px] text-muted-foreground mt-1 leading-tight">
+                          {farmer.patec_code && <>Código: <span className="font-mono text-foreground">{farmer.patec_code}</span></>}
+                          {patecValidity && <><br/>Válido até <span className="font-mono text-foreground">{fmtDate(patecValidity.endDate)}</span></>}
+                        </p>
+                      )}
                       <p className={`text-xs font-semibold mt-1 ${farmerBalance > 0 ? "text-primary" : "text-destructive"}`}>
                         Saldo: {farmerBalance.toLocaleString("pt-AO")} Kz
                       </p>
