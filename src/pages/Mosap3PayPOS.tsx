@@ -2171,9 +2171,15 @@ const Mosap3PayPOS = ({ forcedSupplierId, shiftContext }: Mosap3PayPOSProps = {}
             )}
             <DialogFooter>
               <Button variant="outline" onClick={() => setConfirmOpen(false)}>Cancelar</Button>
-              <Button onClick={sendOtp} disabled={processing || otpSending || !!patecBlock || !farmer?.phone} className="bg-[hsl(45,70%,40%)] text-[hsl(220,20%,10%)] hover:bg-[hsl(45,75%,45%)]">
-                {otpSending ? "A enviar OTP..." : "Enviar OTP e Pagar"}
-              </Button>
+              {kioskPayMethod === "unitel_money" ? (
+                <Button onClick={sendOtp} disabled={processing || otpSending || !!patecBlock || !farmer?.phone} className="bg-[hsl(45,70%,40%)] text-[hsl(220,20%,10%)] hover:bg-[hsl(45,75%,45%)]">
+                  {otpSending ? "A enviar OTP..." : "Enviar OTP e Pagar"}
+                </Button>
+              ) : (
+                <Button onClick={() => { setConfirmOpen(false); processSale(); }} disabled={processing || !!patecBlock} className="bg-[hsl(45,70%,40%)] text-[hsl(220,20%,10%)] hover:bg-[hsl(45,75%,45%)]">
+                  {processing ? "A processar..." : "Emitir FT"}
+                </Button>
+              )}
             </DialogFooter>
           </DialogContent>
         </Dialog>
