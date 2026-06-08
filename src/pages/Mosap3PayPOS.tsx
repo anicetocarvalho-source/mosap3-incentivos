@@ -2215,6 +2215,88 @@ const Mosap3PayPOS = ({ forcedSupplierId, shiftContext }: Mosap3PayPOSProps = {}
             {invoiceData && <InvoicePDF data={invoiceData} hash={invoiceHash} qrContent={invoiceQR} />}
           </DialogContent>
         </Dialog>
+
+        {/* OTP Dialog — também disponível em modo Kiosk */}
+        <Dialog open={otpDialogOpen} onOpenChange={(o) => { if (otpStatus !== "sending" && otpStatus !== "verifying") setOtpDialogOpen(o); }}>
+          <DialogContent
+            onPointerDownOutside={(e) => { if (otpStatus === "sending" || otpStatus === "verifying") e.preventDefault(); }}
+            onEscapeKeyDown={(e) => { if (otpStatus === "sending" || otpStatus === "verifying") e.preventDefault(); }}
+          >
+            <DialogHeader>
+              <DialogTitle>Verificação do Agricultor</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3 relative">
+              {(otpStatus === "sending" || otpStatus === "verifying") && (
+                <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-background/80 backdrop-blur-[1px] rounded-md">
+                  <Loader2 className="h-8 w-8 text-primary animate-spin" />
+                  <p className="text-sm font-medium text-foreground">
+                    {otpStatus === "sending" ? "A enviar SMS... por favor aguarde" : "A validar pagamento... não feche"}
+                  </p>
+                </div>
+              )}
+              <p className="text-sm text-muted-foreground">
+                Código de 6 dígitos enviado por SMS para <strong className="text-foreground">{otpMaskedPhone || farmer?.phone}</strong>.
+              </p>
+              {otpDevCode && (
+                <Alert>
+                  <AlertTitle className="text-xs">Modo de desenvolvimento</AlertTitle>
+                  <AlertDescription className="text-xs font-mono">Código: <strong>{otpDevCode}</strong></AlertDescription>
+                </Alert>
+              )}
+              {otpExpired && (
+                <Alert variant="destructive">
+                  <AlertTitle className="text-sm">Código OTP expirado</AlertTitle>
+                  <AlertDescription className="text-xs">Gere um novo código para retomar o pagamento.</AlertDescription>
+                </Alert>
+              )}
+              <div>
+                <input
+                  inputMode="numeric"
+                  pattern="\d{6}"
+                  maxLength={6}
+                  autoFocus
+                  value={otpCode}
+                  disabled={otpExpired || otpSecondsLeft === 0 || otpStatus === "sending" || otpStatus === "verifying"}
+                  onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  className="w-full text-center text-3xl tracking-[0.6em] font-mono py-3 rounded-md border bg-background disabled:opacity-50 disabled:cursor-not-allowed"
+                  placeholder="••••••"
+                />
+                <div className="flex items-center justify-between mt-2 text-xs text-muted-foreground">
+                  <span>
+                    {otpExpired || otpSecondsLeft === 0 ? (
+                      <strong className="text-destructive">Expirado</strong>
+                    ) : (
+                      <>Expira em: <strong className={otpSecondsLeft < 30 ? "text-destructive" : "text-foreground"}>{Math.floor(otpSecondsLeft / 60)}:{String(otpSecondsLeft % 60).padStart(2, "0")}</strong></>
+                    )}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={sendOtp}
+                    disabled={otpSending || otpStatus === "verifying" || otpResendCooldown > 0}
+                    className="text-primary hover:underline disabled:opacity-50 disabled:no-underline"
+                  >
+                    {otpResendCooldown > 0 ? `Reenviar SMS (${otpResendCooldown}s)` : otpSending ? "A enviar..." : "Reenviar SMS"}
+                  </button>
+                </div>
+                {otpAttemptsLeft !== null && otpAttemptsLeft < 5 && (
+                  <p className="mt-1 text-xs text-warning">Tentativas restantes: <strong>{otpAttemptsLeft}</strong></p>
+                )}
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setOtpDialogOpen(false)} disabled={otpStatus === "sending" || otpStatus === "verifying"}>Cancelar</Button>
+              {otpExpired || otpSecondsLeft === 0 ? (
+                <Button onClick={sendOtp} disabled={otpSending || otpStatus === "verifying" || otpResendCooldown > 0} className="bg-[hsl(45,70%,40%)] text-[hsl(220,20%,10%)] hover:bg-[hsl(45,75%,45%)]">
+                  {otpSending ? "A reenviar..." : otpResendCooldown > 0 ? `Aguarde ${otpResendCooldown}s` : "Gerar novo OTP"}
+                </Button>
+              ) : (
+                <Button onClick={verifyOtpAndPay} disabled={otpVerifying || otpProcessingLocked || otpStatus === "sending" || otpCode.length !== 6} className="bg-[hsl(45,70%,40%)] text-[hsl(220,20%,10%)] hover:bg-[hsl(45,75%,45%)]">
+                  {otpVerifying || otpProcessingLocked ? "A validar..." : "Validar e Pagar"}
+                </Button>
+              )}
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     );
   }
