@@ -2216,6 +2216,58 @@ const Mosap3PayPOS = ({ forcedSupplierId, shiftContext }: Mosap3PayPOSProps = {}
           </DialogContent>
         </Dialog>
 
+        {/* Wallet Dialog (Unitel Money) — também disponível em modo Kiosk */}
+        <Dialog
+          open={walletDialogOpen}
+          onOpenChange={(o) => {
+            if (!o && (walletStatus === "connecting" || walletStatus === "awaiting_pin")) return;
+            setWalletDialogOpen(o);
+          }}
+        >
+          <DialogContent className="max-w-md bg-[hsl(220,18%,14%)] border-[hsl(220,15%,22%)] text-[hsl(0,0%,88%)]">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Smartphone className="h-5 w-5" />
+                Confirmação na carteira Money
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              <div className="rounded-lg border border-[hsl(220,15%,22%)] bg-[hsl(220,15%,12%)] p-3 text-sm space-y-1">
+                <div className="flex justify-between"><span className="text-[hsl(220,10%,55%)]">Agricultor</span><span className="font-medium">{farmer?.full_name}</span></div>
+                <div className="flex justify-between"><span className="text-[hsl(220,10%,55%)]">Telemóvel</span><span className="font-mono">{maskPhone(farmer?.phone)}</span></div>
+                <div className="flex justify-between"><span className="text-[hsl(220,10%,55%)]">Total</span><span className="font-semibold">{cartTotal.toLocaleString("pt-AO")} Kz</span></div>
+              </div>
+              {walletStatus === "connecting" && (
+                <Alert><Loader2 className="h-4 w-4 animate-spin" /><AlertTitle>A conectar à carteira Money…</AlertTitle></Alert>
+              )}
+              {walletStatus === "awaiting_pin" && (
+                <Alert><Smartphone className="h-4 w-4" /><AlertTitle>Aguardando PIN — {walletSecondsLeft}s</AlertTitle><AlertDescription>Peça ao agricultor para introduzir o PIN da carteira Money.</AlertDescription></Alert>
+              )}
+              {walletStatus === "paid" && (
+                <Alert><Check className="h-4 w-4" /><AlertTitle>Pagamento confirmado</AlertTitle><AlertDescription>A registar a venda…</AlertDescription></Alert>
+              )}
+              {walletStatus === "failed" && (
+                <Alert variant="destructive"><AlertTriangle className="h-4 w-4" /><AlertTitle>Pagamento não concluído</AlertTitle><AlertDescription>{walletError || "Erro na carteira Money."}</AlertDescription></Alert>
+              )}
+              {walletStatus === "timeout" && (
+                <Alert variant="destructive"><AlertTriangle className="h-4 w-4" /><AlertTitle>Tempo esgotado</AlertTitle></Alert>
+              )}
+            </div>
+            <DialogFooter className="gap-2 sm:gap-2">
+              {(walletStatus === "awaiting_pin" || walletStatus === "connecting") && (
+                <Button variant="outline" onClick={cancelWalletPayment}>Cancelar</Button>
+              )}
+              {(walletStatus === "failed" || walletStatus === "timeout") && (
+                <>
+                  <Button variant="outline" onClick={() => { setWalletDialogOpen(false); setWalletStatus("idle"); }}>Fechar</Button>
+                  <Button variant="outline" onClick={fallbackToManualSale}>Registar manual</Button>
+                  <Button onClick={resendWalletPayment}>Reenviar pedido</Button>
+                </>
+              )}
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
         {/* OTP Dialog — também disponível em modo Kiosk */}
         <Dialog open={otpDialogOpen} onOpenChange={(o) => { if (otpStatus !== "sending" && otpStatus !== "verifying") setOtpDialogOpen(o); }}>
           <DialogContent
