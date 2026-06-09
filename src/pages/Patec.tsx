@@ -21,6 +21,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
+import { useAutoRetryOnError } from "@/hooks/useAutoRetryOnError";
 import { resolveScope, applyFarmerScopeFilter, type ResolvedScope } from "@/lib/farmerScope";
 import { ErrorState } from "@/components/ui/error-state";
 import {
