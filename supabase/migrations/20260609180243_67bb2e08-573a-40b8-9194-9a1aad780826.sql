@@ -1,0 +1,1 @@
+GRANT EXECUTE ON FUNCTION public.get_farmer_counts_by_location TO authenticated, anon;
