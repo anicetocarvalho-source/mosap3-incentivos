@@ -1426,6 +1426,87 @@ export type Database = {
         }
         Relationships: []
       }
+      patec_component_items: {
+        Row: {
+          component_id: string
+          created_at: string
+          id: string
+          note: string | null
+          product_id: string
+          quantity: number
+          state: string | null
+          unit: string | null
+          updated_at: string
+        }
+        Insert: {
+          component_id: string
+          created_at?: string
+          id?: string
+          note?: string | null
+          product_id: string
+          quantity?: number
+          state?: string | null
+          unit?: string | null
+          updated_at?: string
+        }
+        Update: {
+          component_id?: string
+          created_at?: string
+          id?: string
+          note?: string | null
+          product_id?: string
+          quantity?: number
+          state?: string | null
+          unit?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patec_component_items_component_id_fkey"
+            columns: ["component_id"]
+            isOneToOne: false
+            referencedRelation: "patec_components"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patec_component_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "patec_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      patec_components: {
+        Row: {
+          base_dimension: string | null
+          component_code: string
+          created_at: string
+          id: string
+          kind: string | null
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          base_dimension?: string | null
+          component_code: string
+          created_at?: string
+          id?: string
+          kind?: string | null
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          base_dimension?: string | null
+          component_code?: string
+          created_at?: string
+          id?: string
+          kind?: string | null
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       patec_items: {
         Row: {
           base_quantity: number | null
@@ -1507,6 +1588,145 @@ export type Database = {
           sort_order?: number | null
           subcategory?: string | null
           unit?: string | null
+        }
+        Relationships: []
+      }
+      patec_package_components: {
+        Row: {
+          component_id: string
+          created_at: string
+          id: string
+          is_optional: boolean
+          patec_id: string
+          updated_at: string
+        }
+        Insert: {
+          component_id: string
+          created_at?: string
+          id?: string
+          is_optional?: boolean
+          patec_id: string
+          updated_at?: string
+        }
+        Update: {
+          component_id?: string
+          created_at?: string
+          id?: string
+          is_optional?: boolean
+          patec_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patec_package_components_component_id_fkey"
+            columns: ["component_id"]
+            isOneToOne: false
+            referencedRelation: "patec_components"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patec_package_components_patec_id_fkey"
+            columns: ["patec_id"]
+            isOneToOne: false
+            referencedRelation: "patecs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      patec_package_expanded: {
+        Row: {
+          component_id: string | null
+          created_at: string
+          id: string
+          is_optional: boolean
+          note: string | null
+          patec_id: string
+          product_id: string
+          quantity: number
+          state: string | null
+          unit: string | null
+          updated_at: string
+        }
+        Insert: {
+          component_id?: string | null
+          created_at?: string
+          id?: string
+          is_optional?: boolean
+          note?: string | null
+          patec_id: string
+          product_id: string
+          quantity?: number
+          state?: string | null
+          unit?: string | null
+          updated_at?: string
+        }
+        Update: {
+          component_id?: string | null
+          created_at?: string
+          id?: string
+          is_optional?: boolean
+          note?: string | null
+          patec_id?: string
+          product_id?: string
+          quantity?: number
+          state?: string | null
+          unit?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patec_package_expanded_component_id_fkey"
+            columns: ["component_id"]
+            isOneToOne: false
+            referencedRelation: "patec_components"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patec_package_expanded_patec_id_fkey"
+            columns: ["patec_id"]
+            isOneToOne: false
+            referencedRelation: "patecs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patec_package_expanded_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "patec_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      patec_products: {
+        Row: {
+          category: string | null
+          created_at: string
+          id: string
+          name: string
+          product_code: string
+          subcategory: string | null
+          unit: string | null
+          updated_at: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          id?: string
+          name: string
+          product_code: string
+          subcategory?: string | null
+          unit?: string | null
+          updated_at?: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          product_code?: string
+          subcategory?: string | null
+          unit?: string | null
+          updated_at?: string
         }
         Relationships: []
       }

@@ -1,52 +1,76 @@
 ## Objectivo
 
-Substituir os 631 itens actuais de `patec_items` pela composição expandida do ficheiro `PATECs_estruturado.xlsx`, acrescentando os 5 PATECs pecuários (P01..P05) que ainda não existem na BD. Os opcionais são tratados como obrigatórios (sem nova coluna). Os PATEC de Pecuaria, não devem estar necessariamente anexado a irrigação. Digo ele pode fazer pecuaria sem necessidade de irrigar 1 hectare
+Introduzir o modelo normalizado do `PATECs_estruturado.xlsx` na BD, com as folhas 03/05/06 totalmente populadas e com a coluna `is_optional` preservada. O `patec_items` actual (flat, 1195 linhas, sem opcionais) fica intacto para retro-compatibilidade do POS e atribuição em lote.
 
-## Mapeamento de códigos xlsx → BD
+> **Nota importante**: o `patec_items` actual não contém `ID_Componente` nem o flag `Opcional` — não é possível reconstruir 03/05/06 só a partir dele. A migração lê o xlsx (`/mnt/user-uploads/PATECs_estruturado.xlsx`) como fonte de verdade e popula as novas tabelas; o `patec_items` continua a ser a vista usada pelas telas existentes.
 
-Mantemos os códigos `PATEC-01..PATEC-10` para não partir referências em `farmers.patec_code` e em `farmer_incentives`. Os pecuários entram como `PATEC-11..PATEC-15`.
+## Mapeamento de códigos
 
+PATEC xlsx → código BD (igual à importação anterior):
 
-| xlsx      | Cultura             | BD              |
-| --------- | ------------------- | --------------- |
-| PATEC-A01 | Milho + Feijão      | PATEC-01        |
-| PATEC-A02 | Massango + Feijão   | PATEC-02        |
-| PATEC-A03 | Massambala + Feijão | PATEC-03        |
-| PATEC-A04 | Batata-rena         | PATEC-07        |
-| PATEC-A05 | Mandioca + Feijão   | PATEC-04        |
-| PATEC-A06 | Alho                | PATEC-05        |
-| PATEC-A07 | Cenoura             | PATEC-09        |
-| PATEC-A08 | Repolho             | PATEC-10        |
-| PATEC-A09 | Cebola              | PATEC-08        |
-| PATEC-A10 | Batata-doce         | PATEC-06        |
-| PATEC-P01 | Aves                | PATEC-11 (novo) |
-| PATEC-P02 | Bovinos             | PATEC-12 (novo) |
-| PATEC-P03 | Caprinos            | PATEC-13 (novo) |
-| PATEC-P04 | Ovinos              | PATEC-14 (novo) |
-| PATEC-P05 | Suínos              | PATEC-15 (novo) |
+```text
+A01→01  A02→02  A03→03  A04→07  A05→04
+A06→05  A07→09  A08→10  A09→08  A10→06
+P01→11  P02→12  P03→13  P04→14  P05→15
+```
 
+## Novas tabelas (schema `public`)
+
+Todas com `id uuid pk`, `created_at`, `updated_at`, trigger `update_updated_at_column`, RLS ON, GRANT a `authenticated` (SELECT) e `service_role` (ALL). Apenas admins/gestores fazem escrita (políticas com `has_role`).
+
+1. **`patec_products`** — catálogo mestre (folha 01, 189 produtos)
+   - `product_code text unique not null` (ex.: `SEM-001`)
+   - `name text not null`
+   - `category text`, `subcategory text`, `unit text`
+
+2. **`patec_components`** — módulos reutilizáveis (folha 02, 20 componentes)
+   - `component_code text unique not null` (ex.: `CMP-AGR-01`)
+   - `name text not null`
+   - `kind text` (Cultura agrícola / Pecuária / Irrigação / Equipamento / Melhoradoras)
+   - `base_dimension text` (ex.: "por hectare")
+
+3. **`patec_component_items`** — BOM componente→produto (folha 03, ~396 linhas)
+   - `component_id uuid fk patec_components`
+   - `product_id uuid fk patec_products`
+   - `quantity numeric` (0 quando pendente)
+   - `unit text`, `state text` (Confirmado/Pendente), `note text`
+   - `unique(component_id, product_id)`
+
+4. **`patec_package_components`** — pacote→componente (folha 05, ~65 linhas)
+   - `patec_id uuid fk patecs` (resolvido via `code` mapeado)
+   - `component_id uuid fk patec_components`
+   - `is_optional boolean default false` (`Opcional` → true)
+   - `unique(patec_id, component_id)`
+
+5. **`patec_package_expanded`** — vista materializada (folha 06, ~1295 linhas)
+   - `patec_id uuid fk patecs`
+   - `component_id uuid fk patec_components`
+   - `product_id uuid fk patec_products`
+   - `quantity numeric`, `unit text`
+   - `is_optional boolean default false`
+   - `state text`, `note text`
+   - Índices em `(patec_id)` e `(patec_id, is_optional)`
 
 ## Passos
 
-1. **Snapshot de segurança** — `CREATE TABLE patec_items_backup_YYYYMMDD AS SELECT * FROM patec_items;` (migration).
-2. **Inserir 5 pecuários em `patecs**` — `PATEC-11..15` com `legacy_number=11..15`, `is_active=true`, ícone/cor adequados.
-3. **Gerar SQL de importação** a partir da folha `06_Pacotes_Expandido`:
-  - Ler o xlsx com Python (openpyxl).
-  - Para cada linha: aplicar o mapeamento de código, normalizar `name`/`category`/`subcategory`/`unit`, `base_quantity = Quantidade`, `culture` derivada do componente (ou do nome do pacote para pecuária).
-  - Produzir um único script `supabase--insert` com `DELETE FROM patec_items` + `INSERT` em lotes de 50 linhas (regra do projecto).
-4. **Atribuir `patec_number**` — manter compatibilidade: usar o `legacy_number` do PATEC correspondente.
-5. **Verificação** — contar itens por PATEC e comparar com o xlsx; spot-check 3 pacotes (1 agrícola + 1 pecuário + Mandioca que mudou de código).
-6. **UI** — nenhuma alteração de código planeada. O dialog `PatecCompositionDialog` em `/patec` já lista os itens dinamicamente a partir de `patec_items`. Os 5 novos PATECs aparecerão automaticamente em `/patec`, na atribuição em lote e no POS.
-7. **Memória** — actualizar `mem://features/patec-composicao` para reflectir "15 PATECs (10 agrícolas + 5 pecuários) com ~1295 itens".
+1. **Migration** (SQL único): cria as 5 tabelas, GRANTs, RLS, políticas, triggers.
+2. **Importação de dados** (script Python local, depois `supabase--insert` em lotes de 50):
+   - Limpa cada tabela na ordem inversa das FKs.
+   - Insere `patec_products` (folha 01).
+   - Insere `patec_components` (folha 02).
+   - Insere `patec_component_items` (folha 03), resolvendo `component_code`/`product_code`.
+   - Insere `patec_package_components` (folha 05), com `is_optional = (Inclusão == 'Opcional')` e mapeamento PATEC-Axx/Pxx → PATEC-NN.
+   - Insere `patec_package_expanded` (folha 06) com a mesma lógica de mapeamento + `is_optional`.
+3. **Verificação**: contagens por pacote vs xlsx; spot-check 3 pacotes (1 agrícola, 1 pecuário, Mandioca).
+4. **Sem alterações de UI** neste passo — o dialog `PatecCompositionDialog` continua a ler de `patec_items`. Numa fase seguinte poderá passar a usar `patec_package_expanded` para mostrar opcionais.
+5. **Memória**: actualizar `mem://features/patec-composicao` a referir as novas tabelas e a coexistência com `patec_items`.
 
-## Riscos & mitigações
+## Pecuária e irrigação
 
-- **Quebra de referências de produtores**: mitigada ao reutilizar `PATEC-01..10`.
-- **Itens órfãos em `supplier_products` ligados a antigos `patec_items**`: o vínculo PATEC↔catálogo é feito por nome de produto (`patecCatalogIndex`), não por FK — a substituição é segura.
-- **Quantidades pendentes (linhas amarelas no xlsx)**: importadas com `base_quantity=0` quando vazias; comportamento actual do POS já tolera isto.
+A regra anterior ("pecuária não inclui irrigação") fica codificada nos próprios dados do xlsx (folha 05 não associa CMP-REG-* a PATEC-Pxx), portanto não é necessário filtro especial na importação.
 
 ## Fora do âmbito
 
-- Não criamos novas tabelas (produtos mestre / componentes). Modelo permanece flat em `patec_items`.
-- Opcionais não recebem flag `is_optional` (decisão do utilizador).
-- Não há alterações ao módulo de épocas (`patec_seasons`) — os 5 novos pacotes ficam disponíveis para serem vinculados manualmente a uma época depois.
+- Não alteramos `patec_items` nem `patecs`.
+- Não migramos UI para consumir as novas tabelas (fase seguinte, opcional).
+- Não criamos endpoints novos.
