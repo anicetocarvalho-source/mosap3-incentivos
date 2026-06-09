@@ -21,6 +21,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
+import { useAutoRetryOnError } from "@/hooks/useAutoRetryOnError";
 import { resolveScope, applyFarmerScopeFilter, type ResolvedScope } from "@/lib/farmerScope";
 import { ErrorState } from "@/components/ui/error-state";
 import {
@@ -281,6 +282,13 @@ const Patec = () => {
     })();
     return () => { cancelled = true; };
   }, [authReady, user?.id, roles.join(",")]);
+
+  // Auto-recover: silenciosamente refaz os fetchs quando a aba volta ao
+  // foco, a rede regressa ou uma permissão (42501) / RLS é reconcedida
+  // server-side — evita que os dados desapareçam até reload manual.
+  useAutoRetryOnError(loadError, () => { if (scope) fetchFarmers(scope); });
+  useAutoRetryOnError(compositionError, fetchPatecItems);
+
 
   // Realtime: aplica eventos INSERT/UPDATE/DELETE incrementalmente em
   // patecItems e itemCountsByCode. Eventos em rajada são acumulados num
