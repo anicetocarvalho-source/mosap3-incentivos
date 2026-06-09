@@ -442,8 +442,11 @@ const Patec = () => {
       .subscribe((status) => {
         if (status === "SUBSCRIBED") {
           setSyncStatus("connected");
-          // Ao (re)ligar, marca todos os códigos já carregados como dirty
-          // para reconciliar eventos perdidos durante a desconexão.
+          // Ao (re)ligar, marca TODOS os códigos de PATEC conhecidos
+          // (incluindo os com 0 itens actualmente) como dirty para
+          // reconciliar eventos perdidos durante a desconexão e apanhar
+          // pacotes que estavam vazios e passaram a ter itens.
+          for (const p of patecs) dirtyCodesRef.current.add(p.code);
           setItemCountsByCode((prev) => {
             Object.keys(prev).forEach((c) => dirtyCodesRef.current.add(c));
             return prev;
@@ -461,7 +464,7 @@ const Patec = () => {
       }
       supabase.removeChannel(channel);
     };
-  }, [authReady, user?.id, scheduleReconcile]);
+  }, [authReady, user?.id, scheduleReconcile, patecs]);
 
   // Reconciliação imediata do PATEC actualmente seleccionado (composição
   // aberta) — garante leitura fresca sem esperar pelo debounce de lote.
