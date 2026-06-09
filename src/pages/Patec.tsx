@@ -1534,10 +1534,17 @@ const Patec = () => {
                     <Link to={`/agricultores/${f.code}`} className="text-sm font-medium text-primary hover:underline">{f.full_name}</Link>
                   </div>
                   {(() => {
-                    const p = findPatecByFarmer(f.patec_code, f.patec);
-                    if (!p) return <span className="text-[10px] text-destructive font-medium">Sem PATEC</span>;
-                    const meta = p.legacy_number ? patecMeta[p.legacy_number] : null;
-                    return <Badge variant="outline" className={`text-[10px] ${meta?.color || ""}`}>{p.code}</Badge>;
+                    const codes = getFarmerCodes(f);
+                    if (codes.length === 0) return <span className="text-[10px] text-destructive font-medium">Sem PATEC</span>;
+                    return (
+                      <div className="flex flex-wrap gap-1 justify-end">
+                        {codes.map((c) => {
+                          const p = patecs.find((x) => x.code === c);
+                          const meta = p?.legacy_number ? patecMeta[p.legacy_number] : null;
+                          return <Badge key={c} variant="outline" className={`text-[10px] ${meta?.color || ""}`}>{c}</Badge>;
+                        })}
+                      </div>
+                    );
                   })()}
                 </div>
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
@@ -1547,11 +1554,10 @@ const Patec = () => {
                 <div className="flex items-center justify-between">
                   <Badge variant={f.status === "Ativo" ? "default" : "secondary"} className="text-[10px]">{f.status}</Badge>
                   <Button variant="ghost" size="sm" className="h-6 text-[10px] px-2" onClick={() => {
-                    const p = findPatecByFarmer(f.patec_code, f.patec);
                     setEditFarmer(f);
-                    setEditPatecCode(p?.code ?? "");
+                    setEditPatecCodes(new Set(getFarmerCodes(f)));
                   }}>
-                    <Edit2 className="h-3 w-3 mr-1" /> Atribuir
+                    <Edit2 className="h-3 w-3 mr-1" /> Pacotes
                   </Button>
                 </div>
               </div>
