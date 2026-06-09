@@ -704,6 +704,23 @@ const Patec = () => {
 
   const clearSelection = () => setSelectedIds(new Set());
 
+  // Helper: faz upsert do par (farmer_id, patec_code) na tabela farmer_patecs.
+  // Devolve número de linhas afectadas (sucesso) ou lança em erro.
+  const upsertFarmerPatecs = async (farmerIds: string[], patecCode: string) => {
+    if (farmerIds.length === 0) return;
+    const farmerById = new Map(farmers.map((f) => [f.id, f.code]));
+    const rows = farmerIds.map((id) => ({
+      farmer_id: id,
+      farmer_code: farmerById.get(id) || "",
+      patec_code: patecCode,
+      assigned_by: user?.id ?? null,
+    }));
+    const { error } = await supabase
+      .from("farmer_patecs")
+      .upsert(rows, { onConflict: "farmer_id,patec_code", ignoreDuplicates: true });
+    if (error) throw error;
+  };
+
   const handleBulkSave = async () => {
     if (!bulkPatecCode || selectedIds.size === 0) return;
     const selected = patecs.find((p) => p.code === bulkPatecCode);
@@ -720,18 +737,15 @@ const Patec = () => {
     setAssignProgress({ ...progress });
     for (let i = 0; i < ids.length; i += 50) {
       const batch = ids.slice(i, i + 50);
-      const { error } = await supabase
-        .from("farmers")
-        .update({ patec_code: selected.code, patec: selected.legacy_number ?? null })
-        .in("id", batch);
+      try {
+        await upsertFarmerPatecs(batch, selected.code);
+        progress.success += batch.length;
+      } catch (err: any) {
+        progress.failed += batch.length;
+        progress.errors.push(`Lote ${progress.batchesDone + 1}/${totalBatches} (${batch.length}): ${err?.message || "erro"}`);
+      }
       progress.done += batch.length;
       progress.batchesDone += 1;
-      if (error) {
-        progress.failed += batch.length;
-        progress.errors.push(`Lote ${progress.batchesDone}/${totalBatches} (${batch.length}): ${error.message}`);
-      } else {
-        progress.success += batch.length;
-      }
       setAssignProgress({ ...progress });
     }
     setSaving(false);
@@ -744,7 +758,7 @@ const Patec = () => {
     if (progress.failed > 0) {
       toast.error(`${progress.success}/${progress.total} atribuídos · ${progress.failed} falharam`);
     } else {
-      toast.success(`${selected.code} atribuído a ${progress.success} produtor(es)`);
+      toast.success(`${selected.code} adicionado a ${progress.success} produtor(es)`);
     }
     setSelectedIds(new Set());
     scope && fetchFarmers(scope);
@@ -758,7 +772,12 @@ const Patec = () => {
     return farmers.filter((f) => {
       const key = regionScope === "provincia" ? f.province : regionScope === "municipio" ? f.municipality : f.school;
       if (!set.has(norm(key))) return false;
-      if (!regionOverwrite && (f.patec_code || f.patec)) return false;
+      // Quando `regionOverwrite` é false: excluir agricultores que JÁ TÊM este pacote
+      // (evita ruído no relatório de batch — multi-PATEC permite acumular).
+      if (!regionOverwrite && regionPatecCode) {
+        const codes = getFarmerCodes(f);
+        if (codes.includes(regionPatecCode)) return false;
+      }
       return true;
     });
   })();
@@ -781,18 +800,15 @@ const Patec = () => {
     setAssignProgress({ ...progress });
     for (let i = 0; i < ids.length; i += 50) {
       const batch = ids.slice(i, i + 50);
-      const { error } = await supabase
-        .from("farmers")
-        .update({ patec_code: selected.code, patec: selected.legacy_number ?? null })
-        .in("id", batch);
+      try {
+        await upsertFarmerPatecs(batch, selected.code);
+        progress.success += batch.length;
+      } catch (err: any) {
+        progress.failed += batch.length;
+        progress.errors.push(`Lote ${progress.batchesDone + 1}/${totalBatches} (${batch.length}): ${err?.message || "erro"}`);
+      }
       progress.done += batch.length;
       progress.batchesDone += 1;
-      if (error) {
-        progress.failed += batch.length;
-        progress.errors.push(`Lote ${progress.batchesDone}/${totalBatches} (${batch.length}): ${error.message}`);
-      } else {
-        progress.success += batch.length;
-      }
       setAssignProgress({ ...progress });
     }
     setSaving(false);
@@ -806,7 +822,7 @@ const Patec = () => {
     if (progress.failed > 0) {
       toast.error(`${progress.success}/${progress.total} atribuídos · ${progress.failed} falharam`);
     } else {
-      toast.success(`${selected.code} atribuído a ${progress.success} produtor(es)`);
+      toast.success(`${selected.code} adicionado a ${progress.success} produtor(es)`);
     }
     scope && fetchFarmers(scope);
   };
@@ -820,7 +836,7 @@ const Patec = () => {
     distribution: Array<{ code: string; name: string; count: number }>;
   }>(null);
 
-  const semPatecPool = farmersByProvince.filter((f) => !f.patec && !f.patec_code);
+  const semPatecPool = farmersByProvince.filter((f) => getFarmerCodes(f).length === 0);
 
   const handleRandomReassign = async () => {
     if (semPatecPool.length === 0) return;
@@ -846,14 +862,13 @@ const Patec = () => {
     let errorCount = 0;
     for (const p of pool) {
       const list = buckets[p.code];
-      const legacy = p.legacy_number ?? null;
       for (let i = 0; i < list.length; i += 50) {
         const batch = list.slice(i, i + 50);
-        const { error } = await supabase
-          .from("farmers")
-          .update({ patec_code: p.code, patec: legacy })
-          .in("id", batch);
-        if (error) errorCount++;
+        try {
+          await upsertFarmerPatecs(batch, p.code);
+        } catch {
+          errorCount++;
+        }
       }
     }
     setSaving(false);
