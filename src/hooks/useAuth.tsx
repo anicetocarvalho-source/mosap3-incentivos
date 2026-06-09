@@ -328,7 +328,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     let cancelled = false;
     let attempt = 0;
-    let timer: ReturnType<typeof setTimeout> | null = null;
+    let timer: number | null = null;
 
     const retry = async () => {
       if (cancelled || !navigator.onLine) return;
