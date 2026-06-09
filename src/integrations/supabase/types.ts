@@ -1426,6 +1426,38 @@ export type Database = {
         }
         Relationships: []
       }
+      patec_component_baseline: {
+        Row: {
+          component_id: string
+          created_at: string
+          expected_items: number
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          component_id: string
+          created_at?: string
+          expected_items?: number
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          component_id?: string
+          created_at?: string
+          expected_items?: number
+          id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patec_component_baseline_component_id_fkey"
+            columns: ["component_id"]
+            isOneToOne: true
+            referencedRelation: "patec_components"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       patec_component_items: {
         Row: {
           component_id: string
@@ -1550,43 +1582,82 @@ export type Database = {
       }
       patec_consistency_reports: {
         Row: {
+          component_divergences: Json
           created_at: string
           divergences: Json
           id: string
           orphan_component_items: number
+          orphan_components: number
           orphan_expanded: number
+          orphan_products: number
           ran_at: string
           total_components: number
           total_divergences: number
           total_expanded: number
+          total_items: number
           total_patecs: number
           triggered_by: string
         }
         Insert: {
+          component_divergences?: Json
           created_at?: string
           divergences?: Json
           id?: string
           orphan_component_items?: number
+          orphan_components?: number
           orphan_expanded?: number
+          orphan_products?: number
           ran_at?: string
           total_components?: number
           total_divergences?: number
           total_expanded?: number
+          total_items?: number
           total_patecs?: number
           triggered_by?: string
         }
         Update: {
+          component_divergences?: Json
           created_at?: string
           divergences?: Json
           id?: string
           orphan_component_items?: number
+          orphan_components?: number
           orphan_expanded?: number
+          orphan_products?: number
           ran_at?: string
           total_components?: number
           total_divergences?: number
           total_expanded?: number
+          total_items?: number
           total_patecs?: number
           triggered_by?: string
+        }
+        Relationships: []
+      }
+      patec_global_baseline: {
+        Row: {
+          created_at: string
+          expected_orphan_components: number
+          expected_orphan_products: number
+          expected_total_items: number
+          id: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          expected_orphan_components?: number
+          expected_orphan_products?: number
+          expected_total_items?: number
+          id?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          expected_orphan_components?: number
+          expected_orphan_products?: number
+          expected_total_items?: number
+          id?: number
+          updated_at?: string
         }
         Relationships: []
       }
