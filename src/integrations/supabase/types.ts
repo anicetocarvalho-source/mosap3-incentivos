@@ -840,6 +840,67 @@ export type Database = {
           },
         ]
       }
+      farmer_patecs: {
+        Row: {
+          assigned_at: string
+          assigned_by: string | null
+          created_at: string
+          farmer_code: string
+          farmer_id: string
+          id: string
+          is_primary: boolean
+          patec_code: string
+          season_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          assigned_at?: string
+          assigned_by?: string | null
+          created_at?: string
+          farmer_code: string
+          farmer_id: string
+          id?: string
+          is_primary?: boolean
+          patec_code: string
+          season_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          assigned_at?: string
+          assigned_by?: string | null
+          created_at?: string
+          farmer_code?: string
+          farmer_id?: string
+          id?: string
+          is_primary?: boolean
+          patec_code?: string
+          season_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "farmer_patecs_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "farmers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "farmer_patecs_patec_code_fkey"
+            columns: ["patec_code"]
+            isOneToOne: false
+            referencedRelation: "patecs"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "farmer_patecs_season_id_fkey"
+            columns: ["season_id"]
+            isOneToOne: false
+            referencedRelation: "agricultural_seasons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       farmer_production: {
         Row: {
           actual_yield: string | null
@@ -3311,6 +3372,14 @@ export type Database = {
           school: string
           total: number
         }[]
+      }
+      get_farmer_patec_codes: {
+        Args: { _farmer_id: string }
+        Returns: string[]
+      }
+      get_farmer_patec_codes_by_code: {
+        Args: { _farmer_code: string }
+        Returns: string[]
       }
       has_any_backoffice_role: { Args: { _user_id: string }; Returns: boolean }
       has_role: {
