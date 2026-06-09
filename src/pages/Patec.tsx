@@ -1895,7 +1895,7 @@ const Patec = () => {
               <div className="border-t border-primary/10 pt-3">
                 {(() => {
                   const total = regionTargetFarmers.length;
-                  const comPatec = regionTargetFarmers.filter((f) => f.patec_code || f.patec).length;
+                  const comPatec = regionTargetFarmers.filter((f) => getFarmerCodes(f).length > 0).length;
                   const semPatec = total - comPatec;
                   return (
                     <div className="space-y-1.5">
