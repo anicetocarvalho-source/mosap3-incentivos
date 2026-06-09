@@ -239,15 +239,26 @@ const Patec = () => {
     setCompositionLoading(true);
     setCompositionError(null);
     try {
-      const { data, error } = await supabase
-        .from("patec_items")
-        .select("*")
-        .order("created_at");
-      if (error) throw error;
-      const rows = (data as any[]) || [];
-      setPatecItems(rows as PatecItem[]);
+      const pageSize = 1000;
+      let from = 0;
+      const all: any[] = [];
+      // Paginação obrigatória: PostgREST limita a 1000 linhas por pedido
+      // e a tabela patec_items já ultrapassa esse limite (1195+).
+      while (true) {
+        const { data, error } = await supabase
+          .from("patec_items")
+          .select("*")
+          .order("created_at")
+          .range(from, from + pageSize - 1);
+        if (error) throw error;
+        const batch = (data as any[]) || [];
+        all.push(...batch);
+        if (batch.length < pageSize) break;
+        from += pageSize;
+      }
+      setPatecItems(all as PatecItem[]);
       const counts: Record<string, number> = {};
-      for (const r of rows) {
+      for (const r of all) {
         if (r.patec_code) counts[r.patec_code] = (counts[r.patec_code] || 0) + 1;
       }
       setItemCountsByCode(counts);
