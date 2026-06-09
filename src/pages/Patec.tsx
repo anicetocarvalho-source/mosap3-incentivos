@@ -2103,7 +2103,11 @@ const Patec = () => {
                   </div>
                 ))}
                 <div className="text-xs text-muted-foreground border-t pt-3">
-                  Produtores com este pacote: <span className="font-bold">{farmers.filter((f) => f.patec === viewPatec).length}</span>
+                  Produtores com este pacote: <span className="font-bold">{(() => {
+                    const meta = patecs.find((p) => p.legacy_number === viewPatec);
+                    if (!meta) return 0;
+                    return farmers.filter((f) => getFarmerCodes(f).includes(meta.code)).length;
+                  })()}</span>
                 </div>
               </div>
             </>
