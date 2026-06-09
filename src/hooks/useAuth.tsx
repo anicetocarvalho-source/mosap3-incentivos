@@ -49,6 +49,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [authReady, setAuthReady] = useState(false);
   const [isOfflineSession, setIsOfflineSession] = useState(false);
   const [authUser, setAuthUser] = useState<User | null | undefined>(undefined);
+  const [authDataError, setAuthDataError] = useState<Error | null>(null);
 
   // Guards against concurrent fetches and double initialization
   const fetchingRef = useRef<string | null>(null);
@@ -76,11 +77,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           supabase.from("user_roles").select("role").eq("user_id", userId),
         ]);
 
+        if (profileRes.error || rolesRes.error) {
+          throw profileRes.error ?? rolesRes.error;
+        }
+
         const prof = profileRes.data ?? null;
         const fetchedRoles = rolesRes.data?.map((r) => r.role) ?? [];
 
         setProfile(prof);
         setRoles(fetchedRoles);
+        setAuthDataError(null);
+
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("mosap3-data-refresh"));
+        }
 
         // Auto-cache session for offline use (fire-and-forget)
         const email = emailRef.current;
@@ -167,7 +177,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setIsOfflineSession(false);
       emailRef.current = currentUser.email ?? null;
 
-      await fetchUserData(currentUser.id);
+      try {
+        await fetchUserData(currentUser.id);
+      } catch (err) {
+        console.error("[auth] Failed to load profile/roles:", err);
+        if (authCycleRef.current !== cycle) return;
+        setProfile(null);
+        setRoles([]);
+        setAuthDataError(err instanceof Error ? err : new Error(String(err)));
+        setLoading(false);
+        setAuthReady(true);
+        return;
+      }
 
       if (authCycleRef.current !== cycle) return;
 
@@ -301,6 +322,50 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (authUser === undefined) return;
     void resolveAuthState(authUser);
   }, [authUser, resolveAuthState]);
+
+  useEffect(() => {
+    if (!authDataError || !user || isOfflineSession) return;
+
+    let cancelled = false;
+    let attempt = 0;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    const retry = async () => {
+      if (cancelled || !navigator.onLine) return;
+      try {
+        await ensureFreshSession();
+        await fetchUserData(user.id);
+      } catch (err) {
+        console.warn("[auth] Profile/roles retry failed:", err);
+      }
+    };
+
+    const schedule = () => {
+      if (cancelled) return;
+      const delay = Math.min(5000 * Math.pow(2, attempt), 60_000);
+      attempt += 1;
+      timer = window.setTimeout(() => {
+        void retry();
+        schedule();
+      }, delay);
+    };
+
+    const onFocus = () => { void retry(); };
+    const onVisibility = () => { if (document.visibilityState === "visible") void retry(); };
+
+    window.addEventListener("focus", onFocus);
+    window.addEventListener("online", onFocus);
+    document.addEventListener("visibilitychange", onVisibility);
+    schedule();
+
+    return () => {
+      cancelled = true;
+      if (timer) window.clearTimeout(timer);
+      window.removeEventListener("focus", onFocus);
+      window.removeEventListener("online", onFocus);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [authDataError, user, isOfflineSession, ensureFreshSession, fetchUserData]);
 
   // Listen for online event to re-sync if we were in offline mode
   useEffect(() => {
