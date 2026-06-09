@@ -35,6 +35,7 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useProvincesData, type DbProvince } from "@/hooks/useProvincesData";
+import { useAutoRetryOnError } from "@/hooks/useAutoRetryOnError";
 
 const GestaoProvincias = () => {
   const [search, setSearch] = useState("");
@@ -50,6 +51,7 @@ const GestaoProvincias = () => {
   const navigate = useNavigate();
   const {
     provinces, municipalities, schools, loading,
+    error: provincesError,
     getMunicipalitiesByProvince, getSchoolsByProvince,
     addMunicipality, updateMunicipality, deleteMunicipality,
     addSchool, refetch,
@@ -58,6 +60,7 @@ const GestaoProvincias = () => {
   // Canonical farmer counts (matches Dashboard / Lista / Relatórios).
   // Inclui Removidos por design — ver memória "Removidos contam em TODOS os agregados".
   const [farmerCounts, setFarmerCounts] = useState<{ province: string; municipality: string; school: string; total: number }[] | null>(null);
+  const [farmerCountsError, setFarmerCountsError] = useState<Error | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
   const refreshFarmerCounts = async (notify = false) => {
@@ -72,6 +75,7 @@ const GestaoProvincias = () => {
         total: Number(r.total) || 0,
       }));
       setFarmerCounts(rows);
+      setFarmerCountsError(null);
       if (notify) {
         await refetch();
         const total = rows.reduce((s, r) => s + r.total, 0);
@@ -83,12 +87,17 @@ const GestaoProvincias = () => {
     } catch (e) {
       console.error("[GestaoProvincias] failed to load farmer counts:", e);
       setFarmerCounts((prev) => prev ?? []);
-      const msg = e instanceof Error ? e.message : String(e);
-      toast({
-        title: "Erro ao carregar contagens",
-        description: `Falha ao consultar produtores: ${msg}`,
-        variant: "destructive",
-      });
+      const err = e instanceof Error ? e : new Error(String(e));
+      setFarmerCountsError(err);
+      // Only surface a toast on the first failure for this state — auto-retry
+      // is silent in the background to avoid spamming the user.
+      if (notify) {
+        toast({
+          title: "Erro ao carregar contagens",
+          description: `Falha ao consultar produtores: ${err.message}`,
+          variant: "destructive",
+        });
+      }
     } finally {
       setRefreshing(false);
     }
@@ -98,6 +107,13 @@ const GestaoProvincias = () => {
     refreshFarmerCounts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Auto-recover: retry silently when the tab regains focus, the network
+  // returns, or a permission/RLS issue clears server-side.
+  useAutoRetryOnError(farmerCountsError, () => refreshFarmerCounts(false));
+  useAutoRetryOnError(provincesError, refetch);
+
+
 
 
   const norm = (v: string | null | undefined) => (v || "").trim().toLowerCase();
