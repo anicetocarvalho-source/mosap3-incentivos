@@ -1,65 +1,52 @@
 ## Objectivo
 
-Executar um teste completo do fluxo de venda no **Modo Kiosk** (`/mosap3pay/pos`) usando o browser automation, validando cada etapa visualmente e confirmando que a venda chega ao fim sem erros.
+Substituir os 631 itens actuais de `patec_items` pela composição expandida do ficheiro `PATECs_estruturado.xlsx`, acrescentando os 5 PATECs pecuários (P01..P05) que ainda não existem na BD. Os opcionais são tratados como obrigatórios (sem nova coluna). Os PATEC de Pecuaria, não devem estar necessariamente anexado a irrigação. Digo ele pode fazer pecuaria sem necessidade de irrigar 1 hectare
 
-## Etapas do teste
+## Mapeamento de códigos xlsx → BD
 
-1. **Navegação e entrada no Kiosk**
-   - Abrir `/mosap3pay/pos` na preview (viewport desktop 1340×860).
-   - Confirmar que carrega a UI do Terminal POS (login já ativo na sessão).
-   - Ativar o **Modo Kiosk** (botão dedicado) e validar tema escuro + fullscreen UI.
+Mantemos os códigos `PATEC-01..PATEC-10` para não partir referências em `farmers.patec_code` e em `farmer_incentives`. Os pecuários entram como `PATEC-11..PATEC-15`.
 
-2. **Selecção / troca de fornecedor**
-   - Verificar que aparece o selector inicial de fornecedor.
-   - Escolher um fornecedor com stock.
-   - Trocar de fornecedor (botão "Trocar fornecedor") e voltar a escolher um — confirmar que o estado da venda reinicia corretamente.
 
-3. **Identificação do produtor**
-   - Pesquisar um produtor **com PATEC válido** (por código ou nome).
-   - Validar nas sugestões:
-     - Badge dourado com nome curto do PATEC.
-     - Código PATEC e data "Válido até".
-   - Selecionar o produtor e confirmar o cartão com saldo, PATEC, código e validade.
-   - Repetir rapidamente com um produtor **sem PATEC** para confirmar badge vermelho "Sem PATEC" (sem prosseguir a venda).
+| xlsx      | Cultura             | BD              |
+| --------- | ------------------- | --------------- |
+| PATEC-A01 | Milho + Feijão      | PATEC-01        |
+| PATEC-A02 | Massango + Feijão   | PATEC-02        |
+| PATEC-A03 | Massambala + Feijão | PATEC-03        |
+| PATEC-A04 | Batata-rena         | PATEC-07        |
+| PATEC-A05 | Mandioca + Feijão   | PATEC-04        |
+| PATEC-A06 | Alho                | PATEC-05        |
+| PATEC-A07 | Cenoura             | PATEC-09        |
+| PATEC-A08 | Repolho             | PATEC-10        |
+| PATEC-A09 | Cebola              | PATEC-08        |
+| PATEC-A10 | Batata-doce         | PATEC-06        |
+| PATEC-P01 | Aves                | PATEC-11 (novo) |
+| PATEC-P02 | Bovinos             | PATEC-12 (novo) |
+| PATEC-P03 | Caprinos            | PATEC-13 (novo) |
+| PATEC-P04 | Ovinos              | PATEC-14 (novo) |
+| PATEC-P05 | Suínos              | PATEC-15 (novo) |
 
-4. **Adicionar produtos ao carrinho**
-   - Adicionar 1–2 produtos do catálogo do fornecedor (idealmente itens PATEC).
-   - Confirmar atualização do subtotal/IVA/total e do saldo disponível.
 
-5. **Resumo da compra**
-   - Avançar para o ecrã de resumo.
-   - Confirmar visualmente que aparecem: produtor, código produtor, PATEC, **Código PATEC** e **Válido até**.
+## Passos
 
-6. **Processamento do pagamento**
-   - Escolher método (Unitel Money / OTP conforme disponível em sandbox).
-   - Disparar o fluxo de pagamento. Se for necessário OTP real para produção, parar antes da submissão final e reportar — **não submeter** pagamentos reais sem confirmação do utilizador.
-   - Se for fluxo simulado/sandbox, completar e confirmar o ecrã de sucesso.
+1. **Snapshot de segurança** — `CREATE TABLE patec_items_backup_YYYYMMDD AS SELECT * FROM patec_items;` (migration).
+2. **Inserir 5 pecuários em `patecs**` — `PATEC-11..15` com `legacy_number=11..15`, `is_active=true`, ícone/cor adequados.
+3. **Gerar SQL de importação** a partir da folha `06_Pacotes_Expandido`:
+  - Ler o xlsx com Python (openpyxl).
+  - Para cada linha: aplicar o mapeamento de código, normalizar `name`/`category`/`subcategory`/`unit`, `base_quantity = Quantidade`, `culture` derivada do componente (ou do nome do pacote para pecuária).
+  - Produzir um único script `supabase--insert` com `DELETE FROM patec_items` + `INSERT` em lotes de 50 linhas (regra do projecto).
+4. **Atribuir `patec_number**` — manter compatibilidade: usar o `legacy_number` do PATEC correspondente.
+5. **Verificação** — contar itens por PATEC e comparar com o xlsx; spot-check 3 pacotes (1 agrícola + 1 pecuário + Mandioca que mudou de código).
+6. **UI** — nenhuma alteração de código planeada. O dialog `PatecCompositionDialog` em `/patec` já lista os itens dinamicamente a partir de `patec_items`. Os 5 novos PATECs aparecerão automaticamente em `/patec`, na atribuição em lote e no POS.
+7. **Memória** — actualizar `mem://features/patec-composicao` para reflectir "15 PATECs (10 agrícolas + 5 pecuários) com ~1295 itens".
 
-7. **Recibo / Factura**
-   - Abrir o recibo gerado e verificar:
-     - Número da factura.
-     - Linha "PATEC N — CÓDIGO".
-     - Linha "Válido até: dd/mm/aaaa".
-     - QR code e hash presentes.
+## Riscos & mitigações
 
-8. **Sair do Kiosk**
-   - Fechar Kiosk e confirmar retorno ao Terminal POS padrão sem erros.
+- **Quebra de referências de produtores**: mitigada ao reutilizar `PATEC-01..10`.
+- **Itens órfãos em `supplier_products` ligados a antigos `patec_items**`: o vínculo PATEC↔catálogo é feito por nome de produto (`patecCatalogIndex`), não por FK — a substituição é segura.
+- **Quantidades pendentes (linhas amarelas no xlsx)**: importadas com `base_quantity=0` quando vazias; comportamento actual do POS já tolera isto.
 
-## Verificações transversais
+## Fora do âmbito
 
-- **Console**: sem novos `error` durante todo o fluxo (warnings de React Router são esperados).
-- **Network**: chamadas a `pos_sales`, `farmer_incentives`, `unitel-money-payment` devolvem 2xx; capturar IDs e validar payloads chave (farmer_id, supplier_id, total).
-- **Screenshots**: capturar no mínimo: Kiosk inicial, selector fornecedor, sugestão com PATEC, cartão produtor, carrinho, resumo, recibo final.
-
-## Critérios de aceitação
-
-- Todos os 8 passos concluídos sem reload manual nem erros bloqueantes.
-- PATEC (número, código, validade) visível e correto no cartão, no resumo **e** no recibo.
-- Saldo do produtor atualiza após a venda (consultar via `supabase--read_query` em `farmers`/`pos_sales` pelo código).
-- Relatório final ao utilizador com: passos OK, problemas encontrados (se houver), screenshots e IDs de venda criados.
-
-## Notas
-
-- Se a sandbox não tiver fornecedor com PATEC + produtor com saldo suficiente, parar e pedir indicação de quais usar antes de continuar.
-- Não confirmar pagamentos via Unitel Money em produção sem aprovação explícita; se necessário, parar no ecrã de confirmação.
-- Nenhuma alteração de código está prevista. Se forem detetados bugs, parar o teste e reportar antes de propor correções.
+- Não criamos novas tabelas (produtos mestre / componentes). Modelo permanece flat em `patec_items`.
+- Opcionais não recebem flag `is_optional` (decisão do utilizador).
+- Não há alterações ao módulo de épocas (`patec_seasons`) — os 5 novos pacotes ficam disponíveis para serem vinculados manualmente a uma época depois.
