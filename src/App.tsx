@@ -2,11 +2,13 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/hooks/useAuth";
+import { useEffect } from "react";
 import EscolasCampo from "@/pages/EscolasCampo";
 import EscolasAuditoria from "@/pages/EscolasAuditoria";
 import EscolaDetalhe from "@/pages/EscolaDetalhe";
 import ProvinciaEscolas from "@/pages/ProvinciaEscolas";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import AppLayout from "@/components/AppLayout";
 import ProtectedRoute from "@/components/ProtectedRoute";
@@ -83,9 +85,25 @@ const queryClient = new QueryClient({
   },
 });
 
+const DataRefreshBridge = () => {
+  const client = useQueryClient();
+
+  useEffect(() => {
+    const refresh = () => {
+      client.invalidateQueries();
+    };
+
+    window.addEventListener("mosap3-data-refresh", refresh);
+    return () => window.removeEventListener("mosap3-data-refresh", refresh);
+  }, [client]);
+
+  return null;
+};
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
+    <DataRefreshBridge />
     <TooltipProvider>
       <Toaster />
       <Sonner />
