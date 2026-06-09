@@ -1468,6 +1468,48 @@ export type Database = {
         }
         Relationships: []
       }
+      patec_items_backup_20260609: {
+        Row: {
+          base_quantity: number | null
+          category: string | null
+          created_at: string | null
+          culture: string | null
+          id: string | null
+          name: string | null
+          patec_code: string | null
+          patec_number: number | null
+          sort_order: number | null
+          subcategory: string | null
+          unit: string | null
+        }
+        Insert: {
+          base_quantity?: number | null
+          category?: string | null
+          created_at?: string | null
+          culture?: string | null
+          id?: string | null
+          name?: string | null
+          patec_code?: string | null
+          patec_number?: number | null
+          sort_order?: number | null
+          subcategory?: string | null
+          unit?: string | null
+        }
+        Update: {
+          base_quantity?: number | null
+          category?: string | null
+          created_at?: string | null
+          culture?: string | null
+          id?: string | null
+          name?: string | null
+          patec_code?: string | null
+          patec_number?: number | null
+          sort_order?: number | null
+          subcategory?: string | null
+          unit?: string | null
+        }
+        Relationships: []
+      }
       patec_seasons: {
         Row: {
           created_at: string
