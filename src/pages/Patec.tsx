@@ -213,6 +213,32 @@ const Patec = () => {
     return undefined;
   };
 
+  // Devolve TODOS os pacotes atribuídos a um agricultor (multi-PATEC).
+  // Combina os vínculos da tabela farmer_patecs com o pacote legado em
+  // farmers.patec_code/patec (caso o trigger ainda não tenha sincronizado).
+  const getFarmerCodes = (f: FarmerPatec): string[] => {
+    const fromMap = farmerPatecsMap[f.id] || [];
+    if (fromMap.length > 0) return fromMap;
+    const legacy = findPatecByFarmer(f.patec_code, f.patec);
+    return legacy ? [legacy.code] : [];
+  };
+
+  const fetchFarmerPatecs = async () => {
+    try {
+      const rows = await fetchAllPages<any>(() =>
+        supabase.from("farmer_patecs").select("farmer_id, patec_code, is_primary, assigned_at")
+      );
+      const map: Record<string, string[]> = {};
+      for (const r of rows) {
+        if (!map[r.farmer_id]) map[r.farmer_id] = [];
+        map[r.farmer_id].push(r.patec_code);
+      }
+      setFarmerPatecsMap(map);
+    } catch (err: any) {
+      // Não bloqueia a página; fallback para colunas legadas via getFarmerCodes
+      console.warn("[Patec] falha a carregar farmer_patecs", err?.message);
+    }
+  };
 
   const fetchFarmers = async (resolved: ResolvedScope) => {
     setLoading(true);
@@ -232,6 +258,8 @@ const Patec = () => {
         )
       );
       setFarmers(data);
+      // Carregar vínculos multi-PATEC em paralelo
+      void fetchFarmerPatecs();
     } catch (error: any) {
       setLoadError(error.message);
       toast.error("Erro ao carregar produtores");
