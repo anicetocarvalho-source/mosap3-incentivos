@@ -595,52 +595,92 @@ const Patec = () => {
     const matchesSearch =
       f.full_name.toLowerCase().includes(search.toLowerCase()) ||
       f.code.toLowerCase().includes(search.toLowerCase());
+    const codes = getFarmerCodes(f);
     const matchesPatec =
       filterPatec === "all" ||
-      (filterPatec === "none" && !f.patec && !f.patec_code) ||
+      (filterPatec === "none" && codes.length === 0) ||
       (filterPatecResolved &&
-        (f.patec_code === filterPatecResolved.code ||
-          (f.patec_code == null && filterPatecResolved.legacy_number != null && f.patec === filterPatecResolved.legacy_number)));
+        codes.some(
+          (c) =>
+            c === filterPatecResolved.code ||
+            (filterPatecResolved.legacy_number != null && c === `_legacy_${filterPatecResolved.legacy_number}`)
+        ));
     return matchesSearch && matchesPatec;
   });
 
-  // Contagens dinâmicas por pacote (suporta atribuição por patec_code ou legacy patec)
+  // Contagens dinâmicas por pacote (multi-PATEC: 1 agricultor pode somar em vários)
   const countsByCode: Record<string, number> = {};
   for (const p of patecs) countsByCode[p.code] = 0;
   let semPatecCount = 0;
   for (const f of farmersByProvince) {
-    const matched = findPatecByFarmer(f.patec_code, f.patec);
-    if (matched) countsByCode[matched.code] = (countsByCode[matched.code] || 0) + 1;
-    else if (!f.patec_code && !f.patec) semPatecCount++;
-    else semPatecCount++; // patec_code/legacy desconhecido → tratar como sem PATEC válido
+    const codes = getFarmerCodes(f);
+    if (codes.length === 0) { semPatecCount++; continue; }
+    for (const c of codes) {
+      if (countsByCode[c] !== undefined) countsByCode[c]++;
+    }
   }
+  const assignedFarmers = farmersByProvince.length - semPatecCount;
   const stats = {
     total: farmersByProvince.length,
     semPatec: semPatecCount,
-    assigned: farmersByProvince.length - semPatecCount,
+    assigned: assignedFarmers,
   };
 
   const handleSavePatec = async () => {
     if (!editFarmer) return;
-    const selected = editPatecCode ? patecs.find((p) => p.code === editPatecCode) : null;
-    const guard = validatePatecAssignment(selected, patecsForSeason);
-    if (!guard.ok) {
-      toast.error(guard.message);
-      return;
+    const current = new Set(farmerPatecsMap[editFarmer.id] || []);
+    const desired = new Set(editPatecCodes);
+    const toAdd = Array.from(desired).filter((c) => !current.has(c));
+    const toRemove = Array.from(current).filter((c) => !desired.has(c));
+
+    // Valida apenas pacotes novos contra a época
+    for (const code of toAdd) {
+      const sel = patecs.find((p) => p.code === code);
+      const guard = validatePatecAssignment(sel ?? null, patecsForSeason);
+      if (!guard.ok) {
+        toast.error(`${code}: ${guard.message}`);
+        return;
+      }
     }
+
     setSaving(true);
-    const { error } = await supabase
-      .from("farmers")
-      .update({
-        patec_code: selected?.code ?? null,
-        patec: selected?.legacy_number ?? null,
-      })
-      .eq("id", editFarmer.id);
+    let errMsg: string | null = null;
+
+    if (toRemove.length > 0) {
+      const { error } = await supabase
+        .from("farmer_patecs")
+        .delete()
+        .eq("farmer_id", editFarmer.id)
+        .in("patec_code", toRemove);
+      if (error) errMsg = error.message;
+    }
+
+    if (!errMsg && toAdd.length > 0) {
+      const rows = toAdd.map((code) => ({
+        farmer_id: editFarmer.id,
+        farmer_code: editFarmer.code,
+        patec_code: code,
+        assigned_by: user?.id ?? null,
+      }));
+      const { error } = await supabase
+        .from("farmer_patecs")
+        .upsert(rows, { onConflict: "farmer_id,patec_code", ignoreDuplicates: true });
+      if (error) errMsg = error.message;
+    }
+
     setSaving(false);
-    if (error) {
-      toast.error("Erro ao atribuir PATEC");
+    if (errMsg) {
+      toast.error(`Erro ao gravar pacotes: ${errMsg}`);
     } else {
-      toast.success(selected ? `${selected.code} atribuído a ${editFarmer.full_name}` : `PATEC removido de ${editFarmer.full_name}`);
+      const msg =
+        toAdd.length && toRemove.length
+          ? `${toAdd.length} adicionado(s), ${toRemove.length} removido(s)`
+          : toAdd.length
+          ? `${toAdd.length} pacote(s) adicionado(s) a ${editFarmer.full_name}`
+          : toRemove.length
+          ? `${toRemove.length} pacote(s) removido(s) de ${editFarmer.full_name}`
+          : "Sem alterações";
+      toast.success(msg);
       setEditFarmer(null);
       scope && fetchFarmers(scope);
     }
