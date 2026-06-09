@@ -1677,11 +1677,13 @@ const Patec = () => {
             </p>
             <div className="max-h-48 overflow-y-auto border rounded-lg p-2 text-xs space-y-1 bg-muted/20">
               {filtered.filter((f) => selectedIds.has(f.id)).map((f) => {
-                const p = findPatecByFarmer(f.patec_code, f.patec);
+                const codes = getFarmerCodes(f);
                 return (
-                  <div key={f.id} className="flex items-center justify-between">
+                  <div key={f.id} className="flex items-center justify-between gap-2">
                     <span><span className="font-mono text-muted-foreground">{f.code}</span> — {f.full_name}</span>
-                    {p && <Badge variant="outline" className="text-[9px]">{p.code}</Badge>}
+                    <div className="flex gap-1 flex-wrap justify-end">
+                      {codes.map((c) => <Badge key={c} variant="outline" className="text-[9px]">{c}</Badge>)}
+                    </div>
                   </div>
                 );
               })}
