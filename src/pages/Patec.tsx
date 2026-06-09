@@ -110,6 +110,8 @@ const Patec = () => {
   const initialPatec = searchParams.get("patec") || "all";
   const [scope, setScope] = useState<ResolvedScope | null>(null);
   const [farmers, setFarmers] = useState<FarmerPatec[]>([]);
+  // Multi-PATEC: mapa farmer_id -> lista de patec_codes atribuídos
+  const [farmerPatecsMap, setFarmerPatecsMap] = useState<Record<string, string[]>>({});
   const [patecItems, setPatecItems] = useState<PatecItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -118,7 +120,8 @@ const Patec = () => {
   const [filterProvince, setFilterProvince] = useState<string>(initialProvince);
   const [page, setPage] = useState(1);
   const [editFarmer, setEditFarmer] = useState<FarmerPatec | null>(null);
-  const [editPatecCode, setEditPatecCode] = useState<string>("");
+  // Conjunto de PATECs seleccionados para o agricultor em edição (multi)
+  const [editPatecCodes, setEditPatecCodes] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
   const [viewPatec, setViewPatec] = useState<number | null>(null);
   const [composingPatec, setComposingPatec] = useState<Patec | null>(null);
