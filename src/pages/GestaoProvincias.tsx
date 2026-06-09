@@ -35,6 +35,7 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useProvincesData, type DbProvince } from "@/hooks/useProvincesData";
+import { useAutoRetryOnError } from "@/hooks/useAutoRetryOnError";
 
 const GestaoProvincias = () => {
   const [search, setSearch] = useState("");
