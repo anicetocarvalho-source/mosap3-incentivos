@@ -1507,6 +1507,89 @@ export type Database = {
         }
         Relationships: []
       }
+      patec_consistency_baseline: {
+        Row: {
+          created_at: string
+          expected_components: number
+          expected_expanded: number
+          expected_expanded_optional: number
+          expected_optional_components: number
+          id: string
+          patec_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          expected_components?: number
+          expected_expanded?: number
+          expected_expanded_optional?: number
+          expected_optional_components?: number
+          id?: string
+          patec_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          expected_components?: number
+          expected_expanded?: number
+          expected_expanded_optional?: number
+          expected_optional_components?: number
+          id?: string
+          patec_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patec_consistency_baseline_patec_id_fkey"
+            columns: ["patec_id"]
+            isOneToOne: true
+            referencedRelation: "patecs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      patec_consistency_reports: {
+        Row: {
+          created_at: string
+          divergences: Json
+          id: string
+          orphan_component_items: number
+          orphan_expanded: number
+          ran_at: string
+          total_components: number
+          total_divergences: number
+          total_expanded: number
+          total_patecs: number
+          triggered_by: string
+        }
+        Insert: {
+          created_at?: string
+          divergences?: Json
+          id?: string
+          orphan_component_items?: number
+          orphan_expanded?: number
+          ran_at?: string
+          total_components?: number
+          total_divergences?: number
+          total_expanded?: number
+          total_patecs?: number
+          triggered_by?: string
+        }
+        Update: {
+          created_at?: string
+          divergences?: Json
+          id?: string
+          orphan_component_items?: number
+          orphan_expanded?: number
+          ran_at?: string
+          total_components?: number
+          total_divergences?: number
+          total_expanded?: number
+          total_patecs?: number
+          triggered_by?: string
+        }
+        Relationships: []
+      }
       patec_items: {
         Row: {
           base_quantity: number | null
@@ -3325,6 +3408,10 @@ export type Database = {
       recalc_school_for_name: {
         Args: { _province_name: string; _school_name: string }
         Returns: undefined
+      }
+      run_patec_consistency_check: {
+        Args: { p_trigger?: string }
+        Returns: string
       }
       supplier_seller_login: {
         Args: { _pin: string; _supplier_id: string; _username: string }
