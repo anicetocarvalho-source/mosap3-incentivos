@@ -177,18 +177,24 @@ const Patec = () => {
   // New: pacotes & épocas
   const { patecs, loading: patecsLoading, refetch: refetchPatecs } = usePatecs();
   const { seasons, links, refetch: refetchSeasons } = useSeasons();
-  const farmerCountsByCode = farmers.reduce<Record<string, number>>((acc, f) => {
-    const k = (f as any).patec_code || (f.patec ? `_legacy_${f.patec}` : "_none");
-    acc[k] = (acc[k] || 0) + 1;
-    return acc;
-  }, {});
-  // Map legacy counts to codes via patec.legacy_number
-  patecs.forEach((p) => {
-    if (p.legacy_number != null) {
-      const legacyKey = `_legacy_${p.legacy_number}`;
-      farmerCountsByCode[p.code] = (farmerCountsByCode[p.code] || 0) + (farmerCountsByCode[legacyKey] || 0);
+  // Contagens globais (todos os agricultores) com suporte multi-PATEC.
+  // Cada vínculo em farmer_patecs conta para o respectivo pacote; fallback
+  // para a coluna legada apenas quando o mapa ainda não tem o agricultor.
+  const farmerCountsByCode: Record<string, number> = {};
+  for (const p of patecs) farmerCountsByCode[p.code] = 0;
+  for (const f of farmers) {
+    const fromMap = farmerPatecsMap[f.id];
+    if (fromMap && fromMap.length > 0) {
+      for (const c of fromMap) {
+        if (farmerCountsByCode[c] !== undefined) farmerCountsByCode[c]++;
+      }
+    } else if (f.patec_code && farmerCountsByCode[f.patec_code] !== undefined) {
+      farmerCountsByCode[f.patec_code]++;
+    } else if (f.patec != null) {
+      const m = patecs.find((p) => p.legacy_number === f.patec);
+      if (m) farmerCountsByCode[m.code]++;
     }
-  });
+  }
 
   // Default season selector to currently active (in-progress) season once loaded
   useEffect(() => {
