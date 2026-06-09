@@ -283,6 +283,13 @@ const Patec = () => {
     return () => { cancelled = true; };
   }, [authReady, user?.id, roles.join(",")]);
 
+  // Auto-recover: silenciosamente refaz os fetchs quando a aba volta ao
+  // foco, a rede regressa ou uma permissão (42501) / RLS é reconcedida
+  // server-side — evita que os dados desapareçam até reload manual.
+  useAutoRetryOnError(loadError, () => { if (scope) fetchFarmers(scope); });
+  useAutoRetryOnError(compositionError, fetchPatecItems);
+
+
   // Realtime: aplica eventos INSERT/UPDATE/DELETE incrementalmente em
   // patecItems e itemCountsByCode. Eventos em rajada são acumulados num
   // buffer e aplicados num único batch (debounce 150ms) para minimizar
