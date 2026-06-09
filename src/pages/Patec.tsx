@@ -1578,11 +1578,11 @@ const Patec = () => {
       </Card>
       )}
 
-      {/* Edit Dialog (single) */}
+      {/* Edit Dialog (multi-PATEC) */}
       <Dialog open={!!editFarmer} onOpenChange={(o) => !o && setEditFarmer(null)}>
         <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col overflow-hidden">
           <DialogHeader>
-            <DialogTitle>Atribuir PATEC — {editFarmer?.full_name}</DialogTitle>
+            <DialogTitle>Pacotes PATEC — {editFarmer?.full_name}</DialogTitle>
           </DialogHeader>
           <div className="flex-1 overflow-y-auto pr-1 space-y-4 py-4">
             <p className="text-sm text-muted-foreground">
@@ -1595,64 +1595,53 @@ const Patec = () => {
                 </span>
               </div>
             )}
-            <Select value={editPatecCode || "_none"} onValueChange={(v) => setEditPatecCode(v === "_none" ? "" : v)}>
-              <SelectTrigger><SelectValue placeholder="Seleccionar PATEC" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="_none">— Remover atribuição —</SelectItem>
-                {patecsForSeason.length === 0 ? (
-                  <div className="px-2 py-3 text-xs text-muted-foreground">
-                    Nenhum pacote vinculado a esta época. Vá ao separador <strong>Pacotes</strong> para vincular.
-                  </div>
-                ) : patecsForSeason.map((p) => (
-                  <SelectItem key={p.id} value={p.code}>{p.code} — {p.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {editPatecCode && (() => {
-              const sel = patecs.find((p) => p.code === editPatecCode);
-              if (!sel) return null;
-              const legacy = sel.legacy_number;
-              const meta = legacy ? patecMeta[legacy] : null;
-              return (
-                <div className="border rounded-lg p-3 text-xs space-y-2 bg-muted/30">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <p className="font-semibold">{meta?.title || `${sel.code} — ${sel.name}`}</p>
-                      {sel.cultures && <p className="text-muted-foreground">{sel.cultures}</p>}
+            <div className="text-xs text-muted-foreground">
+              Marque os pacotes que este agricultor deve receber. Pode atribuir <strong>mais do que um PATEC</strong>.
+              {editPatecCodes.size > 0 && (
+                <span className="ml-1">Seleccionados: <strong className="text-foreground">{editPatecCodes.size}</strong></span>
+              )}
+            </div>
+            <div className="border rounded-lg divide-y max-h-[55vh] overflow-y-auto">
+              {patecsForSeason.length === 0 ? (
+                <div className="px-3 py-4 text-xs text-muted-foreground">
+                  Nenhum pacote vinculado a esta época. Vá ao separador <strong>Pacotes</strong> para vincular.
+                </div>
+              ) : patecsForSeason.map((p) => {
+                const checked = editPatecCodes.has(p.code);
+                const meta = p.legacy_number ? patecMeta[p.legacy_number] : null;
+                return (
+                  <label key={p.id} className={`flex items-start gap-3 p-3 cursor-pointer hover:bg-muted/40 ${checked ? "bg-primary/5" : ""}`}>
+                    <Checkbox
+                      checked={checked}
+                      onCheckedChange={(v) => {
+                        setEditPatecCodes((prev) => {
+                          const next = new Set(prev);
+                          if (v) next.add(p.code); else next.delete(p.code);
+                          return next;
+                        });
+                      }}
+                      className="mt-0.5"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Badge variant="outline" className={`text-[10px] ${meta?.color || ""}`}>{p.code}</Badge>
+                        <span className="text-sm font-medium">{p.name}</span>
+                      </div>
+                      {p.cultures && <p className="text-xs text-muted-foreground mt-0.5">{p.cultures}</p>}
                     </div>
                     <Button
                       type="button"
-                      variant="outline"
+                      variant="ghost"
                       size="sm"
                       className="h-7 text-[11px] shrink-0"
-                      onClick={() => setComposingPatec(sel)}
+                      onClick={(e) => { e.preventDefault(); setComposingPatec(p); }}
                     >
-                      <Eye className="h-3 w-3 mr-1" /> Ver composição completa
+                      <Eye className="h-3 w-3 mr-1" /> Composição
                     </Button>
-                  </div>
-                  {legacy && meta && (
-                    <div className="max-h-[40vh] overflow-y-auto pr-1">
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
-                        {["insumos", "pecuaria", "servicos"].map((cat) => {
-                          const items = getItems(legacy, cat);
-                          if (items.length === 0) return null;
-                          return (
-                            <div key={cat}>
-                              <p className="font-medium text-muted-foreground mb-1">
-                                {categoryLabels[cat]} <span className="text-[10px]">({items.length})</span>
-                              </p>
-                              <ul className="space-y-0.5">
-                                {items.map((i) => <li key={i.id}>• {i.name}</li>)}
-                              </ul>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
+                  </label>
+                );
+              })}
+            </div>
           </div>
           <DialogFooter className="border-t pt-3">
             <Button variant="outline" onClick={() => setEditFarmer(null)}>Cancelar</Button>
