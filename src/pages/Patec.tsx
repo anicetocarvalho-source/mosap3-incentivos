@@ -1755,12 +1755,12 @@ const Patec = () => {
                 })()}
                 {(() => {
                   const selected = farmers.filter((f) => selectedIds.has(f.id));
-                  const comPatec = selected.filter((f) => f.patec !== null && f.patec !== undefined);
-                  const semPatec = selected.filter((f) => f.patec === null || f.patec === undefined);
+                  const alreadyHas = selected.filter((f) => getFarmerCodes(f).includes(bulkPatecCode));
+                  const novos = selected.length - alreadyHas.length;
                   return (
                     <ul className="list-disc list-inside space-y-0.5">
-                      {semPatec.length > 0 && <li><strong>{semPatec.length}</strong> sem PATEC atribuído (nova atribuição)</li>}
-                      {comPatec.length > 0 && <li><strong>{comPatec.length}</strong> já com PATEC atribuído (será alterado)</li>}
+                      {novos > 0 && <li><strong>{novos}</strong> receberão este pacote pela primeira vez</li>}
+                      {alreadyHas.length > 0 && <li><strong>{alreadyHas.length}</strong> já têm este pacote (sem alteração — multi-PATEC permite acumular outros)</li>}
                     </ul>
                   );
                 })()}
