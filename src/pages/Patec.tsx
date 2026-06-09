@@ -464,7 +464,7 @@ const Patec = () => {
       }
       supabase.removeChannel(channel);
     };
-  }, [authReady, user?.id, scheduleReconcile]);
+  }, [authReady, user?.id, scheduleReconcile, patecs]);
 
   // Reconciliação imediata do PATEC actualmente seleccionado (composição
   // aberta) — garante leitura fresca sem esperar pelo debounce de lote.
