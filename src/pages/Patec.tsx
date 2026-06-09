@@ -110,6 +110,8 @@ const Patec = () => {
   const initialPatec = searchParams.get("patec") || "all";
   const [scope, setScope] = useState<ResolvedScope | null>(null);
   const [farmers, setFarmers] = useState<FarmerPatec[]>([]);
+  // Multi-PATEC: mapa farmer_id -> lista de patec_codes atribuídos
+  const [farmerPatecsMap, setFarmerPatecsMap] = useState<Record<string, string[]>>({});
   const [patecItems, setPatecItems] = useState<PatecItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -118,7 +120,8 @@ const Patec = () => {
   const [filterProvince, setFilterProvince] = useState<string>(initialProvince);
   const [page, setPage] = useState(1);
   const [editFarmer, setEditFarmer] = useState<FarmerPatec | null>(null);
-  const [editPatecCode, setEditPatecCode] = useState<string>("");
+  // Conjunto de PATECs seleccionados para o agricultor em edição (multi)
+  const [editPatecCodes, setEditPatecCodes] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
   const [viewPatec, setViewPatec] = useState<number | null>(null);
   const [composingPatec, setComposingPatec] = useState<Patec | null>(null);
@@ -174,18 +177,24 @@ const Patec = () => {
   // New: pacotes & épocas
   const { patecs, loading: patecsLoading, refetch: refetchPatecs } = usePatecs();
   const { seasons, links, refetch: refetchSeasons } = useSeasons();
-  const farmerCountsByCode = farmers.reduce<Record<string, number>>((acc, f) => {
-    const k = (f as any).patec_code || (f.patec ? `_legacy_${f.patec}` : "_none");
-    acc[k] = (acc[k] || 0) + 1;
-    return acc;
-  }, {});
-  // Map legacy counts to codes via patec.legacy_number
-  patecs.forEach((p) => {
-    if (p.legacy_number != null) {
-      const legacyKey = `_legacy_${p.legacy_number}`;
-      farmerCountsByCode[p.code] = (farmerCountsByCode[p.code] || 0) + (farmerCountsByCode[legacyKey] || 0);
+  // Contagens globais (todos os agricultores) com suporte multi-PATEC.
+  // Cada vínculo em farmer_patecs conta para o respectivo pacote; fallback
+  // para a coluna legada apenas quando o mapa ainda não tem o agricultor.
+  const farmerCountsByCode: Record<string, number> = {};
+  for (const p of patecs) farmerCountsByCode[p.code] = 0;
+  for (const f of farmers) {
+    const fromMap = farmerPatecsMap[f.id];
+    if (fromMap && fromMap.length > 0) {
+      for (const c of fromMap) {
+        if (farmerCountsByCode[c] !== undefined) farmerCountsByCode[c]++;
+      }
+    } else if (f.patec_code && farmerCountsByCode[f.patec_code] !== undefined) {
+      farmerCountsByCode[f.patec_code]++;
+    } else if (f.patec != null) {
+      const m = patecs.find((p) => p.legacy_number === f.patec);
+      if (m) farmerCountsByCode[m.code]++;
     }
-  });
+  }
 
   // Default season selector to currently active (in-progress) season once loaded
   useEffect(() => {
@@ -210,6 +219,32 @@ const Patec = () => {
     return undefined;
   };
 
+  // Devolve TODOS os pacotes atribuídos a um agricultor (multi-PATEC).
+  // Combina os vínculos da tabela farmer_patecs com o pacote legado em
+  // farmers.patec_code/patec (caso o trigger ainda não tenha sincronizado).
+  const getFarmerCodes = (f: FarmerPatec): string[] => {
+    const fromMap = farmerPatecsMap[f.id] || [];
+    if (fromMap.length > 0) return fromMap;
+    const legacy = findPatecByFarmer(f.patec_code, f.patec);
+    return legacy ? [legacy.code] : [];
+  };
+
+  const fetchFarmerPatecs = async () => {
+    try {
+      const rows = await fetchAllPages<any>(() =>
+        supabase.from("farmer_patecs").select("farmer_id, patec_code, is_primary, assigned_at")
+      );
+      const map: Record<string, string[]> = {};
+      for (const r of rows) {
+        if (!map[r.farmer_id]) map[r.farmer_id] = [];
+        map[r.farmer_id].push(r.patec_code);
+      }
+      setFarmerPatecsMap(map);
+    } catch (err: any) {
+      // Não bloqueia a página; fallback para colunas legadas via getFarmerCodes
+      console.warn("[Patec] falha a carregar farmer_patecs", err?.message);
+    }
+  };
 
   const fetchFarmers = async (resolved: ResolvedScope) => {
     setLoading(true);
@@ -229,6 +264,8 @@ const Patec = () => {
         )
       );
       setFarmers(data);
+      // Carregar vínculos multi-PATEC em paralelo
+      void fetchFarmerPatecs();
     } catch (error: any) {
       setLoadError(error.message);
       toast.error("Erro ao carregar produtores");
@@ -564,52 +601,92 @@ const Patec = () => {
     const matchesSearch =
       f.full_name.toLowerCase().includes(search.toLowerCase()) ||
       f.code.toLowerCase().includes(search.toLowerCase());
+    const codes = getFarmerCodes(f);
     const matchesPatec =
       filterPatec === "all" ||
-      (filterPatec === "none" && !f.patec && !f.patec_code) ||
+      (filterPatec === "none" && codes.length === 0) ||
       (filterPatecResolved &&
-        (f.patec_code === filterPatecResolved.code ||
-          (f.patec_code == null && filterPatecResolved.legacy_number != null && f.patec === filterPatecResolved.legacy_number)));
+        codes.some(
+          (c) =>
+            c === filterPatecResolved.code ||
+            (filterPatecResolved.legacy_number != null && c === `_legacy_${filterPatecResolved.legacy_number}`)
+        ));
     return matchesSearch && matchesPatec;
   });
 
-  // Contagens dinâmicas por pacote (suporta atribuição por patec_code ou legacy patec)
+  // Contagens dinâmicas por pacote (multi-PATEC: 1 agricultor pode somar em vários)
   const countsByCode: Record<string, number> = {};
   for (const p of patecs) countsByCode[p.code] = 0;
   let semPatecCount = 0;
   for (const f of farmersByProvince) {
-    const matched = findPatecByFarmer(f.patec_code, f.patec);
-    if (matched) countsByCode[matched.code] = (countsByCode[matched.code] || 0) + 1;
-    else if (!f.patec_code && !f.patec) semPatecCount++;
-    else semPatecCount++; // patec_code/legacy desconhecido → tratar como sem PATEC válido
+    const codes = getFarmerCodes(f);
+    if (codes.length === 0) { semPatecCount++; continue; }
+    for (const c of codes) {
+      if (countsByCode[c] !== undefined) countsByCode[c]++;
+    }
   }
+  const assignedFarmers = farmersByProvince.length - semPatecCount;
   const stats = {
     total: farmersByProvince.length,
     semPatec: semPatecCount,
-    assigned: farmersByProvince.length - semPatecCount,
+    assigned: assignedFarmers,
   };
 
   const handleSavePatec = async () => {
     if (!editFarmer) return;
-    const selected = editPatecCode ? patecs.find((p) => p.code === editPatecCode) : null;
-    const guard = validatePatecAssignment(selected, patecsForSeason);
-    if (!guard.ok) {
-      toast.error(guard.message);
-      return;
+    const current = new Set(farmerPatecsMap[editFarmer.id] || []);
+    const desired = new Set(editPatecCodes);
+    const toAdd = Array.from(desired).filter((c) => !current.has(c));
+    const toRemove = Array.from(current).filter((c) => !desired.has(c));
+
+    // Valida apenas pacotes novos contra a época
+    for (const code of toAdd) {
+      const sel = patecs.find((p) => p.code === code);
+      const guard = validatePatecAssignment(sel ?? null, patecsForSeason);
+      if (!guard.ok) {
+        toast.error(`${code}: ${guard.message}`);
+        return;
+      }
     }
+
     setSaving(true);
-    const { error } = await supabase
-      .from("farmers")
-      .update({
-        patec_code: selected?.code ?? null,
-        patec: selected?.legacy_number ?? null,
-      })
-      .eq("id", editFarmer.id);
+    let errMsg: string | null = null;
+
+    if (toRemove.length > 0) {
+      const { error } = await supabase
+        .from("farmer_patecs")
+        .delete()
+        .eq("farmer_id", editFarmer.id)
+        .in("patec_code", toRemove);
+      if (error) errMsg = error.message;
+    }
+
+    if (!errMsg && toAdd.length > 0) {
+      const rows = toAdd.map((code) => ({
+        farmer_id: editFarmer.id,
+        farmer_code: editFarmer.code,
+        patec_code: code,
+        assigned_by: user?.id ?? null,
+      }));
+      const { error } = await supabase
+        .from("farmer_patecs")
+        .upsert(rows, { onConflict: "farmer_id,patec_code", ignoreDuplicates: true });
+      if (error) errMsg = error.message;
+    }
+
     setSaving(false);
-    if (error) {
-      toast.error("Erro ao atribuir PATEC");
+    if (errMsg) {
+      toast.error(`Erro ao gravar pacotes: ${errMsg}`);
     } else {
-      toast.success(selected ? `${selected.code} atribuído a ${editFarmer.full_name}` : `PATEC removido de ${editFarmer.full_name}`);
+      const msg =
+        toAdd.length && toRemove.length
+          ? `${toAdd.length} adicionado(s), ${toRemove.length} removido(s)`
+          : toAdd.length
+          ? `${toAdd.length} pacote(s) adicionado(s) a ${editFarmer.full_name}`
+          : toRemove.length
+          ? `${toRemove.length} pacote(s) removido(s) de ${editFarmer.full_name}`
+          : "Sem alterações";
+      toast.success(msg);
       setEditFarmer(null);
       scope && fetchFarmers(scope);
     }
@@ -633,6 +710,23 @@ const Patec = () => {
 
   const clearSelection = () => setSelectedIds(new Set());
 
+  // Helper: faz upsert do par (farmer_id, patec_code) na tabela farmer_patecs.
+  // Devolve número de linhas afectadas (sucesso) ou lança em erro.
+  const upsertFarmerPatecs = async (farmerIds: string[], patecCode: string) => {
+    if (farmerIds.length === 0) return;
+    const farmerById = new Map(farmers.map((f) => [f.id, f.code]));
+    const rows = farmerIds.map((id) => ({
+      farmer_id: id,
+      farmer_code: farmerById.get(id) || "",
+      patec_code: patecCode,
+      assigned_by: user?.id ?? null,
+    }));
+    const { error } = await supabase
+      .from("farmer_patecs")
+      .upsert(rows, { onConflict: "farmer_id,patec_code", ignoreDuplicates: true });
+    if (error) throw error;
+  };
+
   const handleBulkSave = async () => {
     if (!bulkPatecCode || selectedIds.size === 0) return;
     const selected = patecs.find((p) => p.code === bulkPatecCode);
@@ -649,18 +743,15 @@ const Patec = () => {
     setAssignProgress({ ...progress });
     for (let i = 0; i < ids.length; i += 50) {
       const batch = ids.slice(i, i + 50);
-      const { error } = await supabase
-        .from("farmers")
-        .update({ patec_code: selected.code, patec: selected.legacy_number ?? null })
-        .in("id", batch);
+      try {
+        await upsertFarmerPatecs(batch, selected.code);
+        progress.success += batch.length;
+      } catch (err: any) {
+        progress.failed += batch.length;
+        progress.errors.push(`Lote ${progress.batchesDone + 1}/${totalBatches} (${batch.length}): ${err?.message || "erro"}`);
+      }
       progress.done += batch.length;
       progress.batchesDone += 1;
-      if (error) {
-        progress.failed += batch.length;
-        progress.errors.push(`Lote ${progress.batchesDone}/${totalBatches} (${batch.length}): ${error.message}`);
-      } else {
-        progress.success += batch.length;
-      }
       setAssignProgress({ ...progress });
     }
     setSaving(false);
@@ -673,7 +764,7 @@ const Patec = () => {
     if (progress.failed > 0) {
       toast.error(`${progress.success}/${progress.total} atribuídos · ${progress.failed} falharam`);
     } else {
-      toast.success(`${selected.code} atribuído a ${progress.success} produtor(es)`);
+      toast.success(`${selected.code} adicionado a ${progress.success} produtor(es)`);
     }
     setSelectedIds(new Set());
     scope && fetchFarmers(scope);
@@ -687,7 +778,12 @@ const Patec = () => {
     return farmers.filter((f) => {
       const key = regionScope === "provincia" ? f.province : regionScope === "municipio" ? f.municipality : f.school;
       if (!set.has(norm(key))) return false;
-      if (!regionOverwrite && (f.patec_code || f.patec)) return false;
+      // Quando `regionOverwrite` é false: excluir agricultores que JÁ TÊM este pacote
+      // (evita ruído no relatório de batch — multi-PATEC permite acumular).
+      if (!regionOverwrite && regionPatecCode) {
+        const codes = getFarmerCodes(f);
+        if (codes.includes(regionPatecCode)) return false;
+      }
       return true;
     });
   })();
@@ -710,18 +806,15 @@ const Patec = () => {
     setAssignProgress({ ...progress });
     for (let i = 0; i < ids.length; i += 50) {
       const batch = ids.slice(i, i + 50);
-      const { error } = await supabase
-        .from("farmers")
-        .update({ patec_code: selected.code, patec: selected.legacy_number ?? null })
-        .in("id", batch);
+      try {
+        await upsertFarmerPatecs(batch, selected.code);
+        progress.success += batch.length;
+      } catch (err: any) {
+        progress.failed += batch.length;
+        progress.errors.push(`Lote ${progress.batchesDone + 1}/${totalBatches} (${batch.length}): ${err?.message || "erro"}`);
+      }
       progress.done += batch.length;
       progress.batchesDone += 1;
-      if (error) {
-        progress.failed += batch.length;
-        progress.errors.push(`Lote ${progress.batchesDone}/${totalBatches} (${batch.length}): ${error.message}`);
-      } else {
-        progress.success += batch.length;
-      }
       setAssignProgress({ ...progress });
     }
     setSaving(false);
@@ -735,7 +828,7 @@ const Patec = () => {
     if (progress.failed > 0) {
       toast.error(`${progress.success}/${progress.total} atribuídos · ${progress.failed} falharam`);
     } else {
-      toast.success(`${selected.code} atribuído a ${progress.success} produtor(es)`);
+      toast.success(`${selected.code} adicionado a ${progress.success} produtor(es)`);
     }
     scope && fetchFarmers(scope);
   };
@@ -749,7 +842,7 @@ const Patec = () => {
     distribution: Array<{ code: string; name: string; count: number }>;
   }>(null);
 
-  const semPatecPool = farmersByProvince.filter((f) => !f.patec && !f.patec_code);
+  const semPatecPool = farmersByProvince.filter((f) => getFarmerCodes(f).length === 0);
 
   const handleRandomReassign = async () => {
     if (semPatecPool.length === 0) return;
@@ -775,14 +868,13 @@ const Patec = () => {
     let errorCount = 0;
     for (const p of pool) {
       const list = buckets[p.code];
-      const legacy = p.legacy_number ?? null;
       for (let i = 0; i < list.length; i += 50) {
         const batch = list.slice(i, i + 50);
-        const { error } = await supabase
-          .from("farmers")
-          .update({ patec_code: p.code, patec: legacy })
-          .in("id", batch);
-        if (error) errorCount++;
+        try {
+          await upsertFarmerPatecs(batch, p.code);
+        } catch {
+          errorCount++;
+        }
       }
     }
     setSaving(false);
@@ -1422,19 +1514,25 @@ const Patec = () => {
                     </TableCell>
                     <TableCell>
                       {(() => {
-                        const p = findPatecByFarmer(f.patec_code, f.patec);
-                        if (!p) return <span className="text-xs text-destructive font-medium">Não atribuído</span>;
-                        const meta = p.legacy_number ? patecMeta[p.legacy_number] : null;
-                        return <Badge variant="outline" className={`text-[10px] ${meta?.color || ""}`}>{p.code}</Badge>;
+                        const codes = getFarmerCodes(f);
+                        if (codes.length === 0) return <span className="text-xs text-destructive font-medium">Não atribuído</span>;
+                        return (
+                          <div className="flex flex-wrap gap-1">
+                            {codes.map((c) => {
+                              const p = patecs.find((x) => x.code === c);
+                              const meta = p?.legacy_number ? patecMeta[p.legacy_number] : null;
+                              return <Badge key={c} variant="outline" className={`text-[10px] ${meta?.color || ""}`}>{c}</Badge>;
+                            })}
+                          </div>
+                        );
                       })()}
                     </TableCell>
                     <TableCell className="text-right">
                       <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => {
-                        const p = findPatecByFarmer(f.patec_code, f.patec);
                         setEditFarmer(f);
-                        setEditPatecCode(p?.code ?? "");
+                        setEditPatecCodes(new Set(getFarmerCodes(f)));
                       }}>
-                        <Edit2 className="h-3 w-3 mr-1" /> Atribuir
+                        <Edit2 className="h-3 w-3 mr-1" /> Pacotes
                       </Button>
                     </TableCell>
                   </TableRow>
@@ -1457,10 +1555,17 @@ const Patec = () => {
                     <Link to={`/agricultores/${f.code}`} className="text-sm font-medium text-primary hover:underline">{f.full_name}</Link>
                   </div>
                   {(() => {
-                    const p = findPatecByFarmer(f.patec_code, f.patec);
-                    if (!p) return <span className="text-[10px] text-destructive font-medium">Sem PATEC</span>;
-                    const meta = p.legacy_number ? patecMeta[p.legacy_number] : null;
-                    return <Badge variant="outline" className={`text-[10px] ${meta?.color || ""}`}>{p.code}</Badge>;
+                    const codes = getFarmerCodes(f);
+                    if (codes.length === 0) return <span className="text-[10px] text-destructive font-medium">Sem PATEC</span>;
+                    return (
+                      <div className="flex flex-wrap gap-1 justify-end">
+                        {codes.map((c) => {
+                          const p = patecs.find((x) => x.code === c);
+                          const meta = p?.legacy_number ? patecMeta[p.legacy_number] : null;
+                          return <Badge key={c} variant="outline" className={`text-[10px] ${meta?.color || ""}`}>{c}</Badge>;
+                        })}
+                      </div>
+                    );
                   })()}
                 </div>
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
@@ -1470,11 +1575,10 @@ const Patec = () => {
                 <div className="flex items-center justify-between">
                   <Badge variant={f.status === "Ativo" ? "default" : "secondary"} className="text-[10px]">{f.status}</Badge>
                   <Button variant="ghost" size="sm" className="h-6 text-[10px] px-2" onClick={() => {
-                    const p = findPatecByFarmer(f.patec_code, f.patec);
                     setEditFarmer(f);
-                    setEditPatecCode(p?.code ?? "");
+                    setEditPatecCodes(new Set(getFarmerCodes(f)));
                   }}>
-                    <Edit2 className="h-3 w-3 mr-1" /> Atribuir
+                    <Edit2 className="h-3 w-3 mr-1" /> Pacotes
                   </Button>
                 </div>
               </div>
@@ -1495,11 +1599,11 @@ const Patec = () => {
       </Card>
       )}
 
-      {/* Edit Dialog (single) */}
+      {/* Edit Dialog (multi-PATEC) */}
       <Dialog open={!!editFarmer} onOpenChange={(o) => !o && setEditFarmer(null)}>
         <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col overflow-hidden">
           <DialogHeader>
-            <DialogTitle>Atribuir PATEC — {editFarmer?.full_name}</DialogTitle>
+            <DialogTitle>Pacotes PATEC — {editFarmer?.full_name}</DialogTitle>
           </DialogHeader>
           <div className="flex-1 overflow-y-auto pr-1 space-y-4 py-4">
             <p className="text-sm text-muted-foreground">
@@ -1512,64 +1616,53 @@ const Patec = () => {
                 </span>
               </div>
             )}
-            <Select value={editPatecCode || "_none"} onValueChange={(v) => setEditPatecCode(v === "_none" ? "" : v)}>
-              <SelectTrigger><SelectValue placeholder="Seleccionar PATEC" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="_none">— Remover atribuição —</SelectItem>
-                {patecsForSeason.length === 0 ? (
-                  <div className="px-2 py-3 text-xs text-muted-foreground">
-                    Nenhum pacote vinculado a esta época. Vá ao separador <strong>Pacotes</strong> para vincular.
-                  </div>
-                ) : patecsForSeason.map((p) => (
-                  <SelectItem key={p.id} value={p.code}>{p.code} — {p.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {editPatecCode && (() => {
-              const sel = patecs.find((p) => p.code === editPatecCode);
-              if (!sel) return null;
-              const legacy = sel.legacy_number;
-              const meta = legacy ? patecMeta[legacy] : null;
-              return (
-                <div className="border rounded-lg p-3 text-xs space-y-2 bg-muted/30">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <p className="font-semibold">{meta?.title || `${sel.code} — ${sel.name}`}</p>
-                      {sel.cultures && <p className="text-muted-foreground">{sel.cultures}</p>}
+            <div className="text-xs text-muted-foreground">
+              Marque os pacotes que este agricultor deve receber. Pode atribuir <strong>mais do que um PATEC</strong>.
+              {editPatecCodes.size > 0 && (
+                <span className="ml-1">Seleccionados: <strong className="text-foreground">{editPatecCodes.size}</strong></span>
+              )}
+            </div>
+            <div className="border rounded-lg divide-y max-h-[55vh] overflow-y-auto">
+              {patecsForSeason.length === 0 ? (
+                <div className="px-3 py-4 text-xs text-muted-foreground">
+                  Nenhum pacote vinculado a esta época. Vá ao separador <strong>Pacotes</strong> para vincular.
+                </div>
+              ) : patecsForSeason.map((p) => {
+                const checked = editPatecCodes.has(p.code);
+                const meta = p.legacy_number ? patecMeta[p.legacy_number] : null;
+                return (
+                  <label key={p.id} className={`flex items-start gap-3 p-3 cursor-pointer hover:bg-muted/40 ${checked ? "bg-primary/5" : ""}`}>
+                    <Checkbox
+                      checked={checked}
+                      onCheckedChange={(v) => {
+                        setEditPatecCodes((prev) => {
+                          const next = new Set(prev);
+                          if (v) next.add(p.code); else next.delete(p.code);
+                          return next;
+                        });
+                      }}
+                      className="mt-0.5"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Badge variant="outline" className={`text-[10px] ${meta?.color || ""}`}>{p.code}</Badge>
+                        <span className="text-sm font-medium">{p.name}</span>
+                      </div>
+                      {p.cultures && <p className="text-xs text-muted-foreground mt-0.5">{p.cultures}</p>}
                     </div>
                     <Button
                       type="button"
-                      variant="outline"
+                      variant="ghost"
                       size="sm"
                       className="h-7 text-[11px] shrink-0"
-                      onClick={() => setComposingPatec(sel)}
+                      onClick={(e) => { e.preventDefault(); setComposingPatec(p); }}
                     >
-                      <Eye className="h-3 w-3 mr-1" /> Ver composição completa
+                      <Eye className="h-3 w-3 mr-1" /> Composição
                     </Button>
-                  </div>
-                  {legacy && meta && (
-                    <div className="max-h-[40vh] overflow-y-auto pr-1">
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
-                        {["insumos", "pecuaria", "servicos"].map((cat) => {
-                          const items = getItems(legacy, cat);
-                          if (items.length === 0) return null;
-                          return (
-                            <div key={cat}>
-                              <p className="font-medium text-muted-foreground mb-1">
-                                {categoryLabels[cat]} <span className="text-[10px]">({items.length})</span>
-                              </p>
-                              <ul className="space-y-0.5">
-                                {items.map((i) => <li key={i.id}>• {i.name}</li>)}
-                              </ul>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
+                  </label>
+                );
+              })}
+            </div>
           </div>
           <DialogFooter className="border-t pt-3">
             <Button variant="outline" onClick={() => setEditFarmer(null)}>Cancelar</Button>
@@ -1590,11 +1683,13 @@ const Patec = () => {
             </p>
             <div className="max-h-48 overflow-y-auto border rounded-lg p-2 text-xs space-y-1 bg-muted/20">
               {filtered.filter((f) => selectedIds.has(f.id)).map((f) => {
-                const p = findPatecByFarmer(f.patec_code, f.patec);
+                const codes = getFarmerCodes(f);
                 return (
-                  <div key={f.id} className="flex items-center justify-between">
+                  <div key={f.id} className="flex items-center justify-between gap-2">
                     <span><span className="font-mono text-muted-foreground">{f.code}</span> — {f.full_name}</span>
-                    {p && <Badge variant="outline" className="text-[9px]">{p.code}</Badge>}
+                    <div className="flex gap-1 flex-wrap justify-end">
+                      {codes.map((c) => <Badge key={c} variant="outline" className="text-[9px]">{c}</Badge>)}
+                    </div>
                   </div>
                 );
               })}
@@ -1666,12 +1761,12 @@ const Patec = () => {
                 })()}
                 {(() => {
                   const selected = farmers.filter((f) => selectedIds.has(f.id));
-                  const comPatec = selected.filter((f) => f.patec !== null && f.patec !== undefined);
-                  const semPatec = selected.filter((f) => f.patec === null || f.patec === undefined);
+                  const alreadyHas = selected.filter((f) => getFarmerCodes(f).includes(bulkPatecCode));
+                  const novos = selected.length - alreadyHas.length;
                   return (
                     <ul className="list-disc list-inside space-y-0.5">
-                      {semPatec.length > 0 && <li><strong>{semPatec.length}</strong> sem PATEC atribuído (nova atribuição)</li>}
-                      {comPatec.length > 0 && <li><strong>{comPatec.length}</strong> já com PATEC atribuído (será alterado)</li>}
+                      {novos > 0 && <li><strong>{novos}</strong> receberão este pacote pela primeira vez</li>}
+                      {alreadyHas.length > 0 && <li><strong>{alreadyHas.length}</strong> já têm este pacote (sem alteração — multi-PATEC permite acumular outros)</li>}
                     </ul>
                   );
                 })()}
@@ -1806,7 +1901,7 @@ const Patec = () => {
               <div className="border-t border-primary/10 pt-3">
                 {(() => {
                   const total = regionTargetFarmers.length;
-                  const comPatec = regionTargetFarmers.filter((f) => f.patec_code || f.patec).length;
+                  const comPatec = regionTargetFarmers.filter((f) => getFarmerCodes(f).length > 0).length;
                   const semPatec = total - comPatec;
                   return (
                     <div className="space-y-1.5">
@@ -2014,7 +2109,11 @@ const Patec = () => {
                   </div>
                 ))}
                 <div className="text-xs text-muted-foreground border-t pt-3">
-                  Produtores com este pacote: <span className="font-bold">{farmers.filter((f) => f.patec === viewPatec).length}</span>
+                  Produtores com este pacote: <span className="font-bold">{(() => {
+                    const meta = patecs.find((p) => p.legacy_number === viewPatec);
+                    if (!meta) return 0;
+                    return farmers.filter((f) => getFarmerCodes(f).includes(meta.code)).length;
+                  })()}</span>
                 </div>
               </div>
             </>
