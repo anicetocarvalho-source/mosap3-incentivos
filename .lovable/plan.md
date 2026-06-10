@@ -1,61 +1,42 @@
-# Múltiplos PATEC por agricultor
+## Causa do problema
 
-## Objectivo
-Hoje cada agricultor tem no máximo um pacote tecnológico (coluna única `farmers.patec_code`). Vamos permitir que o mesmo agricultor receba vários PATEC — inclusive na mesma época — preservando a coluna actual como "PATEC principal" para compatibilidade.
+O diálogo "Composição" (`PatecCompositionDialog`) mostra apenas dois separadores: **Agricultura** e **Pecuária**, agrupando linhas pelo campo `patec_items.category`.
 
-## Modelo de dados
+Na BD os 33 itens de Equipamento e os 20 itens de Sistema de Rega dos PATEC-01..10 estão gravados com:
+- `category = 'equipamento'` (não `'agricultura'`)
+- `category = 'irrigacao'` (não `'agricultura'`)
 
-Nova tabela `public.farmer_patecs` (1 linha por vínculo):
+Resultado: caem fora dos dois separadores e não aparecem em lado nenhum — mesmo estando na base de dados.
 
-| Coluna | Notas |
-|---|---|
-| `id` uuid PK | |
-| `farmer_id` uuid → `farmers.id` (cascade) | |
-| `patec_code` text → `patecs.code` | |
-| `season_id` uuid → `agricultural_seasons.id` (nullable) | Época em que foi atribuído |
-| `assigned_at`, `assigned_by` | Auditoria |
-| `is_primary` boolean | Espelha `farmers.patec_code` |
-| `created_at` / `updated_at` | |
+## Correções
 
-- Índices em `farmer_id`, `(farmer_id, patec_code, season_id)` único parcial.
-- GRANTs para `authenticated` / `service_role`; RLS reaproveita o padrão geográfico das outras tabelas (`farmers`/`user_provinces`).
-- Trigger para manter `farmers.patec_code` / `farmers.patec` sincronizado com a linha marcada `is_primary` (a primeira atribuição torna-se primária automaticamente; ao remover a primária, promover a mais recente).
-- Migração inicial: copiar para `farmer_patecs` todos os pares `(id, patec_code)` actualmente em `farmers` (com `is_primary = true`).
+### 1. Migração de dados (`patec_items`)
+- Re-categorizar para o campo `category` consistente:
+  - `PATEC-01..10` → linhas com `category in ('equipamento','irrigacao')` passam a `category = 'agricultura'` (mantendo `subcategory = 'equipamento'` ou `'sistema_rega'`).
+  - `PATEC-11..15` → mesmas regras para `category = 'pecuaria'` (caso existam).
+- Aplicar quantidades padrão a itens com `base_quantity = 0`:
+  - Ferramentas singulares (Enxada, Catana, Pá, Sacho, Machado, Lima, Martelo, Maceta, Ancinho, Fita métrica, Pulverizador): `1 un`.
+  - EPI / consumíveis (Luvas, Máscara, Capas de chuva, Bota): `2 un`.
+  - Construção/cercas (Adobe, Blocos de cimento, Chapa de zinco, Paus/Postes, Pregos, Rede galinheira, Dobradiça, Cordel, Correntes, Cadeado): `1 un` placeholder (a refinar pelos técnicos).
+  - Pecuária leve (Bebedouro, Comedouro, Caixa plástica, Pipas, Balança normal/relógio): `1 un`.
+  - Irrigação a 0 (Fita gotejadora 16 mm, Tubo gotejador 16 mm): `1 rolo`.
+  - Itens "Fita de rega" / "Mangueira de rega" de `equipamento` (duplicados com sistema_rega): `1 un`.
+- Replicação idêntica para PATEC-02..10 (mesma cultura por pacote, mesmos consumíveis base).
 
-## Backend / queries
+### 2. Diálogo de Composição (`src/components/patec/PatecCompositionDialog.tsx`)
+- Adicionar rótulo amigável: `sistema_rega: "Irrigação"`, `corretivo: "Correctivos do Solo"`, `fitossanitario: "Fitossanitários"`, `embalagem: "Embalagens"`.
+- Renomear `equipamento: "Equipamentos e Ferramentas"`.
+- Acrescentar `sistema_rega`, `corretivo`, `fitossanitario`, `embalagem` à lista `AGRICULTURA_SUBS` (para ficarem disponíveis no formulário "Adicionar item" e ordem coerente).
+- Tornar a leitura **defensiva**: se aparecer `category` desconhecido, tratar como `agricultura` (fallback) — evita futura regressão semelhante.
 
-- Função `get_farmer_patec_codes(farmer_id)` (security definer) devolvendo array — útil para POS e cartão.
-- Função `get_farmer_active_balance(farmer_id, season_id)` somando os limites/saldos de todos os pacotes activos da época. POS passa a usar esta função em vez de ler `patec_code` directamente.
-
-## Frontend
-
-### `/patec` (`src/pages/Patec.tsx`)
-- Leitura de atribuições passa a vir de `farmer_patecs` (joined com `farmers`).
-- Contagens por pacote: agrupar `farmer_patecs.patec_code` em vez de `farmers.patec_code`.
-- Atribuição individual e em lote (`handleAssign`, `handleRegionAssign`, `handleRandomReassign`) — em vez de `UPDATE farmers SET patec_code=…`, executar `INSERT INTO farmer_patecs … ON CONFLICT DO NOTHING` em lotes de 50. Toggle "Substituir pacote existente" passa a ser "Adicionar pacote / Substituir todos".
-- Novo botão "Remover pacote" por linha (apaga de `farmer_patecs`).
-- Filtro "PATEC" continua a funcionar: agricultor aparece em todos os pacotes a que pertence.
-
-### Perfil do agricultor (`src/components/FarmerRegistrationForm.tsx` + perfil)
-- Mostrar lista de pacotes com badges; permitir adicionar/remover. `patec_code` aparece como "principal" (selector entre os atribuídos).
-
-### POS (`src/pages/Mosap3PayPOS.tsx`, `usePatecCatalogIndex`)
-- Catálogo permitido = união dos itens de todos os PATEC activos do agricultor na época corrente.
-- Saldo apresentado = soma dos limites − consumos (via nova função RPC).
-- `InvoicePDF` continua a imprimir o `patec_code` principal, mas adiciona "Pacotes: A, B, C" quando há mais de um.
-
-### Outros pontos
-- `patecAssignmentGuard` actualizado: validar lista em vez de valor único.
-- Anomalias / cartão ID / relatórios continuam a ler `patec_code` principal (sem mudança visual imediata).
-- Testes existentes (`patec-assignment-guard`, `patec-block-detail`, `patec-invoice-display`) ajustados para o novo modelo.
-
-## Faseamento (1 migração, 1 PR)
-1. Migração: tabela + grants + RLS + trigger + cópia inicial.
-2. Refactor `Patec.tsx` (leitura, contagens, atribuição, UI de múltiplos pacotes).
-3. Perfil do agricultor (lista + selector de principal).
-4. POS: catálogo união + RPC de saldo agregado.
-5. Ajustes em testes e `patecAssignmentGuard`.
+### 3. Vista materializada
+- Após o UPDATE, `REFRESH MATERIALIZED VIEW patec_package_expanded` para o POS/relatórios reflectirem a nova categoria.
 
 ## Fora do âmbito
-- Reescrever cartão ID / relatórios para mostrar todos os pacotes (fica como follow-up se desejares).
-- Limites por época ainda calculados a nível de PATEC (não de combinação).
+- Não alterar o modelo normalizado (`patec_components` / `patec_package_components`) — continua válido; a divergência está só na tabela flat `patec_items`.
+- Não mexer no POS, cartão ID nem relatórios (já lêem da view ou de `patec_items` sem filtrar por `category`).
+
+## Faseamento
+1. Migração SQL (UPDATE de category + UPDATE de quantidades + REFRESH da view).
+2. Edição mínima do `PatecCompositionDialog` (rótulos + fallback de categoria).
+3. Validar manualmente abrindo Composição de PATEC-01 e PATEC-05.
