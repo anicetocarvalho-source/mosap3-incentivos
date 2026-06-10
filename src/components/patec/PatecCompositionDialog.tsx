@@ -147,7 +147,12 @@ export default function PatecCompositionDialog({ open, onOpenChange, patec }: Pr
 
   const byCategory = useMemo(() => {
     const m: Record<string, PatecItem[]> = { agricultura: [], pecuaria: [] };
-    for (const it of items) (m[it.category] ||= []).push(it);
+    for (const it of items) {
+      // Fallback defensivo: categorias desconhecidas (ex: legado 'equipamento'/'irrigacao')
+      // são reclassificadas como 'agricultura' para nunca desaparecerem da UI.
+      const cat = it.category === "agricultura" || it.category === "pecuaria" ? it.category : "agricultura";
+      (m[cat] ||= []).push(it);
+    }
     return m;
   }, [items]);
 
