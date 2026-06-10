@@ -38,10 +38,13 @@ interface PatecItem {
 const SUBCATEGORY_LABELS: Record<string, string> = {
   semente: "Sementes",
   adubo: "Adubos",
+  corretivo: "Correctivos do Solo",
+  fitossanitario: "Fitossanitários",
   inseticida: "Inseticidas",
   fungicida: "Fungicidas",
   planta_melhoradora: "Plantas Melhoradoras",
   muda_fruteira_florestal: "Mudas Frutícolas e Florestais",
+  embalagem: "Embalagens",
   animal: "Efectivo Animal",
   racao: "Ração",
   antibiotico: "Antibióticos",
@@ -51,16 +54,21 @@ const SUBCATEGORY_LABELS: Record<string, string> = {
   vacina: "Vacinas",
   anti_inflamatorio: "Anti-inflamatórios",
   irrigacao: "Irrigação",
-  equipamento: "Equipamentos",
+  sistema_rega: "Irrigação (Sistema de Rega)",
+  equipamento: "Equipamentos e Ferramentas",
 };
 
 const AGRICULTURA_SUBS = [
   "semente",
   "adubo",
+  "corretivo",
+  "fitossanitario",
   "inseticida",
   "fungicida",
   "planta_melhoradora",
   "muda_fruteira_florestal",
+  "embalagem",
+  "sistema_rega",
   "irrigacao",
   "equipamento",
 ];
@@ -139,7 +147,12 @@ export default function PatecCompositionDialog({ open, onOpenChange, patec }: Pr
 
   const byCategory = useMemo(() => {
     const m: Record<string, PatecItem[]> = { agricultura: [], pecuaria: [] };
-    for (const it of items) (m[it.category] ||= []).push(it);
+    for (const it of items) {
+      // Fallback defensivo: categorias desconhecidas (ex: legado 'equipamento'/'irrigacao')
+      // são reclassificadas como 'agricultura' para nunca desaparecerem da UI.
+      const cat = it.category === "agricultura" || it.category === "pecuaria" ? it.category : "agricultura";
+      (m[cat] ||= []).push(it);
+    }
     return m;
   }, [items]);
 
