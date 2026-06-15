@@ -273,33 +273,64 @@ const Patec = () => {
     setLoading(false);
   };
 
-  const fetchPatecItems = async () => {
+  const fetchPatecItems = async (patecsForCounts?: { code: string }[]) => {
     setCompositionLoading(true);
     setCompositionError(null);
     try {
+      // (1) Contagens autoritativas por pacote — independentes de paginação.
+      // Usa head:true (apenas o count, sem payload), à prova do limite
+      // db.max_rows do PostgREST e de falhas intermitentes em páginas
+      // posteriores. Sem isto, pacotes cujos itens ficam depois do offset
+      // 1000 (ex.: PATEC-14 Ovinos / PATEC-15 Suínos) apareciam como 0 itens.
+      const codesForCount = (patecsForCounts ?? patecs).map((p) => p.code).filter(Boolean);
+      if (codesForCount.length > 0) {
+        const countResults = await Promise.all(
+          codesForCount.map(async (code) => {
+            const { count, error } = await supabase
+              .from("patec_items")
+              .select("id", { count: "exact", head: true })
+              .eq("patec_code", code);
+            return { code, count: error ? 0 : (count ?? 0) };
+          })
+        );
+        const counts: Record<string, number> = {};
+        for (const { code, count } of countResults) counts[code] = count;
+        setItemCountsByCode(counts);
+      }
+
+      // (2) Lista completa de patec_items para `getItems` (legacy) e UI de detalhe.
+      // Paginação resiliente: pede `count: exact` na 1ª página e itera até
+      // termos todas as linhas — NÃO depende de `batch.length === pageSize`,
+      // que falha quando o servidor aplica um limite menor que o pedido.
       const pageSize = 1000;
-      let from = 0;
       const all: any[] = [];
-      // Paginação obrigatória: PostgREST limita a 1000 linhas por pedido
-      // e a tabela patec_items já ultrapassa esse limite (1195+).
-      while (true) {
-        const { data, error } = await supabase
+      let totalCount: number | null = null;
+      let offset = 0;
+      const HARD_CAP_ITERATIONS = 50; // 50 * 1000 = 50k linhas (muito acima do esperado)
+      for (let i = 0; i < HARD_CAP_ITERATIONS; i++) {
+        const isFirst = i === 0;
+        const { data, error, count } = await supabase
           .from("patec_items")
-          .select("*")
+          .select("*", isFirst ? { count: "exact" } : {})
           .order("created_at")
-          .range(from, from + pageSize - 1);
+          .range(offset, offset + pageSize - 1);
         if (error) throw error;
         const batch = (data as any[]) || [];
         all.push(...batch);
-        if (batch.length < pageSize) break;
-        from += pageSize;
+        if (isFirst && count != null) totalCount = count;
+        offset += batch.length;
+        if (batch.length === 0) break;
+        if (totalCount != null && all.length >= totalCount) break;
+        if (batch.length < pageSize && totalCount == null) break;
+      }
+      if (totalCount != null && all.length < totalCount) {
+        // eslint-disable-next-line no-console
+        console.warn(
+          `[Patec] patec_items: carregados ${all.length} de ${totalCount}. ` +
+          `Contagens da lista lateral usam head:true e estão correctas.`
+        );
       }
       setPatecItems(all as PatecItem[]);
-      const counts: Record<string, number> = {};
-      for (const r of all) {
-        if (r.patec_code) counts[r.patec_code] = (counts[r.patec_code] || 0) + 1;
-      }
-      setItemCountsByCode(counts);
     } catch (err: any) {
       setCompositionError(err?.message || "Erro ao carregar itens dos PATECs");
     } finally {
@@ -315,10 +346,19 @@ const Patec = () => {
       if (cancelled) return;
       setScope(resolved);
       fetchFarmers(resolved);
-      fetchPatecItems();
     })();
     return () => { cancelled = true; };
   }, [authReady, user?.id, roles.join(",")]);
+
+  // Carrega itens + contagens autoritativas apenas depois de `patecs` chegar,
+  // para que o passo (1) consiga iterar sobre os códigos existentes.
+  useEffect(() => {
+    if (!authReady || !user) return;
+    if (patecsLoading) return;
+    if (patecs.length === 0) return;
+    fetchPatecItems(patecs);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authReady, user?.id, patecsLoading, patecs.length]);
 
   // Auto-recover: silenciosamente refaz os fetchs quando a aba volta ao
   // foco, a rede regressa ou uma permissão (42501) / RLS é reconcedida
