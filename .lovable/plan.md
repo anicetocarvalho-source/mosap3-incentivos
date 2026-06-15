@@ -1,42 +1,66 @@
-## Causa do problema
+## Causa
 
-O diálogo "Composição" (`PatecCompositionDialog`) mostra apenas dois separadores: **Agricultura** e **Pecuária**, agrupando linhas pelo campo `patec_items.category`.
+A tabela `patec_items` tem **1195 linhas**. Ordenadas por `created_at`, os itens dos pacotes **PATEC-14 (Ovinos, 81)** e **PATEC-15 (Suínos, 73)** ficam todos depois do offset 1000 — ou seja, **só aparecem na 2ª página da paginação**.
 
-Na BD os 33 itens de Equipamento e os 20 itens de Sistema de Rega dos PATEC-01..10 estão gravados com:
-- `category = 'equipamento'` (não `'agricultura'`)
-- `category = 'irrigacao'` (não `'agricultura'`)
+O loop em `src/pages/Patec.tsx → fetchPatecItems` (linhas 285-296) só busca a página seguinte se a anterior retornar **exactamente** `pageSize` (1000). Em ambiente real essa segunda página não está a ser materializada (`batch.length < pageSize` dispara antes do esperado, provavelmente por limite `db.max_rows` do PostgREST ou timeout intermitente), pelo que `itemCountsByCode["PATEC-14"]` e `["PATEC-15"]` ficam em **0** e a badge da lista lateral mostra "0 itens".
 
-Resultado: caem fora dos dois separadores e não aparecem em lado nenhum — mesmo estando na base de dados.
+Confirmado em BD: PATEC-14 = 81 itens (2 animal, 12 ração, 34 veterinária, 33 equipamento) e PATEC-15 = 73 itens, todos com `category='pecuaria'`. Logo o problema é apenas de leitura no frontend.
 
-## Correções
+## Correcção (apenas frontend, `src/pages/Patec.tsx`)
 
-### 1. Migração de dados (`patec_items`)
-- Re-categorizar para o campo `category` consistente:
-  - `PATEC-01..10` → linhas com `category in ('equipamento','irrigacao')` passam a `category = 'agricultura'` (mantendo `subcategory = 'equipamento'` ou `'sistema_rega'`).
-  - `PATEC-11..15` → mesmas regras para `category = 'pecuaria'` (caso existam).
-- Aplicar quantidades padrão a itens com `base_quantity = 0`:
-  - Ferramentas singulares (Enxada, Catana, Pá, Sacho, Machado, Lima, Martelo, Maceta, Ancinho, Fita métrica, Pulverizador): `1 un`.
-  - EPI / consumíveis (Luvas, Máscara, Capas de chuva, Bota): `2 un`.
-  - Construção/cercas (Adobe, Blocos de cimento, Chapa de zinco, Paus/Postes, Pregos, Rede galinheira, Dobradiça, Cordel, Correntes, Cadeado): `1 un` placeholder (a refinar pelos técnicos).
-  - Pecuária leve (Bebedouro, Comedouro, Caixa plástica, Pipas, Balança normal/relógio): `1 un`.
-  - Irrigação a 0 (Fita gotejadora 16 mm, Tubo gotejador 16 mm): `1 rolo`.
-  - Itens "Fita de rega" / "Mangueira de rega" de `equipamento` (duplicados com sistema_rega): `1 un`.
-- Replicação idêntica para PATEC-02..10 (mesma cultura por pacote, mesmos consumíveis base).
+**1. Substituir o cálculo das contagens por uma chamada robusta e independente da paginação.**
 
-### 2. Diálogo de Composição (`src/components/patec/PatecCompositionDialog.tsx`)
-- Adicionar rótulo amigável: `sistema_rega: "Irrigação"`, `corretivo: "Correctivos do Solo"`, `fitossanitario: "Fitossanitários"`, `embalagem: "Embalagens"`.
-- Renomear `equipamento: "Equipamentos e Ferramentas"`.
-- Acrescentar `sistema_rega`, `corretivo`, `fitossanitario`, `embalagem` à lista `AGRICULTURA_SUBS` (para ficarem disponíveis no formulário "Adicionar item" e ordem coerente).
-- Tornar a leitura **defensiva**: se aparecer `category` desconhecido, tratar como `agricultura` (fallback) — evita futura regressão semelhante.
+Em vez de derivar `itemCountsByCode` da lista completa de `patec_items`, calcular as contagens em paralelo por pacote usando `head:true` (que devolve apenas o `count`, ignorando `db.max_rows`):
 
-### 3. Vista materializada
-- Após o UPDATE, `REFRESH MATERIALIZED VIEW patec_package_expanded` para o POS/relatórios reflectirem a nova categoria.
+```ts
+const counts: Record<string, number> = {};
+await Promise.all(
+  patecs.map(async (p) => {
+    const { count } = await supabase
+      .from("patec_items")
+      .select("id", { count: "exact", head: true })
+      .eq("patec_code", p.code);
+    counts[p.code] = count ?? 0;
+  })
+);
+setItemCountsByCode(counts);
+```
 
-## Fora do âmbito
-- Não alterar o modelo normalizado (`patec_components` / `patec_package_components`) — continua válido; a divergência está só na tabela flat `patec_items`.
-- Não mexer no POS, cartão ID nem relatórios (já lêem da view ou de `patec_items` sem filtrar por `category`).
+Isto é exactamente a mesma técnica já usada em `reconcileDirtyCodes` (linhas 348-353), logo é coerente com o resto do ficheiro.
 
-## Faseamento
-1. Migração SQL (UPDATE de category + UPDATE de quantidades + REFRESH da view).
-2. Edição mínima do `PatecCompositionDialog` (rótulos + fallback de categoria).
-3. Validar manualmente abrindo Composição de PATEC-01 e PATEC-05.
+**2. Tornar a paginação de `patecItems` resistente ao limite real do servidor.**
+
+Pedir o `count: 'exact'` na 1ª página e continuar até `all.length >= totalCount` (em vez de `batch.length < pageSize`), com um tecto de segurança para evitar loop infinito:
+
+```ts
+const { data, error, count } = await supabase
+  .from("patec_items")
+  .select("*", { count: "exact" })
+  .order("created_at")
+  .range(0, pageSize - 1);
+// ...loop enquanto all.length < (count ?? 0) e batch.length > 0
+```
+
+Se mesmo assim faltarem itens (ex.: erro intermitente numa página), registar `console.warn` mas **não bloquear** — a UI agora usa `itemCountsByCode` calculado por (1), que já está correcto.
+
+**3. Dependência da `useEffect` de boot (linha 321)**
+
+Garantir que `fetchPatecItems` só corre depois de `patecs` estar carregado (já há `patecsLoading`), uma vez que o passo (1) precisa de iterar sobre `patecs`. Resolver com um `useEffect` que dispara quando `patecs.length > 0`.
+
+## Fora de âmbito
+
+- Não tocar em `patec_items` na BD — os dados estão correctos.
+- Não alterar `PatecCompositionDialog` (já lê via `eq("patec_code", patec.code)` e funciona).
+- Não mexer em POS, relatórios, ECA nem cartões.
+- Sem migrações.
+
+## Validação manual
+
+1. Abrir `/patec` como admin.
+2. Na lista lateral "Composição dos Pacotes":
+   - PATEC-11 → 73 itens
+   - PATEC-12 → 82 itens
+   - PATEC-13 → 80 itens
+   - PATEC-14 (Ovinos) → **81 itens** ✅
+   - PATEC-15 (Suínos) → **73 itens** ✅
+3. Clicar "Detalhes" em PATEC-14 → tab Pecuária mostra 81 itens agrupados (Efectivo Animal 2, Ração 12, Veterinária 34, Equipamentos 33).
