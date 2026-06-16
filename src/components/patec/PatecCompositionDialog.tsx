@@ -745,7 +745,7 @@ export default function PatecCompositionDialog({ open, onOpenChange, patec }: Pr
             <AlertDialogTitle>Remover item da composição?</AlertDialogTitle>
             <AlertDialogDescription>
               <strong>{deleteTarget?.name}</strong> será removido permanentemente do pacote{" "}
-              <strong>{patec?.name}</strong>. Esta acção afecta todos os agricultores com este PATEC nas próximas vendas.
+              <strong>{patec?.code}{(patec?.cultures || patec?.name) ? ` — ${patec?.cultures || patec?.name}` : ""}</strong>. Esta acção afecta todos os agricultores com este PATEC nas próximas vendas.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
