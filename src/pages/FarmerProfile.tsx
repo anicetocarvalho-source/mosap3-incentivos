@@ -29,6 +29,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { parseAmount } from "@/lib/numberFormat";
 import FarmerCardTab from "@/components/cartao/FarmerCardTab";
 import FarmerBiometricStatus from "@/components/device/FarmerBiometricStatus";
+import { usePatecLabel } from "@/hooks/usePatecLabel";
 
 const allPhases = ["Preparação", "Sementeira", "Crescimento", "Floração", "Colheita", "Pós-Colheita"];
 
