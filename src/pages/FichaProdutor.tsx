@@ -51,6 +51,28 @@ const FichaProdutor = () => {
       });
   }, [id]);
 
+  // Carrega composição real do PATEC do produtor (mesma fonte que /patec)
+  const patecNum = farmerRaw?.patec;
+  useEffect(() => {
+    if (!patecNum) { setPatecComposition([]); return; }
+    supabase
+      .from("patec_items" as any)
+      .select("name, category")
+      .eq("patec_number", patecNum)
+      .order("category, name")
+      .then(({ data }) => {
+        const grouped: Record<string, string[]> = {};
+        for (const row of (data as any[]) || []) {
+          (grouped[row.category] ||= []).push(row.name);
+        }
+        const order = ["Insumos", "Insumos Agrícolas", "Pecuária", "Pecuária e Materiais", "Serviços", "Serviços Incluídos"];
+        const entries = Object.entries(grouped).sort(
+          ([a], [b]) => (order.indexOf(a) + 1 || 99) - (order.indexOf(b) + 1 || 99)
+        );
+        setPatecComposition(entries.map(([category, items]) => ({ category, items })));
+      });
+  }, [patecNum]);
+
   const farmer = farmerInfo;
 
   if (loading || enrichedLoading) {
