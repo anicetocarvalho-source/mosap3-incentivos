@@ -22,6 +22,7 @@ interface InvoiceData {
   farmer_phone?: string | null;
   patec_number?: number | null;
   patec_code?: string | null;
+  patec_label?: string | null;
   patec_valid_until?: string | null;
   parcel_size_label?: string | null;
   supplier_name?: string;
@@ -187,7 +188,7 @@ export const InvoicePDF = ({
               <p style={{ fontWeight: 600 }}>{data.farmer_name}</p>
               <p>Código: {data.farmer_code}</p>
               {data.farmer_phone && <p>Tel: {data.farmer_phone}</p>}
-              {data.patec_number && <p>PATEC {data.patec_number}{data.patec_code ? ` — ${data.patec_code}` : ""}</p>}
+              {(data.patec_label || data.patec_number) && <p>{data.patec_label || `PATEC ${data.patec_number}${data.patec_code ? ` — ${data.patec_code}` : ""}`}</p>}
               {data.patec_valid_until && <p>Válido até: {new Date(data.patec_valid_until).toLocaleDateString("pt-AO")}</p>}
               {data.parcel_size_label && <p>Parcela: {data.parcel_size_label}</p>}
             </div>

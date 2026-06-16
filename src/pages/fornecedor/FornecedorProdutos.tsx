@@ -17,8 +17,7 @@ import { ErrorState } from "@/components/ui/error-state";
 import { EmptyState } from "@/components/ui/empty-state";
 import { UnitSelect } from "@/components/ui/unit-select";
 import { usePatecCatalogIndex } from "@/hooks/usePatecCatalogIndex";
-
-const patecLabels: Record<string, string> = { "1": "PATEC 1 — Milho", "2": "PATEC 2 — Massango", "3": "PATEC 3 — Massambala" };
+import { usePatecLabel } from "@/hooks/usePatecLabel";
 
 interface PatecItem { id: string; name: string; category: string; patec_number: number; }
 
@@ -31,6 +30,7 @@ const FornecedorProdutos = () => {
   const [editing, setEditing] = useState<any>(null);
   const [form, setForm] = useState({ name: "", category: "insumos", unit: "un", price: "", stock: "", iva_rate: "14", patec_number: "", patec_category: "", max_per_farmer_per_season: "" });
   const [patecFilter, setPatecFilter] = useState<"todos" | "em_patec" | "fora_patec">("todos");
+  const { patecs: patecCatalog, labelByLegacy: patecLabel } = usePatecLabel({ activeOnly: true });
   const catalogIndex = usePatecCatalogIndex();
 
   // PATEC import state
@@ -129,7 +129,7 @@ const FornecedorProdutos = () => {
     }));
     const { error } = await supabase.from("supplier_products").insert(rows);
     if (error) { toast.error("Erro ao importar"); setImporting(false); return; }
-    toast.success(`${toImport.length} produto(s) importado(s) do PATEC ${importPatecNum}`);
+    toast.success(`${toImport.length} produto(s) importado(s) — ${patecLabel(importPatecNum)}`);
     setImportOpen(false);
     fetchProducts();
   };
@@ -155,9 +155,9 @@ const FornecedorProdutos = () => {
               <SelectValue placeholder="Importar do PATEC" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="1">PATEC 1 — Milho</SelectItem>
-              <SelectItem value="2">PATEC 2 — Massango</SelectItem>
-              <SelectItem value="3">PATEC 3 — Massambala</SelectItem>
+              {patecCatalog.filter((p) => p.legacy_number != null).map((p) => (
+                <SelectItem key={p.id} value={String(p.legacy_number)}>{patecLabel(p.legacy_number!)}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
           <Button onClick={openNew}><Plus className="h-4 w-4 mr-1" /> Adicionar</Button>
@@ -219,7 +219,7 @@ const FornecedorProdutos = () => {
                             </div>
                           </TableCell>
                           <TableCell><Badge variant="outline">{p.category}</Badge></TableCell>
-                          <TableCell>{p.patec_number ? `PATEC ${p.patec_number}` : "—"}</TableCell>
+                          <TableCell>{p.patec_number ? patecLabel(p.patec_number) : "—"}</TableCell>
                           <TableCell className="text-right">{Number(p.price).toLocaleString("pt-AO")} Kz</TableCell>
                           <TableCell className="text-right">{p.stock} {p.unit}</TableCell>
                           <TableCell className="text-right">{p.max_per_farmer_per_season ?? "—"}</TableCell>
@@ -252,7 +252,11 @@ const FornecedorProdutos = () => {
               <div><Label>PATEC</Label>
                 <Select value={form.patec_number} onValueChange={(v) => setForm({ ...form, patec_number: v, patec_category: v ? form.patec_category : "" })}>
                   <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
-                  <SelectContent><SelectItem value="1">PATEC 1</SelectItem><SelectItem value="2">PATEC 2</SelectItem><SelectItem value="3">PATEC 3</SelectItem></SelectContent>
+                  <SelectContent>
+                    {patecCatalog.filter((p) => p.legacy_number != null).map((p) => (
+                      <SelectItem key={p.id} value={String(p.legacy_number)}>{patecLabel(p.legacy_number!)}</SelectItem>
+                    ))}
+                  </SelectContent>
                 </Select>
               </div>
             </div>
@@ -291,7 +295,7 @@ const FornecedorProdutos = () => {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Download className="h-4 w-4" /> Importar itens — PATEC {importPatecNum}
+              <Download className="h-4 w-4" /> Importar itens — {patecLabel(importPatecNum)}
             </DialogTitle>
           </DialogHeader>
           {patecItems.length === 0 ? (

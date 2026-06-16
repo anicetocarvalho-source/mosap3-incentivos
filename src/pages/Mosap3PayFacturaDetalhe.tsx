@@ -28,6 +28,7 @@ import {
   buildQRContent,
   type InvoiceData,
 } from "@/components/InvoicePDF";
+import { usePatecLabel } from "@/hooks/usePatecLabel";
 
 const StatusBadge = ({ status }: { status: string }) => {
   const map: Record<string, { label: string; cls: string }> = {
@@ -49,6 +50,7 @@ const Mosap3PayFacturaDetalhe = () => {
   const [qr, setQr] = useState("");
   const [invoiceData, setInvoiceData] = useState<InvoiceData | null>(null);
   const [printOpen, setPrintOpen] = useState(false);
+  const { labelByLegacy: patecLabel } = usePatecLabel({ activeOnly: false });
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["factura-detalhe", id],
@@ -91,6 +93,7 @@ const Mosap3PayFacturaDetalhe = () => {
       farmer_code: data.sale.farmer_code,
       farmer_phone: data.sale.farmer_phone,
       patec_number: data.sale.patec_number,
+      patec_label: data.sale.patec_number ? patecLabel(data.sale.patec_number) : null,
       parcel_size_label: data.sale.parcel_size_label,
       supplier_name: data.supplier?.name,
       supplier_nif: data.supplier?.nif,
@@ -240,7 +243,7 @@ const Mosap3PayFacturaDetalhe = () => {
             <p className="text-xs">Código: {sale.farmer_code}</p>
             {sale.farmer_phone && <p className="text-xs text-muted-foreground">{sale.farmer_phone}</p>}
             {sale.patec_number && (
-              <Badge variant="outline" className="mt-1 text-[10px]">PATEC {sale.patec_number}</Badge>
+              <Badge variant="outline" className="mt-1 text-[10px]">{patecLabel(sale.patec_number)}</Badge>
             )}
           </CardContent>
         </Card>
