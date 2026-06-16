@@ -7,16 +7,21 @@ import { useFarmerFromDb } from "@/hooks/useFarmerFromDb";
 import { useFarmerEnrichedData } from "@/hooks/useFarmerEnrichedData";
 import { supabase } from "@/integrations/supabase/client";
 import { computeSaldoFinal, formatKz } from "@/lib/numberFormat";
+import { usePatecLabel } from "@/hooks/usePatecLabel";
 
 const FichaProdutor = () => {
   const { id } = useParams();
   const { farmerInfo, farmer: farmerRaw, loading } = useFarmerFromDb(id);
   const { parcels, production, transactions, dependents, loading: enrichedLoading } = useFarmerEnrichedData(id);
+  const { labelByLegacy: patecLabel } = usePatecLabel({ activeOnly: false });
 
   // Fetch documents
   const [documents, setDocuments] = useState<any[]>([]);
   const [docsLoading, setDocsLoading] = useState(true);
   const [docUrls, setDocUrls] = useState<Record<string, string>>({});
+
+  // Composição real do PATEC (fonte: /patec)
+  const [patecComposition, setPatecComposition] = useState<{ category: string; items: string[] }[]>([]);
 
   useEffect(() => {
     if (!id) return;
@@ -72,34 +77,9 @@ const FichaProdutor = () => {
   const saldoFinal = formatKz(computeSaldoFinal(valorRecebido, totalGasto), false);
   const patecValue = farmerRaw?.patec;
 
-  const patecData: Record<number, { title: string; items: { category: string; items: string[] }[] }> = {
-    1: {
-      title: "PATEC 1 — Milho",
-      items: [
-        { category: "Insumos Agrícolas", items: ["Sementes de milho (10 kg)", "Sementes de feijão (5 kg)", "Adubo NPK 12-24-12 (50 kg)", "Ureia (25 kg)", "Herbicida pré-emergente (2 L)", "Enxada melhorada", "Lima para afiar"] },
-        { category: "Pecuária e Materiais", items: ["2 cabritos (1M + 1F)", "Ração complementar (25 kg)", "Arame farpado (1 rolo)", "Pregos e estacas"] },
-        { category: "Serviços Incluídos", items: ["Mecanização (lavoura 1 ha)", "Transporte de insumos"] },
-      ],
-    },
-    2: {
-      title: "PATEC 2 — Massango",
-      items: [
-        { category: "Insumos Agrícolas", items: ["Sementes de massango (5 kg)", "Sementes de feijão (5 kg)", "Adubo NPK 12-24-12 (50 kg)", "Herbicida pré-emergente (2 L)", "Enxada melhorada", "Lima para afiar"] },
-        { category: "Pecuária e Materiais", items: ["2 cabritos (1M + 1F)", "Ração complementar (25 kg)", "Arame farpado (1 rolo)", "Pregos e estacas"] },
-        { category: "Serviços Incluídos", items: ["Mecanização (lavoura 1 ha)", "Transporte de insumos"] },
-      ],
-    },
-    3: {
-      title: "PATEC 3 — Massambala",
-      items: [
-        { category: "Insumos Agrícolas", items: ["Sementes de massambala (5 kg)", "Sementes de feijão (5 kg)", "Adubo NPK 12-24-12 (50 kg)", "Herbicida pré-emergente (2 L)", "Enxada melhorada", "Lima para afiar"] },
-        { category: "Pecuária e Materiais", items: ["2 cabritos (1M + 1F)", "Ração complementar (25 kg)", "Arame farpado (1 rolo)", "Pregos e estacas"] },
-        { category: "Serviços Incluídos", items: ["Mecanização (lavoura 1 ha)", "Transporte de insumos"] },
-      ],
-    },
-  };
-
-  const currentPatec = patecValue ? patecData[patecValue] : null;
+  const currentPatec = patecValue
+    ? { title: patecLabel(patecValue), items: patecComposition }
+    : null;
 
   const handlePrint = () => window.print();
 
