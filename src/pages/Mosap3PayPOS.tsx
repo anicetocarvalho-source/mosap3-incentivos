@@ -19,6 +19,7 @@ import { classifyError, withRetry } from "@/lib/errorHandling";
 import { FARMER_PAGE_SIZE, buildFarmerOrParts, farmerPageRange, shouldSearch } from "@/lib/farmerSearch";
 import { computeSaldoFinal, formatKzCompact } from "@/lib/numberFormat";
 import { FarmerSaldoBadge } from "@/components/pos/FarmerSaldoBadge";
+import { usePatecLabel } from "@/hooks/usePatecLabel";
 
 interface Farmer {
   code: string;
@@ -214,11 +215,6 @@ interface Supplier {
   name: string;
 }
 
-const patecLabels: Record<number, string> = {
-  1: "PATEC 1 — Milho",
-  2: "PATEC 2 — Massango",
-  3: "PATEC 3 — Massambala",
-};
 
 interface ShiftContext {
   shift_id: string;
@@ -233,6 +229,7 @@ interface Mosap3PayPOSProps {
 }
 
 const Mosap3PayPOS = ({ forcedSupplierId, shiftContext }: Mosap3PayPOSProps = {}) => {
+  const { labelByLegacy: patecLabel } = usePatecLabel({ activeOnly: true });
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [selectedSupplierId, setSelectedSupplierId] = useState<string>(forcedSupplierId || "");
   const [products, setProducts] = useState<Product[]>([]);
@@ -1715,7 +1712,7 @@ const Mosap3PayPOS = ({ forcedSupplierId, shiftContext }: Mosap3PayPOSProps = {}
               {farmer?.patec && (
                 <div className="mb-3 flex items-center gap-2 text-[10px] text-[hsl(220,10%,55%)]">
                   <Package className="h-3 w-3" />
-                  <span>Filtrado por <strong className="text-[hsl(45,90%,55%)]">{patecLabels[farmer.patec]}</strong></span>
+                  <span>Filtrado por <strong className="text-[hsl(45,90%,55%)]">{patecLabel(farmer.patec)}</strong></span>
                 </div>
               )}
               {farmer && !farmer.patec && (
@@ -1805,7 +1802,7 @@ const Mosap3PayPOS = ({ forcedSupplierId, shiftContext }: Mosap3PayPOSProps = {}
                       <p className="text-xs font-medium truncate">{farmer.full_name}</p>
                       {farmer.patec ? (
                         <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-[hsl(45,90%,50%)]/20 text-[hsl(45,90%,60%)] shrink-0">
-                          {patecLabels[farmer.patec]}
+                          {patecLabel(farmer.patec)}
                         </span>
                       ) : (
                         <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-[hsl(0,70%,40%)]/20 text-[hsl(0,70%,65%)] shrink-0">
@@ -1873,7 +1870,7 @@ const Mosap3PayPOS = ({ forcedSupplierId, shiftContext }: Mosap3PayPOSProps = {}
                 {patecItems.length > 0 && (
                   <div className="rounded-lg border border-[hsl(220,15%,22%)] bg-[hsl(220,15%,13%)] p-2">
                     <p className="text-[10px] font-semibold text-[hsl(220,10%,60%)] uppercase mb-1.5 flex items-center gap-1">
-                      <Package className="h-3 w-3" /> Itens do {farmer.patec ? patecLabels[farmer.patec] : "PATEC"}
+                      <Package className="h-3 w-3" /> Itens do {farmer.patec ? patecLabel(farmer.patec) : "PATEC"}
                     </p>
                     <div className="space-y-1.5 max-h-48 overflow-y-auto">
                       {["Insumos", "Pecuária", "Serviços"].map((cat) => {
@@ -1943,7 +1940,7 @@ const Mosap3PayPOS = ({ forcedSupplierId, shiftContext }: Mosap3PayPOSProps = {}
                         </div>
                         {s.patec ? (
                           <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-[hsl(45,90%,50%)]/20 text-[hsl(45,90%,60%)] shrink-0">
-                            {patecLabels[s.patec]}
+                            {patecLabel(s.patec)}
                           </span>
                         ) : (
                           <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-[hsl(0,70%,40%)]/20 text-[hsl(0,70%,65%)] shrink-0">
@@ -2118,7 +2115,7 @@ const Mosap3PayPOS = ({ forcedSupplierId, shiftContext }: Mosap3PayPOSProps = {}
             <div className="space-y-3">
               <div className="p-3 bg-[hsl(220,15%,12%)] rounded-lg space-y-1">
                 <p className="font-medium">{farmer?.full_name}</p>
-                <p className="text-xs text-[hsl(220,10%,45%)]">{farmer?.code} • {farmer?.patec ? patecLabels[farmer.patec] : "Sem PATEC"}</p>
+                <p className="text-xs text-[hsl(220,10%,45%)]">{farmer?.code} • {farmer?.patec ? patecLabel(farmer.patec) : "Sem PATEC"}</p>
                 {farmer?.patec && (farmer.patec_code || patecValidity) && (
                   <p className="text-[10px] text-[hsl(45,90%,55%)] leading-tight">
                     {farmer.patec_code && <>Código PATEC: <span className="font-mono">{farmer.patec_code}</span></>}
@@ -2417,7 +2414,7 @@ const Mosap3PayPOS = ({ forcedSupplierId, shiftContext }: Mosap3PayPOSProps = {}
                             <p className="text-xs text-muted-foreground">{s.code} • {s.phone || "—"}</p>
                           </div>
                           <FarmerSaldoBadge variant="standard" valor_recebido={s.valor_recebido} total_gasto={s.total_gasto} />
-                          {s.patec ? <Badge variant="secondary" className="text-[10px]">{patecLabels[s.patec]}</Badge> : <Badge variant="destructive" className="text-[10px]">Sem PATEC</Badge>}
+                          {s.patec ? <Badge variant="secondary" className="text-[10px]">{patecLabel(s.patec)}</Badge> : <Badge variant="destructive" className="text-[10px]">Sem PATEC</Badge>}
                         </button>
                       ))}
                       {farmerTotalCount !== null && (
@@ -2450,7 +2447,7 @@ const Mosap3PayPOS = ({ forcedSupplierId, shiftContext }: Mosap3PayPOSProps = {}
                       <p className="text-xs text-muted-foreground">Código: {farmer.code} • Tel: {farmer.phone || "—"}</p>
                     </div>
                     <div className="text-right">
-                      {farmer.patec ? <Badge className="text-xs">{patecLabels[farmer.patec]}</Badge> : <Badge variant="destructive" className="text-xs">Sem PATEC</Badge>}
+                      {farmer.patec ? <Badge className="text-xs">{patecLabel(farmer.patec)}</Badge> : <Badge variant="destructive" className="text-xs">Sem PATEC</Badge>}
                       {farmer.patec && (farmer.patec_code || patecValidity) && (
                         <p className="text-[10px] text-muted-foreground mt-1 leading-tight">
                           {farmer.patec_code && <>Código: <span className="font-mono text-foreground">{farmer.patec_code}</span></>}
@@ -2519,7 +2516,7 @@ const Mosap3PayPOS = ({ forcedSupplierId, shiftContext }: Mosap3PayPOSProps = {}
             {farmer && patecItems.length > 0 && (
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm flex items-center gap-2"><Package className="h-4 w-4" /> Itens do {farmer.patec ? patecLabels[farmer.patec] : "PATEC"}</CardTitle>
+                  <CardTitle className="text-sm flex items-center gap-2"><Package className="h-4 w-4" /> Itens do {farmer.patec ? patecLabel(farmer.patec) : "PATEC"}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -2567,7 +2564,7 @@ const Mosap3PayPOS = ({ forcedSupplierId, shiftContext }: Mosap3PayPOSProps = {}
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm flex items-center gap-2">
                     <Package className="h-4 w-4" /> Produtos Elegíveis
-                    {farmer.patec && <Badge variant="outline" className="text-[10px]">Filtrado por {patecLabels[farmer.patec]}</Badge>}
+                    {farmer.patec && <Badge variant="outline" className="text-[10px]">Filtrado por {patecLabel(farmer.patec)}</Badge>}
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -2701,7 +2698,7 @@ const Mosap3PayPOS = ({ forcedSupplierId, shiftContext }: Mosap3PayPOSProps = {}
           <div className="space-y-3">
             <div className="p-3 bg-muted/50 rounded-lg space-y-1">
               <p className="font-medium">{farmer?.full_name}</p>
-              <p className="text-xs text-muted-foreground">{farmer?.code} • {farmer?.patec ? patecLabels[farmer.patec] : "Sem PATEC"} • Tel: {farmer?.phone || "—"}</p>
+              <p className="text-xs text-muted-foreground">{farmer?.code} • {farmer?.patec ? patecLabel(farmer.patec) : "Sem PATEC"} • Tel: {farmer?.phone || "—"}</p>
               {farmer?.patec && (farmer.patec_code || patecValidity) && (
                 <p className="text-[11px] text-muted-foreground leading-tight">
                   {farmer.patec_code && <>Código PATEC: <span className="font-mono text-foreground">{farmer.patec_code}</span></>}

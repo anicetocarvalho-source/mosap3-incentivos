@@ -9,9 +9,11 @@ import { ShoppingCart, Search } from "lucide-react";
 import { LoadingState } from "@/components/ui/loading-state";
 import { ErrorState } from "@/components/ui/error-state";
 import { EmptyState } from "@/components/ui/empty-state";
+import { usePatecLabel } from "@/hooks/usePatecLabel";
 
 const FornecedorVendas = () => {
   const { supplier } = useOutletContext<{ supplier: { id: string } }>();
+  const { labelByLegacy: patecLabel } = usePatecLabel({ activeOnly: true });
   const [sales, setSales] = useState<any[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
@@ -77,7 +79,7 @@ const FornecedorVendas = () => {
                       <TableCell className="font-mono text-sm">{s.sale_code}</TableCell>
                       <TableCell>{s.farmer_name}</TableCell>
                       <TableCell className="text-sm">{s.seller_name || <span className="text-muted-foreground">—</span>}</TableCell>
-                      <TableCell>{s.patec_number ? `PATEC ${s.patec_number}` : "—"}</TableCell>
+                      <TableCell>{s.patec_number ? patecLabel(s.patec_number) : "—"}</TableCell>
                       <TableCell className="text-right font-medium">{Number(s.total).toLocaleString("pt-AO")} Kz</TableCell>
                       <TableCell><Badge variant={s.payment_status === "pago" ? "default" : "outline"}>{s.payment_status}</Badge></TableCell>
                       <TableCell className="text-sm text-muted-foreground">{new Date(s.created_at).toLocaleDateString("pt-AO")}</TableCell>

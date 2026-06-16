@@ -11,6 +11,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
+import { usePatecLabel } from "@/hooks/usePatecLabel";
 
 interface ParsedFarmer {
   full_name: string;
@@ -65,10 +66,12 @@ const generateCode = (index: number) => {
   return `AGR-${ts}-${String(index + 1).padStart(3, "0")}`;
 };
 
-const validateRow = (row: ParsedFarmer): string[] => {
+const validateRow = (row: ParsedFarmer, validPatecNumbers: Set<number>): string[] => {
   const errors: string[] = [];
   if (!row.full_name || row.full_name.trim().length < 2) errors.push("Nome obrigatório (mín. 2 caracteres)");
-  if (row.patec && ![1, 2, 3].includes(row.patec)) errors.push("PATEC deve ser 1, 2 ou 3");
+  if (row.patec && validPatecNumbers.size > 0 && !validPatecNumbers.has(row.patec)) {
+    errors.push(`PATEC inválido (válidos: ${Array.from(validPatecNumbers).sort((a, b) => a - b).join(", ")})`);
+  }
   if (row.gender && !["Masculino", "Feminino", "M", "F"].includes(row.gender)) errors.push("Género inválido");
   return errors;
 };
@@ -90,6 +93,8 @@ const BulkImportDialog = () => {
   const [result, setResult] = useState<{ success: number; failed: number } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
+  const { patecs: allPatecs } = usePatecLabel({ activeOnly: true });
+  const validPatecNumbers = new Set(allPatecs.map((p) => p.legacy_number).filter((n): n is number => n != null));
 
   const reset = () => {
     setParsed([]);
@@ -143,7 +148,7 @@ const BulkImportDialog = () => {
             }
           });
           farmer.gender = normalizeGender(farmer.gender);
-          farmer._errors = validateRow(farmer);
+          farmer._errors = validateRow(farmer, validPatecNumbers);
           return farmer as ParsedFarmer;
         });
 
@@ -153,7 +158,7 @@ const BulkImportDialog = () => {
       }
     };
     reader.readAsArrayBuffer(file);
-  }, []);
+  }, [validPatecNumbers]);
 
   const validRows = parsed.filter((r) => r._errors.length === 0);
   const invalidRows = parsed.filter((r) => r._errors.length > 0);

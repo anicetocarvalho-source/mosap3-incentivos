@@ -1,29 +1,48 @@
+# Unificar PATECs em todo o sistema
+
 ## Problema
 
-Na lista lateral de `/patec` (e noutros locais que usam `patecMeta`), os pacotes de pecuária aparecem com o ícone genérico de caixa (`Package`) e fundo cinza, porque `patecMeta` em `src/pages/Patec.tsx` (linhas 66–77) só cobre os PATECs 1–10. Os PATECs 11–15 (Aves, Bovinos, Caprinos, Ovinos, Suínos) caem no fallback.
+O catálogo `/patec` mostra 15 PATECs (PATEC-01..15, agrícolas + pecuários) lidos da tabela `patecs` + composição em `patec_items`. Mas vários ecrãs ainda estão presos a uma versão antiga com apenas 3 pacotes hardcoded ("Milho / Massango / Massambala"). Isto causa nomes diferentes, opções em falta e composição divergente.
 
-## Alteração
+## Fonte de verdade
 
-Estender `patecMeta` em `src/pages/Patec.tsx` com 5 novas entradas usando ícones de `lucide-react` já disponíveis e gradientes coerentes com a paleta agrícola/pecuária:
+- **Lista de pacotes e nomes**: `usePatecs({ activeOnly: true })` → `patecs` da BD. Formato visual unificado: `{code} — {cultures || name}` (mesmo que no `PatecsTab`).
+- **Composição de itens**: `patec_items` filtrado por `patec_number` (já é a fonte usada pelo POS).
+- **Filtros/selects**: opções vêm de `patecs`, não de constantes 1..3.
 
-| PATEC | Cultura | Ícone | Gradiente |
-|---|---|---|---|
-| 11 | Aves | `Bird` | `from-sky-500 to-cyan-600` |
-| 12 | Bovinos | `Beef` | `from-red-500 to-rose-600` |
-| 13 | Caprinos | `PawPrint` | `from-amber-600 to-yellow-700` |
-| 14 | Ovinos | `Rabbit` | `from-slate-400 to-zinc-500` |
-| 15 | Suínos | `PiggyBank` | `from-pink-400 to-rose-500` |
+## Ficheiros a alterar (apenas UI/labels, sem mexer em regras de negócio)
 
-Acrescentar os imports `Bird, Beef, PawPrint, Rabbit, PiggyBank` ao import existente de `lucide-react` no topo do ficheiro.
+1. **`src/pages/Mosap3PayPOS.tsx`**
+   - Remover constante `patecLabels` hardcoded (3 entradas).
+   - Carregar pacotes via `usePatecs({ activeOnly: true })`.
+   - Helper `patecLabelFor(patecNumber)` → procura no array por `legacy_number` e devolve `"{code} — {cultures}"`; fallback `"PATEC {n}"`.
+   - Substituir todas as 6 ocorrências de `patecLabels[...]` (linhas ~1718, 1808, 1876, 1946, 2121, 2420) pelo helper.
 
-Manter o resto da estrutura (`color`, `bgAccent`, `chartFill`) consistente com o padrão dos itens 1–10.
+2. **`src/pages/FarmerProfile.tsx`**
+   - Substituir `patecOptions` hardcoded (1/2/3) por opções derivadas de `usePatecs({ activeOnly: true })` — `value = code`, `label = "{code} — {cultures}"`.
+   - Substituir o bloco `patecData` hardcoded (linhas ~959-984) por leitura dinâmica: ler `patecs` (para título/cultures) + `patec_items` filtrado por `patec_number = patecNum` para mostrar a composição real (mesma que `PatecCompositionDialog` usa em /patec).
+   - O guardar continua a aceitar tanto `code` como `legacy_number` (já é o que `FarmerRegistrationForm` faz na linha 198-200).
 
-## Notas
+3. **`src/pages/Agricultores.tsx`**
+   - Substituir os 3 `<SelectItem>` hardcoded (linhas 330-332) por map sobre `usePatecs({ activeOnly: true })`.
+   - Filtro `q.eq("patec", Number(filterPatec))` continua válido (valores numéricos = `legacy_number`); manter "all" e "none".
+   - Badge na tabela passa a mostrar o `code` do PATEC quando disponível (em vez de `PATEC {n}`), via lookup local.
 
-- `lucide-react` não tem ícones específicos de cabra, ovelha ou porco; `PawPrint`, `Rabbit` e `PiggyBank` são as escolhas mais próximas e mantêm o estilo SVG uniforme com os PATECs vegetais.
-- Sem alterações de dados, schema, ou do form de criação de PATEC (continua a permitir edição manual do ícone).
-- A mesma melhoria propaga-se automaticamente a todos os locais que consomem `patecMeta` (lista lateral, badges, gráficos, dashboards).
+4. **`src/lib/formValidation.ts`**
+   - Trocar `regex(/^[1-3]$/)` por validação contra a lista actual de PATECs activos (string não vazia). Deixar o componente do formulário garantir que o valor é um dos `patecs[].code` ou `legacy_number`.
 
-## Validação
+5. **`src/components/agricultores/BulkImportDialog.tsx`**
+   - Substituir `![1,2,3].includes(row.patec)` por validação contra `patecs[].legacy_number` (lista carregada via `usePatecs`).
 
-Abrir `/patec` e confirmar que PATEC-11…PATEC-15 já mostram ícones distintos e gradientes próprios em vez do quadrado cinza com caixa.
+6. **`src/pages/fornecedor/FornecedorVendas.tsx`** (cosmético)
+   - `PATEC ${s.patec_number}` → usar mesmo helper/label do POS para mostrar `{code} — {cultures}` (fica consistente com recibos).
+
+## Fora de scope
+
+- Sem migrações de BD. `patecs`, `patec_items` e `farmers.patec / patec_code` já existem com os dados certos.
+- Sem alterações ao /patec, à composição na BD, nem a regras de bloqueio do POS.
+- Testes que ainda esperam apenas 1-3 (`farmer-registration.test.ts`, `pos-sale-flow.test.ts`) ficam a falhar — actualizar mocks para usar a lista carregada via `usePatecs`.
+
+## Resultado esperado
+
+Em qualquer ecrã (POS, Perfil do Produtor, lista de Agricultores, Importação em lote, Vendas do Fornecedor, Recibos), a lista de PATECs disponíveis, os nomes apresentados e a composição mostrada passam a ser exactamente os mesmos que aparecem em `/patec` — incluindo os pacotes pecuários PATEC-11..15.

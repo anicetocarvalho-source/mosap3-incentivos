@@ -31,6 +31,7 @@ import { resolveScope, applyFarmerScopeFilter, type ResolvedScope } from "@/lib/
 import { useDebouncedValue } from "@/hooks/useServerTable";
 import { fetchAllPages } from "@/lib/supabaseFetchAll";
 import { parseAmount as parsePtAo, formatKzCompact } from "@/lib/numberFormat";
+import { usePatecLabel } from "@/hooks/usePatecLabel";
 
 const PAGE_SIZE = 15;
 
@@ -48,6 +49,7 @@ const COLUMNS = "id, code, full_name, phone, province, municipality, school, sta
 const escapeIlike = (s: string) => s.replace(/[%,()*]/g, " ").trim();
 
 const Agricultores = () => {
+  const { patecs: allPatecs, labelByLegacy: patecLabel } = usePatecLabel({ activeOnly: true });
   const [searchParams] = useSearchParams();
   const initialProvince = searchParams.get("province") || "all";
   const [search, setSearch] = useState("");
@@ -327,9 +329,13 @@ const Agricultores = () => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todos PATEC</SelectItem>
-                <SelectItem value="1">PATEC 1 — Milho</SelectItem>
-                <SelectItem value="2">PATEC 2 — Massango</SelectItem>
-                <SelectItem value="3">PATEC 3 — Massambala</SelectItem>
+                {allPatecs
+                  .filter((p) => p.legacy_number != null)
+                  .map((p) => (
+                    <SelectItem key={p.id} value={String(p.legacy_number)}>
+                      {p.code}{p.cultures ? ` — ${p.cultures}` : ""}
+                    </SelectItem>
+                  ))}
                 <SelectItem value="none">Sem PATEC</SelectItem>
               </SelectContent>
             </Select>
@@ -403,7 +409,7 @@ const Agricultores = () => {
                         <td className="px-4 py-3">{f.province || "—"}</td>
                         <td className="px-4 py-3 text-muted-foreground">{f.school || "—"}</td>
                         <td className="px-4 py-3">
-                          {f.patec ? <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary">PATEC {f.patec}</span> : "—"}
+                          {f.patec ? <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary">{patecLabel(f.patec)}</span> : "—"}
                         </td>
                         {(() => {
                           const recebido = parsePtAo(f.valor_recebido);
