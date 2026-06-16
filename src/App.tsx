@@ -65,6 +65,7 @@ import FornecedorPOSVenda from "@/pages/fornecedor/FornecedorPOSVenda";
 import FornecedorVendas from "@/pages/fornecedor/FornecedorVendas";
 import FornecedorFacturas from "@/pages/fornecedor/FornecedorFacturas";
 import FornecedorStock from "@/pages/fornecedor/FornecedorStock";
+import FornecedorCatalogo from "@/pages/fornecedor/FornecedorCatalogo";
 
 import FornecedorPerfil from "@/pages/fornecedor/FornecedorPerfil";
 import FornecedorLojas from "@/pages/fornecedor/FornecedorLojas";
@@ -173,9 +174,10 @@ const App = () => (
           <Route path="/fornecedor/login" element={<FornecedorAuth />} />
           <Route path="/fornecedor" element={<FornecedorLayout />}>
             <Route index element={<FornecedorDashboard />} />
-            <Route path="produtos" element={<FornecedorProdutos />} />
-            <Route path="stock" element={<FornecedorStock />} />
-            <Route path="precos" element={<Navigate to="/fornecedor/stock" replace />} />
+            <Route path="catalogo" element={<FornecedorCatalogo />} />
+            <Route path="produtos" element={<Navigate to="/fornecedor/catalogo?tab=produtos" replace />} />
+            <Route path="stock" element={<Navigate to="/fornecedor/catalogo?tab=stock" replace />} />
+            <Route path="precos" element={<Navigate to="/fornecedor/catalogo?tab=stock" replace />} />
             <Route path="pos" element={<FornecedorPOS />} />
             <Route path="pos/venda" element={<FornecedorPOSVenda />} />
             <Route path="vendas" element={<FornecedorVendas />} />
