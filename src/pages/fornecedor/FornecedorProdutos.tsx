@@ -28,7 +28,7 @@ const FornecedorProdutos = () => {
   const [error, setError] = useState<Error | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<any>(null);
-  const [form, setForm] = useState({ name: "", category: "insumos", unit: "un", price: "", stock: "", iva_rate: "14", patec_number: "", patec_category: "", max_per_farmer_per_season: "" });
+  const [form, setForm] = useState({ name: "", category: "insumos", unit: "un", iva_rate: "14", patec_number: "", patec_category: "", max_per_farmer_per_season: "" });
   const [patecFilter, setPatecFilter] = useState<"todos" | "em_patec" | "fora_patec">("todos");
   const { patecs: patecCatalog, labelByLegacy: patecLabel } = usePatecLabel({ activeOnly: true });
   const catalogIndex = usePatecCatalogIndex();
@@ -52,22 +52,20 @@ const FornecedorProdutos = () => {
 
   useEffect(() => { fetchProducts(); }, [supplier.id]);
 
-  const openNew = () => { setEditing(null); setForm({ name: "", category: "insumos", unit: "un", price: "", stock: "", iva_rate: "14", patec_number: "", patec_category: "", max_per_farmer_per_season: "" }); setDialogOpen(true); };
+  const openNew = () => { setEditing(null); setForm({ name: "", category: "insumos", unit: "un", iva_rate: "14", patec_number: "", patec_category: "", max_per_farmer_per_season: "" }); setDialogOpen(true); };
   const openEdit = (p: any) => {
     setEditing(p);
-    setForm({ name: p.name, category: p.category, unit: p.unit, price: String(p.price), stock: String(p.stock), iva_rate: String(p.iva_rate), patec_number: p.patec_number ? String(p.patec_number) : "", patec_category: p.patec_category || "", max_per_farmer_per_season: p.max_per_farmer_per_season ? String(p.max_per_farmer_per_season) : "" });
+    setForm({ name: p.name, category: p.category, unit: p.unit, iva_rate: String(p.iva_rate), patec_number: p.patec_number ? String(p.patec_number) : "", patec_category: p.patec_category || "", max_per_farmer_per_season: p.max_per_farmer_per_season ? String(p.max_per_farmer_per_season) : "" });
     setDialogOpen(true);
   };
 
   const handleSave = async () => {
-    if (!form.name || !form.price) { toast.error("Nome e preço são obrigatórios"); return; }
-    const payload = {
+    if (!form.name) { toast.error("Nome é obrigatório"); return; }
+    const basePayload = {
       supplier_id: supplier.id,
       name: form.name,
       category: form.category,
       unit: form.unit,
-      price: parseFloat(form.price),
-      stock: parseInt(form.stock) || 0,
       iva_rate: parseFloat(form.iva_rate) || 14,
       patec_number: form.patec_number ? parseInt(form.patec_number) : null,
       patec_category: form.patec_number && form.patec_category ? form.patec_category : null,
@@ -75,13 +73,14 @@ const FornecedorProdutos = () => {
     };
     try {
       if (editing) {
-        const { error: err } = await supabase.from("supplier_products").update(payload).eq("id", editing.id);
+        // Preço e stock são geridos apenas em "Stock & Preços" — não sobrescrever aqui.
+        const { error: err } = await supabase.from("supplier_products").update(basePayload).eq("id", editing.id);
         if (err) throw err;
         toast.success("Produto actualizado");
       } else {
-        const { error: err } = await supabase.from("supplier_products").insert(payload);
+        const { error: err } = await supabase.from("supplier_products").insert({ ...basePayload, price: 0, stock: 0 });
         if (err) throw err;
-        toast.success("Produto adicionado");
+        toast.success("Produto adicionado. Defina preço e stock em 'Stock & Preços'.");
       }
       setDialogOpen(false);
       fetchProducts();
@@ -186,8 +185,8 @@ const FornecedorProdutos = () => {
                     <TableHead>Nome</TableHead>
                     <TableHead>Categoria</TableHead>
                     <TableHead>PATEC</TableHead>
-                    <TableHead className="text-right">Preço</TableHead>
-                    <TableHead className="text-right">Stock</TableHead>
+                    <TableHead>Unidade</TableHead>
+                    <TableHead className="text-right">IVA</TableHead>
                     <TableHead className="text-right">Limite/Época</TableHead>
                     <TableHead />
                   </TableRow>
@@ -220,8 +219,8 @@ const FornecedorProdutos = () => {
                           </TableCell>
                           <TableCell><Badge variant="outline">{p.category}</Badge></TableCell>
                           <TableCell>{p.patec_number ? patecLabel(p.patec_number) : "—"}</TableCell>
-                          <TableCell className="text-right">{Number(p.price).toLocaleString("pt-AO")} Kz</TableCell>
-                          <TableCell className="text-right">{p.stock} {p.unit}</TableCell>
+                          <TableCell>{p.unit}</TableCell>
+                          <TableCell className="text-right">{Number(p.iva_rate ?? 14)}%</TableCell>
                           <TableCell className="text-right">{p.max_per_farmer_per_season ?? "—"}</TableCell>
                           <TableCell className="text-right">
                             <Button variant="ghost" size="sm" onClick={() => openEdit(p)}><Pencil className="h-3 w-3" /></Button>
@@ -274,13 +273,12 @@ const FornecedorProdutos = () => {
               </div>
             )}
             <div className="grid grid-cols-3 gap-3">
-              <div><Label>Preço (Kz) *</Label><Input type="number" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} /></div>
-              <div><Label>Stock</Label><Input type="number" value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })} /></div>
               <div><Label>Unidade</Label><UnitSelect value={form.unit} onChange={(v) => setForm({ ...form, unit: v })} triggerClassName="h-10" /></div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
               <div><Label>IVA (%)</Label><Input type="number" value={form.iva_rate} onChange={(e) => setForm({ ...form, iva_rate: e.target.value })} /></div>
               <div><Label>Limite/produtor/época</Label><Input type="number" value={form.max_per_farmer_per_season} onChange={(e) => setForm({ ...form, max_per_farmer_per_season: e.target.value })} placeholder="Sem limite" /></div>
+            </div>
+            <div className="rounded-md border border-info/30 bg-info/10 p-2.5 text-xs text-muted-foreground">
+              <strong className="text-foreground">Preço e stock</strong> são definidos no separador <strong>Stock &amp; Preços</strong>, com registo de motivo e histórico de alterações.
             </div>
           </div>
           <DialogFooter>
