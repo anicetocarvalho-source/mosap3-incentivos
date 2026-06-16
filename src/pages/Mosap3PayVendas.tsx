@@ -16,6 +16,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { InvoicePDF, generateFiscalHash, buildQRContent, type InvoiceData } from "@/components/InvoicePDF";
 import { ErrorState } from "@/components/ui/error-state";
 import { useServerTable, useDebouncedValue } from "@/hooks/useServerTable";
+import { usePatecLabel } from "@/hooks/usePatecLabel";
 
 interface Sale {
   id: string;
@@ -50,6 +51,7 @@ interface SaleItem {
 const PAGE_SIZE = 15;
 
 const Mosap3PayVendas = () => {
+  const { labelByLegacy: patecLabel } = usePatecLabel({ activeOnly: false });
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [page, setPage] = useState(1);
@@ -186,6 +188,7 @@ const Mosap3PayVendas = () => {
       farmer_name: sale.farmer_name,
       farmer_code: sale.farmer_code,
       patec_number: sale.patec_number,
+      patec_label: sale.patec_number ? patecLabel(sale.patec_number) : null,
       parcel_size_label: sale.parcel_size_label,
       supplier_name: supplier?.name,
       supplier_nif: supplier?.nif,
@@ -292,7 +295,7 @@ const Mosap3PayVendas = () => {
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-col gap-0.5">
-                        {s.patec_number ? <Badge variant="outline" className="text-[10px] w-fit">PATEC {s.patec_number}</Badge> : <span className="text-xs text-muted-foreground">—</span>}
+                        {s.patec_number ? <Badge variant="outline" className="text-[10px] w-fit">{patecLabel(s.patec_number)}</Badge> : <span className="text-xs text-muted-foreground">—</span>}
                         {s.parcel_size_label && <span className="text-[10px] text-muted-foreground">Parcela {s.parcel_size_label}</span>}
                       </div>
                     </TableCell>
@@ -379,7 +382,7 @@ const Mosap3PayVendas = () => {
               <div className="p-3 bg-muted/50 rounded-lg">
                 <p className="font-medium">{selectedSale.farmer_name}</p>
                 <p className="text-xs text-muted-foreground">
-                  {selectedSale.farmer_code} • {selectedSale.patec_number ? `PATEC ${selectedSale.patec_number}` : "—"}
+                  {selectedSale.farmer_code} • {selectedSale.patec_number ? patecLabel(selectedSale.patec_number) : "—"}
                   {selectedSale.parcel_size_label && ` • Parcela ${selectedSale.parcel_size_label}`}
                 </p>
                 <p className="text-xs text-muted-foreground">{new Date(selectedSale.created_at).toLocaleString("pt-AO")}</p>

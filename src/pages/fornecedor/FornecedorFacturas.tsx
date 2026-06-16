@@ -29,6 +29,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { InvoicePDF, generateFiscalHash, buildQRContent, type InvoiceData } from "@/components/InvoicePDF";
 import { ErrorState } from "@/components/ui/error-state";
 import { LoadingState } from "@/components/ui/loading-state";
+import { usePatecLabel } from "@/hooks/usePatecLabel";
 
 const PAGE_SIZE = 15;
 
@@ -65,6 +66,7 @@ type SortColumn = "invoice_number" | "farmer_name" | "total" | "iva_total" | "cr
 
 const FornecedorFacturas = () => {
   const { supplier } = useOutletContext<SupplierCtx>();
+  const { labelByLegacy: patecLabel } = usePatecLabel({ activeOnly: false });
 
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
@@ -245,6 +247,7 @@ const FornecedorFacturas = () => {
       farmer_name: sale.farmer_name,
       farmer_code: sale.farmer_code,
       patec_number: sale.patec_number,
+      patec_label: sale.patec_number ? patecLabel(sale.patec_number) : null,
       parcel_size_label: sale.parcel_size_label,
       supplier_name: sup?.name,
       supplier_nif: sup?.nif,
