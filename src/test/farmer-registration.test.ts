@@ -78,14 +78,8 @@ describe("Validação do Registo de Produtor", () => {
     expect(result.success).toBe(false);
   });
 
-  it("rejeita PATEC fora do intervalo 1-3", () => {
-    const result = farmerSchema.safeParse({ ...validFarmer, patec: "5" });
-    expect(result.success).toBe(false);
-    expect(result.error?.issues[0].message).toContain("1, 2 ou 3");
-  });
-
-  it("aceita PATEC 1, 2 e 3", () => {
-    ["1", "2", "3"].forEach((patec) => {
+  it("aceita qualquer código PATEC não vazio (validação efectiva fica no formulário)", () => {
+    ["1", "5", "11", "PATEC-07"].forEach((patec) => {
       const result = farmerSchema.safeParse({ ...validFarmer, patec });
       expect(result.success).toBe(true);
     });
