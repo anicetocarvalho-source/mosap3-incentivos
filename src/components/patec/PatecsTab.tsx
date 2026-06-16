@@ -97,9 +97,10 @@ export default function PatecsTab({ patecs, seasons, links, farmerCounts, isAdmi
                         <Package className="h-4 w-4 text-primary" />
                       </div>
                       <div>
-                        <p className="font-mono text-xs text-muted-foreground">{p.code}</p>
-                        <h3 className="font-semibold text-sm">{p.name}</h3>
-                        {p.cultures && <p className="text-xs text-muted-foreground">{p.cultures}</p>}
+                        <h3 className="font-semibold text-sm">
+                          <span className="font-mono">{p.code}</span>
+                          <span className="text-muted-foreground font-normal"> — {p.cultures || p.name}</span>
+                        </h3>
                       </div>
                     </div>
                     {isAdmin && (
