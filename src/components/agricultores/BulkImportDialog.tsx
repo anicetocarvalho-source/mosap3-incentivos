@@ -65,10 +65,12 @@ const generateCode = (index: number) => {
   return `AGR-${ts}-${String(index + 1).padStart(3, "0")}`;
 };
 
-const validateRow = (row: ParsedFarmer): string[] => {
+const validateRow = (row: ParsedFarmer, validPatecNumbers: Set<number>): string[] => {
   const errors: string[] = [];
   if (!row.full_name || row.full_name.trim().length < 2) errors.push("Nome obrigatório (mín. 2 caracteres)");
-  if (row.patec && ![1, 2, 3].includes(row.patec)) errors.push("PATEC deve ser 1, 2 ou 3");
+  if (row.patec && validPatecNumbers.size > 0 && !validPatecNumbers.has(row.patec)) {
+    errors.push(`PATEC inválido (válidos: ${Array.from(validPatecNumbers).sort((a, b) => a - b).join(", ")})`);
+  }
   if (row.gender && !["Masculino", "Feminino", "M", "F"].includes(row.gender)) errors.push("Género inválido");
   return errors;
 };
