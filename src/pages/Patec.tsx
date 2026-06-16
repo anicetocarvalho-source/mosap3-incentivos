@@ -2093,10 +2093,15 @@ const Patec = () => {
       <Dialog open={viewPatec !== null} onOpenChange={(o) => !o && setViewPatec(null)}>
 
         <DialogContent className="max-w-lg">
-          {viewPatec && patecMeta[viewPatec] && (
+          {viewPatec && patecMeta[viewPatec] && (() => {
+            const catalogPatec = patecs.find((p) => p.legacy_number === viewPatec);
+            const title = catalogPatec
+              ? `${catalogPatec.code} — ${catalogPatec.cultures || catalogPatec.name}`
+              : patecMeta[viewPatec].title;
+            return (
             <>
               <DialogHeader>
-                <DialogTitle>{patecMeta[viewPatec].title}</DialogTitle>
+                <DialogTitle>{title}</DialogTitle>
               </DialogHeader>
               <div className="space-y-4 py-2 text-sm">
                 {["insumos", "pecuaria", "servicos"].map((cat) => (
