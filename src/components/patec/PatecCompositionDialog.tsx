@@ -694,7 +694,7 @@ export default function PatecCompositionDialog({ open, onOpenChange, patec }: Pr
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Package className="h-4 w-4 text-primary" />
-              Composição — {patec?.name}
+              Composição — {patec?.code}{(patec?.cultures || patec?.name) ? ` — ${patec?.cultures || patec?.name}` : ""}
             </DialogTitle>
             <DialogDescription>
               {items.length} item(s) — quantidades por hectare / efectivo recomendado.
