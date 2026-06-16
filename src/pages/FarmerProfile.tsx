@@ -67,6 +67,8 @@ const FarmerProfile = () => {
   const [transactionDialogOpen, setTransactionDialogOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const { parcels, production, incentives, transactions, dependents, loading: enrichedLoading } = useFarmerEnrichedData(id, refreshKey);
+  const { patecs: allPatecs, byLegacy: patecByLegacy } = usePatecLabel({ activeOnly: true });
+  const [patecItems, setPatecItems] = useState<Array<{ id: string; name: string; category: string | null }>>([]);
 
   // Province/municipality options for inline editing
   const { provinces: allProvinces } = useProvinceMunicipalities(undefined);
@@ -152,11 +154,12 @@ const FarmerProfile = () => {
 
   const provinceOptions = allProvinces.map((p) => ({ value: p.name, label: p.name }));
   const genderOptions = [{ value: "M", label: "Masculino" }, { value: "F", label: "Feminino" }];
-  const patecOptions = [
-    { value: "1", label: "PATEC 1" },
-    { value: "2", label: "PATEC 2" },
-    { value: "3", label: "PATEC 3" },
-  ];
+  const patecOptions = allPatecs
+    .filter((p) => p.legacy_number != null)
+    .map((p) => ({
+      value: String(p.legacy_number),
+      label: `${p.code}${p.cultures ? ` — ${p.cultures}` : ""}`,
+    }));
 
   const valorRecebido = farmerRaw?.valor_recebido || "0,00";
   const totalGasto = farmerRaw?.total_gasto || "0,00";
