@@ -182,7 +182,7 @@ export default function PatecFormDialog({ open, onOpenChange, patec, seasons, in
             <Switch checked={isActive} onCheckedChange={setIsActive} />
           </div>
           <div>
-            <Label>Épocas Agrícolas em que está disponível</Label>
+            <Label>Períodos Agrícolas em que está disponível</Label>
             <div className="rounded-lg border p-3 space-y-2 mt-1 max-h-48 overflow-y-auto">
               {seasons.length === 0 ? (
                 <p className="text-xs text-muted-foreground italic">Sem épocas criadas — usa o separador "Épocas" para criar.</p>

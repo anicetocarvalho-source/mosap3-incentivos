@@ -57,7 +57,7 @@ export default function SeasonsTab({ seasons, patecs, links, isAdmin, refetch }:
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
-          <h2 className="text-base font-semibold">Épocas Agrícolas</h2>
+          <h2 className="text-base font-semibold">Períodos Agrícolas</h2>
           <p className="text-xs text-muted-foreground">{seasons.length} época(s) configurada(s)</p>
         </div>
         {isAdmin && (
