@@ -1741,7 +1741,7 @@ const Patec = () => {
                     Nenhum pacote vinculado a esta época.
                   </div>
                 ) : patecsForSeason.map((p) => (
-                  <SelectItem key={p.id} value={p.code}>{p.code} — {p.name}</SelectItem>
+                  <SelectItem key={p.id} value={p.code}>{p.code} — {p.cultures || p.name}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
