@@ -93,6 +93,18 @@ const FarmerProfile = () => {
     return () => { cancelled = true; };
   }, [id]);
 
+  // Carrega composição real do PATEC do produtor (mesma fonte que /patec)
+  const farmerPatecNum = (farmerInfo as any)?.patec ?? null;
+  useEffect(() => {
+    if (!farmerPatecNum) { setPatecItems([]); return; }
+    let cancelled = false;
+    supabase.from("patec_items" as any)
+      .select("id, name, category")
+      .eq("patec_number", farmerPatecNum)
+      .then(({ data }) => { if (!cancelled) setPatecItems((data as any) || []); });
+    return () => { cancelled = true; };
+  }, [farmerPatecNum]);
+
   const farmer = farmerInfo;
 
   // Build list of all zoomable images for navigation
