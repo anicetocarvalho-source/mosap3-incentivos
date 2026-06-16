@@ -1055,7 +1055,7 @@ const Patec = () => {
         <TabsList>
           <TabsTrigger value="atribuicao">Atribuição</TabsTrigger>
           <TabsTrigger value="pacotes">Pacotes</TabsTrigger>
-          <TabsTrigger value="epocas">Épocas Agrícolas</TabsTrigger>
+          <TabsTrigger value="epocas">Períodos Agrícolas</TabsTrigger>
         </TabsList>
 
         <TabsContent value="pacotes">
