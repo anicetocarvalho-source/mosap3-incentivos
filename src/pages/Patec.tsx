@@ -1686,9 +1686,8 @@ const Patec = () => {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <Badge variant="outline" className={`text-[10px] ${meta?.color || ""}`}>{p.code}</Badge>
-                        <span className="text-sm font-medium">{p.name}</span>
+                        <span className="text-sm font-medium">{p.cultures || p.name}</span>
                       </div>
-                      {p.cultures && <p className="text-xs text-muted-foreground mt-0.5">{p.cultures}</p>}
                     </div>
                     <Button
                       type="button"
