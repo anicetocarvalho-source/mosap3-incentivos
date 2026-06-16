@@ -19,6 +19,7 @@ import { classifyError, withRetry } from "@/lib/errorHandling";
 import { FARMER_PAGE_SIZE, buildFarmerOrParts, farmerPageRange, shouldSearch } from "@/lib/farmerSearch";
 import { computeSaldoFinal, formatKzCompact } from "@/lib/numberFormat";
 import { FarmerSaldoBadge } from "@/components/pos/FarmerSaldoBadge";
+import { usePatecLabel } from "@/hooks/usePatecLabel";
 
 interface Farmer {
   code: string;
@@ -214,11 +215,6 @@ interface Supplier {
   name: string;
 }
 
-const patecLabels: Record<number, string> = {
-  1: "PATEC 1 — Milho",
-  2: "PATEC 2 — Massango",
-  3: "PATEC 3 — Massambala",
-};
 
 interface ShiftContext {
   shift_id: string;
