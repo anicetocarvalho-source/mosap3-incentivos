@@ -185,8 +185,8 @@ const FornecedorProdutos = () => {
                     <TableHead>Nome</TableHead>
                     <TableHead>Categoria</TableHead>
                     <TableHead>PATEC</TableHead>
-                    <TableHead className="text-right">Preço</TableHead>
-                    <TableHead className="text-right">Stock</TableHead>
+                    <TableHead>Unidade</TableHead>
+                    <TableHead className="text-right">IVA</TableHead>
                     <TableHead className="text-right">Limite/Época</TableHead>
                     <TableHead />
                   </TableRow>
@@ -219,8 +219,8 @@ const FornecedorProdutos = () => {
                           </TableCell>
                           <TableCell><Badge variant="outline">{p.category}</Badge></TableCell>
                           <TableCell>{p.patec_number ? patecLabel(p.patec_number) : "—"}</TableCell>
-                          <TableCell className="text-right">{Number(p.price).toLocaleString("pt-AO")} Kz</TableCell>
-                          <TableCell className="text-right">{p.stock} {p.unit}</TableCell>
+                          <TableCell>{p.unit}</TableCell>
+                          <TableCell className="text-right">{Number(p.iva_rate ?? 14)}%</TableCell>
                           <TableCell className="text-right">{p.max_per_farmer_per_season ?? "—"}</TableCell>
                           <TableCell className="text-right">
                             <Button variant="ghost" size="sm" onClick={() => openEdit(p)}><Pencil className="h-3 w-3" /></Button>
