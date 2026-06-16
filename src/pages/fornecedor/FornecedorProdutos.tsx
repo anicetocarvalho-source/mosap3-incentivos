@@ -273,13 +273,12 @@ const FornecedorProdutos = () => {
               </div>
             )}
             <div className="grid grid-cols-3 gap-3">
-              <div><Label>Preço (Kz) *</Label><Input type="number" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} /></div>
-              <div><Label>Stock</Label><Input type="number" value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })} /></div>
               <div><Label>Unidade</Label><UnitSelect value={form.unit} onChange={(v) => setForm({ ...form, unit: v })} triggerClassName="h-10" /></div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
               <div><Label>IVA (%)</Label><Input type="number" value={form.iva_rate} onChange={(e) => setForm({ ...form, iva_rate: e.target.value })} /></div>
               <div><Label>Limite/produtor/época</Label><Input type="number" value={form.max_per_farmer_per_season} onChange={(e) => setForm({ ...form, max_per_farmer_per_season: e.target.value })} placeholder="Sem limite" /></div>
+            </div>
+            <div className="rounded-md border border-info/30 bg-info/10 p-2.5 text-xs text-muted-foreground">
+              <strong className="text-foreground">Preço e stock</strong> são definidos no separador <strong>Stock &amp; Preços</strong>, com registo de motivo e histórico de alterações.
             </div>
           </div>
           <DialogFooter>
