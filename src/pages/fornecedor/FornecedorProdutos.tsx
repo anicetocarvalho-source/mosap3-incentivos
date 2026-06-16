@@ -295,7 +295,7 @@ const FornecedorProdutos = () => {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Download className="h-4 w-4" /> Importar itens — PATEC {importPatecNum}
+              <Download className="h-4 w-4" /> Importar itens — {patecLabel(importPatecNum)}
             </DialogTitle>
           </DialogHeader>
           {patecItems.length === 0 ? (
