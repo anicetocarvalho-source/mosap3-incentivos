@@ -240,7 +240,7 @@ const Mosap3PayFacturaDetalhe = () => {
             <p className="text-xs">Código: {sale.farmer_code}</p>
             {sale.farmer_phone && <p className="text-xs text-muted-foreground">{sale.farmer_phone}</p>}
             {sale.patec_number && (
-              <Badge variant="outline" className="mt-1 text-[10px]">PATEC {sale.patec_number}</Badge>
+              <Badge variant="outline" className="mt-1 text-[10px]">{patecLabel(sale.patec_number)}</Badge>
             )}
           </CardContent>
         </Card>
