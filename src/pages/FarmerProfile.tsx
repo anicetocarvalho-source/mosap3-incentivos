@@ -971,35 +971,10 @@ const FarmerProfile = () => {
 
           <TabsContent value="patec" className="mt-4 space-y-4">
             {(() => {
-              const patecNum = farmerRaw?.patec;
-              const patecData: Record<number, { title: string; cultura: string; insumos: string[]; servicos: string[]; animal: string[]; qtd: string }> = {
-                1: {
-                  title: "PATEC 1 — Milho + Feijão + Gado",
-                  cultura: "Milho",
-                  insumos: ["Semente de milho", "Semente de feijão", "Adubo composto", "Adubo simples", "Inseticida", "Fungicida", "Enxada", "Catana", "Lima", "Ancinho", "Machado", "Carro de mão"],
-                  animal: ["Cabra", "Ovelha", "Galinha", "Boi", "Ração animal", "Vitaminas", "Antibióticos", "Brincos", "Rede galinheiro", "Pregos", "Chapas"],
-                  servicos: ["Preparação de terra mecanizada", "Amanhos culturais", "Transporte para escoamento da produção"],
-                  qtd: "10.800 produtores",
-                },
-                2: {
-                  title: "PATEC 2 — Massango + Feijão + Gado",
-                  cultura: "Massango",
-                  insumos: ["Semente de massango", "Semente de feijão", "Adubo composto", "Adubo simples", "Inseticida", "Fungicida", "Enxada", "Catana", "Lima", "Ancinho", "Machado", "Carro de mão"],
-                  animal: ["Cabra", "Ovelha", "Galinha", "Boi", "Ração animal", "Vitaminas", "Antibióticos", "Brincos", "Rede galinheiro", "Pregos", "Chapas"],
-                  servicos: ["Preparação de terra mecanizada", "Amanhos culturais", "Transporte para escoamento da produção"],
-                  qtd: "3.600 produtores",
-                },
-                3: {
-                  title: "PATEC 3 — Massambala + Feijão + Gado",
-                  cultura: "Massambala",
-                  insumos: ["Semente de massambala", "Semente de feijão", "Adubo composto", "Adubo simples", "Inseticida", "Fungicida", "Enxada", "Catana", "Lima", "Ancinho", "Machado", "Carro de mão"],
-                  animal: ["Cabra", "Ovelha", "Galinha", "Boi", "Ração animal", "Vitaminas", "Antibióticos", "Brincos", "Rede galinheiro", "Pregos", "Chapas"],
-                  servicos: ["Preparação de terra mecanizada", "Amanhos culturais", "Transporte para escoamento da produção"],
-                  qtd: "3.600 produtores",
-                },
-              };
+              const patecNum = farmerRaw?.patec as number | null | undefined;
+              const patecMeta = patecNum ? patecByLegacy.get(patecNum) : null;
 
-              if (!patecNum || !patecData[patecNum]) {
+              if (!patecNum || !patecMeta) {
                 return (
                   <Card className="p-12 text-center">
                     <Package className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
@@ -1008,73 +983,84 @@ const FarmerProfile = () => {
                 );
               }
 
-              const p = patecData[patecNum];
+              // Composição vinda directamente de patec_items (mesma fonte que /patec)
+              const categories: { key: string; label: string; icon: any; match: (c: string | null) => boolean }[] = [
+                { key: "insumos", label: "Insumos Agrícolas", icon: Sprout, match: (c) => (c || "").toLowerCase().includes("insumo") },
+                { key: "pecuaria", label: "Pecuária e Materiais", icon: Beef, match: (c) => { const v = (c || "").toLowerCase(); return v.includes("pecu") || v.includes("material") || v.includes("animal"); } },
+                { key: "servicos", label: "Serviços Incluídos", icon: Gift, match: (c) => (c || "").toLowerCase().includes("servi") },
+              ];
 
               return (
-                <>
-                  <Card className="p-4 md:p-6">
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center">
-                        <Package className="h-6 w-6 text-primary" />
-                      </div>
-                      <div>
-                        <h3 className="font-heading font-semibold text-base md:text-lg">{p.title}</h3>
-                        <p className="text-xs text-muted-foreground">Ano de Arranque — MOSAP III · {p.qtd}</p>
-                      </div>
-                      <Badge className="ml-auto text-xs">PATEC {patecNum}</Badge>
+                <Card className="p-4 md:p-6">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                      <Package className="h-6 w-6 text-primary" />
                     </div>
+                    <div>
+                      <h3 className="font-heading font-semibold text-base md:text-lg">
+                        {patecMeta.code}{patecMeta.cultures ? ` — ${patecMeta.cultures}` : (patecMeta.name ? ` — ${patecMeta.name}` : "")}
+                      </h3>
+                      {patecMeta.description && (
+                        <p className="text-xs text-muted-foreground">{patecMeta.description}</p>
+                      )}
+                    </div>
+                    <Badge className="ml-auto text-xs">{patecMeta.code}</Badge>
+                  </div>
 
+                  {patecItems.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-6">
+                      A carregar composição do pacote…
+                    </p>
+                  ) : (
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
-                      {/* Insumos Agrícolas */}
-                      <div className="space-y-2">
-                        <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-                          <Sprout className="h-3.5 w-3.5" /> Insumos Agrícolas
-                        </h4>
-                        <ul className="space-y-1">
-                          {p.insumos.map((item) => (
-                            <li key={item} className="text-sm flex items-center gap-2">
-                              <CheckCircle2 className="h-3.5 w-3.5 text-primary flex-shrink-0" />
-                              {item}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-
-                      {/* Pecuária e Materiais */}
-                      <div className="space-y-2">
-                        <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-                          <Beef className="h-3.5 w-3.5" /> Pecuária e Materiais
-                        </h4>
-                        <ul className="space-y-1">
-                          {p.animal.map((item) => (
-                            <li key={item} className="text-sm flex items-center gap-2">
-                              <CheckCircle2 className="h-3.5 w-3.5 text-primary flex-shrink-0" />
-                              {item}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-
-                      {/* Serviços */}
-                      <div className="space-y-2">
-                        <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-                          <Gift className="h-3.5 w-3.5" /> Serviços Incluídos
-                        </h4>
-                        <ul className="space-y-1">
-                          {p.servicos.map((item) => (
-                            <li key={item} className="text-sm flex items-center gap-2">
-                              <CheckCircle2 className="h-3.5 w-3.5 text-primary flex-shrink-0" />
-                              {item}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
+                      {categories.map((cat) => {
+                        const items = patecItems.filter((i) => cat.match(i.category));
+                        if (items.length === 0) return null;
+                        const Icon = cat.icon;
+                        return (
+                          <div key={cat.key} className="space-y-2">
+                            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                              <Icon className="h-3.5 w-3.5" /> {cat.label}
+                            </h4>
+                            <ul className="space-y-1">
+                              {items.map((item) => (
+                                <li key={item.id} className="text-sm flex items-center gap-2">
+                                  <CheckCircle2 className="h-3.5 w-3.5 text-primary flex-shrink-0" />
+                                  {item.name}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        );
+                      })}
+                      {/* Itens fora das categorias conhecidas */}
+                      {(() => {
+                        const known = new Set(patecItems.filter((i) => categories.some((c) => c.match(i.category))).map((i) => i.id));
+                        const other = patecItems.filter((i) => !known.has(i.id));
+                        if (other.length === 0) return null;
+                        return (
+                          <div className="space-y-2">
+                            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                              <Package className="h-3.5 w-3.5" /> Outros
+                            </h4>
+                            <ul className="space-y-1">
+                              {other.map((item) => (
+                                <li key={item.id} className="text-sm flex items-center gap-2">
+                                  <CheckCircle2 className="h-3.5 w-3.5 text-primary flex-shrink-0" />
+                                  {item.name}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        );
+                      })()}
                     </div>
-                  </Card>
-                </>
+                  )}
+                </Card>
               );
             })()}
           </TabsContent>
+
 
           {/* Cartão ID Tab */}
           <TabsContent value="cartao" className="mt-4 space-y-4">
