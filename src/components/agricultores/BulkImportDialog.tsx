@@ -11,6 +11,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
+import { usePatecLabel } from "@/hooks/usePatecLabel";
 
 interface ParsedFarmer {
   full_name: string;
@@ -92,6 +93,8 @@ const BulkImportDialog = () => {
   const [result, setResult] = useState<{ success: number; failed: number } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
+  const { patecs: allPatecs } = usePatecLabel({ activeOnly: true });
+  const validPatecNumbers = new Set(allPatecs.map((p) => p.legacy_number).filter((n): n is number => n != null));
 
   const reset = () => {
     setParsed([]);
@@ -145,7 +148,7 @@ const BulkImportDialog = () => {
             }
           });
           farmer.gender = normalizeGender(farmer.gender);
-          farmer._errors = validateRow(farmer);
+          farmer._errors = validateRow(farmer, validPatecNumbers);
           return farmer as ParsedFarmer;
         });
 
@@ -155,7 +158,7 @@ const BulkImportDialog = () => {
       }
     };
     reader.readAsArrayBuffer(file);
-  }, []);
+  }, [validPatecNumbers]);
 
   const validRows = parsed.filter((r) => r._errors.length === 0);
   const invalidRows = parsed.filter((r) => r._errors.length > 0);
