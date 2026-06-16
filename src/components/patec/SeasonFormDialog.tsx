@@ -82,7 +82,7 @@ export default function SeasonFormDialog({ open, onOpenChange, season, patecs, i
         }
       }
 
-      toast.success(isEdit ? "Época actualizada" : "Época criada");
+      toast.success(isEdit ? "Período actualizado" : "Período criado");
       onSaved();
       onOpenChange(false);
     } catch (e: any) {
@@ -96,13 +96,13 @@ export default function SeasonFormDialog({ open, onOpenChange, season, patecs, i
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{isEdit ? "Editar Época Agrícola" : "Nova Época Agrícola"}</DialogTitle>
-          <DialogDescription>Defina o período e quais pacotes ficam disponíveis.</DialogDescription>
+          <DialogTitle>{isEdit ? "Editar Período Agrícola" : "Novo Período Agrícola"}</DialogTitle>
+          <DialogDescription>Defina o intervalo de datas e quais pacotes ficam disponíveis.</DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-2">
           <div>
             <Label>Nome *</Label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Época 2025/2026" />
+            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Período 2025/2026" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>

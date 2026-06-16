@@ -114,9 +114,9 @@ async function checkPatecAvailability(patecCode: string | null): Promise<PatecAv
         ok: false,
         detail: {
           reason: "no_seasons",
-          title: `Sem época agrícola para ${p.code}`,
-          message: `O pacote "${p.name}" não está associado a nenhuma época agrícola.`,
-          hint: "Peça ao gestor para vincular este pacote à época agrícola actual.",
+          title: `Sem período agrícola para ${p.code}`,
+          message: `O pacote "${p.name}" não está associado a nenhum período agrícola.`,
+          hint: "Peça ao gestor para vincular este pacote ao período agrícola actual.",
           patecName: p.name,
         },
       };
@@ -134,9 +134,9 @@ async function checkPatecAvailability(patecCode: string | null): Promise<PatecAv
         ok: false,
         detail: {
           reason: "no_active_seasons",
-          title: `Épocas inactivas para ${p.code}`,
-          message: `Todas as épocas agrícolas associadas a "${p.name}" estão inactivas.`,
-          hint: "Peça ao gestor para activar uma época ou vincular uma nova.",
+          title: `Períodos inactivos para ${p.code}`,
+          message: `Todos os períodos agrícolas associados a "${p.name}" estão inactivos.`,
+          hint: "Peça ao gestor para activar um período ou vincular um novo.",
           patecName: p.name,
         },
       };
@@ -151,8 +151,8 @@ async function checkPatecAvailability(patecCode: string | null): Promise<PatecAv
         ok: false,
         detail: {
           reason: "season_future",
-          title: `Fora de época — ${p.code}`,
-          message: `A próxima época para "${p.name}" (${future.name}) só inicia em ${fmtDate(future.start_date)}.`,
+          title: `Fora de período — ${p.code}`,
+          message: `O próximo período para "${p.name}" (${future.name}) só inicia em ${fmtDate(future.start_date)}.`,
           hint: "As vendas só serão possíveis a partir dessa data.",
           patecName: p.name,
           nextSeason: { name: future.name, start_date: future.start_date },
@@ -166,11 +166,11 @@ async function checkPatecAvailability(patecCode: string | null): Promise<PatecAv
       ok: false,
       detail: {
         reason: "season_closed",
-        title: `Época encerrada — ${p.code}`,
+        title: `Período encerrado — ${p.code}`,
         message: last
-          ? `A época "${last.name}" para o pacote "${p.name}" terminou em ${fmtDate(last.end_date)}.`
-          : `A época agrícola para "${p.name}" já terminou.`,
-        hint: "Aguarde a abertura de uma nova época para retomar as compras.",
+          ? `O período "${last.name}" para o pacote "${p.name}" terminou em ${fmtDate(last.end_date)}.`
+          : `O período agrícola para "${p.name}" já terminou.`,
+        hint: "Aguarde a abertura de um novo período para retomar as compras.",
         patecName: p.name,
         lastSeason: last ? { name: last.name, end_date: last.end_date } : undefined,
       },
