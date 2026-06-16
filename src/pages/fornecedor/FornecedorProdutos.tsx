@@ -17,8 +17,7 @@ import { ErrorState } from "@/components/ui/error-state";
 import { EmptyState } from "@/components/ui/empty-state";
 import { UnitSelect } from "@/components/ui/unit-select";
 import { usePatecCatalogIndex } from "@/hooks/usePatecCatalogIndex";
-
-const patecLabels: Record<string, string> = { "1": "PATEC 1 — Milho", "2": "PATEC 2 — Massango", "3": "PATEC 3 — Massambala" };
+import { usePatecLabel } from "@/hooks/usePatecLabel";
 
 interface PatecItem { id: string; name: string; category: string; patec_number: number; }
 
@@ -31,6 +30,7 @@ const FornecedorProdutos = () => {
   const [editing, setEditing] = useState<any>(null);
   const [form, setForm] = useState({ name: "", category: "insumos", unit: "un", price: "", stock: "", iva_rate: "14", patec_number: "", patec_category: "", max_per_farmer_per_season: "" });
   const [patecFilter, setPatecFilter] = useState<"todos" | "em_patec" | "fora_patec">("todos");
+  const { patecs: patecCatalog, labelByLegacy: patecLabel } = usePatecLabel({ activeOnly: true });
   const catalogIndex = usePatecCatalogIndex();
 
   // PATEC import state

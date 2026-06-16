@@ -24,6 +24,7 @@ import { useSearchParams } from "react-router-dom";
 import StatCard from "@/components/StatCard";
 import { motion } from "framer-motion";
 import { ErrorState } from "@/components/ui/error-state";
+import { usePatecLabel } from "@/hooks/usePatecLabel";
 
 interface Province {
   id: string;
@@ -69,6 +70,7 @@ interface PosTerminal {
 
 const Mosap3PayFornecedores = () => {
   const { isAdmin } = useAuth();
+  const { patecs: patecCatalog, labelByLegacy: patecLabel } = usePatecLabel({ activeOnly: true });
   const [searchParams] = useSearchParams();
   const initialProvinceParam = searchParams.get("province") || "all";
   const queryClient = useQueryClient();
@@ -512,9 +514,9 @@ const Mosap3PayFornecedores = () => {
                   <SelectValue placeholder="Importar do PATEC" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="1">PATEC 1 — Milho</SelectItem>
-                  <SelectItem value="2">PATEC 2 — Massango</SelectItem>
-                  <SelectItem value="3">PATEC 3 — Massambala</SelectItem>
+                  {patecCatalog.filter((p) => p.legacy_number != null).map((p) => (
+                    <SelectItem key={p.id} value={String(p.legacy_number)}>{patecLabel(p.legacy_number!)}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
               <Button size="sm" onClick={() => { setEditProduct({}); setProductDialogOpen(true); }}>
@@ -544,7 +546,7 @@ const Mosap3PayFornecedores = () => {
                         <TableCell><Badge variant="outline" className="text-[10px]">{p.category}</Badge></TableCell>
                         <TableCell>{Number(p.price).toLocaleString("pt-AO")} Kz</TableCell>
                         <TableCell>{p.stock} {p.unit}</TableCell>
-                        <TableCell>{p.patec_number ? `PATEC ${p.patec_number}` : "Todos"}</TableCell>
+                        <TableCell>{p.patec_number ? patecLabel(p.patec_number) : "Todos"}</TableCell>
                         <TableCell>{p.max_per_farmer_per_season ?? "Sem limite"}</TableCell>
                         <TableCell className="text-right space-x-1">
                           <Button variant="ghost" size="sm" className="h-7" onClick={() => { setEditProduct(p); setProductDialogOpen(true); }}>
@@ -638,9 +640,9 @@ const Mosap3PayFornecedores = () => {
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">Todos os PATEC</SelectItem>
-                      <SelectItem value="1">PATEC 1 — Milho</SelectItem>
-                      <SelectItem value="2">PATEC 2 — Massango</SelectItem>
-                      <SelectItem value="3">PATEC 3 — Massambala</SelectItem>
+                      {patecCatalog.filter((p) => p.legacy_number != null).map((p) => (
+                        <SelectItem key={p.id} value={String(p.legacy_number)}>{patecLabel(p.legacy_number!)}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
