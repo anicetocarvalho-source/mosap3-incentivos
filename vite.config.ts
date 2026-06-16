@@ -18,6 +18,8 @@ export default defineConfig(({ mode }) => ({
     mode === "development" && componentTagger(),
     VitePWA({
       registerType: "autoUpdate",
+      injectRegister: null,
+      devOptions: { enabled: false },
       includeAssets: [
         "favicon.ico", "robots.txt",
         "pwa-72x72.png", "pwa-96x96.png", "pwa-128x128.png", "pwa-144x144.png",
@@ -43,21 +45,13 @@ export default defineConfig(({ mode }) => ({
               expiration: { maxEntries: 500, maxAgeSeconds: 60 * 60 * 24 * 30 },
             },
           },
-          // orphan_phones — nunca cachear (admin-only, dados sensíveis a reconciliação)
-          {
-            urlPattern: /^https:\/\/.*\.supabase\.co\/rest\/v1\/orphan_phones.*/i,
-            handler: "NetworkOnly",
-          },
-          // Supabase REST API — network first with offline fallback
+          // Supabase REST API — NUNCA cachear. Cache de respostas REST estava a
+          // manter dados antigos (catálogo PATEC, vendas, perfis) mesmo depois
+          // de publicar/actualizar. O suporte offline real é feito via IndexedDB
+          // (lib/offlineDb), não via Workbox.
           {
             urlPattern: /^https:\/\/.*\.supabase\.co\/rest\/v1\/.*/i,
-            handler: "NetworkFirst",
-            options: {
-              cacheName: "supabase-api",
-              expiration: { maxEntries: 200, maxAgeSeconds: 60 * 60 * 24 },
-              networkTimeoutSeconds: 5,
-              cacheableResponse: { statuses: [0, 200] },
-            },
+            handler: "NetworkOnly",
           },
           // Supabase Auth — network only (never cache auth tokens)
           {
