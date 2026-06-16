@@ -382,7 +382,7 @@ const Mosap3PayFornecedores = () => {
     }));
     const { error } = await supabase.from("supplier_products").insert(rows);
     if (error) { toast.error("Erro ao importar"); setImportingPatec(false); return; }
-    toast.success(`${toImport.length} produto(s) importado(s) do PATEC ${importPatecNumber}`);
+    toast.success(`${toImport.length} produto(s) importado(s) — ${patecLabel(importPatecNumber)}`);
     setImportPatecOpen(false);
     invalidateDetails();
   };
@@ -703,7 +703,7 @@ const Mosap3PayFornecedores = () => {
           <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
-                <Download className="h-4 w-4" /> Importar itens — PATEC {importPatecNumber}
+                <Download className="h-4 w-4" /> Importar itens — {patecLabel(importPatecNumber)}
               </DialogTitle>
             </DialogHeader>
             {patecItemsList.length === 0 ? (
