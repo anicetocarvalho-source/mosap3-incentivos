@@ -1399,9 +1399,9 @@ const Patec = () => {
                         )}
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-semibold leading-tight truncate">
-                            {p.code}{" "}
+                            {p.code}
                             <span className="text-muted-foreground font-normal">
-                              — {p.name}{p.cultures ? ` · ${p.cultures}` : ""}
+                              {" — "}{p.cultures || p.name}
                             </span>
                             {!p.is_active && (
                               <span className="ml-2 text-[10px] uppercase tracking-wider text-muted-foreground">(inativo)</span>
