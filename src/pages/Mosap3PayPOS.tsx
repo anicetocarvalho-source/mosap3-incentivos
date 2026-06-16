@@ -229,6 +229,7 @@ interface Mosap3PayPOSProps {
 }
 
 const Mosap3PayPOS = ({ forcedSupplierId, shiftContext }: Mosap3PayPOSProps = {}) => {
+  const { labelByLegacy: patecLabel } = usePatecLabel({ activeOnly: true });
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [selectedSupplierId, setSelectedSupplierId] = useState<string>(forcedSupplierId || "");
   const [products, setProducts] = useState<Product[]>([]);
