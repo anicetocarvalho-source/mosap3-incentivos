@@ -136,9 +136,9 @@ export function computePatecAvailability(
       ok: false,
       detail: {
         reason: "no_seasons",
-        title: `Sem época agrícola para ${patec.code}`,
-        message: `O pacote "${patec.name ?? patec.code}" não está associado a nenhuma época agrícola.`,
-        hint: "Peça ao gestor para vincular este pacote à época agrícola actual.",
+        title: `Sem período agrícola para ${patec.code}`,
+        message: `O pacote "${patec.name ?? patec.code}" não está associado a nenhum período agrícola.`,
+        hint: "Peça ao gestor para vincular este pacote ao período agrícola actual.",
         patecName: patec.name,
       },
     };
@@ -150,9 +150,9 @@ export function computePatecAvailability(
       ok: false,
       detail: {
         reason: "no_active_seasons",
-        title: `Épocas inactivas para ${patec.code}`,
-        message: `Todas as épocas agrícolas associadas a "${patec.name ?? patec.code}" estão inactivas.`,
-        hint: "Peça ao gestor para activar uma época ou vincular uma nova.",
+        title: `Períodos inactivos para ${patec.code}`,
+        message: `Todos os períodos agrícolas associados a "${patec.name ?? patec.code}" estão inactivos.`,
+        hint: "Peça ao gestor para activar um período ou vincular um novo.",
         patecName: patec.name,
       },
     };
@@ -167,8 +167,8 @@ export function computePatecAvailability(
       ok: false,
       detail: {
         reason: "season_future",
-        title: `Fora de época — ${patec.code}`,
-        message: `A próxima época para "${patec.name ?? patec.code}" (${future.name ?? future.id}) só inicia em ${fmtDate(future.start_date)}.`,
+        title: `Fora de período — ${patec.code}`,
+        message: `O próximo período para "${patec.name ?? patec.code}" (${future.name ?? future.id}) só inicia em ${fmtDate(future.start_date)}.`,
         hint: "As vendas só serão possíveis a partir dessa data.",
         patecName: patec.name,
         nextSeason: { name: future.name ?? future.id, start_date: future.start_date },
@@ -182,11 +182,11 @@ export function computePatecAvailability(
     ok: false,
     detail: {
       reason: "season_closed",
-      title: `Época encerrada — ${patec.code}`,
+      title: `Período encerrado — ${patec.code}`,
       message: last
-        ? `A época "${last.name ?? last.id}" para o pacote "${patec.name ?? patec.code}" terminou em ${fmtDate(last.end_date)}.`
-        : `A época agrícola para "${patec.name ?? patec.code}" já terminou.`,
-      hint: "Aguarde a abertura de uma nova época para retomar as compras.",
+        ? `O período "${last.name ?? last.id}" para o pacote "${patec.name ?? patec.code}" terminou em ${fmtDate(last.end_date)}.`
+        : `O período agrícola para "${patec.name ?? patec.code}" já terminou.`,
+      hint: "Aguarde a abertura de um novo período para retomar as compras.",
       patecName: patec.name,
       lastSeason: last ? { name: last.name ?? last.id, end_date: last.end_date } : undefined,
     },

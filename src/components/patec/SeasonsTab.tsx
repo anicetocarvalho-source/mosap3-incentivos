@@ -47,7 +47,7 @@ export default function SeasonsTab({ seasons, patecs, links, isAdmin, refetch }:
     if (!deleting) return;
     const { error } = await supabase.from("agricultural_seasons" as any).delete().eq("id", deleting.id);
     if (error) toast.error("Erro ao remover");
-    else { toast.success("Época removida"); refetch(); }
+    else { toast.success("Período removido"); refetch(); }
     setDeleting(null);
   };
 
@@ -58,18 +58,18 @@ export default function SeasonsTab({ seasons, patecs, links, isAdmin, refetch }:
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
           <h2 className="text-base font-semibold">Períodos Agrícolas</h2>
-          <p className="text-xs text-muted-foreground">{seasons.length} época(s) configurada(s)</p>
+          <p className="text-xs text-muted-foreground">{seasons.length} período(s) configurado(s)</p>
         </div>
         {isAdmin && (
           <Button onClick={() => { setEditing(null); setFormOpen(true); }} size="sm">
-            <Plus className="h-4 w-4 mr-1.5" /> Nova Época
+            <Plus className="h-4 w-4 mr-1.5" /> Novo Período
           </Button>
         )}
       </div>
 
       {seasons.length === 0 ? (
         <Card><CardContent className="p-8 text-center text-sm text-muted-foreground">
-          Sem épocas. {isAdmin && "Clique em 'Nova Época' para começar."}
+          Sem períodos. {isAdmin && "Clique em 'Novo Período' para começar."}
         </CardContent></Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -152,9 +152,9 @@ export default function SeasonsTab({ seasons, patecs, links, isAdmin, refetch }:
       <AlertDialog open={!!deleting} onOpenChange={(o) => !o && setDeleting(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Remover época {deleting?.name}?</AlertDialogTitle>
+            <AlertDialogTitle>Remover período {deleting?.name}?</AlertDialogTitle>
             <AlertDialogDescription>
-              Esta ação remove a época e os vínculos com pacotes. Pacotes só com esta época terão vendas POS bloqueadas.
+              Esta ação remove o período e os vínculos com pacotes. Pacotes só com este período terão vendas POS bloqueadas.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

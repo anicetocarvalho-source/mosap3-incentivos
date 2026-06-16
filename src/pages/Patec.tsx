@@ -892,7 +892,7 @@ const Patec = () => {
   const handleRandomReassign = async () => {
     if (semPatecPool.length === 0) return;
     if (patecsForSeason.length === 0) {
-      toast.error("Não existem PATECs disponíveis para a época seleccionada");
+      toast.error("Não existem PATECs disponíveis para o período seleccionado");
       return;
     }
     setSaving(true);
@@ -929,7 +929,7 @@ const Patec = () => {
     } else {
       toast.success(`Reatribuídos ${ids.length} produtor(es) aleatoriamente`);
       const seasonName = selectedSeasonId === "all"
-        ? "Todas as épocas"
+        ? "Todos os períodos"
         : (seasons.find((s) => s.id === selectedSeasonId)?.name || "—");
       setRandomReport({
         total: ids.length,
@@ -1220,7 +1220,7 @@ const Patec = () => {
                     className="h-8 text-xs"
                     onClick={() => {
                       if (patecsForSeason.length === 0) {
-                        toast.error("Não existem PATECs disponíveis para a época seleccionada. Seleccione uma época com pacotes vinculados.");
+                        toast.error("Não existem PATECs disponíveis para o período seleccionado. Seleccione um período com pacotes vinculados.");
                         return;
                       }
                       setRandomConfirmOpen(true);
@@ -1463,10 +1463,10 @@ const Patec = () => {
             <Select value={selectedSeasonId} onValueChange={setSelectedSeasonId}>
               <SelectTrigger className="w-[220px]">
                 <CalendarDays className="h-4 w-4 mr-2" />
-                <SelectValue placeholder="Época agrícola" />
+                <SelectValue placeholder="Período agrícola" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Todas as épocas</SelectItem>
+                <SelectItem value="all">Todos os períodos</SelectItem>
                 {seasons.map((s) => (
                   <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
                 ))}
@@ -1656,7 +1656,7 @@ const Patec = () => {
             </p>
             {seasons.length > 0 && (
               <div className="text-xs text-muted-foreground">
-                Época: <span className="font-medium text-foreground">
+                Período: <span className="font-medium text-foreground">
                   {selectedSeasonId === "all" ? "Todas" : (seasons.find((s) => s.id === selectedSeasonId)?.name || "—")}
                 </span>
               </div>
@@ -1670,7 +1670,7 @@ const Patec = () => {
             <div className="border rounded-lg divide-y max-h-[55vh] overflow-y-auto">
               {patecsForSeason.length === 0 ? (
                 <div className="px-3 py-4 text-xs text-muted-foreground">
-                  Nenhum pacote vinculado a esta época. Vá ao separador <strong>Pacotes</strong> para vincular.
+                  Nenhum pacote vinculado a este período. Vá ao separador <strong>Pacotes</strong> para vincular.
                 </div>
               ) : patecsForSeason.map((p) => {
                 const checked = editPatecCodes.has(p.code);
@@ -1743,7 +1743,7 @@ const Patec = () => {
               <SelectContent>
                 {patecsForSeason.length === 0 ? (
                   <div className="px-2 py-3 text-xs text-muted-foreground">
-                    Nenhum pacote vinculado a esta época.
+                    Nenhum pacote vinculado a este período.
                   </div>
                 ) : patecsForSeason.map((p) => (
                   <SelectItem key={p.id} value={p.code}>{p.code} — {p.cultures || p.name}</SelectItem>
@@ -1899,7 +1899,7 @@ const Patec = () => {
                 <SelectContent>
                   {patecsForSeason.length === 0 ? (
                     <div className="px-2 py-3 text-xs text-muted-foreground">
-                      Nenhum pacote vinculado a esta época.
+                      Nenhum pacote vinculado a este período.
                     </div>
                   ) : patecsForSeason.map((p) => (
                     <SelectItem key={p.id} value={p.code}>{p.code} — {p.cultures || p.name}</SelectItem>
@@ -2177,15 +2177,15 @@ const Patec = () => {
                 <p>
                   Vai distribuir aleatoriamente (equilibrado) <strong className="text-foreground">{semPatecPool.length}</strong>{" "}
                   produtor(es) sem PATEC pelos{" "}
-                  <strong className="text-foreground">{patecsForSeason.length}</strong> PATEC(s) disponíveis para a época{" "}
+                  <strong className="text-foreground">{patecsForSeason.length}</strong> PATEC(s) disponíveis para o período{" "}
                   <strong className="text-foreground">
-                    {selectedSeasonId === "all" ? "(todas)" : (seasons.find((s) => s.id === selectedSeasonId)?.name || "—")}
+                    {selectedSeasonId === "all" ? "(todos)" : (seasons.find((s) => s.id === selectedSeasonId)?.name || "—")}
                   </strong>
                   {filterProvince !== "all" ? <> em <strong className="text-foreground">{filterProvince}</strong></> : null}.
                 </p>
                 {patecsForSeason.length === 0 && (
                   <p className="text-xs text-destructive">
-                    Não existem PATECs vinculados a esta época. Vincule pacotes à época antes de continuar.
+                    Não existem PATECs vinculados a este período. Vincule pacotes ao período antes de continuar.
                   </p>
                 )}
                 <p className="text-xs text-muted-foreground">
@@ -2218,7 +2218,7 @@ const Patec = () => {
               <div className="space-y-3 py-2 text-sm">
                 <p className="text-muted-foreground">
                   Âmbito: <span className="font-medium text-foreground">{randomReport.province}</span>
-                  {" · "}Época: <span className="font-medium text-foreground">{randomReport.season}</span>
+                  {" · "}Período: <span className="font-medium text-foreground">{randomReport.season}</span>
                 </p>
                 <p>
                   <strong className="text-foreground">{t}</strong> produtor(es) reatribuídos aleatoriamente de forma equilibrada.
