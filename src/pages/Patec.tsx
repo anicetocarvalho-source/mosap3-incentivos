@@ -3,7 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import {
   BarChart as RechartsBarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
 } from "recharts";
-import { Package, Search, Filter, Edit2, Eye, CheckSquare, X, Plus, Trash2, Pencil, Check, ChevronLeft, ChevronRight, Wheat, Loader2, Users, AlertCircle, Sprout, Leaf, TreeDeciduous, BarChart, MapPin, Shuffle, CalendarDays, Carrot, Apple, Cherry, Flower2 } from "lucide-react";
+import { Package, Search, Filter, Edit2, Eye, CheckSquare, X, Plus, Trash2, Pencil, Check, ChevronLeft, ChevronRight, Wheat, Loader2, Users, AlertCircle, Sprout, Leaf, TreeDeciduous, BarChart, MapPin, Shuffle, CalendarDays, Carrot, Apple, Cherry, Flower2, Bird, Beef, PawPrint, Rabbit, PiggyBank } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllPages } from "@/lib/supabaseFetchAll";
 import { cn } from "@/lib/utils";
@@ -74,6 +74,11 @@ const patecMeta: Record<number, { title: string; color: string; cultures: string
   8: { title: "PATEC 8 — Cebola", color: "bg-rose-100 text-rose-800 border-rose-300", cultures: "Cebola", icon: Flower2, gradient: "from-rose-500 to-pink-600", bgAccent: "bg-rose-50 dark:bg-rose-950/30", chartFill: "hsl(340, 82%, 55%)" },
   9: { title: "PATEC 9 — Cenoura", color: "bg-orange-100 text-orange-800 border-orange-300", cultures: "Cenoura", icon: Carrot, gradient: "from-orange-600 to-red-500", bgAccent: "bg-orange-50 dark:bg-orange-950/30", chartFill: "hsl(14, 88%, 52%)" },
   10: { title: "PATEC 10 — Repolho", color: "bg-green-100 text-green-800 border-green-300", cultures: "Repolho", icon: Leaf, gradient: "from-green-500 to-emerald-600", bgAccent: "bg-green-50 dark:bg-green-950/30", chartFill: "hsl(142, 71%, 42%)" },
+  11: { title: "PATEC 11 — Aves", color: "bg-sky-100 text-sky-800 border-sky-300", cultures: "Aves", icon: Bird, gradient: "from-sky-500 to-cyan-600", bgAccent: "bg-sky-50 dark:bg-sky-950/30", chartFill: "hsl(199, 89%, 48%)" },
+  12: { title: "PATEC 12 — Bovinos", color: "bg-red-100 text-red-800 border-red-300", cultures: "Bovinos", icon: Beef, gradient: "from-red-500 to-rose-600", bgAccent: "bg-red-50 dark:bg-red-950/30", chartFill: "hsl(0, 84%, 55%)" },
+  13: { title: "PATEC 13 — Caprinos", color: "bg-amber-100 text-amber-900 border-amber-400", cultures: "Caprinos", icon: PawPrint, gradient: "from-amber-600 to-yellow-700", bgAccent: "bg-amber-50 dark:bg-amber-950/30", chartFill: "hsl(35, 92%, 45%)" },
+  14: { title: "PATEC 14 — Ovinos", color: "bg-slate-100 text-slate-800 border-slate-300", cultures: "Ovinos", icon: Rabbit, gradient: "from-slate-400 to-zinc-500", bgAccent: "bg-slate-50 dark:bg-slate-900/40", chartFill: "hsl(215, 16%, 50%)" },
+  15: { title: "PATEC 15 — Suínos", color: "bg-pink-100 text-pink-800 border-pink-300", cultures: "Suínos", icon: PiggyBank, gradient: "from-pink-400 to-rose-500", bgAccent: "bg-pink-50 dark:bg-pink-950/30", chartFill: "hsl(340, 75%, 60%)" },
 };
 
 const FALLBACK_PATEC_META = { gradient: "from-slate-400 to-slate-600", icon: Package, chartFill: "hsl(215, 16%, 47%)", color: "bg-muted text-muted-foreground border-border" };
