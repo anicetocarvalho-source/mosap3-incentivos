@@ -2166,7 +2166,8 @@ const Patec = () => {
                 </div>
               </div>
             </>
-          )}
+            );
+          })()}
         </DialogContent>
       </Dialog>
 
