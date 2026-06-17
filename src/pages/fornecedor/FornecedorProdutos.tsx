@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useOutletContext } from "react-router-dom";
+import { useOutletContext, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Pencil, Trash2, Package, Download } from "lucide-react";
+import { Plus, Pencil, Trash2, Package, Download, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 import { LoadingState } from "@/components/ui/loading-state";
 import { ErrorState } from "@/components/ui/error-state";
@@ -23,6 +23,12 @@ interface PatecItem { id: string; name: string; category: string; patec_number: 
 
 const FornecedorProdutos = () => {
   const { supplier } = useOutletContext<{ supplier: { id: string } }>();
+  const [_, setParams] = useSearchParams();
+  const goToStock = () => {
+    const p = new URLSearchParams();
+    p.set("tab", "stock");
+    setParams(p, { replace: true });
+  };
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -163,6 +169,15 @@ const FornecedorProdutos = () => {
         </div>
       </div>
 
+      <div className="rounded-md border border-info/30 bg-info/10 p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="text-sm">
+          <p className="font-medium text-foreground">Preço e stock são geridos em Stock &amp; Preços</p>
+          <p className="text-muted-foreground">Para definir ou alterar preço e stock de um produto, utilize o separador seguinte.</p>
+        </div>
+        <Button variant="outline" size="sm" onClick={goToStock} className="shrink-0">
+          Ir para Stock &amp; Preços <ArrowRight className="h-4 w-4 ml-1" />
+        </Button>
+      </div>
 
       <Card>
         <CardContent className="pt-4">
