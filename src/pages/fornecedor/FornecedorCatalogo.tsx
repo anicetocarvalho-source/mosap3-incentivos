@@ -89,10 +89,10 @@ const FornecedorCatalogo = () => {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="produtos" className="mt-4">
+        <TabsContent value="produtos" forceMount className="mt-4 data-[state=inactive]:hidden">
           <FornecedorProdutos />
         </TabsContent>
-        <TabsContent value="stock" className="mt-4">
+        <TabsContent value="stock" forceMount className="mt-4 data-[state=inactive]:hidden">
           <FornecedorStock />
         </TabsContent>
       </Tabs>
