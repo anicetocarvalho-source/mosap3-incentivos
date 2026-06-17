@@ -23,6 +23,12 @@ interface PatecItem { id: string; name: string; category: string; patec_number: 
 
 const FornecedorProdutos = () => {
   const { supplier } = useOutletContext<{ supplier: { id: string } }>();
+  const [_, setParams] = useSearchParams();
+  const goToStock = () => {
+    const p = new URLSearchParams();
+    p.set("tab", "stock");
+    setParams(p, { replace: true });
+  };
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
