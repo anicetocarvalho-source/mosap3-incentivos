@@ -169,6 +169,15 @@ const FornecedorProdutos = () => {
         </div>
       </div>
 
+      <div className="rounded-md border border-info/30 bg-info/10 p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="text-sm">
+          <p className="font-medium text-foreground">Preço e stock são geridos em Stock &amp; Preços</p>
+          <p className="text-muted-foreground">Para definir ou alterar preço e stock de um produto, utilize o separador seguinte.</p>
+        </div>
+        <Button variant="outline" size="sm" onClick={goToStock} className="shrink-0">
+          Ir para Stock &amp; Preços <ArrowRight className="h-4 w-4 ml-1" />
+        </Button>
+      </div>
 
       <Card>
         <CardContent className="pt-4">
