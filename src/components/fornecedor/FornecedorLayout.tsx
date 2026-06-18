@@ -82,7 +82,20 @@ const FornecedorLayout = () => {
         </div>
         <nav className="p-3 space-y-1">
           {navItems.map((item) => {
-            const active = location.pathname === item.to;
+            // Highlight rules:
+            // - Dashboard (/fornecedor) only on exact match.
+            // - Other items match the exact path OR any nested sub-path, so things
+            //   like /fornecedor/catalogo?tab=stock or legacy /fornecedor/stock and
+            //   /fornecedor/precos (which redirect to ?tab=stock) keep the
+            //   "Catálogo & Stock" entry highlighted.
+            const path = location.pathname;
+            const isCatalogoLegacy =
+              item.to === "/fornecedor/catalogo" &&
+              (path === "/fornecedor/stock" || path === "/fornecedor/precos");
+            const active =
+              item.to === "/fornecedor"
+                ? path === "/fornecedor"
+                : path === item.to || path.startsWith(item.to + "/") || isCatalogoLegacy;
             return (
               <Link key={item.to} to={item.to} onClick={() => setMobileOpen(false)}
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${active ? "bg-sidebar-accent text-sidebar-primary" : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50"}`}>
