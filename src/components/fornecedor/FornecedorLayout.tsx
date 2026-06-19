@@ -81,31 +81,46 @@ const FornecedorLayout = () => {
           </button>
         </div>
         <nav className="p-3 space-y-1">
-          {navItems.map((item) => {
-            // Highlight rules:
-            // - Dashboard (/fornecedor) only on exact match.
-            // - Other items match the exact path OR any nested sub-path, so things
-            //   like /fornecedor/catalogo?tab=stock or legacy /fornecedor/stock and
-            //   /fornecedor/precos (which redirect to ?tab=stock) keep the
-            //   "Catálogo & Stock" entry highlighted.
-            const path = location.pathname;
-            const isCatalogoLegacy =
-              item.to === "/fornecedor/catalogo" &&
-              (path === "/fornecedor/stock" || path === "/fornecedor/precos");
-            const active =
-              item.to === "/fornecedor"
-                ? path === "/fornecedor"
-                : path === item.to || path.startsWith(item.to + "/") || isCatalogoLegacy;
-            return (
-              <Link key={item.to} to={item.to} onClick={() => setMobileOpen(false)}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${active ? "bg-sidebar-accent text-sidebar-primary" : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50"}`}>
-                <item.icon className="h-4 w-4" />
-                <span className="flex-1">{item.label}</span>
-                {(item as any).badge && <span className="text-[10px] bg-primary text-primary-foreground px-1.5 py-0.5 rounded-full font-semibold">{(item as any).badge}</span>}
-              </Link>
-            );
-          })}
+          {(() => {
+            // Compute a single active item using longest-prefix matching so
+            // overlapping routes (e.g. /fornecedor/pos vs /fornecedor/pos/venda)
+            // never light up at the same time.
+            let path = location.pathname;
+            // Legacy redirects: /fornecedor/stock and /fornecedor/precos render
+            // /fornecedor/catalogo?tab=stock — treat them as the catalogo route.
+            if (path === "/fornecedor/stock" || path === "/fornecedor/precos") {
+              path = "/fornecedor/catalogo";
+            }
+
+            let activeTo: string | null = null;
+            if (path === "/fornecedor") {
+              activeTo = "/fornecedor";
+            } else {
+              let bestLen = -1;
+              for (const item of navItems) {
+                if (item.to === "/fornecedor") continue; // dashboard: exact only
+                const matches = path === item.to || path.startsWith(item.to + "/");
+                if (matches && item.to.length > bestLen) {
+                  bestLen = item.to.length;
+                  activeTo = item.to;
+                }
+              }
+            }
+
+            return navItems.map((item) => {
+              const active = item.to === activeTo;
+              return (
+                <Link key={item.to} to={item.to} onClick={() => setMobileOpen(false)}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${active ? "bg-sidebar-accent text-sidebar-primary" : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50"}`}>
+                  <item.icon className="h-4 w-4" />
+                  <span className="flex-1">{item.label}</span>
+                  {(item as any).badge && <span className="text-[10px] bg-primary text-primary-foreground px-1.5 py-0.5 rounded-full font-semibold">{(item as any).badge}</span>}
+                </Link>
+              );
+            });
+          })()}
         </nav>
+
         <div className="absolute bottom-4 left-3 right-3">
           <Button variant="ghost" className="w-full justify-start text-sidebar-foreground/60 hover:text-sidebar-foreground" onClick={handleLogout}>
             <LogOut className="h-4 w-4 mr-2" /> Terminar sessão
