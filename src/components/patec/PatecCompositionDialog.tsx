@@ -739,6 +739,17 @@ export default function PatecCompositionDialog({ open, onOpenChange, patec, onMu
             </DialogDescription>
           </DialogHeader>
 
+          {isAdmin && !addingCategory && (
+            <div className="flex flex-wrap items-center justify-end gap-2 -mt-2">
+              <Button size="sm" variant="outline" onClick={() => openAdd(activeTab)}>
+                <Plus className="h-3.5 w-3.5 mr-1" /> Adicionar item ({activeTab === "pecuaria" ? "Pecuária" : "Agricultura"})
+              </Button>
+            </div>
+          )}
+          {isAdmin && addingCategory && (
+            <div className="-mt-2">{renderAddForm()}</div>
+          )}
+
           {loading && !hasAny ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
