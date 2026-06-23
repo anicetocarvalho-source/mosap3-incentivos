@@ -411,7 +411,9 @@ export default function PatecCompositionDialog({ open, onOpenChange, patec, onMu
       return;
     }
     toast.success("Item adicionado à composição");
-    setItems((prev) => [...prev, data as unknown as PatecItem]);
+    setActiveTab(addingCategory);
+    await fetchItems();
+    onMutated?.();
     cancelAdd();
   };
 
