@@ -150,8 +150,10 @@ export default function PatecCompositionDialog({ open, onOpenChange, patec, onMu
 
   // Sincroniza tab activo com a categoria predominante quando items carregam pela 1ª vez
   useEffect(() => {
-    if (!loading && items.length > 0) {
-      setActiveTab((prev) => prev ?? computedDefaultTab);
+    if (!loading && items.length > 0 && !addingCategory) {
+      if (items.filter((i) => i.category === "agricultura").length === 0) {
+        setActiveTab("pecuaria");
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading]);
