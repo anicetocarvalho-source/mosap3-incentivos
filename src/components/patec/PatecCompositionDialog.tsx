@@ -535,16 +535,8 @@ export default function PatecCompositionDialog({ open, onOpenChange, patec, onMu
     }
     return (
       <>
-        {isAdmin && (
-          <div className="flex justify-end">
-            {addingCategory === category ? null : (
-              <Button size="sm" variant="outline" onClick={() => openAdd(category)}>
-                <Plus className="h-3.5 w-3.5 mr-1" /> Adicionar item
-              </Button>
-            )}
-          </div>
-        )}
-        {isAdmin && addingCategory === category && renderAddForm()}
+        {/* Botão "Adicionar item" e formulário foram movidos para o topo do diálogo
+            (ver DialogHeader) para ficarem sempre visíveis, mesmo com listas longas. */}
         {Object.entries(byCulture).map(([culture, subs]) => (
           <div key={culture} className="space-y-3">
             <h3 className="text-sm font-semibold text-primary border-b pb-1">{culture}</h3>
@@ -738,6 +730,17 @@ export default function PatecCompositionDialog({ open, onOpenChange, patec, onMu
               {isAdmin ? " Pode adicionar, editar e remover itens." : " Apenas administradores podem editar."}
             </DialogDescription>
           </DialogHeader>
+
+          {isAdmin && !addingCategory && (
+            <div className="flex flex-wrap items-center justify-end gap-2 -mt-2">
+              <Button size="sm" variant="outline" onClick={() => openAdd(activeTab)}>
+                <Plus className="h-3.5 w-3.5 mr-1" /> Adicionar item ({activeTab === "pecuaria" ? "Pecuária" : "Agricultura"})
+              </Button>
+            </div>
+          )}
+          {isAdmin && addingCategory && (
+            <div className="-mt-2">{renderAddForm()}</div>
+          )}
 
           {loading && !hasAny ? (
             <div className="flex items-center justify-center py-12">
