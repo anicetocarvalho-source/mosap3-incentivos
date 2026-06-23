@@ -144,8 +144,17 @@ export default function PatecCompositionDialog({ open, onOpenChange, patec, onMu
     setEditingId(null);
     setAddingCategory(null);
     setNewItem(emptyDraft());
+    setActiveTab("agricultura");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, patec]);
+
+  // Sincroniza tab activo com a categoria predominante quando items carregam pela 1ª vez
+  useEffect(() => {
+    if (!loading && items.length > 0) {
+      setActiveTab((prev) => prev ?? computedDefaultTab);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading]);
 
   const byCategory = useMemo(() => {
     const m: Record<string, PatecItem[]> = { agricultura: [], pecuaria: [] };
