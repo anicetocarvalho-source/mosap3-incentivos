@@ -89,6 +89,7 @@ interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   patec: Patec | null;
+  onMutated?: () => void;
 }
 
 type NewItemDraft = {
@@ -107,7 +108,7 @@ const emptyDraft = (): NewItemDraft => ({
   unit: "",
 });
 
-export default function PatecCompositionDialog({ open, onOpenChange, patec }: Props) {
+export default function PatecCompositionDialog({ open, onOpenChange, patec, onMutated }: Props) {
   const { isAdmin } = useAuth();
   const [items, setItems] = useState<PatecItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -123,6 +124,7 @@ export default function PatecCompositionDialog({ open, onOpenChange, patec }: Pr
   const [adding, setAdding] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<PatecItem | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [activeTab, setActiveTab] = useState<"agricultura" | "pecuaria">("agricultura");
 
   const fetchItems = async () => {
     if (!patec) return;
@@ -142,8 +144,19 @@ export default function PatecCompositionDialog({ open, onOpenChange, patec }: Pr
     setEditingId(null);
     setAddingCategory(null);
     setNewItem(emptyDraft());
+    setActiveTab("agricultura");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, patec]);
+
+  // Sincroniza tab activo com a categoria predominante quando items carregam pela 1ª vez
+  useEffect(() => {
+    if (!loading && items.length > 0 && !addingCategory) {
+      if (items.filter((i) => i.category === "agricultura").length === 0) {
+        setActiveTab("pecuaria");
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading]);
 
   const byCategory = useMemo(() => {
     const m: Record<string, PatecItem[]> = { agricultura: [], pecuaria: [] };
@@ -250,7 +263,8 @@ export default function PatecCompositionDialog({ open, onOpenChange, patec }: Pr
       return;
     }
     toast.success("Quantidade actualizada");
-    setItems((prev) => prev.map((p) => (p.id === it.id ? { ...p, base_quantity: qty, unit } : p)));
+    await fetchItems();
+    onMutated?.();
     cancelEdit();
   };
 
@@ -310,7 +324,10 @@ export default function PatecCompositionDialog({ open, onOpenChange, patec }: Pr
       return;
     }
     toast.success("Item actualizado");
-    setItems((prev) => prev.map((p) => (p.id === it.id ? { ...p, ...patch } : p)));
+    const targetCat = (patch as any).subcategory && PECUARIA_SUBS.includes((patch as any).subcategory) ? "pecuaria" : (it.category === "pecuaria" ? "pecuaria" : "agricultura");
+    setActiveTab(targetCat as "agricultura" | "pecuaria");
+    await fetchItems();
+    onMutated?.();
     cancelEdit();
   };
 
@@ -396,7 +413,9 @@ export default function PatecCompositionDialog({ open, onOpenChange, patec }: Pr
       return;
     }
     toast.success("Item adicionado à composição");
-    setItems((prev) => [...prev, data as unknown as PatecItem]);
+    setActiveTab(addingCategory);
+    await fetchItems();
+    onMutated?.();
     cancelAdd();
   };
 
@@ -413,7 +432,8 @@ export default function PatecCompositionDialog({ open, onOpenChange, patec }: Pr
       return;
     }
     toast.success("Item removido da composição");
-    setItems((prev) => prev.filter((p) => p.id !== deleteTarget.id));
+    await fetchItems();
+    onMutated?.();
     setDeleteTarget(null);
   };
 
@@ -685,7 +705,7 @@ export default function PatecCompositionDialog({ open, onOpenChange, patec }: Pr
   };
 
   const hasAny = items.length > 0;
-  const activeTab = byCategory.agricultura.length || addingCategory === "agricultura" ? "agricultura" : "pecuaria";
+
 
   return (
     <>
@@ -711,7 +731,7 @@ export default function PatecCompositionDialog({ open, onOpenChange, patec }: Pr
               Sem composição registada para este pacote.
             </div>
           ) : (
-            <Tabs defaultValue={activeTab} className="w-full">
+            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "agricultura" | "pecuaria")} className="w-full">
               <TabsList>
                 <TabsTrigger value="agricultura">
                   Agricultura ({byCategory.agricultura.length})
