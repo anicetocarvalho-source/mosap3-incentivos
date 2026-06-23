@@ -2088,6 +2088,12 @@ const Patec = () => {
         open={composingPatec !== null}
         onOpenChange={(o) => !o && setComposingPatec(null)}
         patec={composingPatec}
+        onMutated={() => {
+          if (composingPatec?.code) {
+            dirtyCodesRef.current.add(composingPatec.code);
+            scheduleReconcile();
+          }
+        }}
       />
 
       <Dialog open={viewPatec !== null} onOpenChange={(o) => !o && setViewPatec(null)}>
