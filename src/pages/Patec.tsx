@@ -379,7 +379,7 @@ const Patec = () => {
   // reconciliados em lote contra a contagem autoritativa do servidor.
   const dirtyCodesRef = useRef<Set<string>>(new Set<string>());
   const reconcileTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const RECONCILE_DEBOUNCE_MS = 800;
+  const RECONCILE_DEBOUNCE_MS = 150;
 
   const reconcileDirtyCodes = useCallback(async () => {
     reconcileTimerRef.current = null;
