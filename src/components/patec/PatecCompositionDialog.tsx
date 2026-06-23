@@ -447,9 +447,11 @@ export default function PatecCompositionDialog({ open, onOpenChange, patec, onMu
       return;
     }
     toast.success("Item removido da composição");
-    await fetchItems();
-    onMutated?.();
+    const removedId = deleteTarget.id;
+    setItems((prev) => prev.filter((p) => p.id !== removedId));
     setDeleteTarget(null);
+    onMutated?.();
+    void fetchItems();
   };
 
   const subcategoryOptions = addingCategory === "pecuaria" ? PECUARIA_SUBS : AGRICULTURA_SUBS;
