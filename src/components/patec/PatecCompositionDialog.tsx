@@ -419,11 +419,17 @@ export default function PatecCompositionDialog({ open, onOpenChange, patec, onMu
       toast.error("Erro ao adicionar item", { description: error.message });
       return;
     }
+    // Update optimista: insere imediatamente o registo retornado, antes do refetch
+    if (data) {
+      const inserted = data as unknown as PatecItem;
+      setItems((prev) => (prev.some((p) => p.id === inserted.id) ? prev : [...prev, inserted]));
+    }
     toast.success("Item adicionado à composição");
     setActiveTab(addingCategory);
-    await fetchItems();
-    onMutated?.();
     cancelAdd();
+    onMutated?.();
+    // Reconciliação silenciosa em background (não bloqueia a UI nem apaga o item inserido)
+    void fetchItems();
   };
 
   const confirmDelete = async () => {
