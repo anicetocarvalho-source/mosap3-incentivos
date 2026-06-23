@@ -687,7 +687,7 @@ export default function PatecCompositionDialog({ open, onOpenChange, patec, onMu
   };
 
   const hasAny = items.length > 0;
-  const activeTab = byCategory.agricultura.length || addingCategory === "agricultura" ? "agricultura" : "pecuaria";
+  const computedDefaultTab = byCategory.agricultura.length || addingCategory === "agricultura" ? "agricultura" : "pecuaria";
 
   return (
     <>
