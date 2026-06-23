@@ -535,16 +535,8 @@ export default function PatecCompositionDialog({ open, onOpenChange, patec, onMu
     }
     return (
       <>
-        {isAdmin && (
-          <div className="flex justify-end">
-            {addingCategory === category ? null : (
-              <Button size="sm" variant="outline" onClick={() => openAdd(category)}>
-                <Plus className="h-3.5 w-3.5 mr-1" /> Adicionar item
-              </Button>
-            )}
-          </div>
-        )}
-        {isAdmin && addingCategory === category && renderAddForm()}
+        {/* Botão "Adicionar item" e formulário foram movidos para o topo do diálogo
+            (ver DialogHeader) para ficarem sempre visíveis, mesmo com listas longas. */}
         {Object.entries(byCulture).map(([culture, subs]) => (
           <div key={culture} className="space-y-3">
             <h3 className="text-sm font-semibold text-primary border-b pb-1">{culture}</h3>
