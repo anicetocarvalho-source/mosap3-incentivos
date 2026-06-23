@@ -176,6 +176,7 @@ export default function PatecsTab({ patecs, seasons, links, farmerCounts, isAdmi
         open={!!composing}
         onOpenChange={(o) => !o && setComposing(null)}
         patec={composing}
+        onMutated={refetch}
       />
 
       <AlertDialog open={!!deleting} onOpenChange={(o) => !o && setDeleting(null)}>
