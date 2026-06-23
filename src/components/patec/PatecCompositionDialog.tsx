@@ -334,9 +334,10 @@ export default function PatecCompositionDialog({ open, onOpenChange, patec, onMu
     toast.success("Item actualizado");
     const targetCat = (patch as any).subcategory && PECUARIA_SUBS.includes((patch as any).subcategory) ? "pecuaria" : (it.category === "pecuaria" ? "pecuaria" : "agricultura");
     setActiveTab(targetCat as "agricultura" | "pecuaria");
-    await fetchItems();
-    onMutated?.();
+    setItems((prev) => prev.map((p) => (p.id === it.id ? { ...p, ...patch, category: targetCat } : p)));
     cancelEdit();
+    onMutated?.();
+    void fetchItems();
   };
 
   const openAdd = (category: "agricultura" | "pecuaria") => {
