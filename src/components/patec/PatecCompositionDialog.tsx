@@ -261,7 +261,8 @@ export default function PatecCompositionDialog({ open, onOpenChange, patec, onMu
       return;
     }
     toast.success("Quantidade actualizada");
-    setItems((prev) => prev.map((p) => (p.id === it.id ? { ...p, base_quantity: qty, unit } : p)));
+    await fetchItems();
+    onMutated?.();
     cancelEdit();
   };
 
