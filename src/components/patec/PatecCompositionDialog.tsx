@@ -89,6 +89,7 @@ interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   patec: Patec | null;
+  onMutated?: () => void;
 }
 
 type NewItemDraft = {

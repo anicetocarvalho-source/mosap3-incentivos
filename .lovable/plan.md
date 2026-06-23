@@ -1,34 +1,31 @@
-## Diagnóstico
+# Corrigir "actualizações não se reflectem" na Composição do Pacote
 
-A lógica actual em `src/components/fornecedor/FornecedorLayout.tsx` calcula `active` item-a-item usando `path === item.to || path.startsWith(item.to + "/")`. Como vários itens do menu partilham prefixo, mais do que um item fica destacado ao mesmo tempo:
+## Sintoma
+Em `/patec → Detalhes`, adicionar um item mostra o toast de sucesso mas o item não aparece imediatamente na lista da composição (e o badge "N itens" do card pode também ficar desactualizado).
 
-- Em `/fornecedor/pos/venda` ficam acesos **"Vender (Terminal POS)"** e **"Terminais POS"** (porque `/fornecedor/pos/venda` começa por `/fornecedor/pos`).
-- Em `/fornecedor/relatorios/vendedores` qualquer futuro `/fornecedor/relatorios` teria o mesmo problema.
-- Rotas legadas `/fornecedor/stock` e `/fornecedor/precos` já estão tratadas, mas via caso especial em vez de regra geral.
+## Causa
+`PatecCompositionDialog` faz **actualização optimista** do estado local — `setItems(prev => [...prev, data])` após o `insert().select().single()`. Quando essa resposta vem incompleta (ou o estado do tab cai num grupo diferente do que o utilizador está a ver), o item não é desenhado mesmo tendo sido persistido. Edição e remoção sofrem do mesmo padrão. Adicionalmente, o card pai depende exclusivamente do canal Realtime de `patec_items` para refrescar o badge — se o evento atrasar/falhar, a contagem fica antiga até nova reconciliação.
 
-Por isso o utilizador vê o destaque "do mesmo jeito" — não é cache, é colisão de prefixos.
+## Plano (apenas frontend, sem alterações de schema)
 
-## Plano
+### 1. `src/components/patec/PatecCompositionDialog.tsx`
+- **Refetch autoritativo após cada mutação.** Em `submitAdd`, `saveEdit`, `saveEditFull` e `confirmDelete`: depois do `insert/update/delete` bem-sucedido, chamar `await fetchItems()` em vez de mutar o array local. Isto garante que a UI mostra exactamente o que está na BD e elimina qualquer divergência por payload incompleto, mudança de categoria/subcategoria ou ordenação por `sort_order`.
+- **Forçar o tab activo para a categoria do item adicionado/editado.** Promover `Tabs` para controlado (`value` + `onValueChange`) e, após `submitAdd`/`saveEditFull`, setar `activeTab = addingCategory`/`editFullCategory`. Resolve o caso de o utilizador estar em "Pecuária" e adicionar em "Agricultura" (ou vice-versa) e não ver o resultado.
+- **Notificar o pai.** Aceitar nova prop opcional `onMutated?: () => void` e invocá-la após cada mutação bem-sucedida.
 
-Substituir o cálculo por item por uma estratégia de **melhor correspondência única** dentro do `nav`:
+### 2. `src/pages/Patec.tsx`
+- Passar `onMutated={() => { /* re-reconciliar contagem deste código */ dirtyCodesRef.current.add(composingPatec!.code); scheduleReconcile(); }}` ao `<PatecCompositionDialog>` da linha ~2087. Isto faz o badge "N itens" do card actualizar imediatamente, mesmo que o evento Realtime não chegue.
 
-1. Antes do `map`, calcular um `activeTo` único:
-   - Normalizar `path` (tirar query/hash — já vem só pathname, ok).
-   - Aplicar redirects legados ao nível do path: se `path` for `/fornecedor/stock` ou `/fornecedor/precos`, tratar como `/fornecedor/catalogo`.
-   - Dashboard (`/fornecedor`) só corresponde em match exacto.
-   - Entre os restantes itens, escolher aquele cujo `item.to` é igual ao path **ou** é o prefixo mais longo de `path` (com fronteira `/`). Empates impossíveis porque escolhemos o `to` mais longo.
-2. No `map`, `active = item.to === activeTo`. Garante exclusividade: só um item fica destacado.
-3. Manter visual e estrutura existentes; sem alterações de rotas, dados ou estilo.
+### 3. `src/components/patec/PatecsTab.tsx`
+- Passar a mesma callback `onMutated` ao `<PatecCompositionDialog>` da linha 175, ligada ao `refetch` já recebido por props.
 
-## Verificação
+## Fora do âmbito
+- Sem alterações ao schema, RLS, Realtime publication ou Service Worker.
+- Sem mexer em outros separadores (Stock & Preços, Catálogo), perfis ou outras páginas.
 
-- `/fornecedor` → Dashboard.
-- `/fornecedor/catalogo`, `/fornecedor/catalogo?tab=stock`, `/fornecedor/stock`, `/fornecedor/precos` → "Catálogo & Stock".
-- `/fornecedor/pos` → "Terminais POS".
-- `/fornecedor/pos/venda` → apenas "Vender (Terminal POS)".
-- `/fornecedor/relatorios/vendedores` → "Relatório Vendedores".
-- `/fornecedor/perfil`, `/fornecedor/lojas`, `/fornecedor/facturas`, `/fornecedor/turnos`, `/fornecedor/vendedores`, `/fornecedor/vendas` → o respectivo item, sozinho.
-
-## Detalhes técnicos
-
-Ficheiro único: `src/components/fornecedor/FornecedorLayout.tsx` (substituir o bloco de cálculo de `active` por uma função utilitária local que devolve o `to` vencedor). Sem alterações em rotas, dados, PWA ou backend.
+## Validação
+1. `/patec → Detalhes → Adicionar item` em Agricultura: item aparece na lista sem fechar/reabrir.
+2. Mesmo teste em Pecuária; e estando em Pecuária, adicionar em Agricultura → o dialog comuta para o tab correcto e mostra o item.
+3. Editar quantidade/unidade e mudar subcategoria → valor refresca imediatamente.
+4. Remover item → desaparece da lista e badge "N itens" do card decrementa sem F5.
+5. Reabrir o dialog → contagem do header (`{items.length} item(s)`) bate certo com a BD.
