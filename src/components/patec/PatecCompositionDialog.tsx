@@ -129,12 +129,19 @@ export default function PatecCompositionDialog({ open, onOpenChange, patec, onMu
   const fetchItems = async () => {
     if (!patec) return;
     setLoading(true);
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("patec_items" as any)
       .select("*")
       .eq("patec_code", patec.code)
       .order("sort_order");
-    setItems((data as unknown as PatecItem[]) || []);
+    if (error) {
+      // Não apaga a lista local em caso de falha de leitura — mantém
+      // qualquer item recém-inserido visível.
+      console.warn("[PatecComposition] fetchItems falhou:", error.message);
+      toast.error("Falha a recarregar composição", { description: error.message });
+    } else {
+      setItems((data as unknown as PatecItem[]) || []);
+    }
     setLoading(false);
   };
 
