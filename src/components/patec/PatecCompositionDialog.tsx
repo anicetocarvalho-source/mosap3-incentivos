@@ -729,7 +729,7 @@ export default function PatecCompositionDialog({ open, onOpenChange, patec, onMu
               Sem composição registada para este pacote.
             </div>
           ) : (
-            <Tabs defaultValue={activeTab} className="w-full">
+            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "agricultura" | "pecuaria")} className="w-full">
               <TabsList>
                 <TabsTrigger value="agricultura">
                   Agricultura ({byCategory.agricultura.length})
