@@ -430,7 +430,8 @@ export default function PatecCompositionDialog({ open, onOpenChange, patec, onMu
       return;
     }
     toast.success("Item removido da composição");
-    setItems((prev) => prev.filter((p) => p.id !== deleteTarget.id));
+    await fetchItems();
+    onMutated?.();
     setDeleteTarget(null);
   };
 
