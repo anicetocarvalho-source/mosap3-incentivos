@@ -129,12 +129,19 @@ export default function PatecCompositionDialog({ open, onOpenChange, patec, onMu
   const fetchItems = async () => {
     if (!patec) return;
     setLoading(true);
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("patec_items" as any)
       .select("*")
       .eq("patec_code", patec.code)
       .order("sort_order");
-    setItems((data as unknown as PatecItem[]) || []);
+    if (error) {
+      // Não apaga a lista local em caso de falha de leitura — mantém
+      // qualquer item recém-inserido visível.
+      console.warn("[PatecComposition] fetchItems falhou:", error.message);
+      toast.error("Falha a recarregar composição", { description: error.message });
+    } else {
+      setItems((data as unknown as PatecItem[]) || []);
+    }
     setLoading(false);
   };
 
@@ -263,9 +270,10 @@ export default function PatecCompositionDialog({ open, onOpenChange, patec, onMu
       return;
     }
     toast.success("Quantidade actualizada");
-    await fetchItems();
-    onMutated?.();
+    setItems((prev) => prev.map((p) => (p.id === it.id ? { ...p, base_quantity: qty, unit } : p)));
     cancelEdit();
+    onMutated?.();
+    void fetchItems();
   };
 
   const saveEditFull = async (it: PatecItem) => {
@@ -326,9 +334,10 @@ export default function PatecCompositionDialog({ open, onOpenChange, patec, onMu
     toast.success("Item actualizado");
     const targetCat = (patch as any).subcategory && PECUARIA_SUBS.includes((patch as any).subcategory) ? "pecuaria" : (it.category === "pecuaria" ? "pecuaria" : "agricultura");
     setActiveTab(targetCat as "agricultura" | "pecuaria");
-    await fetchItems();
-    onMutated?.();
+    setItems((prev) => prev.map((p) => (p.id === it.id ? { ...p, ...patch, category: targetCat } : p)));
     cancelEdit();
+    onMutated?.();
+    void fetchItems();
   };
 
   const openAdd = (category: "agricultura" | "pecuaria") => {
@@ -412,11 +421,17 @@ export default function PatecCompositionDialog({ open, onOpenChange, patec, onMu
       toast.error("Erro ao adicionar item", { description: error.message });
       return;
     }
+    // Update optimista: insere imediatamente o registo retornado, antes do refetch
+    if (data) {
+      const inserted = data as unknown as PatecItem;
+      setItems((prev) => (prev.some((p) => p.id === inserted.id) ? prev : [...prev, inserted]));
+    }
     toast.success("Item adicionado à composição");
     setActiveTab(addingCategory);
-    await fetchItems();
-    onMutated?.();
     cancelAdd();
+    onMutated?.();
+    // Reconciliação silenciosa em background (não bloqueia a UI nem apaga o item inserido)
+    void fetchItems();
   };
 
   const confirmDelete = async () => {
@@ -432,9 +447,11 @@ export default function PatecCompositionDialog({ open, onOpenChange, patec, onMu
       return;
     }
     toast.success("Item removido da composição");
-    await fetchItems();
-    onMutated?.();
+    const removedId = deleteTarget.id;
+    setItems((prev) => prev.filter((p) => p.id !== removedId));
     setDeleteTarget(null);
+    onMutated?.();
+    void fetchItems();
   };
 
   const subcategoryOptions = addingCategory === "pecuaria" ? PECUARIA_SUBS : AGRICULTURA_SUBS;
@@ -722,7 +739,7 @@ export default function PatecCompositionDialog({ open, onOpenChange, patec, onMu
             </DialogDescription>
           </DialogHeader>
 
-          {loading ? (
+          {loading && !hasAny ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
             </div>
