@@ -108,7 +108,7 @@ const emptyDraft = (): NewItemDraft => ({
   unit: "",
 });
 
-export default function PatecCompositionDialog({ open, onOpenChange, patec }: Props) {
+export default function PatecCompositionDialog({ open, onOpenChange, patec, onMutated }: Props) {
   const { isAdmin } = useAuth();
   const [items, setItems] = useState<PatecItem[]>([]);
   const [loading, setLoading] = useState(false);
