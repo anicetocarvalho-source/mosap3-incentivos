@@ -124,6 +124,7 @@ export default function PatecCompositionDialog({ open, onOpenChange, patec, onMu
   const [adding, setAdding] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<PatecItem | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [activeTab, setActiveTab] = useState<"agricultura" | "pecuaria">("agricultura");
 
   const fetchItems = async () => {
     if (!patec) return;
