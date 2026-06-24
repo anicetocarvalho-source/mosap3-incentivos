@@ -14,6 +14,78 @@ export type Database = {
   }
   public: {
     Tables: {
+      _ds_produtores: {
+        Row: {
+          eca: string | null
+          genero: string | null
+          idade: number | null
+          municipio: string | null
+          n_transacoes: number | null
+          nome: string | null
+          produtor_id: string
+          provincia: string | null
+          saldo_actual: number | null
+          saldo_inicial: number | null
+          total_gasto: number | null
+        }
+        Insert: {
+          eca?: string | null
+          genero?: string | null
+          idade?: number | null
+          municipio?: string | null
+          n_transacoes?: number | null
+          nome?: string | null
+          produtor_id: string
+          provincia?: string | null
+          saldo_actual?: number | null
+          saldo_inicial?: number | null
+          total_gasto?: number | null
+        }
+        Update: {
+          eca?: string | null
+          genero?: string | null
+          idade?: number | null
+          municipio?: string | null
+          n_transacoes?: number | null
+          nome?: string | null
+          produtor_id?: string
+          provincia?: string | null
+          saldo_actual?: number | null
+          saldo_inicial?: number | null
+          total_gasto?: number | null
+        }
+        Relationships: []
+      }
+      _ds_transacoes: {
+        Row: {
+          categoria: string | null
+          data: string | null
+          empresa: string | null
+          produto: string | null
+          produtor_id: string | null
+          transacao_id: string
+          valor: number | null
+        }
+        Insert: {
+          categoria?: string | null
+          data?: string | null
+          empresa?: string | null
+          produto?: string | null
+          produtor_id?: string | null
+          transacao_id: string
+          valor?: number | null
+        }
+        Update: {
+          categoria?: string | null
+          data?: string | null
+          empresa?: string | null
+          produto?: string | null
+          produtor_id?: string | null
+          transacao_id?: string
+          valor?: number | null
+        }
+        Relationships: []
+      }
       _tx_load_staging: {
         Row: {
           empresa: string | null
