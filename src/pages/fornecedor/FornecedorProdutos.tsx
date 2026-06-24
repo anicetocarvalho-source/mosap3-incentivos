@@ -79,11 +79,32 @@ const FornecedorProdutos = () => {
 
   useEffect(() => { fetchProducts(); }, [supplier.id]);
 
-  const openNew = () => { setEditing(null); setForm({ name: "", category: "insumos", unit: "un", iva_rate: "14", patec_number: "", patec_category: "", max_per_farmer_per_season: "" }); setDialogOpen(true); };
+  const openNew = () => {
+    setEditing(null);
+    setManualMode(false);
+    setPickerPatec("");
+    setPickerItemId("");
+    setForm({ name: "", category: "insumos", unit: "un", iva_rate: "14", patec_number: "", patec_category: "", max_per_farmer_per_season: "" });
+    setDialogOpen(true);
+  };
   const openEdit = (p: any) => {
     setEditing(p);
+    setManualMode(true);
     setForm({ name: p.name, category: p.category, unit: p.unit, iva_rate: String(p.iva_rate), patec_number: p.patec_number ? String(p.patec_number) : "", patec_category: p.patec_category || "", max_per_farmer_per_season: p.max_per_farmer_per_season ? String(p.max_per_farmer_per_season) : "" });
     setDialogOpen(true);
+  };
+
+  const pickItemFromCatalog = (itemId: string) => {
+    setPickerItemId(itemId);
+    const item = pickerItems.find((i) => i.id === itemId);
+    if (!item) return;
+    setForm((prev) => ({
+      ...prev,
+      name: item.name,
+      category: categoryMap[item.category] || "insumos",
+      patec_number: String(item.patec_number),
+      patec_category: item.category,
+    }));
   };
 
   const handleSave = async () => {
