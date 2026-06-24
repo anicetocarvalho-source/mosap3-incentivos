@@ -654,8 +654,13 @@ export default function PatecCompositionDialog({ open, onOpenChange, patec, onMu
                       );
                     }
                     return (
-                      <div key={r.id} className="flex items-center justify-between gap-3 px-3 py-1.5 text-sm">
-                        <span className="flex-1 min-w-0 truncate">{r.name}</span>
+                      <div key={r.id} className={`flex items-center justify-between gap-3 px-3 py-1.5 text-sm ${r.is_active === false ? "opacity-50" : ""}`}>
+                        <span className="flex-1 min-w-0 truncate flex items-center gap-2">
+                          <span className="truncate">{r.name}</span>
+                          {r.is_active === false && (
+                            <Badge variant="secondary" className="text-[10px]">Arquivado</Badge>
+                          )}
+                        </span>
                         {isEditing ? (
                           <div className="flex items-center gap-1.5">
                             <Input
