@@ -21,6 +21,9 @@ import { usePatecLabel } from "@/hooks/usePatecLabel";
 
 interface PatecItem { id: string; name: string; category: string; patec_number: number; }
 
+const categoryMap: Record<string, string> = { "Insumos": "insumos", "Pecuária": "pecuaria", "Serviços": "servicos" };
+
+
 const FornecedorProdutos = () => {
   const { supplier } = useOutletContext<{ supplier: { id: string } }>();
   const [_, setParams] = useSearchParams();
@@ -47,6 +50,27 @@ const FornecedorProdutos = () => {
   const [existingNames, setExistingNames] = useState<Set<string>>(new Set());
   const [importing, setImporting] = useState(false);
 
+  // Catalog-driven new product state
+  const [manualMode, setManualMode] = useState(false);
+  const [pickerPatec, setPickerPatec] = useState<string>("");
+  const [pickerItemId, setPickerItemId] = useState<string>("");
+  const [pickerItems, setPickerItems] = useState<PatecItem[]>([]);
+  const [pickerExistingNames, setPickerExistingNames] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (!pickerPatec) { setPickerItems([]); setPickerExistingNames(new Set()); return; }
+    const num = Number(pickerPatec);
+    (async () => {
+      const [{ data: items }, { data: existing }] = await Promise.all([
+        supabase.from("patec_items").select("id, name, category, patec_number").eq("patec_number", num).order("category, name"),
+        supabase.from("supplier_products").select("name").eq("supplier_id", supplier.id).eq("patec_number", num),
+      ]);
+      setPickerItems((items as PatecItem[]) || []);
+      setPickerExistingNames(new Set((existing || []).map((p: any) => (p.name || "").toLowerCase())));
+      setPickerItemId("");
+    })();
+  }, [pickerPatec, supplier.id]);
+
   const fetchProducts = async () => {
     setLoading(true);
     setError(null);
@@ -58,15 +82,40 @@ const FornecedorProdutos = () => {
 
   useEffect(() => { fetchProducts(); }, [supplier.id]);
 
-  const openNew = () => { setEditing(null); setForm({ name: "", category: "insumos", unit: "un", iva_rate: "14", patec_number: "", patec_category: "", max_per_farmer_per_season: "" }); setDialogOpen(true); };
+  const openNew = () => {
+    setEditing(null);
+    setManualMode(false);
+    setPickerPatec("");
+    setPickerItemId("");
+    setForm({ name: "", category: "insumos", unit: "un", iva_rate: "14", patec_number: "", patec_category: "", max_per_farmer_per_season: "" });
+    setDialogOpen(true);
+  };
   const openEdit = (p: any) => {
     setEditing(p);
+    setManualMode(true);
     setForm({ name: p.name, category: p.category, unit: p.unit, iva_rate: String(p.iva_rate), patec_number: p.patec_number ? String(p.patec_number) : "", patec_category: p.patec_category || "", max_per_farmer_per_season: p.max_per_farmer_per_season ? String(p.max_per_farmer_per_season) : "" });
     setDialogOpen(true);
   };
 
+  const pickItemFromCatalog = (itemId: string) => {
+    setPickerItemId(itemId);
+    const item = pickerItems.find((i) => i.id === itemId);
+    if (!item) return;
+    setForm((prev) => ({
+      ...prev,
+      name: item.name,
+      category: categoryMap[item.category] || "insumos",
+      patec_number: String(item.patec_number),
+      patec_category: item.category,
+    }));
+  };
+
   const handleSave = async () => {
+    if (!editing && !manualMode && !pickerItemId) { toast.error("Seleccione um item do catálogo PATEC"); return; }
     if (!form.name) { toast.error("Nome é obrigatório"); return; }
+    if (!editing && !manualMode && pickerExistingNames.has(form.name.toLowerCase())) {
+      toast.error("Já existe um produto com este nome no catálogo."); return;
+    }
     const basePayload = {
       supplier_id: supplier.id,
       name: form.name,
@@ -105,7 +154,7 @@ const FornecedorProdutos = () => {
   };
 
   // PATEC import
-  const categoryMap: Record<string, string> = { "Insumos": "insumos", "Pecuária": "pecuaria", "Serviços": "servicos" };
+
 
   const openImportPatec = async (patecNum: number) => {
     setImportPatecNum(patecNum);
@@ -253,54 +302,115 @@ const FornecedorProdutos = () => {
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
-          <DialogHeader><DialogTitle>{editing ? "Editar Produto" : "Novo Produto"}</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>{editing ? "Editar Produto" : "Novo Produto"}</DialogTitle>
+            {!editing && (
+              <p className="text-xs text-muted-foreground">
+                {manualMode
+                  ? "Adição manual — produto ficará marcado como Fora de PATEC e não será elegível para incentivos."
+                  : "Seleccione um item da composição oficial dos PATECs. A lista garante consistência com o catálogo central."}
+              </p>
+            )}
+          </DialogHeader>
           <div className="space-y-3">
-            <div><Label>Nome *</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
-            <div className="grid grid-cols-2 gap-3">
-              <div><Label>Categoria</Label>
-                <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent><SelectItem value="insumos">Insumos</SelectItem><SelectItem value="pecuaria">Pecuária</SelectItem><SelectItem value="servicos">Serviços</SelectItem><SelectItem value="equipamentos">Equipamentos</SelectItem></SelectContent>
-                </Select>
-              </div>
-              <div><Label>PATEC</Label>
-                <Select value={form.patec_number} onValueChange={(v) => setForm({ ...form, patec_number: v, patec_category: v ? form.patec_category : "" })}>
-                  <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
-                  <SelectContent>
-                    {patecCatalog.filter((p) => p.legacy_number != null).map((p) => (
-                      <SelectItem key={p.id} value={String(p.legacy_number)}>{patecLabel(p.legacy_number!)}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            {form.patec_number && (
-              <div>
-                <Label>Categoria PATEC</Label>
-                <Select value={form.patec_category} onValueChange={(v) => setForm({ ...form, patec_category: v })}>
-                  <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Insumos">Insumos</SelectItem>
-                    <SelectItem value="Pecuária">Pecuária</SelectItem>
-                    <SelectItem value="Serviços">Serviços</SelectItem>
-                  </SelectContent>
-                </Select>
+            {!editing && !manualMode && (
+              <>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label>PATEC *</Label>
+                    <Select value={pickerPatec} onValueChange={setPickerPatec}>
+                      <SelectTrigger><SelectValue placeholder="Escolher PATEC..." /></SelectTrigger>
+                      <SelectContent>
+                        {patecCatalog.filter((p) => p.legacy_number != null).map((p) => (
+                          <SelectItem key={p.id} value={String(p.legacy_number)}>{patecLabel(p.legacy_number!)}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Item da composição *</Label>
+                    <Select value={pickerItemId} onValueChange={pickItemFromCatalog} disabled={!pickerPatec || pickerItems.length === 0}>
+                      <SelectTrigger><SelectValue placeholder={!pickerPatec ? "Escolha o PATEC primeiro" : pickerItems.length === 0 ? "Sem itens" : "Escolher item..."} /></SelectTrigger>
+                      <SelectContent>
+                        {pickerItems.map((i) => {
+                          const exists = pickerExistingNames.has(i.name.toLowerCase());
+                          return (
+                            <SelectItem key={i.id} value={i.id} disabled={exists}>
+                              <span className="text-xs text-muted-foreground mr-1">[{i.category}]</span>
+                              {i.name} {exists ? "— já no catálogo" : ""}
+                            </SelectItem>
+                          );
+                        })}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <button type="button" onClick={() => setManualMode(true)} className="text-xs text-muted-foreground hover:text-foreground underline">
+                  Adicionar fora do catálogo PATEC (excepcional)
+                </button>
+              </>
+            )}
+
+            {(editing || manualMode) && (
+              <>
+                <div><Label>Nome *</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div><Label>Categoria</Label>
+                    <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v })}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent><SelectItem value="insumos">Insumos</SelectItem><SelectItem value="pecuaria">Pecuária</SelectItem><SelectItem value="servicos">Serviços</SelectItem><SelectItem value="equipamentos">Equipamentos</SelectItem></SelectContent>
+                    </Select>
+                  </div>
+                  <div><Label>PATEC</Label>
+                    <Select value={form.patec_number} onValueChange={(v) => setForm({ ...form, patec_number: v, patec_category: v ? form.patec_category : "" })}>
+                      <SelectTrigger><SelectValue placeholder="Nenhum" /></SelectTrigger>
+                      <SelectContent>
+                        {patecCatalog.filter((p) => p.legacy_number != null).map((p) => (
+                          <SelectItem key={p.id} value={String(p.legacy_number)}>{patecLabel(p.legacy_number!)}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                {form.patec_number && (
+                  <div>
+                    <Label>Categoria PATEC</Label>
+                    <Select value={form.patec_category} onValueChange={(v) => setForm({ ...form, patec_category: v })}>
+                      <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Insumos">Insumos</SelectItem>
+                        <SelectItem value="Pecuária">Pecuária</SelectItem>
+                        <SelectItem value="Serviços">Serviços</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+                {!editing && manualMode && (
+                  <button type="button" onClick={() => setManualMode(false)} className="text-xs text-primary hover:underline">
+                    ← Voltar ao catálogo PATEC
+                  </button>
+                )}
+              </>
+            )}
+
+            {(editing || manualMode || pickerItemId) && (
+              <div className="grid grid-cols-3 gap-3">
+                <div><Label>Unidade</Label><UnitSelect value={form.unit} onChange={(v) => setForm({ ...form, unit: v })} triggerClassName="h-10" /></div>
+                <div><Label>IVA (%)</Label><Input type="number" value={form.iva_rate} onChange={(e) => setForm({ ...form, iva_rate: e.target.value })} /></div>
+                <div><Label>Limite/produtor/época</Label><Input type="number" value={form.max_per_farmer_per_season} onChange={(e) => setForm({ ...form, max_per_farmer_per_season: e.target.value })} placeholder="Sem limite" /></div>
               </div>
             )}
-            <div className="grid grid-cols-3 gap-3">
-              <div><Label>Unidade</Label><UnitSelect value={form.unit} onChange={(v) => setForm({ ...form, unit: v })} triggerClassName="h-10" /></div>
-              <div><Label>IVA (%)</Label><Input type="number" value={form.iva_rate} onChange={(e) => setForm({ ...form, iva_rate: e.target.value })} /></div>
-              <div><Label>Limite/produtor/época</Label><Input type="number" value={form.max_per_farmer_per_season} onChange={(e) => setForm({ ...form, max_per_farmer_per_season: e.target.value })} placeholder="Sem limite" /></div>
-            </div>
+
             <div className="rounded-md border border-info/30 bg-info/10 p-2.5 text-xs text-muted-foreground">
               <strong className="text-foreground">Preço e stock</strong> são definidos no separador <strong>Stock &amp; Preços</strong>, com registo de motivo e histórico de alterações.
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
-            <Button onClick={handleSave}>{editing ? "Guardar" : "Adicionar"}</Button>
+            <Button onClick={handleSave} disabled={!editing && !manualMode && !pickerItemId}>{editing ? "Guardar" : "Adicionar"}</Button>
           </DialogFooter>
         </DialogContent>
+
       </Dialog>
 
       {/* PATEC Import Dialog */}

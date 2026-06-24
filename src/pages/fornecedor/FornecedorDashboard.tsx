@@ -85,6 +85,19 @@ const FornecedorDashboard = () => {
                 ))}
           </div>
 
+          {!loading && stats.products === 0 && (
+            <Card className="border-info/40 bg-info/5">
+              <CardContent className="pt-6">
+                <EmptyState
+                  icon={Package}
+                  title="Catálogo ainda vazio"
+                  description="Os produtos disponíveis são definidos pela composição oficial dos PATECs. Importe a sua lista a partir de um PATEC para começar a gerir stock e vendas."
+                  action={{ label: "Ir para o Catálogo", onClick: () => { window.location.href = "/fornecedor/catalogo"; } }}
+                />
+              </CardContent>
+            </Card>
+          )}
+
           <Card>
             <CardHeader>
               <CardTitle className="text-sm">Últimas Vendas</CardTitle>
