@@ -1006,8 +1006,10 @@ export type Database = {
       }
       farmer_transactions: {
         Row: {
+          categoria: string | null
           created_at: string
           empresa: string
+          external_id: string | null
           farmer_code: string
           id: string
           product: string
@@ -1016,8 +1018,10 @@ export type Database = {
           valor_num: number | null
         }
         Insert: {
+          categoria?: string | null
           created_at?: string
           empresa: string
+          external_id?: string | null
           farmer_code: string
           id?: string
           product: string
@@ -1026,8 +1030,10 @@ export type Database = {
           valor_num?: number | null
         }
         Update: {
+          categoria?: string | null
           created_at?: string
           empresa?: string
+          external_id?: string | null
           farmer_code?: string
           id?: string
           product?: string
