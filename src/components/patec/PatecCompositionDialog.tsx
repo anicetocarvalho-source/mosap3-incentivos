@@ -473,6 +473,9 @@ export default function PatecCompositionDialog({ open, onOpenChange, patec, onMu
     setItems((prev) => prev.map((p) => (p.id === it.id ? { ...p, is_active: next } : p)));
     onMutated?.();
     void fetchItems();
+  };
+
+
 
   const subcategoryOptions = addingCategory === "pecuaria" ? PECUARIA_SUBS : AGRICULTURA_SUBS;
   const datalistId = "patec-cultures-suggestions";
