@@ -111,7 +111,11 @@ const FornecedorProdutos = () => {
   };
 
   const handleSave = async () => {
+    if (!editing && !manualMode && !pickerItemId) { toast.error("Seleccione um item do catálogo PATEC"); return; }
     if (!form.name) { toast.error("Nome é obrigatório"); return; }
+    if (!editing && !manualMode && pickerExistingNames.has(form.name.toLowerCase())) {
+      toast.error("Já existe um produto com este nome no catálogo."); return;
+    }
     const basePayload = {
       supplier_id: supplier.id,
       name: form.name,
