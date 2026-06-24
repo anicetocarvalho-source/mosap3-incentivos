@@ -21,6 +21,9 @@ import { usePatecLabel } from "@/hooks/usePatecLabel";
 
 interface PatecItem { id: string; name: string; category: string; patec_number: number; }
 
+const categoryMap: Record<string, string> = { "Insumos": "insumos", "Pecuária": "pecuaria", "Serviços": "servicos" };
+
+
 const FornecedorProdutos = () => {
   const { supplier } = useOutletContext<{ supplier: { id: string } }>();
   const [_, setParams] = useSearchParams();
