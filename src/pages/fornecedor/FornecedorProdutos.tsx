@@ -47,6 +47,27 @@ const FornecedorProdutos = () => {
   const [existingNames, setExistingNames] = useState<Set<string>>(new Set());
   const [importing, setImporting] = useState(false);
 
+  // Catalog-driven new product state
+  const [manualMode, setManualMode] = useState(false);
+  const [pickerPatec, setPickerPatec] = useState<string>("");
+  const [pickerItemId, setPickerItemId] = useState<string>("");
+  const [pickerItems, setPickerItems] = useState<PatecItem[]>([]);
+  const [pickerExistingNames, setPickerExistingNames] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (!pickerPatec) { setPickerItems([]); setPickerExistingNames(new Set()); return; }
+    const num = Number(pickerPatec);
+    (async () => {
+      const [{ data: items }, { data: existing }] = await Promise.all([
+        supabase.from("patec_items").select("id, name, category, patec_number").eq("patec_number", num).order("category, name"),
+        supabase.from("supplier_products").select("name").eq("supplier_id", supplier.id).eq("patec_number", num),
+      ]);
+      setPickerItems((items as PatecItem[]) || []);
+      setPickerExistingNames(new Set((existing || []).map((p: any) => (p.name || "").toLowerCase())));
+      setPickerItemId("");
+    })();
+  }, [pickerPatec, supplier.id]);
+
   const fetchProducts = async () => {
     setLoading(true);
     setError(null);
