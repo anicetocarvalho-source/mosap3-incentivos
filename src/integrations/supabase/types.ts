@@ -1729,6 +1729,7 @@ export type Database = {
           created_at: string
           culture: string | null
           id: string
+          is_active: boolean
           name: string
           patec_code: string | null
           patec_number: number | null
@@ -1742,6 +1743,7 @@ export type Database = {
           created_at?: string
           culture?: string | null
           id?: string
+          is_active?: boolean
           name: string
           patec_code?: string | null
           patec_number?: number | null
@@ -1755,6 +1757,7 @@ export type Database = {
           created_at?: string
           culture?: string | null
           id?: string
+          is_active?: boolean
           name?: string
           patec_code?: string | null
           patec_number?: number | null
