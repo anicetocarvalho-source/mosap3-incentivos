@@ -719,6 +719,19 @@ export default function PatecCompositionDialog({ open, onOpenChange, patec, onMu
                                 <Button
                                   size="icon"
                                   variant="ghost"
+                                  className="h-6 w-6 opacity-60 hover:opacity-100"
+                                  onClick={() => toggleArchive(r)}
+                                  title={r.is_active === false ? "Reactivar item (volta ao Stock/MOSAP3Pay)" : "Arquivar item (desactiva nos fornecedores sem apagar vendas)"}
+                                >
+                                  {r.is_active === false ? (
+                                    <ArchiveRestore className="h-3 w-3 text-success" />
+                                  ) : (
+                                    <Archive className="h-3 w-3" />
+                                  )}
+                                </Button>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
                                   className="h-6 w-6 opacity-60 hover:opacity-100 hover:text-destructive"
                                   onClick={() => setDeleteTarget(r)}
                                   title="Remover item do pacote"
