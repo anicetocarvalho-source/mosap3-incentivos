@@ -16,7 +16,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Loader2, Package, Pencil, Check, X, Trash2, Plus } from "lucide-react";
+import { Loader2, Package, Pencil, Check, X, Trash2, Plus, Archive, ArchiveRestore } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { UnitSelect } from "@/components/ui/unit-select";
@@ -33,6 +33,7 @@ interface PatecItem {
   base_quantity: number | null;
   unit: string | null;
   sort_order: number;
+  is_active?: boolean;
 }
 
 const SUBCATEGORY_LABELS: Record<string, string> = {
@@ -454,6 +455,28 @@ export default function PatecCompositionDialog({ open, onOpenChange, patec, onMu
     void fetchItems();
   };
 
+  const toggleArchive = async (it: PatecItem) => {
+    const next = !(it.is_active ?? true);
+    const { error } = await supabase
+      .from("patec_items" as any)
+      .update({ is_active: next })
+      .eq("id", it.id);
+    if (error) {
+      toast.error("Erro ao actualizar estado", { description: error.message });
+      return;
+    }
+    toast.success(next ? "Item reactivado" : "Item arquivado", {
+      description: next
+        ? "Disponível novamente para Stock e MOSAP3Pay."
+        : "Produtos vinculados nos fornecedores foram desactivados. Vendas existentes permanecem intactas.",
+    });
+    setItems((prev) => prev.map((p) => (p.id === it.id ? { ...p, is_active: next } : p)));
+    onMutated?.();
+    void fetchItems();
+  };
+
+
+
   const subcategoryOptions = addingCategory === "pecuaria" ? PECUARIA_SUBS : AGRICULTURA_SUBS;
   const datalistId = "patec-cultures-suggestions";
 
@@ -631,8 +654,13 @@ export default function PatecCompositionDialog({ open, onOpenChange, patec, onMu
                       );
                     }
                     return (
-                      <div key={r.id} className="flex items-center justify-between gap-3 px-3 py-1.5 text-sm">
-                        <span className="flex-1 min-w-0 truncate">{r.name}</span>
+                      <div key={r.id} className={`flex items-center justify-between gap-3 px-3 py-1.5 text-sm ${r.is_active === false ? "opacity-50" : ""}`}>
+                        <span className="flex-1 min-w-0 truncate flex items-center gap-2">
+                          <span className="truncate">{r.name}</span>
+                          {r.is_active === false && (
+                            <Badge variant="secondary" className="text-[10px]">Arquivado</Badge>
+                          )}
+                        </span>
                         {isEditing ? (
                           <div className="flex items-center gap-1.5">
                             <Input
@@ -687,6 +715,19 @@ export default function PatecCompositionDialog({ open, onOpenChange, patec, onMu
                                   title="Editar todos os campos (nome, subcategoria, cultura, quantidade, unidade)"
                                 >
                                   <Package className="h-3 w-3" />
+                                </Button>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-6 w-6 opacity-60 hover:opacity-100"
+                                  onClick={() => toggleArchive(r)}
+                                  title={r.is_active === false ? "Reactivar item (volta ao Stock/MOSAP3Pay)" : "Arquivar item (desactiva nos fornecedores sem apagar vendas)"}
+                                >
+                                  {r.is_active === false ? (
+                                    <ArchiveRestore className="h-3 w-3 text-success" />
+                                  ) : (
+                                    <Archive className="h-3 w-3" />
+                                  )}
                                 </Button>
                                 <Button
                                   size="icon"
