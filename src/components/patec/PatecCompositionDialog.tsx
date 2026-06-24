@@ -455,6 +455,25 @@ export default function PatecCompositionDialog({ open, onOpenChange, patec, onMu
     void fetchItems();
   };
 
+  const toggleArchive = async (it: PatecItem) => {
+    const next = !(it.is_active ?? true);
+    const { error } = await supabase
+      .from("patec_items" as any)
+      .update({ is_active: next })
+      .eq("id", it.id);
+    if (error) {
+      toast.error("Erro ao actualizar estado", { description: error.message });
+      return;
+    }
+    toast.success(next ? "Item reactivado" : "Item arquivado", {
+      description: next
+        ? "Disponível novamente para Stock e MOSAP3Pay."
+        : "Produtos vinculados nos fornecedores foram desactivados. Vendas existentes permanecem intactas.",
+    });
+    setItems((prev) => prev.map((p) => (p.id === it.id ? { ...p, is_active: next } : p)));
+    onMutated?.();
+    void fetchItems();
+
   const subcategoryOptions = addingCategory === "pecuaria" ? PECUARIA_SUBS : AGRICULTURA_SUBS;
   const datalistId = "patec-cultures-suggestions";
 
