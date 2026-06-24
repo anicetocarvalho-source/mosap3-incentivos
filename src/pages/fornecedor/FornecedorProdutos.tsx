@@ -150,7 +150,7 @@ const FornecedorProdutos = () => {
   };
 
   // PATEC import
-  const categoryMap: Record<string, string> = { "Insumos": "insumos", "Pecuária": "pecuaria", "Serviços": "servicos" };
+
 
   const openImportPatec = async (patecNum: number) => {
     setImportPatecNum(patecNum);
