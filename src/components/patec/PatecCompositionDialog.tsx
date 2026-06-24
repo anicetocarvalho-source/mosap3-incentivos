@@ -33,6 +33,7 @@ interface PatecItem {
   base_quantity: number | null;
   unit: string | null;
   sort_order: number;
+  is_active?: boolean;
 }
 
 const SUBCATEGORY_LABELS: Record<string, string> = {
