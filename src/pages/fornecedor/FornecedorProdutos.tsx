@@ -62,7 +62,7 @@ const FornecedorProdutos = () => {
     const num = Number(pickerPatec);
     (async () => {
       const [{ data: items }, { data: existing }] = await Promise.all([
-        supabase.from("patec_items").select("id, name, category, patec_number").eq("patec_number", num).order("category, name"),
+        supabase.from("patec_items").select("id, name, category, patec_number").eq("patec_number", num).eq("is_active", true).order("category, name"),
         supabase.from("supplier_products").select("name").eq("supplier_id", supplier.id).eq("patec_number", num),
       ]);
       setPickerItems((items as PatecItem[]) || []);
