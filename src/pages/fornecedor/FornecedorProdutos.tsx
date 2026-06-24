@@ -116,7 +116,7 @@ const FornecedorProdutos = () => {
     if (!editing && !manualMode && pickerExistingNames.has(form.name.toLowerCase())) {
       toast.error("Já existe um produto com este nome no catálogo."); return;
     }
-    const basePayload = {
+    const basePayload: any = {
       supplier_id: supplier.id,
       name: form.name,
       category: form.category,
@@ -126,6 +126,10 @@ const FornecedorProdutos = () => {
       patec_category: form.patec_number && form.patec_category ? form.patec_category : null,
       max_per_farmer_per_season: form.max_per_farmer_per_season ? parseInt(form.max_per_farmer_per_season) : null,
     };
+    // Link to PATEC catalog item when chosen — DB trigger will sync name/category/unit automatically
+    if (!editing && !manualMode && pickerItemId) {
+      basePayload.patec_item_id = pickerItemId;
+    }
     try {
       if (editing) {
         // Preço e stock são geridos apenas em "Stock & Preços" — não sobrescrever aqui.
