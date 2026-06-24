@@ -2795,6 +2795,7 @@ export type Database = {
           min_stock: number
           name: string
           patec_category: string | null
+          patec_item_id: string | null
           patec_number: number | null
           price: number
           status: string
@@ -2813,6 +2814,7 @@ export type Database = {
           min_stock?: number
           name: string
           patec_category?: string | null
+          patec_item_id?: string | null
           patec_number?: number | null
           price?: number
           status?: string
@@ -2831,6 +2833,7 @@ export type Database = {
           min_stock?: number
           name?: string
           patec_category?: string | null
+          patec_item_id?: string | null
           patec_number?: number | null
           price?: number
           status?: string
@@ -2840,6 +2843,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "supplier_products_patec_item_id_fkey"
+            columns: ["patec_item_id"]
+            isOneToOne: false
+            referencedRelation: "patec_items"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "supplier_products_supplier_id_fkey"
             columns: ["supplier_id"]
