@@ -16,7 +16,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Loader2, Package, Pencil, Check, X, Trash2, Plus } from "lucide-react";
+import { Loader2, Package, Pencil, Check, X, Trash2, Plus, Archive, ArchiveRestore } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { UnitSelect } from "@/components/ui/unit-select";
