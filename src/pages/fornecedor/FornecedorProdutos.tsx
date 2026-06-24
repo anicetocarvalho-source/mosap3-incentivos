@@ -181,7 +181,8 @@ const FornecedorProdutos = () => {
     const toImport = patecItems.filter(i => selectedImport.has(i.id) && !existingNames.has(i.name.toLowerCase()));
     if (toImport.length === 0) { toast.info("Nenhum item novo para importar"); setImporting(false); return; }
     const rows = toImport.map(i => ({
-      supplier_id: supplier.id, name: i.name, patec_number: i.patec_number,
+      supplier_id: supplier.id, patec_item_id: i.id,
+      name: i.name, patec_number: i.patec_number,
       patec_category: i.category, category: categoryMap[i.category] || "insumos",
       price: 0, stock: 0, unit: "un", iva_rate: 14,
     }));
