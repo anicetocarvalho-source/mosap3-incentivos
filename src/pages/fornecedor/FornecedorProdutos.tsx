@@ -164,7 +164,7 @@ const FornecedorProdutos = () => {
     setImportPatecNum(patecNum);
     setImporting(false);
     const [{ data: items }, { data: existing }] = await Promise.all([
-      supabase.from("patec_items").select("*").eq("patec_number", patecNum).order("category, name"),
+      supabase.from("patec_items").select("*").eq("patec_number", patecNum).eq("is_active", true).order("category, name"),
       supabase.from("supplier_products").select("name, patec_number").eq("supplier_id", supplier.id).eq("patec_number", patecNum),
     ]);
     setPatecItems(items || []);
