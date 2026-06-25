@@ -3323,7 +3323,11 @@ export type Database = {
           unit: string
         }[]
       }
+      apply_dataset_balances: { Args: never; Returns: Json }
+      apply_dataset_missing_farmers: { Args: never; Returns: Json }
+      apply_dataset_missing_tx: { Args: never; Returns: Json }
       bulk_insert_orphan_phones: { Args: { _data: Json }; Returns: Json }
+      cleanup_dataset_staging: { Args: never; Returns: Json }
       cleanup_old_client_errors: { Args: never; Returns: number }
       cleanup_old_notifications: {
         Args: never
