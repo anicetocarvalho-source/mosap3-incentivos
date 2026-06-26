@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX IF NOT EXISTS farmer_transactions_external_id_uidx ON public.farmer_transactions (external_id) WHERE external_id IS NOT NULL;
