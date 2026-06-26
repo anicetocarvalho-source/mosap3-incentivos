@@ -48,7 +48,7 @@ Deno.serve(async (req) => {
     }
     if (action === "apply") {
       const fn = body.fn as string;
-      const allowed = ["apply_dataset_missing_farmers", "apply_dataset_balances", "apply_dataset_missing_tx", "cleanup_dataset_staging"];
+      const allowed = ["apply_dataset_missing_farmers", "apply_dataset_balances", "apply_dataset_missing_tx", "cleanup_dataset_staging", "undo_dataset_tx_insert", "backfill_dataset_tx_external_id"];
       if (!allowed.includes(fn)) return j({ error: "fn not allowed" }, 400);
       const { data, error } = await supabase.rpc(fn);
       if (error) throw error;
