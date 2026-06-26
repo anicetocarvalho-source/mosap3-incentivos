@@ -46,6 +46,14 @@ Deno.serve(async (req) => {
       const t = await supabase.from("_ds_transacoes").select("*", { count: "exact", head: true });
       return j({ produtores: p.count, transacoes: t.count });
     }
+    if (action === "apply") {
+      const fn = body.fn as string;
+      const allowed = ["apply_dataset_missing_farmers", "apply_dataset_balances", "apply_dataset_missing_tx", "cleanup_dataset_staging"];
+      if (!allowed.includes(fn)) return j({ error: "fn not allowed" }, 400);
+      const { data, error } = await supabase.rpc(fn);
+      if (error) throw error;
+      return j({ ok: true, result: data });
+    }
     return j({ error: "unknown action" }, 400);
   } catch (e) {
     return j({ error: String((e as any)?.message || e) }, 500);
